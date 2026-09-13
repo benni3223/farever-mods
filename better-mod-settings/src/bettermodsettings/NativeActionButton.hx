@@ -5,6 +5,8 @@ class NativeActionButton {
     static var baseUIType:hl.Bytes;
     static var displayDialog:hlx.runtime.ResolvedMember;
     static var arrayGet:hlx.runtime.ResolvedMember;
+    static var arraySlice:hlx.runtime.ResolvedMember;
+    static var arrayPush:hlx.runtime.ResolvedMember;
     static var setText:hlx.runtime.ResolvedMember;
     static var parseSheet:hlx.runtime.ResolvedMember;
     static var addStyle:hlx.runtime.ResolvedMember;
@@ -28,13 +30,24 @@ class NativeActionButton {
         if (displayDialog == null)
             displayDialog = member("ui.BaseUI", "displayDialog");
         if (arrayGet == null) arrayGet = member("hl.types.ArrayObj", "getDyn");
+        if (arraySlice == null) arraySlice = member("hl.types.ArrayObj", "slice");
+        if (arrayPush == null) arrayPush = member("hl.types.ArrayObj", "pushDyn");
         if (setText == null) setText = member("ui.comp.Button", "setText");
+        // displayDialog requires the game's ArrayObj, while Array<Dynamic>
+        // compiles to ArrayDyn. A native empty slice preserves the required
+        // runtime type without altering the UI's window list.
+        var windows = HlxRuntime.resolveField(ui, "windows");
+        if (windows == null) throw "Native window list is unavailable.";
+        var descriptors:Dynamic = HlxRuntime.callResolved(arraySlice, [windows, 0, 0]);
+        if (descriptors == null) throw "Native dialog button array could not be created.";
         // Use the game's known icon IDs, then set literal labels. Cancel and
         // Escape both report false; no generic close-first-window callback.
-        var descriptors:Array<Dynamic> = [
-            {ic: "Confirm", input: null, checkEnable: null, onBack: false},
+        HlxRuntime.callResolved(arrayPush, [descriptors,
+            {ic: "Confirm", input: null, checkEnable: null, onBack: false}
+        ]);
+        HlxRuntime.callResolved(arrayPush, [descriptors,
             {ic: "Cancel", input: null, checkEnable: null, onBack: true}
-        ];
+        ]);
         var dialog = HlxRuntime.callResolved(displayDialog, [ui, button.label, button.warningText,
             descriptors, function(choice:String):Void callback(choice == "Confirm")]);
         if (dialog == null) throw "Native confirmation dialog could not be opened.";

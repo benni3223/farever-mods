@@ -84,7 +84,7 @@
       "colour": "red",
       "warning": {
         "enabled": true,
-        "warningText": "Delete all saved appearance presets for every character? Your current appearance and hotkey bindings will stay unchanged."
+        "warningText": "Delete all saved appearance presets for your current character? This cannot be undone. Other characters' presets, your current appearance, and hotkey bindings will stay unchanged."
       }
     }
   ]

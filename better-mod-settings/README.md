@@ -212,3 +212,7 @@ haxe compile.hxml
 Run `haxe test.hxml` from `better-mod-settings/`. CI checks assignment, cancellation, held/repeated input, release events, multiple updates per frame, consecutive assignments, focus loss, and disposal before packaging. The central-input tests also simulate a raw consumer with no polling hooks or capture guard, both before and after a binding reload, plus pre-held keys, fast taps, mouse buttons, and wheel pulses. The native event handler and array methods are checked against the supplied live and PTR bytecode.
 
 Action checks cover descriptor defaults, colour values, mod-specific routing, confirmation/cancellation, repeated and stale callbacks, and session disposal. Unbinding checks cover right-click during capture and its consumed release. Native dialog, button, and style entry points are verified against live and PTR bytecode; visual confirmation still requires in-game testing.
+
+Confirmation button lists are allocated through the game's native `ArrayObj.slice`
+and populated with `pushDyn`. The dialog API requires `ArrayObj`; passing a mod's
+`Array<Dynamic>` directly produces `ArrayDyn` and fails before the popup opens.

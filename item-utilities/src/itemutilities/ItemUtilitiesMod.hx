@@ -1301,21 +1301,24 @@ class ItemUtilitiesMod {
 
     static function resetAppearancePresets(_:Dynamic):Void {
         try {
+            var characterId = heroPersistentId(resolveHero());
+            if (characterId == null) throw "Log in to a character before resetting appearance presets.";
             // Read the latest file, preserving other settings and preset types.
             // Commit the deletion before changing runtime state or reporting it.
             var values:Dynamic = Json.parse(sys.io.File.getContent(
                 "hlx/config/" + HlxRuntime.moduleName() + "/config.json"));
-            ModConfig.save(HlxRuntime.moduleName(), AppearancePresetStore.cleared(values));
-            config.appearancePresets = [];
-            config.selectedAppearancePresets = [];
+            var cleared = AppearancePresetStore.cleared(values, characterId);
+            ModConfig.save(HlxRuntime.moduleName(), cleared);
+            config.appearancePresets = cleared.appearancePresets;
+            config.selectedAppearancePresets = cleared.selectedAppearancePresets;
             appearancePresetTransfer.cancel();
             appearancePresetHero = null;
             appearancePresetHost = null;
             appearancePresetLoadout = null;
             appearancePresetCharacterId = null;
             selectedAppearancePreset = 0;
-            selectedAppearancePresetCharacterId = heroPersistentId(resolveHero());
-            appearancePresetStatus = "Appearance presets reset.";
+            selectedAppearancePresetCharacterId = characterId;
+            appearancePresetStatus = "Appearance presets reset for this character.";
         } catch (error:Dynamic) {
             appearancePresetStatus = "Could not reset appearance presets.";
             logLockError("reset appearance presets", error);

@@ -28,20 +28,34 @@ class AppearancePresetTest {
     static function defaults():Map<String, String> return [for (r in rules()) r.slot => null];
 
     static function main():Void {
-        var saved:Dynamic = haxe.Json.parse('{"appearancePresets":[{"characterId":"warrior","preset":0},{"characterId":"rogue","preset":2}],"selectedAppearancePresets":[{"characterId":"warrior","preset":1},{"characterId":"rogue","preset":2}],"appearancePreset1Hotkey":80,"lockedItems":[{"uid":"locked-net"}],"talentPresets":[{"preset":1}],"skillPresets":[{"preset":2}],"weaponPresets":[{"preset":0}],"enabled":false,"futureOption":"preserve"}');
+        var saved:Dynamic = haxe.Json.parse('{"appearancePresets":[{"characterId":"db:1","preset":0,"classId":"Warrior"},{"characterId":"db:10","preset":2,"classId":"Rogue"},{"characterId":"db:1","preset":1,"classId":"Warrior"},{"characterId":"db:100","preset":0,"classId":"Warrior"},{"characterId":"db:1","preset":2,"classId":"Warrior"}],"selectedAppearancePresets":[{"characterId":"db:1","preset":1},{"characterId":"db:10","preset":2},{"characterId":"db:100","preset":0}],"appearancePreset1Hotkey":80,"lockedItems":[{"uid":"locked-net"}],"talentPresets":[{"preset":1}],"skillPresets":[{"preset":2}],"weaponPresets":[{"preset":0}],"enabled":false,"futureOption":"preserve"}');
         var original = haxe.Json.stringify(saved);
-        var cleared = AppearancePresetStore.cleared(saved);
-        check(cleared.appearancePresets.length == 0, "reset removes appearance presets for every character");
-        check(cleared.selectedAppearancePresets.length == 0, "reset clears selections for every character");
+        var cleared = AppearancePresetStore.cleared(saved, "db:1");
+        check(cleared.appearancePresets.length == 2, "reset removes all three presets for the current character only");
+        check(haxe.Json.stringify(cleared.appearancePresets) == haxe.Json.stringify([saved.appearancePresets[1], saved.appearancePresets[3]]), "preserve other characters including matching classes and similar IDs");
+        check(haxe.Json.stringify(cleared.selectedAppearancePresets) == haxe.Json.stringify([saved.selectedAppearancePresets[1], saved.selectedAppearancePresets[2]]), "reset clears only the current character selection");
         check(haxe.Json.stringify(saved) == original, "failed save can leave original presets intact");
         var roundTrip = haxe.Json.parse(haxe.Json.stringify(cleared));
         for (key in Reflect.fields(saved))
             if (key != "appearancePresets" && key != "selectedAppearancePresets")
                 check(haxe.Json.stringify(Reflect.field(roundTrip, key)) == haxe.Json.stringify(Reflect.field(saved, key)), "reset preserves " + key);
-        check(haxe.Json.stringify(AppearancePresetStore.cleared(cleared)) == haxe.Json.stringify(cleared), "repeated reset is harmless");
+        check(haxe.Json.stringify(AppearancePresetStore.cleared(cleared, "db:1")) == haxe.Json.stringify(cleared), "repeated reset is harmless");
         var invalidConfigs:Array<Dynamic> = [null, true, 12, "bad config", []];
         for (invalid in invalidConfigs)
-            rejects(function() AppearancePresetStore.cleared(invalid), "invalid configuration cannot be overwritten by reset");
+            rejects(function() AppearancePresetStore.cleared(invalid, "db:1"), "invalid configuration cannot be overwritten by reset");
+        for (id in [null, "", "   "])
+            rejects(function() AppearancePresetStore.cleared(saved, id), "missing character must never become a global reset");
+        check(haxe.Json.stringify(AppearancePresetStore.cleared(saved, "db:unknown")) == original, "character without presets leaves all stored presets intact");
+        var rogueReset = AppearancePresetStore.cleared(cleared, "db:10");
+        check(rogueReset.appearancePresets.length == 1 && rogueReset.appearancePresets[0].characterId == "db:100", "next character reset affects only that character");
+        check(rogueReset.selectedAppearancePresets.length == 1 && rogueReset.selectedAppearancePresets[0].characterId == "db:100", "next character reset preserves remaining selection");
+        var unusual:Dynamic = haxe.Json.parse('{"appearancePresets":[null,{"preset":0},{"characterId":null},{"characterId":"db:1","preset":0}],"selectedAppearancePresets":[]}');
+        var unusualReset = AppearancePresetStore.cleared(unusual, "db:1");
+        check(haxe.Json.stringify(unusualReset.appearancePresets) == '[null,{"preset":0},{"characterId":null}]', "unowned records are preserved");
+        rejects(function() AppearancePresetStore.cleared({appearancePresets: {}}, "db:1"), "malformed preset storage cannot be overwritten");
+        rejects(function() AppearancePresetStore.cleared({selectedAppearancePresets: "bad"}, "db:1"), "malformed selections cannot be overwritten");
+        var empty = AppearancePresetStore.cleared({}, "db:1");
+        check(empty.appearancePresets.length == 0 && empty.selectedAppearancePresets.length == 0, "new character with no stored arrays is harmless");
         var slots = rules();
         var current = defaults();
         var target = defaults();
