@@ -4,7 +4,7 @@
 
 A collection of inventory, bank, equipment, and item-safety quality-of-life tools for Farever.
 
-Lock icons, lock editing, equipment presets, and bank/Recycler buttons follow
+Lock icons, lock editing, equipment and talent presets, and bank/Recycler buttons follow
 the game's current UI position and scale when changing resolution or resizing
 the window. Their click targets and inventory scrolling boundaries scale with them.
 
@@ -108,9 +108,31 @@ Adds three equipment preset buttons and a **Set** button beside **Appearance** o
 - If one or more saved items are missing, available items are still equipped and missing entries are skipped. Empty slots are left unchanged.
 - Presets and the currently selected preset are persisted separately for each character.
 
-Each preset can also be assigned its own configurable keyboard shortcut, including Ctrl, Shift, Alt, or Windows-key combinations. Preset hotkeys work without opening the Character Profile page.
+Each preset can also be assigned its own keyboard shortcut under **Equipment
+Presets** in Better Mod Settings. Existing equipment bindings and saved presets
+are retained. Preset hotkeys work without opening the Character Profile page.
 
 Existing weapon presets remain usable. Press **Set** again on each preset to include your current armor and accessories. Equipment changes follow the game's normal restrictions.
+
+### Talent presets
+
+Adds matching **Presets 1 2 3 Set** controls near the top of the Talents page,
+aligned with **Talent Points available** and centered between the root talent
+and the description panel. The controls follow the game's UI scale and position.
+
+- Select a preset slot and press **Set** to save the current talent allocation.
+- Click a saved preset or use its **Talent preset 1/2/3 hotkey** under **Talent
+  Presets** in Better Mod Settings to apply it. Hotkeys also work with the page closed.
+- Talent presets and the selected slot are saved separately for each character,
+  independently of equipment presets. Selecting an unsaved slot changes no talents.
+- The complete saved build is checked before changes begin. Missing talents,
+  invalid prerequisites, and insufficient points stop application before any refund.
+- Changes use the game's normal server-checked talent requests: refund the old
+  tree, then allocate the saved ranks from the root upwards. The mod waits for
+  each server reply and replicated rank change before sending the next request.
+- An already-active preset makes no requests. A saved empty allocation refunds
+  all points. Rejected changes, timeouts, manual changes during application, and
+  character/session changes stop the sequence. Hover the preset bar for its status.
 
 ### Settings
 
@@ -124,7 +146,7 @@ Available settings include:
 - Complete motes without the use animation's wait
 - Delete all saved locks
 - Configure or clear hotkeys for equipment presets 1–3
-- Change the settings-menu hotkey
+- Configure or clear hotkeys for talent presets 1–3
 
 ## Requirements
 
@@ -146,7 +168,7 @@ The compiled mod is written to:
 build/item-utilities/item-utilities.hl
 ```
 
-Run the quick-loot, lock-restoration, and overlay-layout regression tests (Haxe only; no running game required):
+Run the quick-loot, lock-restoration, overlay-layout, and talent-preset regression tests (Haxe only; no running game required):
 
 ```sh
 haxe test.hxml

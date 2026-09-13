@@ -25,6 +25,11 @@ typedef ItemUtilitiesConfig = {
     var preset1Hotkey:Int;
     var preset2Hotkey:Int;
     var preset3Hotkey:Int;
+    var talentPreset1Hotkey:Int;
+    var talentPreset2Hotkey:Int;
+    var talentPreset3Hotkey:Int;
+    var talentPresets:Array<Dynamic>;
+    var selectedTalentPresets:Array<Dynamic>;
     // Retain the original preset storage keys for existing configurations.
     // Each preset's `weapons` array now also stores armor and accessories.
     var weaponPresets:Array<Dynamic>;
@@ -53,6 +58,11 @@ class ItemUtilitiesMod {
         preset1Hotkey: 0,
         preset2Hotkey: 0,
         preset3Hotkey: 0,
+        talentPreset1Hotkey: 0,
+        talentPreset2Hotkey: 0,
+        talentPreset3Hotkey: 0,
+        talentPresets: [],
+        selectedTalentPresets: [],
         weaponPresets: [],
         selectedWeaponPresets: [],
         lockedItems: []
@@ -66,6 +76,18 @@ class ItemUtilitiesMod {
     static var showLockVisuals = new BoolRef(true);
     static var sortingIgnoresLockedItems = new BoolRef(false);
     static var presetHotkeyKeys:Array<Int> = [0, 0, 0];
+    static var talentPresetHotkeyKeys:Array<Int> = [0, 0, 0];
+    static var selectedTalentPreset:Int = 0;
+    static var selectedTalentPresetCharacterId:String;
+    static var talentPresetTransfer = new TalentPresetTransfer();
+    static var talentPresetHero:Dynamic;
+    static var talentPresetHost:Dynamic;
+    static var talentPresetSpecialization:Dynamic;
+    static var talentPresetCharacterId:String;
+    static var nextTalentPresetCheck:Float = 0;
+    static var talentPresetStatus:String = "";
+    static var activeTalentView:Dynamic;
+    static var activeTalentRoot:Dynamic;
 
     static var quickLootState = new QuickLootState();
     static var quickLootInputDownMember:hlx.runtime.ResolvedMember;
@@ -355,6 +377,13 @@ class ItemUtilitiesMod {
         syncSelectedEquipmentPreset();
     }
 
+    @:hlx.postfix(ui.win.TalentView.init)
+    static function afterTalentViewInit(instance:Dynamic, result:Void):Void {
+        activeTalentView = instance;
+        activeTalentRoot = null;
+        syncSelectedTalentPreset();
+    }
+
     @:hlx.postfix(ui.win.InventoryComp.init)
     static function afterInventoryCompInit(instance:Dynamic, result:Void):Void {
         var inventory = fieldOrNull(instance, "inventory");
@@ -389,6 +418,10 @@ class ItemUtilitiesMod {
     static function afterSlotElementRemoved(instance:Dynamic, result:Void):Void {
         // This also runs for slots inside removed windows and tooltips.
         unregisterSlot(instance);
+        if (instance == activeTalentView) {
+            activeTalentView = null;
+            activeTalentRoot = null;
+        }
     }
 
     @:hlx.prefix(ui.BaseUI.setTip)
@@ -651,6 +684,7 @@ class ItemUtilitiesMod {
     static function draw():Void {
         NativeUiLayout.beginFrame();
         refreshActiveHero();
+        updateTalentPreset();
 
         if (lockedSortActive && !lockedSortWaiting)
             transferNextLockedSortItem();
@@ -665,14 +699,17 @@ class ItemUtilitiesMod {
                 lockEditMode = false;
             ensureHeroInventory();
             syncSelectedEquipmentPreset();
+            syncSelectedTalentPreset();
             selectPlayerInventoryComp();
             checkPresetHotkeys();
+            checkTalentPresetHotkeys();
             var now = haxe.Timer.stamp();
             if (now >= nextLockReconcileAt) {
                 nextLockReconcileAt = now + LOCK_RECONCILE_INTERVAL;
                 reconcileItemLocks();
             }
             drawEquipmentPresetButtons();
+            drawTalentPresetButtons();
             if (showLockVisuals.get()) {
                 drawLockHeaderButton();
                 if (lockEditMode)
@@ -861,6 +898,49 @@ class ItemUtilitiesMod {
         var rect = NativeUiLayout.rect(appearanceButton, width + 32, 0, controlsWidth, height);
         if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height))
             return;
+        drawPresetButtons(rect, height, appearanceButton, false);
+    }
+
+    static function drawTalentPresetButtons():Void {
+        var view = activeTalentView;
+        if (view == null || !isUiVisible(view) || fieldOrNull(view, "hero") != resolveHero())
+            return;
+        var tree = fieldOrNull(view, "elementsCont");
+        if (activeTalentRoot == null) {
+            var rootId = fieldOrNull(fieldOrNull(view, "tree"), "root");
+            var children = fieldOrNull(tree, "children");
+            // Find the root TalentGroup by its skill, allowing decorative
+            // native children before it. Cache only for this TalentView.
+            for (i in 0...arrayLength(children)) {
+                var group = arrayGet(children, i);
+                var buttons = fieldOrNull(group, "talentButtons");
+                for (j in 0...arrayLength(buttons)) {
+                    var button = arrayGet(buttons, j);
+                    if (fieldOrNull(fieldOrNull(button, "skill"), "id") == rootId) {
+                        activeTalentRoot = group;
+                        break;
+                    }
+                }
+                if (activeTalentRoot != null) break;
+            }
+        }
+        var points = fieldOrNull(fieldOrNull(view, "availablePoints"), "parent");
+        var rect = TalentPresetLayout.place(uiElementRect(points), uiElementRect(activeTalentRoot),
+            uiElementRect(tree), NativeUiLayout.rect(view, 0, 0, 254, 36));
+        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height)) return;
+        drawPresetButtons(rect, 36, view, true);
+    }
+
+    static function uiElementRect(element:Dynamic):OverlayRect {
+        var width = fieldOrNull(element, "calculatedWidth");
+        var height = fieldOrNull(element, "calculatedHeight");
+        if (width == null || height == null) return null;
+        return NativeUiLayout.rect(element, 0, 0, cast width, cast height);
+    }
+
+    static function drawPresetButtons(rect:OverlayRect, height:Float,
+        referenceButton:Dynamic, talents:Bool):Void {
+        var controlsWidth = 56 + 3 * height + 58 + 4 * 8;
         prepareOverlay(rect, controlsWidth, height, 6);
         ImGui.setNextWindowBgAlpha(0);
         var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
@@ -871,7 +951,8 @@ class ItemUtilitiesMod {
         ImGui.pushStyleColor(ImGuiCol.ButtonHovered, new ImVec4(0.541, 0.373, 0.275, 1));
         ImGui.pushStyleColor(ImGuiCol.ButtonActive, new ImVec4(0.60, 0.48, 0.43, 1));
         ImGui.pushStyleColor(ImGuiCol.Text, new ImVec4(0.98, 0.93, 0.90, 1));
-        if (ImGui.begin("##item-utilities-weapon-presets", null, flags)) {
+        var windowId = talents ? "##item-utilities-talent-presets" : "##item-utilities-weapon-presets";
+        if (ImGui.begin(windowId, null, flags)) {
             ImGui.dummy(overlaySize(56, height));
             var titleMin = ImGui.getItemRectMin();
             var titleColor = ImGui.colorConvertFloat4ToU32(
@@ -884,10 +965,12 @@ class ItemUtilitiesMod {
                 new ImVec2(titleMin.x + 0.8 * overlayScaleX, titleY), titleColor, "Presets");
             ImGui.sameLine();
 
+            var busy = talents && talentPresetTransfer.active;
+            ImGui.beginDisabled(busy);
             for (preset in 0...3) {
                 if (preset > 0)
                     ImGui.sameLine();
-                var selected = selectedWeaponPreset == preset;
+                var selected = (talents ? selectedTalentPreset : selectedWeaponPreset) == preset;
                 if (selected) {
                     ImGui.pushStyleColor(ImGuiCol.Button, new ImVec4(0.55, 0.39, 0.34, 1));
                     ImGui.pushStyleColor(ImGuiCol.ButtonHovered, new ImVec4(0.541, 0.373, 0.275, 1));
@@ -895,9 +978,14 @@ class ItemUtilitiesMod {
                 }
                 if (ImGui.button(Std.string(preset + 1) + "##weapon-preset",
                     overlaySize(height, height))) {
-                    playButtonClickSound(appearanceButton);
-                    selectEquipmentPreset(preset);
-                    activateEquipmentPreset(preset);
+                    playButtonClickSound(referenceButton);
+                    if (talents) {
+                        selectTalentPreset(preset);
+                        activateTalentPreset(preset);
+                    } else {
+                        selectEquipmentPreset(preset);
+                        activateEquipmentPreset(preset);
+                    }
                 }
                 if (selected)
                     ImGui.popStyleColor(3);
@@ -906,15 +994,175 @@ class ItemUtilitiesMod {
             }
             ImGui.sameLine();
             if (ImGui.button("Set##weapon-preset", overlaySize(58, height))) {
-                playButtonClickSound(appearanceButton);
-                saveCurrentEquipmentToPreset(selectedWeaponPreset);
+                playButtonClickSound(referenceButton);
+                if (talents) saveCurrentTalentsToPreset(selectedTalentPreset);
+                else saveCurrentEquipmentToPreset(selectedWeaponPreset);
             }
             if (ImGui.isItemHovered())
                 setGameButtonCursor();
+            ImGui.endDisabled();
+            if (talents && ImGui.isWindowHovered() && talentPresetStatus != "")
+                ImGui.setTooltip(talentPresetStatus);
         }
         ImGui.end();
         ImGui.popStyleColor(4);
         finishOverlay();
+    }
+
+    static function syncSelectedTalentPreset():Void {
+        var characterId = heroPersistentId(resolveHero());
+        if (characterId == selectedTalentPresetCharacterId) return;
+        selectedTalentPresetCharacterId = characterId;
+        selectedTalentPreset = 0;
+        talentPresetStatus = "";
+        for (entry in config.selectedTalentPresets)
+            if (recordString(entry, "characterId") == characterId) {
+                var preset = recordInt(entry, "preset", 0);
+                if (preset >= 0 && preset < 3) selectedTalentPreset = preset;
+                return;
+            }
+    }
+
+    static function selectTalentPreset(preset:Int):Void {
+        if (preset < 0 || preset >= 3 || talentPresetTransfer.active) return;
+        var characterId = heroPersistentId(resolveHero());
+        if (characterId == null) return;
+        selectedTalentPresetCharacterId = characterId;
+        selectedTalentPreset = preset;
+        for (entry in config.selectedTalentPresets)
+            if (recordString(entry, "characterId") == characterId) {
+                Reflect.setField(entry, "preset", preset);
+                saveConfig();
+                return;
+            }
+        config.selectedTalentPresets.push({characterId: characterId, preset: preset});
+        saveConfig();
+    }
+
+    static function findTalentPreset(characterId:String, preset:Int):Dynamic {
+        if (characterId == null) return null;
+        for (entry in config.talentPresets)
+            if (recordString(entry, "characterId") == characterId
+                && recordInt(entry, "preset", -1) == preset) return entry;
+        return null;
+    }
+
+    static function talentsReady(hero:Dynamic):Bool {
+        if (hero == null || fieldOrNull(hero, "removed") == true
+            || fieldOrNull(fieldOrNull(hero, "specialization"), "hero") != hero) return false;
+        var app = currentGameApp();
+        if (app == null || fieldOrNull(app, "hero") != hero || fieldOrNull(app, "host") == null)
+            return false;
+        if (getIsLoadingMember == null)
+            getIsLoadingMember = HlxRuntime.resolveMember(gameAppType, "get_isLoading");
+        return getIsLoadingMember != null
+            && HlxRuntime.callResolved(getIsLoadingMember, [app]) == false;
+    }
+
+    static function saveCurrentTalentsToPreset(preset:Int):Void {
+        if (!enabled.get() || talentPresetTransfer.active || preset < 0 || preset >= 3) return;
+        try {
+            var hero = resolveHero();
+            var characterId = heroPersistentId(hero);
+            if (characterId == null || !talentsReady(hero)) return;
+            var specialization = fieldOrNull(hero, "specialization");
+            var ranks = NativeTalents.current(specialization);
+            TalentPresetPlan.validate(NativeTalents.rules(hero), ranks, NativeTalents.totalPoints(specialization));
+            var existing = findTalentPreset(characterId, preset);
+            if (existing == null) {
+                existing = {characterId: characterId, preset: preset};
+                config.talentPresets.push(existing);
+            }
+            Reflect.setField(existing, "classId", Std.string(fieldOrNull(fieldOrNull(hero, "inf"), "id")));
+            Reflect.setField(existing, "talents", TalentPresetPlan.encode(ranks));
+            saveConfig();
+            talentPresetStatus = "Talent preset " + (preset + 1) + " saved.";
+        } catch (error:Dynamic) {
+            talentPresetStatus = Std.string(error);
+            logLockError("save talent preset", error);
+        }
+    }
+
+    static function activateTalentPreset(preset:Int):Void {
+        if (!enabled.get() || talentPresetTransfer.active || preset < 0 || preset >= 3) return;
+        try {
+            var hero = resolveHero();
+            var characterId = heroPersistentId(hero);
+            var saved = findTalentPreset(characterId, preset);
+            if (saved == null) {
+                talentPresetStatus = "Press Set to save your current talents to preset " + (preset + 1) + ".";
+                return;
+            }
+            if (!talentsReady(hero)) return;
+            var classId = Std.string(fieldOrNull(fieldOrNull(hero, "inf"), "id"));
+            if (recordString(saved, "classId") != classId) throw "This talent preset belongs to a different class.";
+            var specialization = fieldOrNull(hero, "specialization");
+            var current = NativeTalents.current(specialization);
+            var target = TalentPresetPlan.decode(Reflect.field(saved, "talents"));
+            var changes = TalentPresetPlan.build(NativeTalents.rules(hero), current, target,
+                NativeTalents.totalPoints(specialization));
+            if (changes.length == 0) {
+                talentPresetStatus = "This talent preset is already active.";
+                return;
+            }
+            talentPresetHero = hero;
+            talentPresetHost = fieldOrNull(currentGameApp(), "host");
+            talentPresetSpecialization = specialization;
+            talentPresetCharacterId = characterId;
+            nextTalentPresetCheck = 0;
+            talentPresetTransfer.start(specialization, current, changes);
+            talentPresetStatus = "Applying talent preset...";
+        } catch (error:Dynamic) {
+            talentPresetStatus = Std.string(error);
+            logLockError("apply talent preset", error);
+        }
+    }
+
+    static function updateTalentPreset():Void {
+        if (!talentPresetTransfer.active) {
+            // An asynchronous rejection can finish between draw callbacks.
+            if (talentPresetHero != null) finishTalentPreset();
+            return;
+        }
+        try {
+            var hero = resolveHero();
+            var app = currentGameApp();
+            if (!enabled.get() || hero != talentPresetHero
+                || fieldOrNull(app, "host") != talentPresetHost
+                || heroPersistentId(hero) != talentPresetCharacterId || !talentsReady(hero)) {
+                talentPresetTransfer.cancel("Talent preset stopped because the session changed.");
+            } else {
+                var now = haxe.Timer.stamp();
+                if (now < nextTalentPresetCheck) return;
+                nextTalentPresetCheck = now + 0.05;
+                var specialization = fieldOrNull(hero, "specialization");
+                if (specialization != talentPresetSpecialization) {
+                    talentPresetTransfer.cancel("Talent preset stopped because the character changed.");
+                } else {
+                    // No talent-map scan while waiting for the RPC callback.
+                    var current = talentPresetTransfer.needsRanks() ? NativeTalents.current(specialization) : null;
+                    var change = talentPresetTransfer.next(specialization, now, current);
+                    if (change != null) {
+                        var requestId = talentPresetTransfer.requestId;
+                        NativeTalents.setRank(specialization, change.skill, change.rank, function(success:Bool) {
+                            talentPresetTransfer.acknowledge(requestId, success);
+                        });
+                    }
+                }
+            }
+        } catch (error:Dynamic) {
+            talentPresetTransfer.cancel(Std.string(error));
+            logLockError("talent preset transfer", error);
+        }
+        if (!talentPresetTransfer.active) finishTalentPreset();
+    }
+
+    static function finishTalentPreset():Void {
+        talentPresetStatus = talentPresetTransfer.error == "" ? "Talent preset applied." : talentPresetTransfer.error;
+        talentPresetHero = null;
+        talentPresetHost = null;
+        talentPresetSpecialization = null;
+        talentPresetCharacterId = null;
     }
 
     static function syncSelectedEquipmentPreset():Void {
@@ -2751,6 +2999,19 @@ class ItemUtilitiesMod {
         }
     }
 
+    static function checkTalentPresetHotkeys():Void {
+        if (talentPresetTransfer.active) return;
+        for (preset in 0...3) {
+            var key = talentPresetHotkeyKeys[preset];
+            // BMS centrally consumes assignment input before hxd.Key sees it.
+            if (key > 0 && isGameKeyPressed(key)) {
+                selectTalentPreset(preset);
+                activateTalentPreset(preset);
+                return;
+            }
+        }
+    }
+
     static function isGameKeyPressed(keyCode:Int):Bool {
         if (hxdKeyType == null)
             hxdKeyType = HlxRuntime.resolveType("hxd.Key");
@@ -2860,10 +3121,15 @@ class ItemUtilitiesMod {
     }
 
     static function loadPresetHotkeyConfig(data:Dynamic):Void {
+        if (config.talentPresets == null) config.talentPresets = [];
+        if (config.selectedTalentPresets == null) config.selectedTalentPresets = [];
         for (preset in 0...3) {
             var field = "preset" + (preset + 1) + "Hotkey";
             if (Reflect.hasField(data, field))
                 presetHotkeyKeys[preset] = cast Reflect.field(data, field);
+            var talentField = "talentPreset" + (preset + 1) + "Hotkey";
+            if (Reflect.hasField(data, talentField))
+                talentPresetHotkeyKeys[preset] = cast Reflect.field(data, talentField);
         }
     }
 
@@ -2886,6 +3152,9 @@ class ItemUtilitiesMod {
             config.preset1Hotkey = presetHotkeyKeys[0];
             config.preset2Hotkey = presetHotkeyKeys[1];
             config.preset3Hotkey = presetHotkeyKeys[2];
+            config.talentPreset1Hotkey = talentPresetHotkeyKeys[0];
+            config.talentPreset2Hotkey = talentPresetHotkeyKeys[1];
+            config.talentPreset3Hotkey = talentPresetHotkeyKeys[2];
             config.weaponPresets = weaponPresets;
             config.selectedWeaponPresets = selectedWeaponPresets;
             config.lockedItems = savedLocks;

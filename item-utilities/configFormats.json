@@ -47,22 +47,26 @@
     },
     {
       "type": "title",
-      "label": "Presets"
+      "label": "Equipment Presets"
     },
     {
       "key": "preset1Hotkey",
       "type": "keybinding",
-      "label": "Preset 1 hotkey"
+      "label": "Equipment preset 1 hotkey"
     },
     {
       "key": "preset2Hotkey",
       "type": "keybinding",
-      "label": "Preset 2 hotkey"
+      "label": "Equipment preset 2 hotkey"
     },
     {
       "key": "preset3Hotkey",
       "type": "keybinding",
-      "label": "Preset 3 hotkey"
-    }
+      "label": "Equipment preset 3 hotkey"
+    },
+    { "type": "title", "label": "Talent Presets" },
+    { "key": "talentPreset1Hotkey", "type": "keybinding", "label": "Talent preset 1 hotkey" },
+    { "key": "talentPreset2Hotkey", "type": "keybinding", "label": "Talent preset 2 hotkey" },
+    { "key": "talentPreset3Hotkey", "type": "keybinding", "label": "Talent preset 3 hotkey" }
   ]
 }

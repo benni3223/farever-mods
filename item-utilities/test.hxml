@@ -12,3 +12,8 @@
 -cp tests
 -main UiOverlayGeometryTest
 --interp
+--next
+-cp src
+-cp tests
+-main TalentPresetTest
+--interp
