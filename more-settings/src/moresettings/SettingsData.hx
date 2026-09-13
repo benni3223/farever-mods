@@ -2,6 +2,7 @@ package moresettings;
 
 typedef MoreSettingsConfig = {
     var disableProfanityFilter:Bool;
+    var hideUiKey:Int;
     var adjustUnfocusedVolume:Bool;
     var backgroundVolume:Float;
     var adjustFastTravelVolume:Bool;
@@ -20,6 +21,7 @@ typedef MoreSettingsConfig = {
 class SettingsData {
     public static function defaults():MoreSettingsConfig return {
         disableProfanityFilter: true,
+        hideUiKey: 113, // hxd.Key.F2
         adjustUnfocusedVolume: true, backgroundVolume: 0,
         adjustFastTravelVolume: false, fastTravelVolume: 0,
         riftHideAllyAttacks: false, riftHideAllyBuffs: false, riftHideAllies: false,
@@ -31,6 +33,8 @@ class SettingsData {
         return Math.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
 
     public static function normalize(config:MoreSettingsConfig):Void {
+        // Same single-key range as Better Mod Settings; zero means unassigned.
+        if (config.hideUiKey < 0 || config.hideUiKey >= 512 || config.hideUiKey == 27) config.hideUiKey = 113;
         config.backgroundVolume = percent(config.backgroundVolume);
         config.fastTravelVolume = percent(config.fastTravelVolume);
     }

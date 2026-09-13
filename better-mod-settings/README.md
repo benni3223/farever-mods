@@ -107,7 +107,7 @@ A title displays larger, bold text on its own row, without a separator or contro
 | --- | --- | --- | --- |
 | `checkbox` | Boolean (`true` or `false`) | None | Represents a boolean only. A missing value is displayed as `false`. |
 | `slider` | Number | `min` (default `0`), `max` (default `100`), and `step` (default `1`), all numbers | Supply sensible bounds with `min <= max` and a positive `step`. A missing value starts at `min`. |
-| `keybinding` | Integer key code | None | Captures one `hxd.Key`-compatible key only. Modifier combinations and multi-key chords are not supported. `0` means **Not set**. Escape cancels capture and cannot be assigned through the UI. |
+| `keybinding` | Integer key code | None | Captures one `hxd.Key`-compatible key only. Modifier combinations and multi-key chords are not supported. `0` means **Not set**. Escape cancels capture and cannot be assigned through the UI. Hide UI is suppressed during capture and on the frame a key is assigned. |
 
 The current format does not provide text inputs, dropdowns, buttons, color pickers, nested objects, collapsible groups, conditional controls, or settings that span multiple JSON properties.
 

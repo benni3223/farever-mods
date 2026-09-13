@@ -1,5 +1,14 @@
 # More Settings
 
+## Hide UI keybinding
+
+- Added **Hide UI** under **General**, defaulting to F2, with live rebinding.
+- Reuses the native ToggleUI action and keeps input-mode checks and hide/show behavior.
+- Prevents activation while typing; update Better Mod Settings for protection during key capture.
+- Existing audio and ally-presentation preferences remain intact.
+
+## Earlier changes
+
 More Audio Settings is now **More Settings**, including the project, module, settings tab, GitHub workflow, artifact, and ZIP names.
 
 - Added Disable profanity filter from the standalone mod, retaining text escaping.

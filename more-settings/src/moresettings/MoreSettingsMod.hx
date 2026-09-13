@@ -12,6 +12,8 @@ class MoreSettingsMod {
     @:hlx.config
     static var config:MoreSettingsConfig = SettingsData.defaults();
     static var audio:AudioControl;
+    static var hideUi = new HideUiBinding();
+    static var reportedInputError:Bool = false;
     static var app:Dynamic;
     static var reportedAudioError:Bool = false;
     static var audioRetryAt:Float = 0;
@@ -32,12 +34,14 @@ class MoreSettingsMod {
             config.disableProfanityFilter = previousProfanityPreference();
         }
         SettingsData.normalize(config);
+        hideUi.configure(config.hideUiKey);
         config.save();
         audio = new AudioControl(config);
         AllyEffects.configure(config);
         Bus.subscribe("better-mod-settings/config-changed/" + HlxRuntime.moduleName(), (_:Dynamic) -> {
             config = ModConfig.load(HlxRuntime.moduleName(), config);
             SettingsData.normalize(config);
+            hideUi.configure(config.hideUiKey);
             AllyEffects.configure(config);
             try audio.configure(config) catch (e:Dynamic) audioError(e);
             audioRetryAt = 0;
@@ -47,6 +51,18 @@ class MoreSettingsMod {
     @:hlx.prefix(HText.cleanPlayerText)
     static function cleanPlayerText(text:String):HlxPrefixResult<String> {
         return config.disableProfanityFilter ? SkipWith(StringTools.htmlEscape(text)) : Continue;
+    }
+
+    @:hlx.postfix(lib.Input.getBindings)
+    static function hideUiBindings(key:String, result:Dynamic):Dynamic {
+        try return hideUi.bindings(key, result) catch (e:Dynamic) inputError(e);
+        return result;
+    }
+
+    @:hlx.postfix(lib.Input.isPressed)
+    static function hideUiPressed(key:String, result:Bool):Bool {
+        try return hideUi.pressed(key, result) catch (e:Dynamic) inputError(e);
+        return result;
     }
 
     @:hlx.prefix(GameApp.update)
@@ -95,6 +111,13 @@ class MoreSettingsMod {
         if (!reportedAudioError) {
             reportedAudioError = true;
             trace("[More Settings] Audio: " + Std.string(error));
+        }
+    }
+
+    static function inputError(error:Dynamic):Void {
+        if (!reportedInputError) {
+            reportedInputError = true;
+            trace("[More Settings] Hide UI binding: " + Std.string(error));
         }
     }
 }

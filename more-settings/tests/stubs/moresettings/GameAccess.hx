@@ -6,6 +6,7 @@ class GameAccess {
     public static var focused:Bool = true;
     public static var writes:Int = 0;
     public static var data:Dynamic;
+    public static var inputArrayCalls:Int = 0;
     public static function field(o:Dynamic, name:String):Dynamic return o == null ? null : Reflect.field(o, name);
     public static function set(o:Dynamic, name:String, value:Dynamic):Void if (o != null) Reflect.setField(o, name, value);
     public static function text(v:Dynamic, fallback:String = ""):String return v == null ? fallback : Std.string(v);
@@ -23,6 +24,9 @@ class GameAccess {
     public static function callInstance(o:Dynamic, name:String):Dynamic return call("", name, o);
     public static function current(type:String, name:String):Dynamic return field(data, name);
     public static function call(type:String, name:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic return switch name {
+        case "getDyn": inputArrayCalls++; o.items[args[0]];
+        case "setDyn": inputArrayCalls++; o.items[args[0]] = args[1]; null;
+        case "getFocusedTextInput": field(o, "textInput");
         case "get": field(o, args[0]);
         case "getSourceSkill": field(o, "sourceSkill") == null ? o : field(o, "sourceSkill");
         case "getSourceObject": field(o, "instigator") != null ? field(o, "instigator") : field(o, "owner");

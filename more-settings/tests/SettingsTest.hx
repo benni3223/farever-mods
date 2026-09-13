@@ -2,6 +2,7 @@ import moresettings.SettingsData;
 import moresettings.VolumeState;
 import moresettings.AudioControl;
 import moresettings.EventVolume;
+import moresettings.HideUiBinding;
 import moresettings.EffectPolicy;
 import moresettings.SkillClassifier;
 import moresettings.NativeSkillFacts;
@@ -18,8 +19,67 @@ class SettingsTest {
         eq(Math.abs(actual - expected) < 0.000001, true, message);
 
     static function main():Void {
-        volume(); policy(); classification(); presentation();
+        hideUiBinding(); volume(); policy(); classification(); presentation();
         Sys.println('More Settings: $checks checks passed.');
+    }
+
+    static function hideUiBinding():Void {
+        var config = SettingsData.defaults();
+        eq(config.hideUiKey, 113, "new and migrated configs default to F2");
+        for (invalid in [-1, 27, 512, 999]) {
+            config.hideUiKey = invalid; SettingsData.normalize(config);
+            eq(config.hideUiKey, 113, "invalid or reserved shortcut falls back to F2");
+        }
+        for (valid in [0, 65, 113, 123, 511]) {
+            config.hideUiKey = valid; SettingsData.normalize(config);
+            eq(config.hideUiKey, valid, "valid shortcut survives normalization");
+        }
+        var binding = new HideUiBinding();
+        var original:Dynamic = {code: 113, mode: null, modifier: null, padCode: null};
+        var pad:Dynamic = {code: null, mode: 2, modifier: 1, padCode: {button: 12}};
+        var disabled:Dynamic = {code: null, mode: null, modifier: null, padCode: null};
+        var native:Dynamic = {length: 3, items: [original, pad, disabled]};
+        G.inputArrayCalls = 0;
+        eq(binding.bindings("Interact", native), native, "other actions keep native array");
+        eq(G.inputArrayCalls, 0, "other actions do no array lookups or writes");
+        eq(binding.bindings("ToggleUITrailer", native), native, "trailer action unaffected");
+        eq(binding.bindings("ToggleUI", null), null, "missing binding fails safely");
+        binding.bindings("ToggleUI", native);
+        eq(native.items[0].code, 113, "default binding is native F2");
+        binding.configure(123);
+        native.items[0] = original; binding.bindings("ToggleUI", native);
+        eq(native.items[0].code, 123, "new shortcut replaces F2 in native checks");
+        eq(original.code, 113, "native default and saved binding objects never mutated");
+        eq(native.items[1], pad, "gamepad binding identity preserved");
+        eq(native.items[2], disabled, "disabled binding stays disabled");
+        var replacement = native.items[0];
+        for (_ in 0...1000) {
+            native.items[0] = original;
+            binding.bindings("ToggleUI", native);
+        }
+        eq(native.items[0], replacement, "stable frames reuse the replacement record");
+        binding.configure(123); native.items[0] = original; binding.bindings("ToggleUI", native);
+        eq(native.items[0], replacement, "unrelated config changes keep cached binding");
+        binding.configure(0); native.items[0] = original; binding.bindings("ToggleUI", native);
+        eq(native.items[0].code, null, "unassigned shortcut removes keyboard activation");
+        eq(native.items[1], pad, "unassigning keyboard preserves gamepad");
+        binding.configure(113);
+        var user:Dynamic = {code: 120, mode: 3, modifier: 1, padCode: null};
+        native.items[0] = user; binding.bindings("ToggleUI", native);
+        eq(native.items[0].code, 113, "returning to F2 replaces saved game override");
+        eq(native.items[0].mode, 3, "native input-mode restriction preserved");
+        eq(native.items[0].modifier, null, "single-key preference has no old modifier requirement");
+        eq(user.code, 120, "saved game code unchanged");
+        eq(user.modifier, 1, "saved game modifier unchanged");
+        user.mode = 4; native.items[0] = user; binding.bindings("ToggleUI", native);
+        eq(native.items[0].mode, 4, "changed input-mode restriction is honored");
+        G.data = {current: {textInput: {allocated: true}}};
+        eq(binding.pressed("ToggleUI", true), false, "typing never hides the UI");
+        eq(binding.pressed("ToggleUI", false), false, "blocked native input stays blocked");
+        eq(binding.pressed("Interact", true), true, "typing guard affects only Hide UI");
+        G.data = {current: {textInput: null}};
+        eq(binding.pressed("ToggleUI", true), true, "native press toggles UI when not typing");
+        G.data = null;
     }
 
     static function volume():Void {

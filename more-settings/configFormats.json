@@ -12,6 +12,11 @@
       "label": "Disable profanity filter"
     },
     {
+      "key": "hideUiKey",
+      "type": "keybinding",
+      "label": "Hide UI"
+    },
+    {
       "type": "title",
       "label": "Unfocused Volume"
     },

@@ -74,6 +74,8 @@ class BetterModSettingsMod {
     static var setTitleTextMember:hlx.runtime.ResolvedMember;
     static var setUiSelectedMember:hlx.runtime.ResolvedMember;
     static var isKeyPressedMember:hlx.runtime.ResolvedMember;
+    static var getKeyFrameMember:hlx.runtime.ResolvedMember;
+    static var captureBlockFrame:Int = -1;
     static var getKeyNameMember:hlx.runtime.ResolvedMember;
     static var setVisibleMember:hlx.runtime.ResolvedMember;
     static var initStyleMember:hlx.runtime.ResolvedMember;
@@ -94,6 +96,24 @@ class BetterModSettingsMod {
     static var displayWindowMember:hlx.runtime.ResolvedMember;
 
     static function main():Void {}
+
+    @:hlx.prefix(lib.Input.isPressed)
+    static function protectKeyCapture(key:String):HlxPrefixResult<Bool> {
+        if (key != "ToggleUI") return Continue;
+        if (capturingKeybind != null) return SkipWith(false);
+        // Capture finishes during GameApp.update's postfix. Keep this frame blocked
+        // as well, including UI input checks that run after the new setting is saved.
+        if (captureBlockFrame >= 0 && captureBlockFrame == keyFrame()) return SkipWith(false);
+        captureBlockFrame = -1;
+        return Continue;
+    }
+
+    static function keyFrame():Int {
+        if (hxdKeyType == null) hxdKeyType = HlxRuntime.resolveType("hxd.Key");
+        if (getKeyFrameMember == null && hxdKeyType != null)
+            getKeyFrameMember = HlxRuntime.resolveStaticMember(hxdKeyType, "getFrame");
+        return getKeyFrameMember == null ? -1 : HlxRuntime.callResolved(getKeyFrameMember, []);
+    }
 
     @:hlx.postfix(GameApp.update)
     static function afterGameAppUpdate(instance:Dynamic, dt:Float, result:Void):Void {
@@ -1171,6 +1191,7 @@ class BetterModSettingsMod {
             if (pressed != true)
                 continue;
             var capture = capturingKeybind;
+            captureBlockFrame = keyFrame();
             capturingKeybind = null;
             if (keyCode == 27) {
                 var values:Dynamic = Reflect.field(Reflect.field(capture, "mod"), "values");
