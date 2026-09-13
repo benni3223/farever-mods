@@ -9,24 +9,24 @@ class AudioControl {
     var lastTarget:Null<Float> = null;
     var config:MoreSettingsConfig;
     var focused:Bool = true;
-    var traveling:Bool = false;
+    var travelMusic = new TravelMusicControl();
 
     public function new(config:MoreSettingsConfig) this.config = config;
 
     public function configure(config:MoreSettingsConfig):Void {
         this.config = config;
         apply();
+        travelMusic.configure(config);
     }
 
     public function update(hero:Dynamic):Void {
         var window = G.staticCall("hxd.Window", "getInstance", []);
         focused = window == null || G.call("hxd.Window", "get_isFocused", window) == true;
-        traveling = config.adjustFastTravelVolume && hero != null && G.field(hero, "removed") != true
-            && G.call("ent.Hero", "isFlyingToObelisk", hero) == true;
         apply();
+        travelMusic.update(hero, config);
     }
 
-    public function startTravel():Void { traveling = true; apply(); }
+    public function startTravel(hero:Dynamic):Void travelMusic.update(hero, config);
 
     public function masterChanged():Void {
         if (!state.active) return;
@@ -36,7 +36,7 @@ class AudioControl {
     }
 
     function apply(force:Bool = false):Void {
-        var target = VolumeState.target(config, focused, traveling);
+        var target = VolumeState.target(config, focused);
         if (!force && lastTarget == target) return;
         var current:Float = G.staticCall("fmod.Api", "getVcaVolume", [MASTER]);
         var volume = state.apply(current, target);
@@ -45,6 +45,7 @@ class AudioControl {
     }
 
     public function dispose():Void {
+        travelMusic.dispose();
         if (!state.active) return;
         var current:Float = G.staticCall("fmod.Api", "getVcaVolume", [MASTER]);
         G.staticCall("fmod.Api", "setVcaVolume", [MASTER, state.apply(current, null)]);

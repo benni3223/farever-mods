@@ -36,6 +36,12 @@ jobs:
       - name: Test volume, ownership and regional presentation filters
         working-directory: more-settings
         run: haxe test.hxml
+      - name: Test native event volume bridge
+        working-directory: more-settings
+        run: |
+          mkdir -p build
+          cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/event_volume_test.c -o build/event-volume-test
+          build/event-volume-test
 
   build:
     needs: test
@@ -44,3 +50,4 @@ jobs:
       project: more-settings
       module: more-settings
       title: More Settings
+      travel-audio: true

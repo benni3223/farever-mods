@@ -19,6 +19,10 @@ on:
         description: Whether this mod requires the Farever ImGui plugin
         default: false
         type: boolean
+      travel-audio:
+        description: Build and package the More Settings event-volume plugin
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -73,6 +77,13 @@ jobs:
       - name: Compile
         run: haxe compile.hxml
 
+      - name: Build travel music audio plugin
+        if: inputs.travel-audio
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+          bash native/build.sh
+
       - name: Package
         env:
           REQUIREMENTS: ${{ inputs.imgui && 'Requires HLX Core and the Farever ImGui plugin.' || 'Requires HLX Core.' }}
@@ -87,6 +98,12 @@ jobs:
             "$REQUIREMENTS" \
             'Install with Vortex, or extract the archive into the Farever game folder.' \
             > "$destination/README.txt"
+
+      - name: Package travel music audio plugin
+        if: inputs.travel-audio
+        run: |
+          mkdir -p package/hlx/plugins/more-settings
+          cp build/native/more_settings_audio.hdll package/hlx/plugins/more-settings/
 
       - name: Upload installable build artifact
         uses: actions/upload-artifact@v4

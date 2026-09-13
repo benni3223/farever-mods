@@ -36,8 +36,12 @@ class GameAccess {
     };
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic return switch name {
         case "getInstance": {};
-        case "getVcaVolume": master;
-        case "setVcaVolume": master = args[1]; writes++; null;
+        case "getVcaVolume":
+            if (args[0] != "vca:/MASTER") throw "Unexpected VCA read: " + args[0];
+            master;
+        case "setVcaVolume":
+            if (args[0] != "vca:/MASTER") throw "Unexpected VCA write: " + args[0];
+            master = args[1]; writes++; null;
         default: throw "Unexpected native static call: " + type + "." + name;
     };
 }

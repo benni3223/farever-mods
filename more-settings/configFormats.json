@@ -30,17 +30,17 @@
     },
     {
       "type": "title",
-      "label": "Fast Travel Volume"
+      "label": "Fast Travel Music"
     },
     {
       "key": "adjustFastTravelVolume",
       "type": "checkbox",
-      "label": "Adjust fast travel volume"
+      "label": "Adjust fast travel music volume"
     },
     {
       "key": "fastTravelVolume",
       "type": "slider",
-      "label": "Fast travel volume %",
+      "label": "Fast travel music volume %",
       "min": 0,
       "max": 100,
       "step": 1

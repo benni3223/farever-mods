@@ -58,11 +58,11 @@ class MoreSettingsMod {
         return Continue;
     }
 
-    @:hlx.prefix(ent.Hero.onStartFlyPath)
-    static function beforeTravel(instance:Dynamic):HlxPrefixResult<Void> {
+    // The original creates flySoundObj. Adjust its event before the next audio update.
+    @:hlx.postfix(ent.Hero.onStartFlyPath)
+    static function afterTravel(instance:Dynamic, result:Void):Void {
         if (audio != null && instance == G.field(app, "hero"))
-            try audio.startTravel() catch (e:Dynamic) audioError(e);
-        return Continue;
+            try audio.startTravel(instance) catch (e:Dynamic) audioError(e);
     }
 
     @:hlx.postfix(Options.applyAudio)

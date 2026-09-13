@@ -12,14 +12,16 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | --- | --- | --- |
 | General | Disable profanity filter | On; imports the standalone mod's saved preference when available |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
-| Fast Travel Volume | Adjust fast travel volume; Fast travel volume % | Off; 0% |
+| Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Dungeon Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Overworld Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 
-Audio limits affect Farever's master volume while its window is unfocused or your character is flying between obelisks. When both conditions apply, the quieter limit wins. Temporary limits never raise a quieter master setting. The original volume returns once all active conditions end, including after changing the master volume in the game's options.
+The unfocused setting temporarily limits Farever's master volume and restores it on focus, including any master-volume change made in the game's options. It never raises a quieter master setting.
+
+The fast-travel slider adjusts **only your obelisk travel music event** (`Hero_FlyToObelisk`). It leaves other music, ambience, sound effects, and all shared volume controls unchanged. 0% mutes that track; 100% keeps its normal level under your existing music/master settings. Slider changes apply during a trip, and disabling the option restores the track's original gain. Unfocused volume works independently, so it can still quiet the whole game when you alt-tab during travel. Existing fast-travel preferences are preserved.
 
 **Hide ally attacks** hides the visuals and sounds of friendly players' damaging or harmful abilities with no beneficial component. **Hide ally buffs** covers healing, shields, beneficial statuses, and utility abilities. Mixed damage/support abilities belong to the buffs category so attack hiding preserves useful support effects. Classification follows native skill data and referenced subskills/statuses.
 
@@ -32,7 +34,7 @@ Rifts take precedence over dungeons; dungeon instances (including boss instances
 1. Install [HLX Core](https://github.com/hlx-framework/hlx-core) and [Better Mod Settings](../better-mod-settings/).
 2. Close Farever. Remove the old **binary and settings descriptor** from `hlx/mods/more-audio-settings/` (or `hlx/mods/mute-unfocused/`). Keep old configuration files for migration.
 3. If the standalone Disable Profanity Filter mod is installed, remove its binary and settings descriptor as well so this setting has one owner. Keep its configuration file.
-4. Install `farever-more-settings.zip` with Vortex, or extract it into the Farever game directory. The archive contains `hlx/mods/more-settings/more-settings.hl` and its `configFormats.json`.
+4. Install `farever-more-settings.zip` with Vortex, or extract it into the Farever game directory. Extract the **whole archive**: it contains `hlx/mods/more-settings/more-settings.hl`, its `configFormats.json`, and `hlx/plugins/more-settings/more_settings_audio.hdll` for individual music-event volume control.
 5. Relaunch Farever.
 
 Settings live at `hlx/config/more-settings/config.json`. On first launch, the mod imports the previous native or mod-local configuration from `more-audio-settings`, then `mute-unfocused` if needed. Existing More Settings configuration takes priority. Old files remain intact as backups. The former `enabled` setting migrates to `adjustUnfocusedVolume`.
@@ -50,8 +52,16 @@ haxe test.hxml
 haxe compile.hxml
 ```
 
-Output: `build/more-settings/more-settings.hl`.
+Output: `build/more-settings/more-settings.hl`. For a complete install, also build the Windows x64 audio plugin with MinGW (`gcc-mingw-w64-x86-64` on Ubuntu):
 
-Regression tests exercise the production volume controller, region/ability policy, classifier, and presentation tracker with a simulated native adapter. CI requires those tests before packaging. Native API and bytecode inspection supplements these tests; actual rendering/audio still require in-game multiplayer testing after game updates.
+```sh
+bash native/build.sh
+cc -std=c11 -Wall -Wextra -Werror tests/event_volume_test.c -o build/event-volume-test
+build/event-volume-test
+```
+
+The plugin output is `build/native/more_settings_audio.hdll`; install it in `hlx/plugins/more-settings/`. It resolves the public FMOD event-volume API from the game's loaded `fmodstudio.dll`; no game or FMOD binaries are bundled. If the plugin is missing or unavailable, an audio error is logged and the mod never falls back to changing a global volume for travel.
+
+Regression tests exercise the production volume controller, region/ability policy, classifier, and presentation tracker with a simulated native adapter. CI requires those tests plus native bridge tests before compiling and packaging both binaries. Native API and bytecode inspection supplements these tests; actual rendering/audio still require in-game multiplayer testing after game updates.
 
 The mod avoids repeating FMOD writes on unchanged frames. Model membership and adoption of existing effects refresh at most five times per second. Native member lookup and skill classification are cached; disabled filters avoid entity scans. Rendering hooks never skip skill execution or character animation updates.

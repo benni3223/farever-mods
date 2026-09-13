@@ -2,21 +2,15 @@ package moresettings;
 
 import moresettings.SettingsData.MoreSettingsConfig;
 
-/** One saved master volume, shared by overlapping temporary volume limits. */
+/** Saves and restores the master volume while the game is unfocused. */
 class VolumeState {
     public var active(default, null):Bool = false;
     public var saved(default, null):Float = 1;
 
     public function new() {}
 
-    public static function target(config:MoreSettingsConfig, focused:Bool, traveling:Bool):Null<Float> {
-        var result:Null<Float> = null;
-        if (!focused && config.adjustUnfocusedVolume) result = SettingsData.percent(config.backgroundVolume) / 100;
-        if (traveling && config.adjustFastTravelVolume) {
-            var travel = SettingsData.percent(config.fastTravelVolume) / 100;
-            result = result == null ? travel : Math.min(result, travel);
-        }
-        return result;
+    public static function target(config:MoreSettingsConfig, focused:Bool):Null<Float> {
+        return !focused && config.adjustUnfocusedVolume ? SettingsData.percent(config.backgroundVolume) / 100 : null;
     }
 
     public function apply(current:Float, target:Null<Float>):Float {

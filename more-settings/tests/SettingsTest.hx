@@ -1,6 +1,7 @@
 import moresettings.SettingsData;
 import moresettings.VolumeState;
 import moresettings.AudioControl;
+import moresettings.EventVolume;
 import moresettings.EffectPolicy;
 import moresettings.SkillClassifier;
 import moresettings.NativeSkillFacts;
@@ -24,13 +25,8 @@ class SettingsTest {
     static function volume():Void {
         var config = SettingsData.defaults();
         config.backgroundVolume = 20; config.adjustFastTravelVolume = true; config.fastTravelVolume = 40;
-        for (travelFirst in [false, true]) {
-            var state = new VolumeState();
-            close(state.apply(0.8, travelFirst ? 0.4 : 0.2), travelFirst ? 0.4 : 0.2, "first limit");
-            close(state.apply(0.2, VolumeState.target(config, false, true)), 0.2, "overlap uses quieter limit");
-            close(state.apply(0.2, travelFirst ? 0.2 : 0.4), travelFirst ? 0.2 : 0.4, "one condition ends");
-            close(state.apply(0.2, null), 0.8, "overlap restores original only at end");
-        }
+        eq(VolumeState.target(config, true), null, "fast travel never requests a master limit");
+        close(VolumeState.target(config, false), 0.2, "only unfocus requests a master limit");
         var state = new VolumeState();
         close(state.apply(0.1, 0.4), 0.1, "temporary control never boosts master");
         state.masterChanged(0.6);
@@ -42,20 +38,78 @@ class SettingsTest {
 
         config.backgroundVolume = 20; config.fastTravelVolume = 40;
         G.master = 0.8; G.focused = true; G.writes = 0;
+        EventVolume.reads = 0; EventVolume.writes = 0;
         var audio = new AudioControl(config);
-        var hero:Dynamic = {flying: false};
+        var hero:Dynamic = {flying: false, flySoundObj: null};
+        var otherMusic:Dynamic = {valid: true, volume: 0.9};
+        var sfx:Dynamic = {valid: true, volume: 0.6};
         audio.update(hero); eq(G.writes, 0, "focused idle does not write FMOD");
-        audio.startTravel(); close(G.master, 0.4, "departure sound is limited immediately");
-        hero.flying = true; G.focused = false; audio.update(hero); close(G.master, 0.2, "travel plus unfocus");
-        var writes = G.writes;
+        eq(EventVolume.reads, 0, "idle does not query event volumes");
+        var first:Dynamic = {valid: true, volume: 0.75};
+        hero.flySoundObj = {inst: first}; hero.flying = true;
+        audio.startTravel(hero);
+        close(first.volume, 0.3, "departure immediately scales only the travel event");
+        close(G.master, 0.8, "travel leaves master unchanged");
+        eq(G.writes, 0, "travel never writes any bus or VCA");
+        close(otherMusic.volume, 0.9, "other music unchanged");
+        close(sfx.volume, 0.6, "effects unchanged");
+        G.focused = false; audio.update(hero);
+        close(G.master, 0.2, "unfocus independently limits master while traveling");
+        close(first.volume, 0.3, "unfocus leaves travel event gain unchanged");
+        var writes = G.writes, eventWrites = EventVolume.writes, reads = EventVolume.reads;
         for (_ in 0...1000) audio.update(hero);
-        eq(G.writes, writes, "unchanged frames never write FMOD");
-        hero.flying = false; audio.update(hero); close(G.master, 0.2, "landing while unfocused stays quiet");
-        G.master = 0.7; audio.masterChanged(); close(G.master, 0.2, "options apply preserves temporary limit");
-        G.focused = true; audio.update(hero); close(G.master, 0.7, "focus restores new master");
-        audio.startTravel(); config.adjustFastTravelVolume = false; audio.configure(config);
-        close(G.master, 0.7, "disabling travel limit restores volume immediately");
-        G.focused = false; audio.update(hero); audio.dispose(); close(G.master, 0.7, "dispose restores volume");
+        eq(G.writes, writes, "unchanged frames never write master volume");
+        eq(EventVolume.writes, eventWrites, "unchanged frames never write event volume");
+        eq(EventVolume.reads, reads, "unchanged frames never read event volume");
+        config.fastTravelVolume = 60; audio.configure(config);
+        close(first.volume, 0.45, "live slider uses original gain, not compounded attenuation");
+        close(G.master, 0.2, "live travel slider leaves master unchanged");
+        config.adjustFastTravelVolume = false; audio.configure(config);
+        close(first.volume, 0.75, "disable restores event's own baseline");
+        close(G.master, 0.2, "disabling travel does not cancel unfocus");
+        config.adjustFastTravelVolume = true; config.fastTravelVolume = 0; audio.configure(config);
+        close(first.volume, 0, "zero mutes only travel music");
+        G.master = 0.7; audio.masterChanged(); close(G.master, 0.2, "options preserve unfocused limit");
+        close(first.volume, 0, "options do not overwrite travel event gain");
+        G.focused = true; audio.update(hero); close(G.master, 0.7, "focus restores updated master");
+        close(first.volume, 0, "focus does not unmute travel music");
+        config.fastTravelVolume = 100; audio.configure(config);
+        close(first.volume, 0.75, "100 percent restores natural event gain");
+        config.fastTravelVolume = 40; audio.configure(config);
+        hero.flying = false; audio.update(hero);
+        close(first.volume, 0.3, "landing leaves outgoing music fade at selected volume");
+        var second:Dynamic = {valid: true, volume: 0.5};
+        hero.flySoundObj = {inst: second}; audio.startTravel(hero);
+        close(first.volume, 0.75, "replaced event restored");
+        close(second.volume, 0.2, "next event has its own baseline");
+        second.valid = false; hero.flySoundObj.inst = null; audio.update(hero);
+        close(second.volume, 0.2, "released handle not written");
+        var third:Dynamic = {valid: true, volume: 1};
+        hero.flySoundObj.inst = third; audio.update(hero);
+        close(third.volume, 0.4, "recreated handle does not reuse previous event baseline");
+        third.valid = false;
+        var fourth:Dynamic = {valid: true, volume: 0.9};
+        hero.flySoundObj = {inst: fourth}; audio.startTravel(hero);
+        close(fourth.volume, 0.36, "invalid outgoing event does not block next trip");
+        G.focused = false; audio.update(hero); audio.dispose();
+        close(G.master, 0.7, "dispose restores master");
+        close(fourth.volume, 0.9, "dispose restores live travel event");
+        audio.update(hero); hero.removed = true; audio.update(hero);
+        close(fourth.volume, 0.9, "removed hero restores music");
+        audio.dispose();
+
+        // A missing native plugin must never fall back to muting all audio.
+        G.focused = true; G.writes = 0; EventVolume.available = false;
+        hero.removed = false;
+        var failed = false;
+        try audio.update(hero) catch (_:Dynamic) failed = true;
+        eq(failed, true, "missing event API reports a recoverable audio error");
+        eq(G.writes, 0, "missing event API never changes a global volume");
+        EventVolume.available = true; audio.update(hero);
+        close(fourth.volume, 0.36, "retry captures original volume after API recovers");
+        audio.update(null);
+        close(fourth.volume, 0.9, "logout restores last event");
+        audio.dispose();
     }
 
     static function policy():Void {
