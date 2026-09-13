@@ -43,6 +43,11 @@ as `mute-unfocused`. The historical release tag and original repository link
 above retain their old names. Current builds, module folders, archives and
 release tags now use `more-settings`. The intervening `more-audio-settings`
 name is accepted as a configuration migration source; its historical releases
-retain their original names. More Settings also contains the standalone
-profanity-filter option. See [upgrade instructions](more-settings/README.md#installation-and-upgrade)
-to avoid loading duplicate modules.
+retain their original names.
+
+The standalone Disable Profanity Filter project and build workflow have been
+removed because More Settings now provides that option. Its entries above
+document historical imports and releases. More Settings still imports saved
+standalone profanity-filter preferences. See the
+[upgrade instructions](more-settings/README.md#installation-and-upgrade)
+to remove the old installed module while preserving those preferences.
