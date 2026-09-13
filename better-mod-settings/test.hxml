@@ -2,3 +2,8 @@
 -cp tests
 -main KeyCaptureTest
 --interp
+--next
+-cp src
+-cp tests
+-main KeyCaptureInputTest
+--interp

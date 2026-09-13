@@ -109,7 +109,7 @@ A title displays larger, bold text on its own row, without a separator or contro
 | `slider` | Number | `min` (default `0`), `max` (default `100`), and `step` (default `1`), all numbers | Supply sensible bounds with `min <= max` and a positive `step`. A missing value starts at `min`. |
 | `keybinding` | Integer key code | None | Captures one `hxd.Key`-compatible key only. Modifier combinations and multi-key chords are not supported. `0` means **Not set**. Escape cancels capture and cannot be assigned through the UI. All hotkey activation is suppressed during assignment, including held input and release events. |
 
-Key capture blocks both native game actions and mods that poll `hxd.Key.isPressed`, `isDown`, or `isReleased` directly. Only the picker reads the raw input. After assignment or Escape cancellation, protection remains until all keys/buttons are released and a quiet frame passes. The assigned key must be pressed again to activate its action. Closing the settings window cancels an unfinished assignment; leaving the game clears capture state.
+Key capture consumes keyboard and mouse-button events centrally, before `hxd.Key.onEvent` publishes them. BMS clears the previously published key state when the picker opens and keeps assignment input private. Native game actions and mods polling `hxd.Key.isPressed`, `isDown`, or `isReleased` (including inlined reads) therefore see no assignment input; they do not need individual capture guards. After assignment or Escape cancellation, protection remains until all keys/buttons are released and a quiet frame passes. The assigned key must be pressed again to activate its action. Closing the settings window cancels an unfinished assignment; leaving the game clears capture state. This covers Farever's key-state API, not separate operating-system or ImGui input backends.
 
 The current format does not provide text inputs, dropdowns, buttons, color pickers, nested objects, collapsible groups, conditional controls, or settings that span multiple JSON properties.
 
@@ -172,4 +172,4 @@ haxe compile.hxml
 
 ## Capture regression checks
 
-Run `haxe test.hxml` from `better-mod-settings/`. CI checks assignment, cancellation, held/repeated input, release events, multiple updates per frame, consecutive assignments, focus loss, and disposal before packaging. The input hooks are checked against the supplied live and PTR bytecode.
+Run `haxe test.hxml` from `better-mod-settings/`. CI checks assignment, cancellation, held/repeated input, release events, multiple updates per frame, consecutive assignments, focus loss, and disposal before packaging. The central-input tests also simulate a raw consumer with no polling hooks or capture guard, both before and after a binding reload, plus pre-held keys, fast taps, mouse buttons, and wheel pulses. The native event handler and array methods are checked against the supplied live and PTR bytecode.

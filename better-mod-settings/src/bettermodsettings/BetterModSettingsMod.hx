@@ -73,12 +73,11 @@ class BetterModSettingsMod {
     static var setButtonTextMember:hlx.runtime.ResolvedMember;
     static var setTitleTextMember:hlx.runtime.ResolvedMember;
     static var setUiSelectedMember:hlx.runtime.ResolvedMember;
-    static var isKeyPressedMember:hlx.runtime.ResolvedMember;
-    static var isKeyDownMember:hlx.runtime.ResolvedMember;
-    static var isKeyReleasedMember:hlx.runtime.ResolvedMember;
+    static var keyStateArrayType:hl.Bytes;
+    static var sliceKeyStateMember:hlx.runtime.ResolvedMember;
+    static var getKeyStateMember:hlx.runtime.ResolvedMember;
     static var getKeyFrameMember:hlx.runtime.ResolvedMember;
-    static var captureInput = new KeyCaptureState();
-    static var readingCaptureInput:Bool = false;
+    static var captureInput = new KeyCaptureInput();
     static var getKeyNameMember:hlx.runtime.ResolvedMember;
     static var setVisibleMember:hlx.runtime.ResolvedMember;
     static var initStyleMember:hlx.runtime.ResolvedMember;
@@ -107,12 +106,26 @@ class BetterModSettingsMod {
         return captureInput.blocking ? SkipWith(false) : Continue;
     }
 
-    @:hlx.prefix(hxd.Key.isPressed)
-    @:hlx.prefix(hxd.Key.isDown)
-    @:hlx.prefix(hxd.Key.isReleased)
-    static function protectDirectKeyInput(keyCode:Int):HlxPrefixResult<Bool> {
-        // Mods also poll hxd.Key directly (for example equipment presets and DPS Meter).
-        return captureInput.blocking && !readingCaptureInput ? SkipWith(false) : Continue;
+    @:hlx.prefix(hxd.Key.onEvent)
+    static function consumeAssignmentInput(event:Dynamic):HlxPrefixResult<Void> {
+        if (!captureInput.blocking) return Continue;
+        var kind = Type.enumConstructor(HlxRuntime.resolveField(event, "kind"));
+        var key = switch (kind) {
+            case "EKeyDown", "EKeyUp":
+                cast(HlxRuntime.resolveField(event, "keyCode"), Int);
+            case "EPush", "ERelease":
+                var button:Int = HlxRuntime.resolveField(event, "button");
+                if (button < 0 || button >= 5) return Continue;
+                button;
+            case "EWheel":
+                var delta:Float = HlxRuntime.resolveField(event, "wheelDelta");
+                delta > 0 ? 6 : 5;
+            case "EFocusLost", "EReleaseOutside": -1;
+            default: return Continue;
+        };
+        // The shared key state stays empty. Native actions, direct calls and
+        // inlined hxd.Key reads all see the same consumed input, without mod opt-in.
+        return captureInput.consume(kind, key, keyFrame()) ? Skip : Continue;
     }
 
     @:hlx.prefix(GameApp.update)
@@ -123,16 +136,8 @@ class BetterModSettingsMod {
             capturingKeybind = null;
             captureInput.finish();
         }
-        if (captureInput.blocking && !captureInput.capturing && resolveKeyInputMembers()) {
-            var activity = false;
-            for (keyCode in 0...512) {
-                if (readCaptureKey(isKeyDownMember, keyCode) || readCaptureKey(isKeyReleasedMember, keyCode)) {
-                    activity = true;
-                    break;
-                }
-            }
-            captureInput.update(keyFrame(), activity);
-        }
+        if (captureInput.blocking && !captureInput.capturing)
+            captureInput.update(keyFrame());
         return Continue;
     }
 
@@ -154,29 +159,16 @@ class BetterModSettingsMod {
     static function resolveKeyInputMembers():Bool {
         if (hxdKeyType == null) hxdKeyType = HlxRuntime.resolveType("hxd.Key");
         if (hxdKeyType == null) return false;
-        if (isKeyPressedMember == null)
-            isKeyPressedMember = HlxRuntime.resolveStaticMember(hxdKeyType, "isPressed");
-        if (isKeyDownMember == null)
-            isKeyDownMember = HlxRuntime.resolveStaticMember(hxdKeyType, "isDown");
-        if (isKeyReleasedMember == null)
-            isKeyReleasedMember = HlxRuntime.resolveStaticMember(hxdKeyType, "isReleased");
+        if (keyStateArrayType == null)
+            keyStateArrayType = HlxRuntime.resolveType("hl.types.ArrayBytes_Int");
+        if (keyStateArrayType == null) return false;
+        if (sliceKeyStateMember == null)
+            sliceKeyStateMember = HlxRuntime.resolveMember(keyStateArrayType, "slice");
+        if (getKeyStateMember == null)
+            getKeyStateMember = HlxRuntime.resolveMember(keyStateArrayType, "getDyn");
         if (getKeyFrameMember == null)
             getKeyFrameMember = HlxRuntime.resolveStaticMember(hxdKeyType, "getFrame");
-        return isKeyPressedMember != null && isKeyDownMember != null
-            && isKeyReleasedMember != null && getKeyFrameMember != null;
-    }
-
-    static function readCaptureKey(member:hlx.runtime.ResolvedMember, keyCode:Int):Bool {
-        // Bypass only this one raw read. Never bypass gameplay while saving config
-        // or notifying other mods, and always restore the guard if the read fails.
-        readingCaptureInput = true;
-        var pressed:Bool;
-        try pressed = HlxRuntime.callResolved(member, [keyCode]) == true catch (error:Dynamic) {
-            readingCaptureInput = false;
-            throw error;
-        }
-        readingCaptureInput = false;
-        return pressed;
+        return sliceKeyStateMember != null && getKeyStateMember != null && getKeyFrameMember != null;
     }
 
     @:hlx.postfix(GameApp.update)
@@ -1235,21 +1227,30 @@ class BetterModSettingsMod {
 
     static function beginKeyCapture(mod:Dynamic, key:String, button:Dynamic):Void {
         if (!resolveKeyInputMembers()) return;
+        var keyState:Dynamic = HlxRuntime.resolveStaticField(hxdKeyType, "keyPressed");
+        if (keyState == null) return;
+        // Allocate through the native array method, preserving its cross-module type.
+        var emptyState:Dynamic = HlxRuntime.callResolved(sliceKeyStateMember, [keyState, 0, 0]);
+        if (emptyState == null) return;
+        var held:Array<Int> = [];
+        var length:Int = HlxRuntime.resolveField(keyState, "length");
+        for (code in 0...length) {
+            var value:Int = HlxRuntime.callResolved(getKeyStateMember, [keyState, code]);
+            if (value > 0) held.push(code);
+        }
+        // Consume input already down when the picker opens as well. Do not replay
+        // it later: capture remains active until those physical keys are released.
+        HlxRuntime.setStaticField(hxdKeyType, "keyPressed", emptyState);
         capturingKeybind = { mod: mod, key: key, button: button };
-        captureInput.begin();
+        captureInput.begin(held);
         setKeyButtonText(button, "Press a key...");
     }
 
     static function capturePressedKey():Void {
         if (capturingKeybind == null)
             return;
-        if (!resolveKeyInputMembers())
-            return;
-
-        for (keyCode in 1...512) {
-            var pressed = readCaptureKey(isKeyPressedMember, keyCode);
-            if (pressed != true)
-                continue;
+        var keyCode = captureInput.takePressedKey();
+        if (keyCode > 0) {
             var capture = capturingKeybind;
             capturingKeybind = null;
             captureInput.finish();
