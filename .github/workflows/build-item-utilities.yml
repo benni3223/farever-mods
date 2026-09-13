@@ -33,7 +33,7 @@ jobs:
       - uses: krdlab/setup-haxe@v1
         with:
           haxe-version: 4.3.7
-      - name: Test quick-loot and item lock restoration
+      - name: Test quick-loot, item locks, and overlay layout
         working-directory: item-utilities
         run: haxe test.hxml
 

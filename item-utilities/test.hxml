@@ -7,3 +7,8 @@
 -cp tests
 -main ItemLockStateTest
 --interp
+--next
+-cp src
+-cp tests
+-main UiOverlayGeometryTest
+--interp

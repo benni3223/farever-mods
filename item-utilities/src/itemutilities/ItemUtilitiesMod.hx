@@ -114,7 +114,6 @@ class ItemUtilitiesMod {
     static var propertiesType:hl.Bytes;
     static var uiElementType:hl.Bytes;
     static var h2dObjectType:hl.Bytes;
-    static var getBoundsMember:hlx.runtime.ResolvedMember;
     static var isTypeMember:hlx.runtime.ResolvedMember;
     static var equalsMember:hlx.runtime.ResolvedMember;
     static var isMaxStackMember:hlx.runtime.ResolvedMember;
@@ -178,7 +177,8 @@ class ItemUtilitiesMod {
     static inline var INVENTORY_SLOT_SIZE = 48.0;
     static inline var TOOLTIP_BUTTON_DELAY = 0.2;
     static inline var TOOLTIP_OVERLAP_INSET = 4.0;
-    static inline var PRESET_CONTROLS_WIDTH = 254.0;
+    static var overlayScaleX:Float = 1;
+    static var overlayScaleY:Float = 1;
     static inline var ITEM_FINGERPRINT_VERSION = ItemLockState.FINGERPRINT_VERSION;
     static inline var LOCK_RECONCILE_INTERVAL = 0.2;
     static inline var DEPOSIT_CRAFTING = 0;
@@ -649,6 +649,7 @@ class ItemUtilitiesMod {
     }
 
     static function draw():Void {
+        NativeUiLayout.beginFrame();
         refreshActiveHero();
 
         if (lockedSortActive && !lockedSortWaiting)
@@ -682,35 +683,59 @@ class ItemUtilitiesMod {
 
     }
 
+    /** Keep window bounds, content, and custom artwork in the same pixel space. */
+    static function prepareOverlay(rect:OverlayRect, width:Float, height:Float, rounding:Float):Void {
+        overlayScaleX = rect.width / width;
+        overlayScaleY = rect.height / height;
+        ImGui.setNextWindowPos(new ImVec2(rect.left, rect.top));
+        // Explicitly resize on this frame instead of using last frame's content.
+        ImGui.setNextWindowSize(new ImVec2(rect.width, rect.height));
+        ImGui.setNextWindowScroll(new ImVec2(0, 0));
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, new ImVec2(0, 0));
+        ImGui.pushStyleVar(ImGuiStyleVar.WindowMinSize, new ImVec2(1, 1));
+        ImGui.pushStyleVar(ImGuiStyleVar.FrameRounding, overlayStroke(rounding));
+        ImGui.pushStyleVar(ImGuiStyleVar.FramePadding, overlaySize(4, 3));
+        ImGui.pushStyleVar(ImGuiStyleVar.ItemSpacing, overlaySize(8, 4));
+        ImGui.pushFont(null, overlayStroke(ImGui.getFontSize()));
+    }
+
+    static function finishOverlay():Void {
+        ImGui.popFont();
+        ImGui.popStyleVar(5);
+    }
+
+    static inline function overlaySize(width:Float, height:Float):ImVec2 {
+        return new ImVec2(width * overlayScaleX, height * overlayScaleY);
+    }
+
+    static inline function iconPoint(origin:ImVec2, x:Float, y:Float):ImVec2 {
+        return new ImVec2(origin.x + x * overlayScaleX, origin.y + y * overlayScaleY);
+    }
+
+    static inline function overlayStroke(value:Float):Float {
+        return value * Math.min(overlayScaleX, overlayScaleY);
+    }
+
     static function drawBankHeaderButton():Void {
         var sortButton:Dynamic = null;
         try {
             var comp:Dynamic = HlxRuntime.resolveField(activeBankWindow, "comp");
             sortButton = comp == null ? null : HlxRuntime.resolveField(comp, "sortButton");
         } catch (_:Dynamic) {}
-        if (sortButton == null)
+        if (sortButton == null || !isUiVisible(sortButton))
             return;
 
-        var x:Float;
-        var y:Float;
-        try {
-            x = cast HlxRuntime.resolveField(sortButton, "absX");
-            y = cast HlxRuntime.resolveField(sortButton, "absY");
-        } catch (_:Dynamic) {
-            return;
-        }
-
-        drawBankDepositButton(sortButton, x - 228, y, DEPOSIT_MISC,
+        drawBankDepositButton(sortButton, NativeUiLayout.rect(sortButton, -228, 0, 32, 30), DEPOSIT_MISC,
             "misc", " Deposit miscellaneous ");
-        drawBankDepositButton(sortButton, x - 190, y, DEPOSIT_DEMON_ENCHANTMENT,
+        drawBankDepositButton(sortButton, NativeUiLayout.rect(sortButton, -190, 0, 32, 30), DEPOSIT_DEMON_ENCHANTMENT,
             "demon", " Deposit demon enchantment ");
-        drawBankDepositButton(sortButton, x - 152, y, DEPOSIT_CONSUMABLE,
+        drawBankDepositButton(sortButton, NativeUiLayout.rect(sortButton, -152, 0, 32, 30), DEPOSIT_CONSUMABLE,
             "consumable", " Deposit consumable ");
-        drawBankDepositButton(sortButton, x - 114, y, DEPOSIT_FOOD,
+        drawBankDepositButton(sortButton, NativeUiLayout.rect(sortButton, -114, 0, 32, 30), DEPOSIT_FOOD,
             "food", " Deposit food ");
-        drawBankDepositButton(sortButton, x - 76, y, DEPOSIT_CRAFTING,
+        drawBankDepositButton(sortButton, NativeUiLayout.rect(sortButton, -76, 0, 32, 30), DEPOSIT_CRAFTING,
             "materials", " Deposit crafting components ");
-        drawBankDepositButton(sortButton, x - 38, y, DEPOSIT_ALL,
+        drawBankDepositButton(sortButton, NativeUiLayout.rect(sortButton, -38, 0, 32, 30), DEPOSIT_ALL,
             "all", " Deposit all ");
     }
 
@@ -727,23 +752,16 @@ class ItemUtilitiesMod {
         if (sortButton == null || !isUiVisible(sortButton))
             return;
 
-        var xValue = fieldOrNull(sortButton, "absX");
-        var yValue = fieldOrNull(sortButton, "absY");
-        if (xValue == null || yValue == null)
-            return;
-        var x:Float = cast xValue;
-        x -= 38;
-        var y:Float = cast yValue;
-        if (buttonCovered(x, y, 32, 30))
+        var rect = NativeUiLayout.rect(sortButton, -38, 0, 32, 30);
+        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height))
             return;
 
-        ImGui.setNextWindowPos(new ImVec2(x, y));
+        prepareOverlay(rect, 32, 30, 5);
         ImGui.setNextWindowBgAlpha(0);
         var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-            | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoSavedSettings
+            | ImGuiWindowFlags.NoScrollWithMouse
+            | ImGuiWindowFlags.NoSavedSettings
             | ImGuiWindowFlags.NoFocusOnAppearing;
-        ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, new ImVec2(0, 0));
-        ImGui.pushStyleVar(ImGuiStyleVar.FrameRounding, 5.0);
         ImGui.pushStyleColor(ImGuiCol.Button, new ImVec4(0.40, 0.37, 0.35, 1));
         ImGui.pushStyleColor(ImGuiCol.ButtonHovered, new ImVec4(0.48, 0.44, 0.41, 1));
         ImGui.pushStyleColor(ImGuiCol.ButtonActive, new ImVec4(0.32, 0.29, 0.27, 1));
@@ -751,11 +769,11 @@ class ItemUtilitiesMod {
         if (!ImGui.begin("##item-utilities-recycler-header", null, flags)) {
             ImGui.end();
             ImGui.popStyleColor(4);
-            ImGui.popStyleVar(2);
+            finishOverlay();
             return;
         }
 
-        if (ImGui.button("##recycler-deposit-all", new ImVec2(32, 30))) {
+        if (ImGui.button("##recycler-deposit-all", overlaySize(32, 30))) {
             playButtonClickSound(sortButton);
             if (!recyclerDepositing)
                 beginRecyclerDeposit();
@@ -768,23 +786,22 @@ class ItemUtilitiesMod {
 
         ImGui.end();
         ImGui.popStyleColor(4);
-        ImGui.popStyleVar(2);
+        finishOverlay();
     }
 
-    static function drawBankDepositButton(sortButton:Dynamic, x:Float, y:Float,
+    static function drawBankDepositButton(sortButton:Dynamic, rect:OverlayRect,
         mode:Int, suffix:String, tooltip:String):Void {
-        if (buttonCovered(x, y, 32, 30))
+        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height))
             return;
 
         // Keep the utility in the Bank header without modifying Domkit's live
         // component tree (doing that after init can invalidate the whole UI).
-        ImGui.setNextWindowPos(new ImVec2(x, y));
+        prepareOverlay(rect, 32, 30, 5);
         ImGui.setNextWindowBgAlpha(0);
         var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-            | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoSavedSettings
+            | ImGuiWindowFlags.NoScrollWithMouse
+            | ImGuiWindowFlags.NoSavedSettings
             | ImGuiWindowFlags.NoFocusOnAppearing;
-        ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, new ImVec2(0, 0));
-        ImGui.pushStyleVar(ImGuiStyleVar.FrameRounding, 5.0);
         ImGui.pushStyleColor(ImGuiCol.Button, new ImVec4(0.40, 0.37, 0.35, 1));
         ImGui.pushStyleColor(ImGuiCol.ButtonHovered, new ImVec4(0.48, 0.44, 0.41, 1));
         ImGui.pushStyleColor(ImGuiCol.ButtonActive, new ImVec4(0.32, 0.29, 0.27, 1));
@@ -792,11 +809,11 @@ class ItemUtilitiesMod {
         if (!ImGui.begin("##item-utilities-bank-header-" + suffix, null, flags)) {
             ImGui.end();
             ImGui.popStyleColor(4);
-            ImGui.popStyleVar(2);
+            finishOverlay();
             return;
         }
 
-        if (ImGui.button("##deposit-" + suffix, new ImVec2(32, 30))) {
+        if (ImGui.button("##deposit-" + suffix, overlaySize(32, 30))) {
             playButtonClickSound(sortButton);
             if (!depositing)
                 beginDepositMode(mode);
@@ -809,7 +826,7 @@ class ItemUtilitiesMod {
 
         ImGui.end();
         ImGui.popStyleColor(4);
-        ImGui.popStyleVar(2);
+        finishOverlay();
     }
 
     static function drawEquipmentPresetButtons():Void {
@@ -822,13 +839,9 @@ class ItemUtilitiesMod {
         if (appearanceButton == null || !isUiVisible(appearanceButton))
             return;
 
-        var x:Float;
-        var y:Float;
         var width:Float = 150;
         var height:Float = 36;
         try {
-            x = cast HlxRuntime.resolveField(appearanceButton, "absX");
-            y = cast HlxRuntime.resolveField(appearanceButton, "absY");
             var rawWidth = fieldOrNull(appearanceButton, "calculatedWidth");
             var rawHeight = fieldOrNull(appearanceButton, "calculatedHeight");
             if (rawWidth != null) {
@@ -843,31 +856,32 @@ class ItemUtilitiesMod {
             }
         } catch (_:Dynamic) return;
 
-        var controlsX = x + width + 32;
-        if (buttonCovered(controlsX, y, PRESET_CONTROLS_WIDTH, height))
+        // Four 8-unit gaps: title, three preset buttons, and Set.
+        var controlsWidth = 56 + 3 * height + 58 + 4 * 8;
+        var rect = NativeUiLayout.rect(appearanceButton, width + 32, 0, controlsWidth, height);
+        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height))
             return;
-        ImGui.setNextWindowPos(new ImVec2(controlsX, y));
+        prepareOverlay(rect, controlsWidth, height, 6);
         ImGui.setNextWindowBgAlpha(0);
         var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-            | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoSavedSettings
+            | ImGuiWindowFlags.NoScrollWithMouse
+            | ImGuiWindowFlags.NoSavedSettings
             | ImGuiWindowFlags.NoFocusOnAppearing;
-        ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, new ImVec2(0, 0));
-        ImGui.pushStyleVar(ImGuiStyleVar.FrameRounding, 6.0);
         ImGui.pushStyleColor(ImGuiCol.Button, new ImVec4(0.70, 0.59, 0.54, 1));
         ImGui.pushStyleColor(ImGuiCol.ButtonHovered, new ImVec4(0.541, 0.373, 0.275, 1));
         ImGui.pushStyleColor(ImGuiCol.ButtonActive, new ImVec4(0.60, 0.48, 0.43, 1));
         ImGui.pushStyleColor(ImGuiCol.Text, new ImVec4(0.98, 0.93, 0.90, 1));
         if (ImGui.begin("##item-utilities-weapon-presets", null, flags)) {
-            ImGui.dummy(new ImVec2(56, height));
+            ImGui.dummy(overlaySize(56, height));
             var titleMin = ImGui.getItemRectMin();
             var titleColor = ImGui.colorConvertFloat4ToU32(
                 new ImVec4(0.43, 0.31, 0.28, 1));
             var drawList = ImGui.getWindowDrawList();
-            var titleY = titleMin.y + (height - 14) * 0.5;
+            var titleY = titleMin.y + (height * overlayScaleY - ImGui.getFontSize()) * 0.5;
             ImGui.ImDrawList_AddText_Vec2(drawList,
                 new ImVec2(titleMin.x, titleY), titleColor, "Presets");
             ImGui.ImDrawList_AddText_Vec2(drawList,
-                new ImVec2(titleMin.x + 0.8, titleY), titleColor, "Presets");
+                new ImVec2(titleMin.x + 0.8 * overlayScaleX, titleY), titleColor, "Presets");
             ImGui.sameLine();
 
             for (preset in 0...3) {
@@ -880,7 +894,7 @@ class ItemUtilitiesMod {
                     ImGui.pushStyleColor(ImGuiCol.ButtonActive, new ImVec4(0.47, 0.32, 0.28, 1));
                 }
                 if (ImGui.button(Std.string(preset + 1) + "##weapon-preset",
-                    new ImVec2(height, height))) {
+                    overlaySize(height, height))) {
                     playButtonClickSound(appearanceButton);
                     selectEquipmentPreset(preset);
                     activateEquipmentPreset(preset);
@@ -891,7 +905,7 @@ class ItemUtilitiesMod {
                     setGameButtonCursor();
             }
             ImGui.sameLine();
-            if (ImGui.button("Set##weapon-preset", new ImVec2(58, height))) {
+            if (ImGui.button("Set##weapon-preset", overlaySize(58, height))) {
                 playButtonClickSound(appearanceButton);
                 saveCurrentEquipmentToPreset(selectedWeaponPreset);
             }
@@ -900,7 +914,7 @@ class ItemUtilitiesMod {
         }
         ImGui.end();
         ImGui.popStyleColor(4);
-        ImGui.popStyleVar(2);
+        finishOverlay();
     }
 
     static function syncSelectedEquipmentPreset():Void {
@@ -1117,26 +1131,18 @@ class ItemUtilitiesMod {
             || playerInventoryComp == null)
             return;
         var sortButton = fieldOrNull(playerInventoryComp, "sortButton");
-        if (sortButton == null)
+        if (sortButton == null || !isUiVisible(sortButton))
+            return;
+        var rect = NativeUiLayout.rect(sortButton, -38, 0, 32, 30);
+        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height))
             return;
 
-        var x:Float;
-        var y:Float;
-        try {
-            x = cast HlxRuntime.resolveField(sortButton, "absX");
-            y = cast HlxRuntime.resolveField(sortButton, "absY");
-        } catch (_:Dynamic) return;
-
-        if (buttonCovered(x - 38, y, 32, 30))
-            return;
-
-        ImGui.setNextWindowPos(new ImVec2(x - 38, y));
+        prepareOverlay(rect, 32, 30, 5);
         ImGui.setNextWindowBgAlpha(0);
         var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-            | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoSavedSettings
+            | ImGuiWindowFlags.NoScrollWithMouse
+            | ImGuiWindowFlags.NoSavedSettings
             | ImGuiWindowFlags.NoFocusOnAppearing;
-        ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, new ImVec2(0, 0));
-        ImGui.pushStyleVar(ImGuiStyleVar.FrameRounding, 5.0);
         ImGui.pushStyleColor(ImGuiCol.Button,
             lockEditMode ? new ImVec4(0.58, 0.43, 0.25, 1) : new ImVec4(0.40, 0.37, 0.35, 1));
         ImGui.pushStyleColor(ImGuiCol.ButtonHovered,
@@ -1146,7 +1152,7 @@ class ItemUtilitiesMod {
         ImGui.pushStyleColor(ImGuiCol.Text, new ImVec4(0.92, 0.86, 0.80, 1));
 
         if (ImGui.begin("##item-utilities-lock-header", null, flags)) {
-            if (ImGui.button("##item-lock-mode", new ImVec2(32, 30))) {
+            if (ImGui.button("##item-lock-mode", overlaySize(32, 30))) {
                 playButtonClickSound(sortButton);
                 lockEditMode = !lockEditMode;
             }
@@ -1158,7 +1164,7 @@ class ItemUtilitiesMod {
         }
         ImGui.end();
         ImGui.popStyleColor(4);
-        ImGui.popStyleVar(2);
+        finishOverlay();
     }
 
     static function drawLockIcon():Void {
@@ -1166,23 +1172,23 @@ class ItemUtilitiesMod {
         var drawList = ImGui.getWindowDrawList();
         var color = ImGui.colorConvertFloat4ToU32(new ImVec4(0.94, 0.89, 0.83, 1));
         ImGui.ImDrawList_AddRect(drawList,
-            new ImVec2(min.x + 9, min.y + 13),
-            new ImVec2(min.x + 23, min.y + 24), color, 2.0, 2.0, 0);
+            iconPoint(min, 9, 13),
+            iconPoint(min, 23, 24), color, overlayStroke(2.0), overlayStroke(2.0), 0);
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 11, min.y + 13),
-            new ImVec2(min.x + 11, min.y + 10), color, 2.0);
+            iconPoint(min, 11, 13),
+            iconPoint(min, 11, 10), color, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 11, min.y + 10),
-            new ImVec2(min.x + 14, min.y + 6), color, 2.0);
+            iconPoint(min, 11, 10),
+            iconPoint(min, 14, 6), color, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 14, min.y + 6),
-            new ImVec2(min.x + 19, min.y + 6), color, 2.0);
+            iconPoint(min, 14, 6),
+            iconPoint(min, 19, 6), color, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 19, min.y + 6),
-            new ImVec2(min.x + 21, min.y + 10), color, 2.0);
+            iconPoint(min, 19, 6),
+            iconPoint(min, 21, 10), color, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 21, min.y + 10),
-            new ImVec2(min.x + 21, min.y + 13), color, 2.0);
+            iconPoint(min, 21, 10),
+            iconPoint(min, 21, 13), color, overlayStroke(2.0));
     }
 
     static function drawLockSlotOverlays():Void {
@@ -1195,36 +1201,29 @@ class ItemUtilitiesMod {
             if (item == null)
                 continue;
 
-            var x:Float;
-            var y:Float;
-            try {
-                if (HlxRuntime.resolveField(slot, "visible") == false)
-                    continue;
-                x = cast HlxRuntime.resolveField(slot, "absX");
-                y = cast HlxRuntime.resolveField(slot, "absY");
-            } catch (_:Dynamic) continue;
-
-            var right = x + INVENTORY_SLOT_SIZE;
-            var bottom = y + INVENTORY_SLOT_SIZE;
+            var rect = NativeUiLayout.rect(slot, 0, 0, INVENTORY_SLOT_SIZE, INVENTORY_SLOT_SIZE);
+            if (rect == null)
+                continue;
             if (entry.inventory == sourceInventory) {
-                if (viewport == null)
+                // Clip the input window itself so hidden rows cannot intercept
+                // clicks on the header or outside the bag at any UI scale.
+                rect = rect.clippedTo(viewport);
+                if (rect == null)
                     continue;
-                // Clip the input window itself, not just its drawing, so hidden
-                // rows cannot intercept clicks on the header or outside the bag.
-                x = Math.max(x, viewport.left);
-                y = Math.max(y, viewport.top);
-                right = Math.min(right, viewport.right);
-                bottom = Math.min(bottom, viewport.bottom);
             }
-            var width = right - x;
-            var height = bottom - y;
-            if (width <= 0 || height <= 0 || buttonCovered(x, y, width, height))
+            var x = rect.left;
+            var y = rect.top;
+            var width = rect.width;
+            var height = rect.height;
+            if (buttonCovered(x, y, width, height))
                 continue;
 
             ImGui.setNextWindowPos(new ImVec2(x, y));
             ImGui.setNextWindowSize(new ImVec2(width, height));
+            ImGui.setNextWindowScroll(new ImVec2(0, 0));
             ImGui.setNextWindowBgAlpha(0);
             var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
+                | ImGuiWindowFlags.NoScrollWithMouse
                 | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoFocusOnAppearing
                 | ImGuiWindowFlags.NoBackground;
             ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, new ImVec2(0, 0));
@@ -1244,6 +1243,7 @@ class ItemUtilitiesMod {
     static function drawLockedItemBadges():Void {
         if (activeInventoryUI == null || !isUiVisible(activeInventoryUI))
             return;
+        var viewport = inventoryViewportBounds();
         for (entry in visibleSlots) {
             var slot:Dynamic = entry.slot;
             if (!isActiveLockSlot(entry, slot))
@@ -1252,44 +1252,36 @@ class ItemUtilitiesMod {
             if (!isItemLocked(item))
                 continue;
 
-            var x:Float;
-            var y:Float;
-            try {
-                x = cast HlxRuntime.resolveField(slot, "absX");
-                y = cast HlxRuntime.resolveField(slot, "absY");
-            } catch (_:Dynamic) continue;
-            if (isActiveInventoryGridSlot(entry, slot)
-                && !slotIntersectsInventoryViewport(entry, x, y))
+            var slotRect = NativeUiLayout.rect(slot, 0, 0, INVENTORY_SLOT_SIZE, INVENTORY_SLOT_SIZE);
+            if (slotRect == null || (entry.inventory == sourceInventory
+                && !slotRect.intersects(viewport)))
                 continue;
 
-            var badgeX = x + 40;
-            var badgeY = y + 7;
-            if (buttonCovered(badgeX, badgeY, 16, 17))
+            var badge = NativeUiLayout.rect(slot, 40, 7, 16, 17);
+            if (badge == null || buttonCovered(badge.left, badge.top, badge.width, badge.height))
                 continue;
 
-            ImGui.setNextWindowPos(new ImVec2(badgeX, badgeY));
+            prepareOverlay(badge, 16, 17, 0);
             ImGui.setNextWindowBgAlpha(0);
             var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-                | ImGuiWindowFlags.AlwaysAutoResize | ImGuiWindowFlags.NoSavedSettings
+                | ImGuiWindowFlags.NoScrollWithMouse
+                | ImGuiWindowFlags.NoSavedSettings
                 | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoBackground
                 | ImGuiWindowFlags.NoInputs;
-            ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, new ImVec2(0, 0));
             if (ImGui.begin("##item-lock-badge-" + itemUid(item), null, flags)) {
-                ImGui.invisibleButton("##badge", new ImVec2(16, 17));
+                ImGui.invisibleButton("##badge", overlaySize(16, 17));
                 var drawList = ImGui.getWindowDrawList();
-                var viewport = entry.inventory == sourceInventory
-                    ? inventoryViewportBounds()
-                    : null;
-                if (viewport != null)
+                var clip = entry.inventory == sourceInventory ? viewport : null;
+                if (clip != null)
                     ImGui.ImDrawList_PushClipRect(drawList,
-                        new ImVec2(viewport.left, viewport.top),
-                        new ImVec2(viewport.right, viewport.bottom), true);
+                        new ImVec2(clip.left, clip.top),
+                        new ImVec2(clip.right, clip.bottom), true);
                 drawSmallMetalLockIcon();
-                if (viewport != null)
+                if (clip != null)
                     ImGui.ImDrawList_PopClipRect(drawList);
             }
             ImGui.end();
-            ImGui.popStyleVar();
+            finishOverlay();
         }
     }
 
@@ -1300,28 +1292,28 @@ class ItemUtilitiesMod {
         var keyhole = ImGui.colorConvertFloat4ToU32(new ImVec4(0.20, 0.22, 0.26, 1));
 
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 5, min.y + 8),
-            new ImVec2(min.x + 5, min.y + 5), metal, 2.0);
+            iconPoint(min, 5, 8),
+            iconPoint(min, 5, 5), metal, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 5, min.y + 5),
-            new ImVec2(min.x + 7, min.y + 2), metal, 2.0);
+            iconPoint(min, 5, 5),
+            iconPoint(min, 7, 2), metal, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 7, min.y + 2),
-            new ImVec2(min.x + 10, min.y + 2), metal, 2.0);
+            iconPoint(min, 7, 2),
+            iconPoint(min, 10, 2), metal, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 10, min.y + 2),
-            new ImVec2(min.x + 12, min.y + 5), metal, 2.0);
+            iconPoint(min, 10, 2),
+            iconPoint(min, 12, 5), metal, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 12, min.y + 5),
-            new ImVec2(min.x + 12, min.y + 8), metal, 2.0);
+            iconPoint(min, 12, 5),
+            iconPoint(min, 12, 8), metal, overlayStroke(2.0));
         ImGui.ImDrawList_AddRectFilled(drawList,
-            new ImVec2(min.x + 3, min.y + 7),
-            new ImVec2(min.x + 14, min.y + 16), metal, 2.0, 0);
+            iconPoint(min, 3, 7),
+            iconPoint(min, 14, 16), metal, overlayStroke(2.0), 0);
         ImGui.ImDrawList_AddCircleFilled(drawList,
-            new ImVec2(min.x + 8.5, min.y + 11), 1.25, keyhole, 8);
+            iconPoint(min, 8.5, 11), overlayStroke(1.25), keyhole, 8);
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 8.5, min.y + 11),
-            new ImVec2(min.x + 8.5, min.y + 14), keyhole, 1.5);
+            iconPoint(min, 8.5, 11),
+            iconPoint(min, 8.5, 14), keyhole, overlayStroke(1.5));
     }
 
     static function drawDepositModeIcon(mode:Int):Void {
@@ -1345,19 +1337,19 @@ class ItemUtilitiesMod {
 
         // Long upright handle, drawn first so the head sits over it.
         ImGui.ImDrawList_AddRectFilled(drawList,
-            new ImVec2(min.x + 9, min.y + 9),
-            new ImVec2(min.x + 13, min.y + 19), handle, 1.0, 0);
+            iconPoint(min, 9, 9),
+            iconPoint(min, 13, 19), handle, overlayStroke(1.0), 0);
 
         // Classic horizontal hammer head: a broad striking face on the left
         // and a narrower peen on the right.
         ImGui.ImDrawList_AddRectFilled(drawList,
-            new ImVec2(min.x + 3, min.y + 5),
-            new ImVec2(min.x + 12, min.y + 11), metal, 1.0, 0);
+            iconPoint(min, 3, 5),
+            iconPoint(min, 12, 11), metal, overlayStroke(1.0), 0);
         ImGui.ImDrawList_AddQuadFilled(drawList,
-            new ImVec2(min.x + 12, min.y + 6),
-            new ImVec2(min.x + 18, min.y + 7),
-            new ImVec2(min.x + 18, min.y + 9),
-            new ImVec2(min.x + 12, min.y + 10), metalShade);
+            iconPoint(min, 12, 6),
+            iconPoint(min, 18, 7),
+            iconPoint(min, 18, 9),
+            iconPoint(min, 12, 10), metalShade);
 
         drawDepositArrowAndBucket(min, drawList, mark);
     }
@@ -1371,13 +1363,13 @@ class ItemUtilitiesMod {
 
         // Apple with a leaf.
         ImGui.ImDrawList_AddCircleFilled(drawList,
-            new ImVec2(min.x + 11, min.y + 12), 5.5, food, 12);
+            iconPoint(min, 11, 12), overlayStroke(5.5), food, 12);
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 11, min.y + 7),
-            new ImVec2(min.x + 13, min.y + 4), leaf, 1.5);
+            iconPoint(min, 11, 7),
+            iconPoint(min, 13, 4), leaf, overlayStroke(1.5));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 13, min.y + 5),
-            new ImVec2(min.x + 17, min.y + 6), leaf, 2.0);
+            iconPoint(min, 13, 5),
+            iconPoint(min, 17, 6), leaf, overlayStroke(2.0));
         drawDepositArrowAndBucket(min, drawList, mark);
     }
 
@@ -1389,18 +1381,18 @@ class ItemUtilitiesMod {
 
         // Small potion flask.
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 9, min.y + 5),
-            new ImVec2(min.x + 14, min.y + 5), potion, 2.0);
+            iconPoint(min, 9, 5),
+            iconPoint(min, 14, 5), potion, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 10, min.y + 6),
-            new ImVec2(min.x + 10, min.y + 10), potion, 2.0);
+            iconPoint(min, 10, 6),
+            iconPoint(min, 10, 10), potion, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 13, min.y + 6),
-            new ImVec2(min.x + 13, min.y + 10), potion, 2.0);
+            iconPoint(min, 13, 6),
+            iconPoint(min, 13, 10), potion, overlayStroke(2.0));
         ImGui.ImDrawList_AddTriangleFilled(drawList,
-            new ImVec2(min.x + 10, min.y + 9),
-            new ImVec2(min.x + 5, min.y + 18),
-            new ImVec2(min.x + 16, min.y + 18), potion);
+            iconPoint(min, 10, 9),
+            iconPoint(min, 5, 18),
+            iconPoint(min, 16, 18), potion);
         drawDepositArrowAndBucket(min, drawList, mark);
     }
 
@@ -1412,16 +1404,16 @@ class ItemUtilitiesMod {
 
         // Gem flanked by two small horns.
         ImGui.ImDrawList_AddQuadFilled(drawList,
-            new ImVec2(min.x + 11, min.y + 7),
-            new ImVec2(min.x + 16, min.y + 12),
-            new ImVec2(min.x + 11, min.y + 18),
-            new ImVec2(min.x + 6, min.y + 12), demon);
+            iconPoint(min, 11, 7),
+            iconPoint(min, 16, 12),
+            iconPoint(min, 11, 18),
+            iconPoint(min, 6, 12), demon);
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 7, min.y + 10),
-            new ImVec2(min.x + 4, min.y + 5), demon, 2.0);
+            iconPoint(min, 7, 10),
+            iconPoint(min, 4, 5), demon, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 15, min.y + 10),
-            new ImVec2(min.x + 18, min.y + 5), demon, 2.0);
+            iconPoint(min, 15, 10),
+            iconPoint(min, 18, 5), demon, overlayStroke(2.0));
         drawDepositArrowAndBucket(min, drawList, mark);
     }
 
@@ -1433,14 +1425,14 @@ class ItemUtilitiesMod {
 
         // Three varied pieces represent miscellaneous items.
         ImGui.ImDrawList_AddCircleFilled(drawList,
-            new ImVec2(min.x + 7, min.y + 8), 2.5, misc, 8);
+            iconPoint(min, 7, 8), overlayStroke(2.5), misc, 8);
         ImGui.ImDrawList_AddRectFilled(drawList,
-            new ImVec2(min.x + 11, min.y + 6),
-            new ImVec2(min.x + 16, min.y + 11), misc, 1.0, 0);
+            iconPoint(min, 11, 6),
+            iconPoint(min, 16, 11), misc, overlayStroke(1.0), 0);
         ImGui.ImDrawList_AddTriangleFilled(drawList,
-            new ImVec2(min.x + 7, min.y + 13),
-            new ImVec2(min.x + 12, min.y + 18),
-            new ImVec2(min.x + 3, min.y + 18), misc);
+            iconPoint(min, 7, 13),
+            iconPoint(min, 12, 18),
+            iconPoint(min, 3, 18), misc);
         drawDepositArrowAndBucket(min, drawList, mark);
     }
 
@@ -1452,17 +1444,17 @@ class ItemUtilitiesMod {
 
         // Four-point sparkle communicates "all" without crowding the icon.
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 11, min.y + 5),
-            new ImVec2(min.x + 11, min.y + 18), star, 2.5);
+            iconPoint(min, 11, 5),
+            iconPoint(min, 11, 18), star, overlayStroke(2.5));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 5, min.y + 11),
-            new ImVec2(min.x + 17, min.y + 11), star, 2.5);
+            iconPoint(min, 5, 11),
+            iconPoint(min, 17, 11), star, overlayStroke(2.5));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 7, min.y + 7),
-            new ImVec2(min.x + 15, min.y + 15), star, 1.5);
+            iconPoint(min, 7, 7),
+            iconPoint(min, 15, 15), star, overlayStroke(1.5));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 15, min.y + 7),
-            new ImVec2(min.x + 7, min.y + 15), star, 1.5);
+            iconPoint(min, 15, 7),
+            iconPoint(min, 7, 15), star, overlayStroke(1.5));
 
         drawDepositArrowAndBucket(min, drawList, mark);
     }
@@ -1472,21 +1464,21 @@ class ItemUtilitiesMod {
 
         // Down arrow and receiving tray communicate "deposit" at a glance.
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 23, min.y + 6),
-            new ImVec2(min.x + 23, min.y + 16), mark, 2.0);
+            iconPoint(min, 23, 6),
+            iconPoint(min, 23, 16), mark, overlayStroke(2.0));
         ImGui.ImDrawList_AddTriangleFilled(drawList,
-            new ImVec2(min.x + 19, min.y + 14),
-            new ImVec2(min.x + 27, min.y + 14),
-            new ImVec2(min.x + 23, min.y + 19), mark);
+            iconPoint(min, 19, 14),
+            iconPoint(min, 27, 14),
+            iconPoint(min, 23, 19), mark);
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 18, min.y + 23),
-            new ImVec2(min.x + 28, min.y + 23), mark, 2.0);
+            iconPoint(min, 18, 23),
+            iconPoint(min, 28, 23), mark, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 18, min.y + 19),
-            new ImVec2(min.x + 18, min.y + 23), mark, 2.0);
+            iconPoint(min, 18, 19),
+            iconPoint(min, 18, 23), mark, overlayStroke(2.0));
         ImGui.ImDrawList_AddLine(drawList,
-            new ImVec2(min.x + 28, min.y + 19),
-            new ImVec2(min.x + 28, min.y + 23), mark, 2.0);
+            iconPoint(min, 28, 19),
+            iconPoint(min, 28, 23), mark, overlayStroke(2.0));
     }
 
     static function setGameButtonCursor():Void {
@@ -2087,35 +2079,15 @@ class ItemUtilitiesMod {
         return true;
     }
 
-    static function inventoryViewportBounds():{ left:Float, top:Float, right:Float, bottom:Float } {
+    static function inventoryViewportBounds():OverlayRect {
         var viewport = fieldOrNull(playerInventoryComp, "invContent");
         if (viewport == null || !isUiVisible(viewport))
             return null;
         var rawWidth = fieldOrNull(viewport, "calculatedWidth");
         var rawHeight = fieldOrNull(viewport, "calculatedHeight");
-        var rawLeft = fieldOrNull(viewport, "absX");
-        var rawTop = fieldOrNull(viewport, "absY");
-        if (rawWidth == null || rawHeight == null || rawLeft == null || rawTop == null)
+        if (rawWidth == null || rawHeight == null)
             return null;
-        var width:Float = cast rawWidth;
-        var height:Float = cast rawHeight;
-        var left:Float = cast rawLeft;
-        var top:Float = cast rawTop;
-        if (width <= 0 || height <= 0)
-            return null;
-        return {
-            left: left,
-            top: top,
-            right: left + width,
-            bottom: top + height
-        };
-    }
-
-    static function slotIntersectsInventoryViewport(entry:Dynamic, x:Float, y:Float):Bool {
-        var viewport = inventoryViewportBounds();
-        return viewport != null
-            && x < viewport.right && x + INVENTORY_SLOT_SIZE > viewport.left
-            && y < viewport.bottom && y + INVENTORY_SLOT_SIZE > viewport.top;
+        return NativeUiLayout.rect(viewport, 0, 0, cast rawWidth, cast rawHeight);
     }
 
     static function isActiveInventoryGridSlot(entry:Dynamic, slot:Dynamic):Bool {
@@ -2259,22 +2231,8 @@ class ItemUtilitiesMod {
 
     static function objectOverlaps(object:Dynamic, x:Float, y:Float,
         width:Float, height:Float, inset:Float):Bool {
-        if (h2dObjectType == null)
-            h2dObjectType = HlxRuntime.resolveType("h2d.Object");
-        if (h2dObjectType != null && getBoundsMember == null)
-            getBoundsMember = HlxRuntime.resolveMember(h2dObjectType, "getBounds");
-        if (getBoundsMember == null)
-            return false;
-
-        // getBounds(null, null) returns the final screen-space rectangle.
-        var bounds:Dynamic = HlxRuntime.callResolved(getBoundsMember, [object, null, null]);
-        if (bounds == null)
-            return false;
-        var left:Float = cast HlxRuntime.resolveField(bounds, "xMin") + inset;
-        var top:Float = cast HlxRuntime.resolveField(bounds, "yMin") + inset;
-        var right:Float = cast HlxRuntime.resolveField(bounds, "xMax") - inset;
-        var bottom:Float = cast HlxRuntime.resolveField(bounds, "yMax") - inset;
-        return x < right && x + width > left && y < bottom && y + height > top;
+        var bounds = NativeUiLayout.objectBounds(object, inset);
+        return bounds != null && bounds.intersects(new OverlayRect(x, y, x + width, y + height));
     }
 
     static function toggleItemLock(item:Dynamic):Void {

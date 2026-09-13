@@ -4,6 +4,10 @@
 
 A collection of inventory, bank, equipment, and item-safety quality-of-life tools for Farever.
 
+Lock icons, lock editing, equipment presets, and bank/Recycler buttons follow
+the game's current UI position and scale when changing resolution or resizing
+the window. Their click targets and inventory scrolling boundaries scale with them.
+
 ## Installation
 
 ### Easy Installation
@@ -142,7 +146,7 @@ The compiled mod is written to:
 build/item-utilities/item-utilities.hl
 ```
 
-Run the quick-loot and lock-restoration regression tests (Haxe only; no running game required):
+Run the quick-loot, lock-restoration, and overlay-layout regression tests (Haxe only; no running game required):
 
 ```sh
 haxe test.hxml
