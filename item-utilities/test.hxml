@@ -17,3 +17,8 @@
 -cp tests
 -main TalentPresetTest
 --interp
+--next
+-cp src
+-cp tests
+-main SkillPresetTest
+--interp

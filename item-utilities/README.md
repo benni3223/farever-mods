@@ -2,9 +2,9 @@
 
 [Builds](https://github.com/xWink/farever-mods/actions/workflows/build-item-utilities.yml) · [Releases](https://github.com/xWink/farever-mods/releases?q=item-utilities&expanded=true)
 
-A collection of inventory, bank, equipment, and item-safety quality-of-life tools for Farever.
+A collection of inventory, bank, character preset, and item-safety quality-of-life tools for Farever.
 
-Lock icons, lock editing, equipment and talent presets, and bank/Recycler buttons follow
+Lock icons, lock editing, equipment, talent and skill presets, and bank/Recycler buttons follow
 the game's current UI position and scale when changing resolution or resizing
 the window. Their click targets and inventory scrolling boundaries scale with them.
 
@@ -134,6 +134,26 @@ and the description panel. The controls follow the game's UI scale and position.
   all points. Rejected changes, timeouts, manual changes during application, and
   character/session changes stop the sequence. Hover the preset bar for its status.
 
+### Skill presets
+
+Adds matching **Presets 1 2 3 Set** controls at the far right of the Skills
+page's bottom strip, vertically centered and aligned with the current UI scale.
+
+- Select a preset slot and press **Set** to save the four equipped class skills,
+  their slot order, and the runes equipped on each of those skills.
+- Click a saved preset or use its **Skill preset 1/2/3 hotkey** under **Skill
+  Presets** in Better Mod Settings. Hotkeys also work with the window closed.
+- Presets and the selected slot are saved separately for each character,
+  independently of equipment and talent presets. An unsaved slot changes nothing.
+- Empty slots and no-rune selections are saved exactly. A preset with one rune
+  restores that rune and removes any extra rune from that skill. Multiple runes
+  are supported when the game permits them; runes on other skills are left alone.
+- The saved skills and runes must be unlocked, and changes cannot be applied in
+  combat. All checks happen before applying the first change.
+- Uses normal skill-slot and rune requests, waiting for each server update.
+  Rejections, timeouts, unexpected changes, entering combat, and character or
+  session changes stop the sequence. Hover the preset bar to see its status.
+
 ### Settings
 
 Available settings include:
@@ -147,6 +167,7 @@ Available settings include:
 - Delete all saved locks
 - Configure or clear hotkeys for equipment presets 1–3
 - Configure or clear hotkeys for talent presets 1–3
+- Configure or clear hotkeys for skill presets 1–3
 
 ## Requirements
 
@@ -168,7 +189,7 @@ The compiled mod is written to:
 build/item-utilities/item-utilities.hl
 ```
 
-Run the quick-loot, lock-restoration, overlay-layout, and talent-preset regression tests (Haxe only; no running game required):
+Run the quick-loot, lock-restoration, overlay-layout, talent-preset, and skill-preset regression tests (Haxe only; no running game required):
 
 ```sh
 haxe test.hxml

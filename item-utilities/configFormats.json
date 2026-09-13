@@ -67,6 +67,10 @@
     { "type": "title", "label": "Talent Presets" },
     { "key": "talentPreset1Hotkey", "type": "keybinding", "label": "Talent preset 1 hotkey" },
     { "key": "talentPreset2Hotkey", "type": "keybinding", "label": "Talent preset 2 hotkey" },
-    { "key": "talentPreset3Hotkey", "type": "keybinding", "label": "Talent preset 3 hotkey" }
+    { "key": "talentPreset3Hotkey", "type": "keybinding", "label": "Talent preset 3 hotkey" },
+    { "type": "title", "label": "Skill Presets" },
+    { "key": "skillPreset1Hotkey", "type": "keybinding", "label": "Skill preset 1 hotkey" },
+    { "key": "skillPreset2Hotkey", "type": "keybinding", "label": "Skill preset 2 hotkey" },
+    { "key": "skillPreset3Hotkey", "type": "keybinding", "label": "Skill preset 3 hotkey" }
   ]
 }
