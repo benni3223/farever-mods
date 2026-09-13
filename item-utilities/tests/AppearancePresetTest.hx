@@ -2,6 +2,7 @@ import itemutilities.AppearancePresetLayout;
 import itemutilities.AppearancePresetPlan;
 import itemutilities.AppearancePresetPlan.AppearanceSlotRule;
 import itemutilities.AppearancePresetTransfer;
+import itemutilities.AppearancePresetStore;
 import itemutilities.OverlayRect;
 import itemutilities.UiOverlayGeometry;
 
@@ -27,6 +28,20 @@ class AppearancePresetTest {
     static function defaults():Map<String, String> return [for (r in rules()) r.slot => null];
 
     static function main():Void {
+        var saved:Dynamic = haxe.Json.parse('{"appearancePresets":[{"characterId":"warrior","preset":0},{"characterId":"rogue","preset":2}],"selectedAppearancePresets":[{"characterId":"warrior","preset":1},{"characterId":"rogue","preset":2}],"appearancePreset1Hotkey":80,"lockedItems":[{"uid":"locked-net"}],"talentPresets":[{"preset":1}],"skillPresets":[{"preset":2}],"weaponPresets":[{"preset":0}],"enabled":false,"futureOption":"preserve"}');
+        var original = haxe.Json.stringify(saved);
+        var cleared = AppearancePresetStore.cleared(saved);
+        check(cleared.appearancePresets.length == 0, "reset removes appearance presets for every character");
+        check(cleared.selectedAppearancePresets.length == 0, "reset clears selections for every character");
+        check(haxe.Json.stringify(saved) == original, "failed save can leave original presets intact");
+        var roundTrip = haxe.Json.parse(haxe.Json.stringify(cleared));
+        for (key in Reflect.fields(saved))
+            if (key != "appearancePresets" && key != "selectedAppearancePresets")
+                check(haxe.Json.stringify(Reflect.field(roundTrip, key)) == haxe.Json.stringify(Reflect.field(saved, key)), "reset preserves " + key);
+        check(haxe.Json.stringify(AppearancePresetStore.cleared(cleared)) == haxe.Json.stringify(cleared), "repeated reset is harmless");
+        var invalidConfigs:Array<Dynamic> = [null, true, 12, "bad config", []];
+        for (invalid in invalidConfigs)
+            rejects(function() AppearancePresetStore.cleared(invalid), "invalid configuration cannot be overwritten by reset");
         var slots = rules();
         var current = defaults();
         var target = defaults();

@@ -139,6 +139,24 @@ class KeyCaptureInputTest {
         input.update(2); input.update(3);
         eq(input.blocking, false, "fast tap drains without a held key");
         eq(nativeWrites, 0, "fast tap never leaks to direct polling");
+        fresh(); begin();
+        event("EPush", 1, 1);
+        // The assignment button's onPushRight cancels capture before polling,
+        // then consumes the gesture until its onRightClick clears the binding.
+        input.finish(); begin(); input.finish();
+        eq(input.takePressedKey(), 0, "right-click unbind cannot accidentally assign Mouse Right");
+        eq(rawPressed(1, 2), false, "unbind during capture is hidden from other hotkeys");
+        event("ERelease", 1, 2);
+        eq(rawReleased(1, 3), false, "unbind release stays private");
+        input.update(3); input.update(4);
+        eq(input.blocking, false, "unbind gesture drains without sticking input");
+
+        fresh(); event("EPush", 1, 1);
+        begin(); input.finish(); // right-click unbind with no picker open
+        eq(rawDown(1), false, "unbind clears already-published right button state");
+        event("ERelease", 1, 2);
+        input.update(3); input.update(4);
+        eq(input.blocking, false, "direct unbind releases input protection");
         Sys.println('Better Mod Settings: $checks central input checks passed.');
     }
 }

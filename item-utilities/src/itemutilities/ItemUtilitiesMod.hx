@@ -267,6 +267,10 @@ class ItemUtilitiesMod {
             SETTINGS_CHANGED_TOPIC_PREFIX + HlxRuntime.moduleName(),
             onBetterModSettingsChanged
         );
+        Bus.subscribe(
+            "better-mod-settings/action/" + HlxRuntime.moduleName() + "/resetAppearancePresets",
+            resetAppearancePresets
+        );
         ImGui.register(HlxRuntime.moduleName(), draw);
     }
 
@@ -1293,6 +1297,29 @@ class ItemUtilitiesMod {
         talentPresetHost = null;
         talentPresetSpecialization = null;
         talentPresetCharacterId = null;
+    }
+
+    static function resetAppearancePresets(_:Dynamic):Void {
+        try {
+            // Read the latest file, preserving other settings and preset types.
+            // Commit the deletion before changing runtime state or reporting it.
+            var values:Dynamic = Json.parse(sys.io.File.getContent(
+                "hlx/config/" + HlxRuntime.moduleName() + "/config.json"));
+            ModConfig.save(HlxRuntime.moduleName(), AppearancePresetStore.cleared(values));
+            config.appearancePresets = [];
+            config.selectedAppearancePresets = [];
+            appearancePresetTransfer.cancel();
+            appearancePresetHero = null;
+            appearancePresetHost = null;
+            appearancePresetLoadout = null;
+            appearancePresetCharacterId = null;
+            selectedAppearancePreset = 0;
+            selectedAppearancePresetCharacterId = heroPersistentId(resolveHero());
+            appearancePresetStatus = "Appearance presets reset.";
+        } catch (error:Dynamic) {
+            appearancePresetStatus = "Could not reset appearance presets.";
+            logLockError("reset appearance presets", error);
+        }
     }
 
     static function syncSelectedAppearancePreset():Void {

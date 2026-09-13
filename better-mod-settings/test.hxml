@@ -7,3 +7,8 @@
 -cp tests
 -main KeyCaptureInputTest
 --interp
+--next
+-cp src
+-cp tests
+-main ActionButtonTest
+--interp

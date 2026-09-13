@@ -159,6 +159,11 @@ page's bottom strip, vertically centered and aligned with the current UI scale.
 Adds matching **Presets 1 2 3 Set** controls to the left of **Character** in the
 Appearance view, following the button's position and the game's UI scale.
 
+**Reset appearance presets** at the bottom of **Appearance Presets** in Better Mod
+Settings deletes saved appearance presets and their selected slots for every
+character after **Continue** is confirmed. Current appearances, hotkeys, item locks,
+and the other preset categories are preserved. Update both mods to use this button.
+
 - Select a preset slot and press **Set** to save the appearance choices for
   all eight armour slots: head, shoulders, chest, back, hands, waist, legs and feet.
 - Click a saved preset or use its **Appearance preset 1/2/3 hotkey** under

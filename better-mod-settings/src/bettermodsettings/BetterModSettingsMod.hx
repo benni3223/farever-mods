@@ -18,6 +18,9 @@ class BetterModSettingsMod {
     static var openingNativeSettingsWindow:Bool = false;
     static var compatibleMods:Array<Dynamic> = [];
     static var pendingSettingsNotifications:Map<String, Bool> = new Map();
+    static var actionButtons = new ActionButtonQueue();
+    static var actionDialog:Dynamic;
+    static var actionWindow:Dynamic;
     static var capturingKeybind:Dynamic;
     static var nativeOptionLabelStyle:Dynamic;
     static var pendingOptionLabels:Array<Dynamic> = [];
@@ -54,6 +57,8 @@ class BetterModSettingsMod {
     static var getComponentMember:hlx.runtime.ResolvedMember;
     static var getParentPropertiesMember:hlx.runtime.ResolvedMember;
     static var setOnClickMember:hlx.runtime.ResolvedMember;
+    static var setOnRightClickMember:hlx.runtime.ResolvedMember;
+    static var setOnPushRightMember:hlx.runtime.ResolvedMember;
     static var setMinWidthMember:hlx.runtime.ResolvedMember;
     static var setMinHeightMember:hlx.runtime.ResolvedMember;
     static var setMaxWidthMember:hlx.runtime.ResolvedMember;
@@ -146,6 +151,10 @@ class BetterModSettingsMod {
         capturingKeybind = null;
         captureInput.reset();
         nativeSettingsWindow = null;
+        actionButtons.reset();
+        actionDialog = null;
+        actionWindow = null;
+        pendingSettingsNotifications = new Map();
         return Continue;
     }
 
@@ -177,6 +186,7 @@ class BetterModSettingsMod {
         refreshPendingOptionLabelStyles();
         refreshPendingTabPagination();
         flushSettingsNotifications();
+        flushButtonActions();
     }
 
     @:hlx.prefix(ui.win.BaseWindow.closeSelfOnOpen)
@@ -887,6 +897,31 @@ class BetterModSettingsMod {
                     HlxRuntime.callResolved(setOnClickMember, [keyButton, function():Void {
                         beginKeyCapture(targetMod, targetKey, keyButton);
                     }]);
+                    // Cancel capture on press, before the private input reader
+                    // could assign this right-click as Mouse Right. Clear on click.
+                    HlxRuntime.callResolved(setOnPushRightMember, [keyButton, function():Void {
+                        cancelKeyCapture();
+                        if (protectHeldInput()) captureInput.finish();
+                    }]);
+                    HlxRuntime.callResolved(setOnRightClickMember, [keyButton, function():Void {
+                        cancelKeyCapture();
+                        if (saveSetting(targetMod, targetKey, 0))
+                            setKeyButtonText(keyButton, keyName(0));
+                    }]);
+                }
+            } else if (type == "button") {
+                var action = new ActionButton(stringField(mod, "id", ""), definition);
+                var properties:Dynamic = HlxRuntime.callResolved(createNewMember, [
+                    "button", settingParent, [action.buttonText], {id: "setting" + index}
+                ]);
+                prepareSettingControl(settingParent, properties, false);
+                var button = properties == null ? null : HlxRuntime.resolveField(properties, "obj");
+                if (button != null) {
+                    try NativeActionButton.style(properties, action.colour)
+                    catch (error:Dynamic) trace("[BetterModSettings] Could not style action: " + Std.string(error));
+                    HlxRuntime.callResolved(setOnClickMember, [button, function():Void {
+                        activateButton(action);
+                    }]);
                 }
             }
         }
@@ -1225,13 +1260,13 @@ class BetterModSettingsMod {
         }
     }
 
-    static function beginKeyCapture(mod:Dynamic, key:String, button:Dynamic):Void {
-        if (!resolveKeyInputMembers()) return;
+    static function protectHeldInput():Bool {
+        if (!resolveKeyInputMembers()) return false;
         var keyState:Dynamic = HlxRuntime.resolveStaticField(hxdKeyType, "keyPressed");
-        if (keyState == null) return;
+        if (keyState == null) return false;
         // Allocate through the native array method, preserving its cross-module type.
         var emptyState:Dynamic = HlxRuntime.callResolved(sliceKeyStateMember, [keyState, 0, 0]);
-        if (emptyState == null) return;
+        if (emptyState == null) return false;
         var held:Array<Int> = [];
         var length:Int = HlxRuntime.resolveField(keyState, "length");
         for (code in 0...length) {
@@ -1241,8 +1276,22 @@ class BetterModSettingsMod {
         // Consume input already down when the picker opens as well. Do not replay
         // it later: capture remains active until those physical keys are released.
         HlxRuntime.setStaticField(hxdKeyType, "keyPressed", emptyState);
-        capturingKeybind = { mod: mod, key: key, button: button };
         captureInput.begin(held);
+        return true;
+    }
+
+    static function cancelKeyCapture():Void {
+        if (capturingKeybind == null) return;
+        var capture = capturingKeybind;
+        capturingKeybind = null;
+        captureInput.finish();
+        setKeyButtonText(capture.button, keyName(intValue(capture.mod.values, capture.key, 0)));
+    }
+
+    static function beginKeyCapture(mod:Dynamic, key:String, button:Dynamic):Void {
+        cancelKeyCapture();
+        if (!protectHeldInput()) return;
+        capturingKeybind = { mod: mod, key: key, button: button };
         setKeyButtonText(button, "Press a key...");
     }
 
@@ -1262,12 +1311,12 @@ class BetterModSettingsMod {
                 );
                 return;
             }
-            saveSetting(
+            var saved = saveSetting(
                 Reflect.field(capture, "mod"),
                 Std.string(Reflect.field(capture, "key")),
                 keyCode
             );
-            setKeyButtonText(Reflect.field(capture, "button"), keyName(keyCode));
+            setKeyButtonText(capture.button, keyName(saved ? keyCode : intValue(capture.mod.values, capture.key, 0)));
             return;
         }
     }
@@ -2144,19 +2193,57 @@ class BetterModSettingsMod {
             HlxRuntime.setField(check, "selected", value);
     }
 
-    static function saveSetting(mod:Dynamic, key:String, value:Dynamic):Void {
+    static function saveSetting(mod:Dynamic, key:String, value:Dynamic):Bool {
         try {
             var settingsPath = Std.string(Reflect.field(mod, "settingsPath"));
             var values:Dynamic = Json.parse(File.getContent(settingsPath));
             Reflect.setField(values, key, value);
-            Reflect.setField(mod, "values", values);
             if (Reflect.field(mod, "nativeConfig") == true)
                 ModConfig.save(stringField(mod, "id", ""), values);
             else
                 File.saveContent(settingsPath, Json.stringify(values, null, "  "));
+            Reflect.setField(mod, "values", values);
             queueSettingsNotification(mod);
+            return true;
         } catch (error:Dynamic) {
             trace("[BetterModSettings] Could not save " + key + ": " + Std.string(error));
+            return false;
+        }
+    }
+
+    static function activateButton(button:ActionButton):Void {
+        if (!NativeActionButton.isOpen(nativeSettingsWindow)) return;
+        cancelKeyCapture();
+        var token = actionButtons.request(button);
+        if (token <= 0) return;
+        var owner = nativeSettingsWindow;
+        actionWindow = owner;
+        try {
+            actionDialog = NativeActionButton.confirm(button, function(confirmed:Bool):Void {
+                actionButtons.complete(token, confirmed && owner == nativeSettingsWindow
+                    && NativeActionButton.isOpen(owner));
+            });
+        } catch (error:Dynamic) {
+            // Failure to display a warning must never fall through to execution.
+            actionButtons.complete(token, false);
+            trace("[BetterModSettings] Could not confirm action: " + Std.string(error));
+        }
+    }
+
+    static function flushButtonActions():Void {
+        var pending = actionButtons.pending;
+        if (pending != null && (actionWindow != nativeSettingsWindow
+            || !NativeActionButton.isOpen(actionWindow) || !NativeActionButton.isOpen(actionDialog)))
+            actionButtons.complete(pending.token, false);
+        if (actionButtons.pending == null) {
+            actionDialog = null;
+            actionWindow = null;
+        }
+        // Reload notifications go first, so a callback saving its configuration
+        // sees all edits from this frame. Actions never write config themselves.
+        for (topic in actionButtons.takeNotifications()) {
+            try Bus.publish(topic, null)
+            catch (error:Dynamic) trace("[BetterModSettings] Could not run " + topic + ": " + Std.string(error));
         }
     }
 
@@ -2228,8 +2315,14 @@ class BetterModSettingsMod {
             getParentPropertiesMember = HlxRuntime.resolveMember(propertiesType, "get_parent");
         if (setOnClickMember == null)
             setOnClickMember = HlxRuntime.resolveMember(uiElementType, "set_onClick");
+        if (setOnRightClickMember == null)
+            setOnRightClickMember = HlxRuntime.resolveMember(uiElementType, "set_onRightClick");
+        if (setOnPushRightMember == null)
+            setOnPushRightMember = HlxRuntime.resolveMember(uiElementType, "set_onPushRight");
         return createNewMember != null
             && getParentPropertiesMember != null
-            && setOnClickMember != null;
+            && setOnClickMember != null
+            && setOnRightClickMember != null
+            && setOnPushRightMember != null;
     }
 }

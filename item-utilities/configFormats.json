@@ -75,6 +75,17 @@
     { "type": "title", "label": "Appearance Presets" },
     { "key": "appearancePreset1Hotkey", "type": "keybinding", "label": "Appearance preset 1 hotkey" },
     { "key": "appearancePreset2Hotkey", "type": "keybinding", "label": "Appearance preset 2 hotkey" },
-    { "key": "appearancePreset3Hotkey", "type": "keybinding", "label": "Appearance preset 3 hotkey" }
+    { "key": "appearancePreset3Hotkey", "type": "keybinding", "label": "Appearance preset 3 hotkey" },
+    {
+      "key": "resetAppearancePresets",
+      "type": "button",
+      "label": "Reset appearance presets",
+      "buttonText": "Reset",
+      "colour": "red",
+      "warning": {
+        "enabled": true,
+        "warningText": "Delete all saved appearance presets for every character? Your current appearance and hotkey bindings will stay unchanged."
+      }
+    }
   ]
 }
