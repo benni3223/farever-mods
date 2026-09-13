@@ -74,8 +74,11 @@ class BetterModSettingsMod {
     static var setTitleTextMember:hlx.runtime.ResolvedMember;
     static var setUiSelectedMember:hlx.runtime.ResolvedMember;
     static var isKeyPressedMember:hlx.runtime.ResolvedMember;
+    static var isKeyDownMember:hlx.runtime.ResolvedMember;
+    static var isKeyReleasedMember:hlx.runtime.ResolvedMember;
     static var getKeyFrameMember:hlx.runtime.ResolvedMember;
-    static var captureBlockFrame:Int = -1;
+    static var captureInput = new KeyCaptureState();
+    static var readingCaptureInput:Bool = false;
     static var getKeyNameMember:hlx.runtime.ResolvedMember;
     static var setVisibleMember:hlx.runtime.ResolvedMember;
     static var initStyleMember:hlx.runtime.ResolvedMember;
@@ -97,14 +100,47 @@ class BetterModSettingsMod {
 
     static function main():Void {}
 
-    @:hlx.prefix(lib.Input.isPressed)
-    static function protectKeyCapture(key:String):HlxPrefixResult<Bool> {
-        if (key != "ToggleUI") return Continue;
-        if (capturingKeybind != null) return SkipWith(false);
-        // Capture finishes during GameApp.update's postfix. Keep this frame blocked
-        // as well, including UI input checks that run after the new setting is saved.
-        if (captureBlockFrame >= 0 && captureBlockFrame == keyFrame()) return SkipWith(false);
-        captureBlockFrame = -1;
+    @:hlx.prefix(lib.Input.checkInput)
+    static function protectNativeInput(key:String, checkKey:Dynamic, checkPad:Dynamic):HlxPrefixResult<Bool> {
+        // Native input callbacks inline hxd.Key reads, so protect this entry point too.
+        // This includes isPressedWithoutMode as well as pressed/down/released actions.
+        return captureInput.blocking ? SkipWith(false) : Continue;
+    }
+
+    @:hlx.prefix(hxd.Key.isPressed)
+    @:hlx.prefix(hxd.Key.isDown)
+    @:hlx.prefix(hxd.Key.isReleased)
+    static function protectDirectKeyInput(keyCode:Int):HlxPrefixResult<Bool> {
+        // Mods also poll hxd.Key directly (for example equipment presets and DPS Meter).
+        return captureInput.blocking && !readingCaptureInput ? SkipWith(false) : Continue;
+    }
+
+    @:hlx.prefix(GameApp.update)
+    static function beforeGameAppUpdate(instance:Dynamic, dt:Float):HlxPrefixResult<Void> {
+        // Closing the settings window also cancels its pending assignment.
+        if (capturingKeybind != null && (nativeSettingsWindow == null
+            || HlxRuntime.resolveField(nativeSettingsWindow, "allocated") != true)) {
+            capturingKeybind = null;
+            captureInput.finish();
+        }
+        if (captureInput.blocking && !captureInput.capturing && resolveKeyInputMembers()) {
+            var activity = false;
+            for (keyCode in 0...512) {
+                if (readCaptureKey(isKeyDownMember, keyCode) || readCaptureKey(isKeyReleasedMember, keyCode)) {
+                    activity = true;
+                    break;
+                }
+            }
+            captureInput.update(keyFrame(), activity);
+        }
+        return Continue;
+    }
+
+    @:hlx.prefix(GameApp.dispose)
+    static function resetKeyCapture(instance:Dynamic):HlxPrefixResult<Void> {
+        capturingKeybind = null;
+        captureInput.reset();
+        nativeSettingsWindow = null;
         return Continue;
     }
 
@@ -113,6 +149,34 @@ class BetterModSettingsMod {
         if (getKeyFrameMember == null && hxdKeyType != null)
             getKeyFrameMember = HlxRuntime.resolveStaticMember(hxdKeyType, "getFrame");
         return getKeyFrameMember == null ? -1 : HlxRuntime.callResolved(getKeyFrameMember, []);
+    }
+
+    static function resolveKeyInputMembers():Bool {
+        if (hxdKeyType == null) hxdKeyType = HlxRuntime.resolveType("hxd.Key");
+        if (hxdKeyType == null) return false;
+        if (isKeyPressedMember == null)
+            isKeyPressedMember = HlxRuntime.resolveStaticMember(hxdKeyType, "isPressed");
+        if (isKeyDownMember == null)
+            isKeyDownMember = HlxRuntime.resolveStaticMember(hxdKeyType, "isDown");
+        if (isKeyReleasedMember == null)
+            isKeyReleasedMember = HlxRuntime.resolveStaticMember(hxdKeyType, "isReleased");
+        if (getKeyFrameMember == null)
+            getKeyFrameMember = HlxRuntime.resolveStaticMember(hxdKeyType, "getFrame");
+        return isKeyPressedMember != null && isKeyDownMember != null
+            && isKeyReleasedMember != null && getKeyFrameMember != null;
+    }
+
+    static function readCaptureKey(member:hlx.runtime.ResolvedMember, keyCode:Int):Bool {
+        // Bypass only this one raw read. Never bypass gameplay while saving config
+        // or notifying other mods, and always restore the guard if the read fails.
+        readingCaptureInput = true;
+        var pressed:Bool;
+        try pressed = HlxRuntime.callResolved(member, [keyCode]) == true catch (error:Dynamic) {
+            readingCaptureInput = false;
+            throw error;
+        }
+        readingCaptureInput = false;
+        return pressed;
     }
 
     @:hlx.postfix(GameApp.update)
@@ -1170,29 +1234,25 @@ class BetterModSettingsMod {
     }
 
     static function beginKeyCapture(mod:Dynamic, key:String, button:Dynamic):Void {
+        if (!resolveKeyInputMembers()) return;
         capturingKeybind = { mod: mod, key: key, button: button };
+        captureInput.begin();
         setKeyButtonText(button, "Press a key...");
     }
 
     static function capturePressedKey():Void {
         if (capturingKeybind == null)
             return;
-        if (hxdKeyType == null)
-            hxdKeyType = HlxRuntime.resolveType("hxd.Key");
-        if (hxdKeyType == null)
-            return;
-        if (isKeyPressedMember == null)
-            isKeyPressedMember = HlxRuntime.resolveStaticMember(hxdKeyType, "isPressed");
-        if (isKeyPressedMember == null)
+        if (!resolveKeyInputMembers())
             return;
 
         for (keyCode in 1...512) {
-            var pressed:Dynamic = HlxRuntime.callResolved(isKeyPressedMember, [keyCode]);
+            var pressed = readCaptureKey(isKeyPressedMember, keyCode);
             if (pressed != true)
                 continue;
             var capture = capturingKeybind;
-            captureBlockFrame = keyFrame();
             capturingKeybind = null;
+            captureInput.finish();
             if (keyCode == 27) {
                 var values:Dynamic = Reflect.field(Reflect.field(capture, "mod"), "values");
                 setKeyButtonText(

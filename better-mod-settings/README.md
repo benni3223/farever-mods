@@ -107,7 +107,9 @@ A title displays larger, bold text on its own row, without a separator or contro
 | --- | --- | --- | --- |
 | `checkbox` | Boolean (`true` or `false`) | None | Represents a boolean only. A missing value is displayed as `false`. |
 | `slider` | Number | `min` (default `0`), `max` (default `100`), and `step` (default `1`), all numbers | Supply sensible bounds with `min <= max` and a positive `step`. A missing value starts at `min`. |
-| `keybinding` | Integer key code | None | Captures one `hxd.Key`-compatible key only. Modifier combinations and multi-key chords are not supported. `0` means **Not set**. Escape cancels capture and cannot be assigned through the UI. Hide UI is suppressed during capture and on the frame a key is assigned. |
+| `keybinding` | Integer key code | None | Captures one `hxd.Key`-compatible key only. Modifier combinations and multi-key chords are not supported. `0` means **Not set**. Escape cancels capture and cannot be assigned through the UI. All hotkey activation is suppressed during assignment, including held input and release events. |
+
+Key capture blocks both native game actions and mods that poll `hxd.Key.isPressed`, `isDown`, or `isReleased` directly. Only the picker reads the raw input. After assignment or Escape cancellation, protection remains until all keys/buttons are released and a quiet frame passes. The assigned key must be pressed again to activate its action. Closing the settings window cancels an unfinished assignment; leaving the game clears capture state.
 
 The current format does not provide text inputs, dropdowns, buttons, color pickers, nested objects, collapsible groups, conditional controls, or settings that span multiple JSON properties.
 
@@ -167,3 +169,7 @@ Requires Haxe 4.3.7 and the [HLX runtime](https://github.com/hlx-framework/hlx-c
 cd better-mod-settings
 haxe compile.hxml
 ```
+
+## Capture regression checks
+
+Run `haxe test.hxml` from `better-mod-settings/`. CI checks assignment, cancellation, held/repeated input, release events, multiple updates per frame, consecutive assignments, focus loss, and disposal before packaging. The input hooks are checked against the supplied live and PTR bytecode.

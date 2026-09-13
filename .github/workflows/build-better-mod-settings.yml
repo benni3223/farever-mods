@@ -24,10 +24,21 @@ concurrency:
   cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.7
+      - name: Test hotkey capture and release protection
+        working-directory: better-mod-settings
+        run: haxe test.hxml
+
   build:
+    needs: test
     uses: ./.github/workflows/_build-mod.yml
     with:
       project: better-mod-settings
       module: better-mod-settings
       title: Better Mod Settings
-
