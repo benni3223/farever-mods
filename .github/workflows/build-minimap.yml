@@ -31,7 +31,7 @@ jobs:
       - uses: krdlab/setup-haxe@v1
         with:
           haxe-version: 4.3.7
-      - name: Test activity visibility and dungeon classification
+      - name: Test marker classification, visibility, and minimap positioning
         working-directory: minimap
         run: haxe test.hxml
 

@@ -7,6 +7,38 @@ class LandmarkIcons {
     public static function draw(graphics:Dynamic, kind:String, radius:Float):Void {
         if (kind == "obelisk") obelisk(graphics, radius);
         else if (kind == "dungeon") dungeon(graphics, radius);
+        else if (kind == "soulstone") soulstone(graphics, radius);
+    }
+
+    static function soulstone(g:Dynamic, r:Float):Void {
+        // A runic summoning ring around a faceted soulstone, distinct from portals.
+        fill(g, 0x251c32);
+        circle(g, 0, 0, r + 1);
+        end(g);
+        fill(g, 0xc5a0e6);
+        circle(g, 0, 0, r);
+        end(g);
+        fill(g, 0x473458);
+        circle(g, 0, 0, r * 0.73);
+        end(g);
+        fill(g, 0xeee0ff);
+        polygon(g, r, [-0.12, -1, 0.12, -1, 0.12, -0.64, -0.12, -0.64]);
+        for (side in [-1, 1])
+            polygon(g, r, [0.64, -0.12, 1, -0.12, 1, 0.12, 0.64, 0.12], side);
+        polygon(g, r, [-0.12, 0.64, 0.12, 0.64, 0.12, 1, -0.12, 1]);
+        end(g);
+        fill(g, 0x211829);
+        polygon(g, r, [0, -0.67, 0.43, -0.12, 0.32, 0.43, 0, 0.65, -0.32, 0.43, -0.43, -0.12]);
+        end(g);
+        fill(g, 0xf28fc8);
+        polygon(g, r, [0, -0.52, 0.3, -0.1, 0.22, 0.33, 0, 0.49, -0.22, 0.33, -0.3, -0.1]);
+        end(g);
+        fill(g, 0xa74596);
+        polygon(g, r, [0, -0.52, 0.3, -0.1, 0.22, 0.33, 0, 0.49]);
+        end(g);
+        fill(g, 0xffdbf0);
+        polygon(g, r, [0, -0.52, 0, 0.12, -0.3, -0.1]);
+        end(g);
     }
 
     static function obelisk(g:Dynamic, r:Float):Void {

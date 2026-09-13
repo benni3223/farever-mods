@@ -49,6 +49,8 @@ class MinimapView {
     var loader:Dynamic;
     var tileWorldWidth:Float = 0;
     var size:Int = 0;
+    var panelX:Float = Math.NaN;
+    var panelY:Float = Math.NaN;
     var scale:Float = 0;
     var bounds:String = "";
     var index:Map<String, MapTile> = [];
@@ -116,7 +118,18 @@ class MinimapView {
         position(terrain, -x * scale, -y * scale);
         position(npcTerrain, -x * scale, -y * scale);
         G.call("h2d.Object", "set_rotation", arrow, [heading + rotation]);
-        position(panel, config.leftCorner ? 24 : Math.max(0, G.number(G.call("h2d.Flow", "get_innerWidth", root)) - size - BORDER * 2 - 24), 24);
+        var outerSize = size + BORDER * 2;
+        var screenWidth = G.number(G.call("h2d.Flow", "get_innerWidth", root));
+        var screenHeight = G.number(G.call("h2d.Flow", "get_innerHeight", root));
+        var nextX = MinimapPosition.axis(screenWidth, outerSize, config.xOffset, !config.leftCorner);
+        var nextY = MinimapPosition.axis(screenHeight, outerSize, config.yOffset);
+        if (panelX != nextX || panelY != nextY) {
+            panelX = nextX; panelY = nextY;
+            hovered = false;
+            setHoverCaption("");
+        }
+        // A native Flow reflow can move absolute children; reapply after measuring it.
+        position(panel, panelX, panelY);
         // A rotating square needs enough tiles/markers to cover its diagonal.
         var radius = size / (2 * scale) * (config.rotateMap && !circular ? Math.sqrt(2) : 1);
         selectTiles(x, y, radius);
@@ -411,5 +424,6 @@ class MinimapView {
         markerScale = 0;
         index = []; sprites = []; wanted = []; cached = [];
         size = 0; scale = 0; bounds = ""; generation = 0; circular = false;
+        panelX = Math.NaN; panelY = Math.NaN;
     }
 }

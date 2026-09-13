@@ -1,12 +1,25 @@
 package minimap;
 
-/** Native activity/progress boundary for the interpreter regression tests. */
+/** Native activity/progress and item boundaries for interpreter regression tests. */
 class GameAccess {
     public static var definitions:Map<String, Dynamic> = [];
     public static var completionReads:Int = 0;
+    public static var items:Map<String, Dynamic> = [];
+    public static var itemReads:Int = 0;
 
     public static function field(object:Dynamic, name:String):Dynamic
         return object == null ? null : Reflect.field(object, name);
+
+    public static function text(value:Dynamic, fallback:String = ""):String
+        return value == null ? fallback : Std.string(value);
+
+    public static function array(value:Dynamic):Array<Dynamic>
+        return value == null ? [] : cast value;
+
+    public static function current(type:String, name:String):Dynamic {
+        if (type == "Data" && name == "item") return {byId: items};
+        throw "Unexpected native static field";
+    }
 
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
         if (type != "HActivity" || name != "isOfType") throw "Unexpected native static call";
@@ -22,6 +35,10 @@ class GameAccess {
     }
 
     public static function call(type:String, name:String, object:Dynamic, ?args:Array<Dynamic>):Dynamic {
+        if (type == "haxe.ds.StringMap" && name == "get") {
+            itemReads++;
+            return items[args[0]];
+        }
         if (type != "st.player.Progress" || name != "hasActivityCompleted") throw "Unexpected native call";
         completionReads++;
         return object.completed == args[0];

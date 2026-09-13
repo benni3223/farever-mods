@@ -66,6 +66,7 @@ class MinimapMarkers {
     var landmarks:Map<String, MapPoint> = [];
     var stationSource:Dynamic;
     var stationDefinitions:Array<Dynamic> = [];
+    var soulstoneDefinitions:Array<Dynamic> = [];
     var secretOrbs:Map<String, MapPoint> = [];
     var activitySource:Dynamic;
     var activityOrbSource:Dynamic;
@@ -200,12 +201,17 @@ class MinimapMarkers {
         if (stationSource != allElements) {
             stationSource = allElements;
             stationDefinitions = [];
-            // Stations have no dedicated HElement list. Index the loaded
-            // definitions once, not on each marker refresh or from disk.
+            soulstoneDefinitions = [];
+            // Stations and soulstone circles have no dedicated HElement list.
+            // Index loaded definitions once, not on each refresh or from disk.
             if (allElements != null) for (definition in G.array(G.staticCall("HElement", "all", []))) {
                 if (G.text(G.field(definition, "mapId")) != level) continue;
                 if (stationKind(G.integer(G.field(G.field(definition, "inf"), "type"))) != "")
                     stationDefinitions.push(definition);
+                var inf = G.field(definition, "inf");
+                if (SoulstoneMarkers.isCircle(inf)
+                    && G.staticCall("Config", "checkStatus", [G.field(G.field(inf, "props"), "releaseStatus")]) == true)
+                    soulstoneDefinitions.push(definition);
             }
             secretOrbs = [];
             if (allElements != null) {
@@ -234,9 +240,18 @@ class MinimapMarkers {
         }
         if (!changed) return;
         landmarks = [];
-        for (name in ["obelisks", "respawnPoints", "npcs", "stations"]) {
-            var kind = name == "obelisks" ? "obelisk" : name == "respawnPoints" ? "respawn" : "npc";
-            var definitions = name == "stations" ? stationDefinitions : G.array(landmarkSources[name]);
+        for (name in ["obelisks", "respawnPoints", "npcs", "stations", "soulstoneCircles"]) {
+            var kind = switch name {
+                case "obelisks": "obelisk";
+                case "respawnPoints": "respawn";
+                case "soulstoneCircles": "soulstone";
+                default: "npc";
+            };
+            var definitions = switch name {
+                case "stations": stationDefinitions;
+                case "soulstoneCircles": soulstoneDefinitions;
+                default: G.array(landmarkSources[name]);
+            };
             for (definition in definitions) {
                 if (G.text(G.field(definition, "mapId")) != level) continue;
                 var inf = G.field(definition, "inf");
@@ -363,6 +378,7 @@ class MinimapMarkers {
             var show = switch point.kind {
                 case "obelisk": config.showObelisks;
                 case "respawn": config.showRespawnPoints;
+                case "soulstone": config.showSoulstoneCircles;
                 default: config.showNpcs;
             };
             if (show && near(point.x, point.y, x, y, radius)) points.push(point);
@@ -569,7 +585,7 @@ class MinimapMarkers {
     static function markerRadius(kind:String):Float return switch kind {
         case "bank", "demon", "craft", "upgrade", "recycler", "chest", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
-        case "obelisk", "dungeon": 8;
+        case "obelisk", "dungeon", "soulstone": 8;
         default: 3.5;
     };
 
@@ -662,6 +678,7 @@ class MinimapMarkers {
             case "chest": "Chest";
             case "respawn": "Respawn point";
             case "obelisk": "Obelisk";
+            case "soulstone": "Soulstone summoning circle";
             case "bank": "Guild Merchant";
             case "demon": "Demon Huntress";
             case "recycler": "Spark Recycler";
@@ -685,7 +702,7 @@ class MinimapMarkers {
     function draw(points:Array<MapPoint>, scale:Float):Void {
         hitPoints = [];
         // Preserve marker priority, with services above other map content.
-        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "respawn", "obelisk", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
+        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "respawn", "obelisk", "soulstone", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
             for (point in points) if (point.kind == kind) {
                 point.elevation = elevationDirection(point.z, heroHeight);
                 hitPoints.push(point);
@@ -733,7 +750,7 @@ class MinimapMarkers {
 
     function drawIcon(point:MapPoint):Void {
         var kind = point.kind;
-        if (kind == "obelisk" || kind == "dungeon") {
+        if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }

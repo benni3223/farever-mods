@@ -24,9 +24,10 @@ A compact overworld minimap with a centered player arrow.
 - Fixed orientation, character-following rotation, or camera-following rotation.
 - Adjustable zoom, size, and transparency.
 - Marker scale slider resizes icons and all arrows together.
-- Upper-left or upper-right corner placement.
+- Left or right corner placement with X/Y offsets from 0–100% in 1% steps.
 - Directional player arrows and markers for enemies, resources, NPCs, obelisks, and respawn points.
 - Distinct icons for Guild Merchants, Demon Huntresses, and crafting, upgrade, and recycling stations.
+- Soulstone summoning circles with rune-ring and crystal markers.
 - Unopened treasure chest, undiscovered secret orb, and activity markers.
 - Hide completed activities while keeping ascensions and dungeons visible, with separate options to hide either.
 - Enemy filters for completed and incomplete Codex entries.
@@ -53,6 +54,7 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Dungeons | Stone doorway with a purple and cyan portal |
 | Respawn points | White cross |
 | Obelisks | Broad grey stone idol with a split crown and gold inlays |
+| Soulstone summoning circles | Purple rune ring surrounding a pink faceted soulstone |
 | NPCs | Yellow circle |
 | Guild Merchants | Yellow $ |
 | Demon Huntresses | Purple horned face |
@@ -63,6 +65,10 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Undiscovered secret orbs | Light-blue circle |
 
 **Show NPCs** also controls the Guild Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
+
+**Show soulstone summoning circles** is on by default in **Markers**. These landmarks use the world's element definitions and identify interactions that consume an item of type **Soulstone**. They remain visible without a soulstone in your inventory and are independent of activity-completion filters. Locations and elevation come from the native world prefab; definitions and icon geometry are cached.
+
+**X offset %** and **Y offset %** are in **General**, both defaulting to **0%**. X moves right from the left corner, or left from the right corner; Y always moves down. **50%** centers the minimap on that axis. **100%** reaches the opposite screen edge with the same 24 UI-pixel margin as the starting edge, including the map's border. Position updates with minimap size, window size, and UI scale. Both map shapes and their hover/zoom controls move together.
 
 The **Activities** section includes **Show activities**, **Hide completed activities** (on by default), **Hide ascensions**, and **Hide dungeons** (both off by default). Completed ascensions and dungeons remain visible unless hidden with their own option. **Show activities** controls all three categories. Other activities, including rifts, still follow **Hide completed activities**. Markers use the game's world-map locations, including overworld entrances for instanced activities.
 
@@ -78,6 +84,6 @@ cd minimap
 haxe compile.hxml
 ```
 
-Run the activity classification and visibility regression tests with `haxe test.hxml` (no game or HLX runtime required).
+Run the marker classification, activity visibility, and percentage-position regression tests with `haxe test.hxml` (no game or HLX runtime required).
 
 Output: `build/minimap/minimap.hl`. The independent workflow packages this project and publishes releases for `minimap/v*` tags.

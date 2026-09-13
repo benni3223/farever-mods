@@ -2,3 +2,13 @@
 -cp tests
 -main ActivityMarkersTest
 --interp
+--next
+-cp src
+-cp tests
+-main MinimapPositionTest
+--interp
+--next
+-cp src
+-cp tests
+-main SoulstoneMarkersTest
+--interp

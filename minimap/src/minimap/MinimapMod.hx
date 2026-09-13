@@ -14,6 +14,8 @@ typedef MinimapSettings = {
     var followCamera:Bool;
     var circular:Bool;
     var leftCorner:Bool;
+    var xOffset:Float;
+    var yOffset:Float;
     var showPlayers:Bool;
     var showPlants:Bool;
     var showOre:Bool;
@@ -25,6 +27,7 @@ typedef MinimapSettings = {
     var sparklingCompanionAlerts:Bool;
     var showRespawnPoints:Bool;
     var showObelisks:Bool;
+    var showSoulstoneCircles:Bool;
     var showNpcs:Bool;
     var showChests:Bool;
     var showSecretOrbs:Bool;
@@ -47,11 +50,11 @@ class MinimapMod {
     @:hlx.config
     static var config:MinimapSettings = {
         enabled: true, transparency: 0, zoom: 30, size: 250, markerScale: 100, rotateMap: true, followCamera: true,
-        circular: true, leftCorner: true,
+        circular: true, leftCorner: true, xOffset: 0, yOffset: 0,
         showPlayers: true, showPlants: true, showOre: true, showEnemies: true,
         hideCompletedCodexEnemies: true, hideNonCodexEnemies: true,
         showCompanions: true, hideCollectedCompanions: true, sparklingCompanionAlerts: true,
-        showRespawnPoints: true, showObelisks: true, showNpcs: true,
+        showRespawnPoints: true, showObelisks: true, showSoulstoneCircles: true, showNpcs: true,
         showChests: true, showSecretOrbs: true, showActivities: true,
         hideCompletedActivities: true, hideAscensions: false, hideDungeons: false,
         hideCopper: false, hideIron: false, hideTin: false, hideTungstene: false,
@@ -79,6 +82,8 @@ class MinimapMod {
         config.zoom = Math.isFinite(config.zoom) ? Math.max(10, Math.min(300, config.zoom)) : 30;
         config.size = Std.int(Math.max(160, Math.min(400, config.size)));
         config.markerScale = Math.isFinite(config.markerScale) ? Math.max(50, Math.min(200, config.markerScale)) : 100;
+        config.xOffset = MinimapPosition.percent(config.xOffset);
+        config.yOffset = MinimapPosition.percent(config.yOffset);
     }
 
     public static function adjustZoom(wheelDelta:Float):Void {
