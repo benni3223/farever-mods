@@ -14,7 +14,7 @@
     {
       "key": "hideUiKey",
       "type": "keybinding",
-      "label": "Hide UI"
+      "label": "Hide UI hotkey"
     },
     {
       "type": "title",

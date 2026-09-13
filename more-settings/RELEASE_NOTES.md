@@ -2,7 +2,7 @@
 
 ## Hide UI keybinding
 
-- Added **Hide UI** under **General**, defaulting to F2, with live rebinding.
+- Added **Hide UI hotkey** under **General**, defaulting to F2, with live rebinding.
 - Reuses the native ToggleUI action and keeps input-mode checks and hide/show behavior.
 - Prevents activation while typing; update Better Mod Settings for protection during key capture.
 - Existing audio and ally-presentation preferences remain intact.
