@@ -22,3 +22,8 @@
 -cp tests
 -main SkillPresetTest
 --interp
+--next
+-cp src
+-cp tests
+-main AppearancePresetTest
+--interp

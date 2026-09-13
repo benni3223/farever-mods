@@ -4,7 +4,7 @@
 
 A collection of inventory, bank, character preset, and item-safety quality-of-life tools for Farever.
 
-Lock icons, lock editing, equipment, talent and skill presets, and bank/Recycler buttons follow
+Lock icons, lock editing, preset controls, and bank/Recycler buttons follow
 the game's current UI position and scale when changing resolution or resizing
 the window. Their click targets and inventory scrolling boundaries scale with them.
 
@@ -154,6 +154,26 @@ page's bottom strip, vertically centered and aligned with the current UI scale.
   Rejections, timeouts, unexpected changes, entering combat, and character or
   session changes stop the sequence. Hover the preset bar to see its status.
 
+### Appearance presets
+
+Adds matching **Presets 1 2 3 Set** controls to the left of **Character** in the
+Appearance view, following the button's position and the game's UI scale.
+
+- Select a preset slot and press **Set** to save the appearance choices for
+  all eight armour slots: head, shoulders, chest, back, hands, waist, legs and feet.
+- Click a saved preset or use its **Appearance preset 1/2/3 hotkey** under
+  **Appearance Presets** in Better Mod Settings. Hotkeys work with the view closed.
+- Saves the exact choice for every slot: the equipped item's normal appearance,
+  a selected cosmetic, or hidden gear. Restoring a default choice clears that
+  slot's cosmetic override and follows the currently equipped item.
+- Presets and the selected slot are saved separately for each character,
+  independently of the other preset categories. Unset presets change nothing.
+- The game checks slot compatibility, class aptitudes and unlocked cosmetics
+  before any changes begin. Each change uses the normal appearance RPC, waiting
+  for both its successful reply and replicated state before continuing.
+- Rejections, timeouts, unexpected manual appearance changes, and character or
+  session changes stop the sequence. Hover the preset bar for its status.
+
 ### Settings
 
 Available settings include:
@@ -168,6 +188,7 @@ Available settings include:
 - Configure or clear hotkeys for equipment presets 1–3
 - Configure or clear hotkeys for talent presets 1–3
 - Configure or clear hotkeys for skill presets 1–3
+- Configure or clear hotkeys for appearance presets 1–3
 
 ## Requirements
 
@@ -189,7 +210,7 @@ The compiled mod is written to:
 build/item-utilities/item-utilities.hl
 ```
 
-Run the quick-loot, lock-restoration, overlay-layout, talent-preset, and skill-preset regression tests (Haxe only; no running game required):
+Run the quick-loot, lock-restoration, overlay-layout, and preset regression tests (Haxe only; no running game required):
 
 ```sh
 haxe test.hxml

@@ -25,6 +25,11 @@ typedef ItemUtilitiesConfig = {
     var preset1Hotkey:Int;
     var preset2Hotkey:Int;
     var preset3Hotkey:Int;
+    var appearancePreset1Hotkey:Int;
+    var appearancePreset2Hotkey:Int;
+    var appearancePreset3Hotkey:Int;
+    var appearancePresets:Array<Dynamic>;
+    var selectedAppearancePresets:Array<Dynamic>;
     var skillPreset1Hotkey:Int;
     var skillPreset2Hotkey:Int;
     var skillPreset3Hotkey:Int;
@@ -46,6 +51,7 @@ private enum abstract PresetKind(Int) {
     var Equipment = 0;
     var Talent = 1;
     var Skill = 2;
+    var Appearance = 3;
 }
 
 private typedef TrackedInventorySlot = {
@@ -69,6 +75,11 @@ class ItemUtilitiesMod {
         preset1Hotkey: 0,
         preset2Hotkey: 0,
         preset3Hotkey: 0,
+        appearancePreset1Hotkey: 0,
+        appearancePreset2Hotkey: 0,
+        appearancePreset3Hotkey: 0,
+        appearancePresets: [],
+        selectedAppearancePresets: [],
         skillPreset1Hotkey: 0,
         skillPreset2Hotkey: 0,
         skillPreset3Hotkey: 0,
@@ -102,6 +113,17 @@ class ItemUtilitiesMod {
     static var skillPresetCharacterId:String;
     static var nextSkillPresetCheck:Float = 0;
     static var skillPresetStatus:String = "";
+    static var appearancePresetHotkeyKeys:Array<Int> = [0, 0, 0];
+    static var selectedAppearancePreset:Int = 0;
+    static var selectedAppearancePresetCharacterId:String;
+    static var appearancePresetTransfer = new AppearancePresetTransfer();
+    static var appearancePresetHero:Dynamic;
+    static var appearancePresetHost:Dynamic;
+    static var appearancePresetLoadout:Dynamic;
+    static var appearancePresetCharacterId:String;
+    static var nextAppearancePresetCheck:Float = 0;
+    static var appearancePresetStatus:String = "";
+    static var activeGearAppearance:Dynamic;
     static var talentPresetHotkeyKeys:Array<Int> = [0, 0, 0];
     static var selectedTalentPreset:Int = 0;
     static var selectedTalentPresetCharacterId:String;
@@ -403,6 +425,12 @@ class ItemUtilitiesMod {
         syncSelectedEquipmentPreset();
     }
 
+    @:hlx.postfix(ui.win.GearAppearance.init)
+    static function afterGearAppearanceInit(instance:Dynamic, result:Void):Void {
+        activeGearAppearance = instance;
+        syncSelectedAppearancePreset();
+    }
+
     @:hlx.postfix(ui.win.TalentView.init)
     static function afterTalentViewInit(instance:Dynamic, result:Void):Void {
         activeTalentView = instance;
@@ -444,6 +472,7 @@ class ItemUtilitiesMod {
     static function afterSlotElementRemoved(instance:Dynamic, result:Void):Void {
         // This also runs for slots inside removed windows and tooltips.
         unregisterSlot(instance);
+        if (instance == activeGearAppearance) activeGearAppearance = null;
         if (instance == activeTalentView) {
             activeTalentView = null;
             activeTalentRoot = null;
@@ -712,6 +741,7 @@ class ItemUtilitiesMod {
         refreshActiveHero();
         updateTalentPreset();
         updateSkillPreset();
+        updateAppearancePreset();
 
         if (lockedSortActive && !lockedSortWaiting)
             transferNextLockedSortItem();
@@ -728,10 +758,12 @@ class ItemUtilitiesMod {
             syncSelectedEquipmentPreset();
             syncSelectedTalentPreset();
             syncSelectedSkillPreset();
+            syncSelectedAppearancePreset();
             selectPlayerInventoryComp();
             checkPresetHotkeys();
             checkTalentPresetHotkeys();
             checkSkillPresetHotkeys();
+            checkAppearancePresetHotkeys();
             var now = haxe.Timer.stamp();
             if (now >= nextLockReconcileAt) {
                 nextLockReconcileAt = now + LOCK_RECONCILE_INTERVAL;
@@ -740,6 +772,7 @@ class ItemUtilitiesMod {
             drawEquipmentPresetButtons();
             drawTalentPresetButtons();
             drawSkillPresetButtons();
+            drawAppearancePresetButtons();
             if (showLockVisuals.get()) {
                 drawLockHeaderButton();
                 if (lockEditMode)
@@ -983,6 +1016,19 @@ class ItemUtilitiesMod {
         drawPresetButtons(rect, 36, view, Skill);
     }
 
+    static function drawAppearancePresetButtons():Void {
+        if (activeCharacterUI == null || !isUiVisible(activeCharacterUI)
+            || fieldOrNull(activeCharacterUI, "apperanceMode") != true) return;
+        // CharacterUI keeps the same button field when its label changes
+        // from Appearance to Character. Anchor to that live button rectangle.
+        var button = fieldOrNull(activeCharacterUI, "appearanceModeBtn");
+        if (button == null || !isUiVisible(button)) return;
+        var rect = AppearancePresetLayout.place(uiElementRect(button),
+            uiElementRect(fieldOrNull(button, "parent")), NativeUiLayout.rect(button, 0, 0, 254, 36));
+        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height)) return;
+        drawPresetButtons(rect, 36, button, Appearance);
+    }
+
     static function uiElementRect(element:Dynamic):OverlayRect {
         var width = fieldOrNull(element, "calculatedWidth");
         var height = fieldOrNull(element, "calculatedHeight");
@@ -1007,6 +1053,7 @@ class ItemUtilitiesMod {
             case Equipment: "##item-utilities-weapon-presets";
             case Talent: "##item-utilities-talent-presets";
             case Skill: "##item-utilities-skill-presets";
+            case Appearance: "##item-utilities-appearance-presets";
         };
         if (ImGui.begin(windowId, null, flags)) {
             ImGui.dummy(overlaySize(56, height));
@@ -1025,11 +1072,13 @@ class ItemUtilitiesMod {
                 case Equipment: false;
                 case Talent: talentPresetTransfer.active;
                 case Skill: skillPresetTransfer.active;
+                case Appearance: appearancePresetTransfer.active;
             };
             var selectedPreset = switch kind {
                 case Equipment: selectedWeaponPreset;
                 case Talent: selectedTalentPreset;
                 case Skill: selectedSkillPreset;
+                case Appearance: selectedAppearancePreset;
             };
             ImGui.beginDisabled(busy);
             for (preset in 0...3) {
@@ -1054,6 +1103,9 @@ class ItemUtilitiesMod {
                         case Skill:
                             selectSkillPreset(preset);
                             activateSkillPreset(preset);
+                        case Appearance:
+                            selectAppearancePreset(preset);
+                            activateAppearancePreset(preset);
                     }
                 }
                 if (selected)
@@ -1068,6 +1120,7 @@ class ItemUtilitiesMod {
                     case Equipment: saveCurrentEquipmentToPreset(selectedWeaponPreset);
                     case Talent: saveCurrentTalentsToPreset(selectedTalentPreset);
                     case Skill: saveCurrentSkillsToPreset(selectedSkillPreset);
+                    case Appearance: saveCurrentAppearancesToPreset(selectedAppearancePreset);
                 }
             }
             if (ImGui.isItemHovered())
@@ -1077,6 +1130,7 @@ class ItemUtilitiesMod {
                 case Equipment: "";
                 case Talent: talentPresetStatus;
                 case Skill: skillPresetStatus;
+                case Appearance: appearancePresetStatus;
             };
             if (ImGui.isWindowHovered() && presetStatus != "") ImGui.setTooltip(presetStatus);
         }
@@ -1239,6 +1293,157 @@ class ItemUtilitiesMod {
         talentPresetHost = null;
         talentPresetSpecialization = null;
         talentPresetCharacterId = null;
+    }
+
+    static function syncSelectedAppearancePreset():Void {
+        var characterId = heroPersistentId(resolveHero());
+        if (characterId == selectedAppearancePresetCharacterId) return;
+        selectedAppearancePresetCharacterId = characterId;
+        selectedAppearancePreset = 0;
+        appearancePresetStatus = "";
+        for (entry in config.selectedAppearancePresets)
+            if (recordString(entry, "characterId") == characterId) {
+                var preset = recordInt(entry, "preset", 0);
+                if (preset >= 0 && preset < 3) selectedAppearancePreset = preset;
+                return;
+            }
+    }
+
+    static function selectAppearancePreset(preset:Int):Void {
+        if (preset < 0 || preset >= 3 || appearancePresetTransfer.active) return;
+        var characterId = heroPersistentId(resolveHero());
+        if (characterId == null) return;
+        selectedAppearancePresetCharacterId = characterId;
+        selectedAppearancePreset = preset;
+        for (entry in config.selectedAppearancePresets)
+            if (recordString(entry, "characterId") == characterId) {
+                Reflect.setField(entry, "preset", preset);
+                saveConfig();
+                return;
+            }
+        config.selectedAppearancePresets.push({characterId: characterId, preset: preset});
+        saveConfig();
+    }
+
+    static function findAppearancePreset(characterId:String, preset:Int):Dynamic {
+        if (characterId == null) return null;
+        for (entry in config.appearancePresets)
+            if (recordString(entry, "characterId") == characterId
+                && recordInt(entry, "preset", -1) == preset) return entry;
+        return null;
+    }
+
+    static function appearancesReady(hero:Dynamic):Bool {
+        return talentsReady(hero) && fieldOrNull(fieldOrNull(hero, "loadout"), "owner") == hero
+            && fieldOrNull(fieldOrNull(hero, "loadout"), "appearance") != null;
+    }
+
+    static function saveCurrentAppearancesToPreset(preset:Int):Void {
+        if (!enabled.get() || appearancePresetTransfer.active || preset < 0 || preset >= 3) return;
+        try {
+            var hero = resolveHero();
+            var characterId = heroPersistentId(hero);
+            if (characterId == null || !appearancesReady(hero)) return;
+            var loadout = fieldOrNull(hero, "loadout");
+            var choices = NativeAppearance.current(loadout);
+            NativeAppearance.validate(loadout, choices);
+            var existing = findAppearancePreset(characterId, preset);
+            if (existing == null) {
+                existing = {characterId: characterId, preset: preset};
+                config.appearancePresets.push(existing);
+            }
+            Reflect.setField(existing, "classId", Std.string(fieldOrNull(fieldOrNull(hero, "inf"), "id")));
+            Reflect.setField(existing, "appearances", AppearancePresetPlan.encode(choices));
+            saveConfig();
+            appearancePresetStatus = "Appearance preset " + (preset + 1) + " saved.";
+        } catch (error:Dynamic) {
+            appearancePresetStatus = Std.string(error);
+            logLockError("save appearance preset", error);
+        }
+    }
+
+    static function activateAppearancePreset(preset:Int):Void {
+        if (!enabled.get() || appearancePresetTransfer.active || preset < 0 || preset >= 3) return;
+        try {
+            var hero = resolveHero();
+            var characterId = heroPersistentId(hero);
+            var saved = findAppearancePreset(characterId, preset);
+            if (saved == null) {
+                appearancePresetStatus = "Press Set to save your current appearance to preset " + (preset + 1) + ".";
+                return;
+            }
+            if (!appearancesReady(hero)) return;
+            var classId = Std.string(fieldOrNull(fieldOrNull(hero, "inf"), "id"));
+            if (recordString(saved, "classId") != classId) throw "This appearance preset belongs to a different class.";
+            var loadout = fieldOrNull(hero, "loadout");
+            var current = NativeAppearance.current(loadout);
+            var target = AppearancePresetPlan.decode(Reflect.field(saved, "appearances"));
+            NativeAppearance.validate(loadout, target);
+            var changes = AppearancePresetPlan.build(current, target, NativeAppearance.rules());
+            if (changes.length == 0) {
+                appearancePresetStatus = "This appearance preset is already active.";
+                return;
+            }
+            appearancePresetHero = hero;
+            appearancePresetHost = fieldOrNull(currentGameApp(), "host");
+            appearancePresetLoadout = loadout;
+            appearancePresetCharacterId = characterId;
+            nextAppearancePresetCheck = 0;
+            appearancePresetTransfer.start(loadout, current, changes);
+            appearancePresetStatus = "Applying appearance preset...";
+        } catch (error:Dynamic) {
+            appearancePresetStatus = Std.string(error);
+            logLockError("apply appearance preset", error);
+        }
+    }
+
+    static function updateAppearancePreset():Void {
+        if (!appearancePresetTransfer.active) {
+            // An asynchronous rejection can finish between draw callbacks.
+            if (appearancePresetHero != null) finishAppearancePreset();
+            return;
+        }
+        try {
+            var hero = resolveHero();
+            var app = currentGameApp();
+            if (!enabled.get() || hero != appearancePresetHero
+                || fieldOrNull(app, "host") != appearancePresetHost
+                || heroPersistentId(hero) != appearancePresetCharacterId || !appearancesReady(hero)) {
+                appearancePresetTransfer.cancel("Appearance preset stopped because the session changed.");
+            } else {
+                var now = haxe.Timer.stamp();
+                if (now < nextAppearancePresetCheck) return;
+                nextAppearancePresetCheck = now + 0.05;
+                var loadout = fieldOrNull(hero, "loadout");
+                if (loadout != appearancePresetLoadout) {
+                    appearancePresetTransfer.cancel("Appearance preset stopped because the character changed.");
+                } else {
+                    // Read the appearance inventory only after the RPC reply.
+                    var current = appearancePresetTransfer.needsState() ? NativeAppearance.current(loadout) : null;
+                    var change = appearancePresetTransfer.next(loadout, now, current);
+                    if (change != null) {
+                        var requestId = appearancePresetTransfer.requestId;
+                        NativeAppearance.apply(loadout, change.slot, change.item, function(success:Bool) {
+                            appearancePresetTransfer.acknowledge(requestId, success);
+                        });
+                    }
+                }
+            }
+        } catch (error:Dynamic) {
+            appearancePresetTransfer.cancel(Std.string(error));
+            logLockError("appearance preset transfer", error);
+        }
+        if (!appearancePresetTransfer.active) finishAppearancePreset();
+    }
+
+    static function finishAppearancePreset():Void {
+        appearancePresetStatus = appearancePresetTransfer.error == "" ? "Appearance preset applied." : appearancePresetTransfer.error;
+        var loadout = appearancePresetLoadout;
+        appearancePresetHero = null;
+        appearancePresetHost = null;
+        appearancePresetLoadout = null;
+        appearancePresetCharacterId = null;
+        try NativeAppearance.refreshView(activeGearAppearance, loadout) catch (_:Dynamic) {}
     }
 
     static function syncSelectedSkillPreset():Void {
@@ -3237,6 +3442,19 @@ class ItemUtilitiesMod {
         }
     }
 
+    static function checkAppearancePresetHotkeys():Void {
+        if (appearancePresetTransfer.active) return;
+        for (preset in 0...3) {
+            var key = appearancePresetHotkeyKeys[preset];
+            // BMS centrally consumes assignment input before hxd.Key sees it.
+            if (key > 0 && isGameKeyPressed(key)) {
+                selectAppearancePreset(preset);
+                activateAppearancePreset(preset);
+                return;
+            }
+        }
+    }
+
     static function checkSkillPresetHotkeys():Void {
         if (skillPresetTransfer.active) return;
         for (preset in 0...3) {
@@ -3359,6 +3577,8 @@ class ItemUtilitiesMod {
     }
 
     static function loadPresetHotkeyConfig(data:Dynamic):Void {
+        if (config.appearancePresets == null) config.appearancePresets = [];
+        if (config.selectedAppearancePresets == null) config.selectedAppearancePresets = [];
         if (config.skillPresets == null) config.skillPresets = [];
         if (config.selectedSkillPresets == null) config.selectedSkillPresets = [];
         if (config.talentPresets == null) config.talentPresets = [];
@@ -3373,6 +3593,9 @@ class ItemUtilitiesMod {
             var skillField = "skillPreset" + (preset + 1) + "Hotkey";
             if (Reflect.hasField(data, skillField))
                 skillPresetHotkeyKeys[preset] = cast Reflect.field(data, skillField);
+            var appearanceField = "appearancePreset" + (preset + 1) + "Hotkey";
+            if (Reflect.hasField(data, appearanceField))
+                appearancePresetHotkeyKeys[preset] = cast Reflect.field(data, appearanceField);
         }
     }
 
@@ -3395,6 +3618,9 @@ class ItemUtilitiesMod {
             config.preset1Hotkey = presetHotkeyKeys[0];
             config.preset2Hotkey = presetHotkeyKeys[1];
             config.preset3Hotkey = presetHotkeyKeys[2];
+            config.appearancePreset1Hotkey = appearancePresetHotkeyKeys[0];
+            config.appearancePreset2Hotkey = appearancePresetHotkeyKeys[1];
+            config.appearancePreset3Hotkey = appearancePresetHotkeyKeys[2];
             config.skillPreset1Hotkey = skillPresetHotkeyKeys[0];
             config.skillPreset2Hotkey = skillPresetHotkeyKeys[1];
             config.skillPreset3Hotkey = skillPresetHotkeyKeys[2];
