@@ -8,6 +8,7 @@ import dpsmeter.NativeCombatMetadata;
 import dpsmeter.GameAccess;
 import dpsmeter.HistoryRequests;
 import dpsmeter.FightSnapshot;
+import dpsmeter.SnapshotTexture;
 import haxe.Json;
 import sys.FileSystem;
 import sys.io.File;
@@ -45,7 +46,7 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
-        lifecycle(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions();
+        lifecycle(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotTextures();
         Sys.println('Fight history: $checks checks passed');
     }
     static function lifecycle():Void {
@@ -425,6 +426,29 @@ class HistoryTest {
         check(FightSnapshot.plan(instant).rows[0].dps == 7, "Snapshot DPS uses the same one-second floor for instant fights");
         plan = FightSnapshot.plan(new Fight(1));
         check(plan.rows.length == 0 && plan.height > 140, "Empty snapshots reserve readable empty-state space");
+    }
+    static function snapshotTextures():Void {
+        GameAccess.globals["hxd.PixelFormat.RGBA"] = "RGBA";
+        GameAccess.globals["hxd.PixelFormat.BGRA"] = "BGRA";
+        var flags = ["Target"];
+        var texture = SnapshotTexture.create(2, 1, flags);
+        check(texture.format == "RGBA" && texture.width == 2 && texture.height == 1 && texture.flags == flags,
+            "Snapshot allocates a DX12-supported RGBA target with the requested dimensions and flags");
+        var pixels:Dynamic = {format: "RGBA", bytes: haxe.io.Bytes.ofHex("ff0000ff0000ffff"), disposed: false};
+        GameAccess.globals["capturedPixels"] = pixels;
+        check(SnapshotTexture.readBgra(texture) == pixels && pixels.format == "BGRA"
+            && (cast pixels.bytes:haxe.io.Bytes).toHex() == "0000ffffff0000ff",
+            "Readback converts red and blue pixels to the clipboard's channel order");
+        check(texture.format == "RGBA" && !pixels.disposed, "Conversion leaves the GPU target unchanged and readback alive for copying");
+        GameAccess.globals["failPixelConversion"] = true;
+        var failed = false;
+        try SnapshotTexture.readBgra(texture) catch (_:Dynamic) failed = true;
+        check(failed && pixels.disposed, "Failed CPU conversion releases the captured pixel buffer");
+        GameAccess.globals.remove("failPixelConversion");
+        GameAccess.globals.remove("capturedPixels");
+        failed = false;
+        try SnapshotTexture.readBgra(texture) catch (_:Dynamic) failed = true;
+        check(failed, "Failed GPU readback reports an error instead of accessing a null pixel buffer");
     }
     static function breakdown():Void {
         var skill = new SkillStats(); skill.damage = 4500; skill.casts = 13; skill.hits = 15; skill.crits = 7;

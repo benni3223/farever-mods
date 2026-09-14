@@ -41,9 +41,6 @@ class NativeHistoryWindow {
     var selectedEntry:HistoryEntry;
     var deleting:Bool = false;
     var copying:Bool = false;
-    var chartHeight:Int = 0;
-    var shownChartHeight:Int = -1;
-    var topInset:Int = 0;
     var rows:Array<Dynamic> = [];
     var writer:RunWriter;
     var serial:Int = 0;
@@ -109,6 +106,7 @@ class NativeHistoryWindow {
         show(detail, mode == "fights");
         G.call("h2d.Text", "set_text", chartInfo, [mode == "chart" ? FightHistory.chartDetail(entry) : ""]);
         show(chartInfo, mode == "chart");
+        show(footer, mode == "categories"); show(folderButton, mode == "categories");
         show(back, mode != "categories");
         show(previous, false); show(next, false); show(pageLabel, false);
         // Literal text keeps Windows paths containing brackets or other markup
@@ -316,14 +314,16 @@ class NativeHistoryWindow {
             position(heading, mode == "categories" ? 0 : 100, 0);
             G.call("ui.comp.FmtText", "set_maxWidthText", detail, [inner]); position(detail, 0, 60);
             position(chartInfo, 0, 60);
-            topInset = mode == "categories" || mode == "groups" ? 66 : 100;
+            var topInset = mode == "categories" || mode == "groups" ? 66 : 100;
             G.call("ui.comp.FmtText", "set_maxWidthText", empty, [inner]); position(empty, 0, topInset);
-            chartHeight = Std.int(Math.max(30, bodyHeight - topInset - (mode == "chart" ? 112 : 144)));
+            // Only the category page reserves a folder row. Other pages need
+            // room for their existing Delete or pagination controls alone.
+            var footerSpace = mode == "chart" ? 68 : mode == "categories" ? 96 : 88;
+            var chartHeight = Std.int(Math.max(30, bodyHeight - topInset - footerSpace));
             for (object in [G.field(list, "obj"), G.field(chartPanel, "obj")]) { size(object, inner, chartHeight); position(object, 0, topInset); }
             chart.resize(inner, chartHeight);
-            shownChartHeight = chartHeight;
-            size(previous, 108, 34); position(previous, 0, bodyHeight - 82);
-            size(next, 108, 34); position(next, inner - 108, bodyHeight - 82);
+            size(previous, 108, 34); position(previous, 0, bodyHeight - 70);
+            size(next, 108, 34); position(next, inner - 108, bodyHeight - 70);
             G.call("ui.comp.FmtText", "set_maxWidthText", pageLabel, [Std.int(Math.max(1, inner - 236))]);
             G.call("ui.comp.FmtText", "set_maxWidthText", title, [w - 112]);
             lastRefresh = -1;
@@ -343,22 +343,16 @@ class NativeHistoryWindow {
             G.call("h2d.Text", "set_font", text, [bodyFont]);
         var bodyScale = G.number(G.field(detail, "scaleX"), 1);
         fitLiteral(chartInfo, width - 48, bodyScale);
-        fitLiteral(footer, width - 48 - 44, bodyScale);
-        var usedHeight = mode == "chart" && fight != null ? chart.visibleContentHeight(chartHeight) : chartHeight;
-        if (mode == "chart" && fight != null && shownChartHeight != usedHeight) {
-            // Shrink the scroll hit area too, so it cannot cover the folder
-            // button placed in space that a short chart no longer needs.
-            shownChartHeight = usedHeight;
-            size(G.field(chartPanel, "obj"), width - 48, usedHeight);
-            chart.resize(width - 48, usedHeight);
+        if (mode == "categories") {
+            fitLiteral(footer, width - 48 - 44, bodyScale);
+            var folderY = height - 76 - 50;
+            size(folderButton, 34, 30); position(folderButton, 0, folderY);
+            position(footer, 44, folderY + (30 - textHeight(footer)) / 2);
         }
-        var folderY = topInset + usedHeight + 12;
-        size(folderButton, 34, 30); position(folderButton, 0, folderY);
-        position(footer, 44, folderY + (30 - textHeight(footer)) / 2);
         fitLiteral(actionStatus, width - 48 - (mode == "chart" ? 152 : 0), bodyScale);
-        position(actionStatus, 0, height - 76 - (mode == "chart" ? 33 : 23) - textHeight(actionStatus) / 2);
+        position(actionStatus, 0, height - 76 - (mode == "chart" ? 33 : mode == "categories" ? 70 : 17) - textHeight(actionStatus) / 2);
         position(title, (width - textWidth(title)) / 2, (60 - textHeight(title)) / 2);
-        position(pageLabel, (width - 48 - textWidth(pageLabel)) / 2, height - 76 - 65 - textHeight(pageLabel) / 2);
+        position(pageLabel, (width - 48 - textWidth(pageLabel)) / 2, height - 76 - 53 - textHeight(pageLabel) / 2);
         var inner = G.integer(G.call("h2d.Flow", "get_innerWidth", G.field(list, "obj")), width - 48);
         var scrollbar = G.field(G.field(list, "obj"), "scrollBar");
         if (scrollbar != null && G.field(scrollbar, "visible") == true)

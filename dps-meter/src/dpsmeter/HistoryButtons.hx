@@ -10,11 +10,9 @@ class HistoryButtons {
         padding(button, 0); size(button, 34, 30);
         var g = G.create("h2d.Graphics", [button]); absolute(button, g); position(g, 5, 5);
         G.call("h2d.Graphics", "lineStyle", g, [1.5, 0x71523c, 1.0]);
-        G.call("h2d.Graphics", "beginFill", g, [0xe2b969, 1.0]);
-        path(g, [[1., 3.], [9., 3.], [12., 6.], [23., 6.], [23., 19.], [1., 19.], [1., 3.]]);
-        G.call("h2d.Graphics", "endFill", g);
         G.call("h2d.Graphics", "beginFill", g, [0xf3d68e, 1.0]);
-        path(g, [[1., 10.], [24., 10.], [21., 19.], [1., 19.], [1., 10.]]);
+        // A single flat silhouette with a tab stays legible at icon size.
+        path(g, [[1., 3.], [9., 3.], [12., 6.], [23., 6.], [23., 19.], [1., 19.], [1., 3.]]);
         G.call("h2d.Graphics", "endFill", g);
         return button;
     }

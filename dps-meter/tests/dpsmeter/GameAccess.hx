@@ -1,6 +1,6 @@
 package dpsmeter;
 
-/** Interpreter-only metadata bridge. Unexpected native calls fail the test;
+/** Interpreter-only native bridge. Unexpected native calls fail the test;
     production builds do not include this classpath. */
 class GameAccess {
     public static var globals:Map<String, Dynamic> = [];
@@ -8,6 +8,15 @@ class GameAccess {
     public static function text(value:Dynamic, fallback:String = ""):String return value == null ? fallback : Std.string(value);
     public static function integer(value:Dynamic, fallback:Int = 0):Int return value == null ? fallback : Std.int(value);
     public static function current(type:String, name:String):Dynamic return globals[type + "." + name];
+    public static function enumeration(type:String, name:String):Dynamic return current(type, name);
+    public static function create(type:String, args:Array<Dynamic>):Dynamic return switch (type) {
+        case "h3d.mat.Texture":
+            // Match Farever's DX12 boundary: BGRA is valid for CPU Pixels but
+            // is rejected when allocating a GPU texture (getTextureFormat).
+            if (args[3] != "RGBA") throw "Unsupported texture format " + args[3];
+            {width: args[0], height: args[1], flags: args[2], format: args[3]};
+        default: throw "Unexpected native constructor: " + type;
+    };
     public static function array(value:Dynamic, proxy:Bool = false):Array<Dynamic> {
         if (proxy) value = field(value, "array");
         return value == null ? [] : cast value;
@@ -15,6 +24,19 @@ class GameAccess {
     public static function call(type:String, name:String, object:Dynamic, ?args:Array<Dynamic>):Dynamic return switch (type + "." + name) {
         case "haxe.ds.StringMap.get": (cast object:Map<String, Dynamic>).get(args[0]);
         case "st.Player.getActivityContext": field(object, "context");
+        case "h3d.mat.Texture.capturePixels":
+            if (object.format != "RGBA") throw "Unsupported texture format " + object.format;
+            globals["capturedPixels"];
+        case "hxd.Pixels.convert":
+            if (globals["failPixelConversion"] == true) throw "Simulated conversion failure";
+            if (object.format != "RGBA" || args[0] != "BGRA") throw "Unexpected pixel conversion";
+            var bytes:haxe.io.Bytes = object.bytes;
+            for (i in 0...Std.int(bytes.length / 4)) {
+                var red = bytes.get(i * 4); bytes.set(i * 4, bytes.get(i * 4 + 2)); bytes.set(i * 4 + 2, red);
+            }
+            object.format = "BGRA";
+            null;
+        case "hxd.Pixels.dispose": object.disposed = true; null;
         default: throw "Unexpected native metadata call: " + type + "." + name;
     };
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic return switch (type + "." + name) {

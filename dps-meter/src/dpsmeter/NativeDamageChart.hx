@@ -37,11 +37,6 @@ class NativeDamageChart {
         for (row in rows) sizeRow(row);
         lastRefresh = -1;
     }
-    public function visibleContentHeight(maxHeight:Int):Int {
-        // contentHeight excludes unused viewport space but includes all rows.
-        var contentHeight = G.number(G.field(G.field(rowsRoot, "obj"), "contentHeight"), maxHeight);
-        return Std.int(Math.min(maxHeight, Math.max(30, contentHeight)));
-    }
     function resetScroll():Void {
         // Reflow positions the new list at its beginning, including an empty list.
         G.set(G.field(rowsRoot, "obj"), "scrollPosY", 0.0);

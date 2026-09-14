@@ -124,15 +124,16 @@ class NativeSkillTable {
             } else if (column.key == "damage") {
                 if (cellWidth >= 190) {
                     // Give the share/bar and the numeric total their own headings.
+                    var totalWidth = 74.0; // Includes the full native bold "Damage" heading.
                     show(row.percentText, true);
-                    if (heading) fit(row.percentText, "Damage (%)", x, cellWidth - 58, height, false);
+                    if (heading) fit(row.percentText, "Damage (%)", x, cellWidth - totalWidth - 6, height, false);
                     else {
                         fit(row.percentText, row.percent, x, 51, height, true);
-                        var barX = x + 58; var barWidth = cellWidth - 115;
+                        var barX = x + 58; var barWidth = cellWidth - 58 - totalWidth - 6;
                         rect(row.graphic, barX, 16, barWidth, 8, 0x5b4334, .2);
                         rect(row.graphic, barX, 16, barWidth * row.fraction, 8, row.color, .95);
                     }
-                    fit(t, heading ? "Damage" : value, x + cellWidth - 52, 52, height, true);
+                    fit(t, heading ? "Damage" : value, x + cellWidth - totalWidth, totalWidth, height, true);
                 } else fit(t, heading ? column.title : value + " (" + row.percent + ")", x, cellWidth, height, true);
             } else fit(t, value, x, cellWidth, height, true);
         }

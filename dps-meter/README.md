@@ -84,8 +84,9 @@ readable. Ability rows have no hover tooltip.
 **Escape** closes the history window without also closing a window underneath it.
 The encounter and attempt lists have page controls and scroll when space is limited. The history
 window stays open independently of the live meter's out-of-combat fade.
-The folder row sits just below the chart and shows the full absolute path to the
-local archive. Click its **folder icon** to open that location in Explorer. Section
+The folder row appears only at the bottom of **Choose a category** and shows the
+full absolute path to the local archive. Click its **folder icon** to open that
+location in Explorer. Encounter lists and charts use the extra vertical space. Section
 headings use the same larger bold style as Better Mod Settings titles.
 
 While viewing a fight or a player's breakdown, the **camera/clipboard button** at

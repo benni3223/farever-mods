@@ -35,8 +35,6 @@ class NativeFightSnapshot {
             }
             if (plan.rows.length == 0) text(root, bodyFont, "No damage recorded", 24, 140, 852, 18);
             var output = haxe.io.Bytes.alloc(plan.width * plan.height * 4);
-            var bgra = G.enumeration("hxd.PixelFormat", "BGRA");
-            if (bgra == null) throw "The game's BGRA image format is unavailable.";
             // The constructor allocates immediately. Supply a native ArrayObj
             // containing Target before allocation, never an ArrayDyn or a late flag.
             var windows = G.field(G.current("ui.BaseUI", "current"), "windows");
@@ -49,12 +47,10 @@ class NativeFightSnapshot {
             var y = 0;
             while (y < plan.height) {
                 var stripHeight = Std.int(Math.min(2048, plan.height - y));
-                texture = G.create("h3d.mat.Texture", [plan.width, stripHeight, flags, bgra]);
+                texture = SnapshotTexture.create(plan.width, stripHeight, flags);
                 position(root, 0, -y);
                 G.call("h2d.Object", "drawTo", root, [texture]);
-                pixels = G.call("h3d.mat.Texture", "capturePixels", texture, [null, null, null]);
-                if (pixels == null) throw "Could not read the chart image from the renderer.";
-                G.call("hxd.Pixels", "convert", pixels, [bgra]);
+                pixels = SnapshotTexture.readBgra(texture);
                 var bytes = G.field(pixels, "bytes");
                 var offset = G.integer(G.field(pixels, "offset"));
                 var stride = G.integer(G.field(pixels, "stride"));
