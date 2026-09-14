@@ -48,7 +48,7 @@ class RiftTracker {
         fight.defeated = true;
     }
 
-    public function record(e:DamageEvent, info:PlayerInfo, difficulty:Int, activityId:String, me:String):Void {
+    public function record(e:DamageEvent, info:PlayerInfo, difficulty:Int, activityId:String, me:String, meName:String = ""):Void {
         // Clones can share the boss flag. Only the unit named by KillBoss can
         // start this phase or supply its boss identity; summons remain adds.
         var bossHit = e.effect != 1 && e.summoned != true
@@ -79,6 +79,7 @@ class RiftTracker {
             fight.difficulty = difficulty;
             fight.activityId = activityId;
             fight.me = me;
+            fight.meName = meName;
             fights[index] = fight;
         }
         var end = fight.last;
@@ -98,17 +99,30 @@ class RiftTracker {
         }
     }
 
-    public function drain(now:Float, completed:Array<Fight>, recaps:Array<RiftRecap>, force:Bool = false):Void {
+    public function drain(now:Float, completed:Array<Fight>, recaps:Array<RiftRecap>, force:Bool = false, ?history:Array<Fight>):Void {
         for (index in 0...2) {
             if (ended[index] < 0 || exported[index] || (!force && now < ended[index] + FINAL_DAMAGE_SECONDS)) continue;
             exported[index] = true;
-            if (fights[index] != null) completed.push(fights[index]);
+            if (fights[index] != null) {
+                completed.push(fights[index]);
+                if (history != null) history.push(fights[index].copy());
+            }
         }
         // Finalize both snapshots after the same grace period as the uploads,
         // so the recap includes late killing blows and is queued only once.
         if (phase == 2 && exported[0] && exported[1] && !recapQueued && fights[1] != null) {
             recapQueued = true;
             recaps.push({gate: fights[0] == null ? null : fights[0].copy(), boss: fights[1].copy()});
+        }
+        // Leaving an unfinished rift still preserves its chart locally, without
+        // submitting an abandoned phase as a completed boss-kill report.
+        if (force && history != null) for (index in 0...2) {
+            if (exported[index] || fights[index] == null) continue;
+            exported[index] = true;
+            var snapshot = fights[index].copy();
+            snapshot.last = Math.max(snapshot.start, now);
+            snapshot.closed = now;
+            history.push(snapshot);
         }
     }
 }

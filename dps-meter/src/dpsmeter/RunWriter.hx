@@ -2,6 +2,7 @@ package dpsmeter;
 
 import dpsmeter.CombatModel.Fight;
 import sys.thread.Thread;
+import dpsmeter.FightHistory;
 
 /** The game thread hands off detached reports; the uploader owns disk and HTTP work. */
 class RunWriter {
@@ -9,8 +10,18 @@ class RunWriter {
     var started:Bool = false;
     var stopped:Bool = false;
     var reportSequence:Int = Std.random(0x3fffffff);
+    var historySequence:Int = 0;
+    final historySession:String = DateTools.format(Date.now(), "%Y%m%d_%H%M%S") + "_" + Std.random(0x3fffffff);
 
     public function new() {}
+
+    public function archive(fight:Fight):Void {
+        if (stopped) return;
+        prepare();
+        uploader.archive(FightHistory.encode(fight, "fight_" + historySession + "_" + (++historySequence)));
+    }
+    public function requestHistory(request:HistoryRequest):Void { prepare(); uploader.requestHistory(request); }
+    public function receiveHistory():Null<HistoryResponse> return uploader == null ? null : uploader.receiveHistory();
 
     public function enqueue(fight:Fight):Void {
         if (stopped) return;

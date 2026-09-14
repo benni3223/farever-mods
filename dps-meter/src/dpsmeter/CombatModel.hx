@@ -95,6 +95,7 @@ class Fight {
     public var participants:Map<String, Bool> = [];
     public var targets:Map<String, Bool> = [];
     public var start:Float;
+    public var startedAt:Float;
     public var last:Float;
     public var closed:Float = 0;
     public var defeated:Bool = false;
@@ -108,7 +109,8 @@ class Fight {
     public var difficulty:Int = -1;
     public var activityId:String = "";
     public var me:String = "";
-    public function new(now:Float) { start = now; last = now; }
+    public var meName:String = "";
+    public function new(now:Float) { start = now; last = now; startedAt = Date.now().getTime(); }
     public function add(e:DamageEvent, info:PlayerInfo):Void {
         if (!players.exists(e.source)) players[e.source] = new PlayerStats(info);
         players[e.source].add(e, info);
@@ -125,11 +127,12 @@ class Fight {
     }
     public function copy():Fight {
         var result = new Fight(start);
+        result.startedAt = startedAt;
         result.last = last; result.closed = closed; result.defeated = defeated;
         result.isBoss = isBoss; result.phase = phase;
         result.bossKind = bossKind; result.bossName = bossName; result.bossUid = bossUid; result.bossLevel = bossLevel;
         result.bossFoeId = bossFoeId; result.difficulty = difficulty; result.activityId = activityId;
-        result.me = me; result.participants = participants.copy(); result.targets = targets.copy();
+        result.me = me; result.meName = meName; result.participants = participants.copy(); result.targets = targets.copy();
         for (id => p in players) {
             var next = new PlayerStats(p.info);
             next.damage = p.damage; next.heal = p.heal; next.hits = p.hits;
@@ -172,6 +175,8 @@ class CombatModel {
     public var boss:Null<Fight>;
     public var lastBoss:Null<Fight>;
     public var completed:Array<Fight> = [];
+    public var history:Array<Fight> = [];
+    var pendingHistory:Array<Fight> = [];
     public var recaps:Array<RiftRecap> = [];
     public var difficulty:Int = -1;
     public var activityId:String = "";
@@ -185,7 +190,12 @@ class CombatModel {
     var rift:Null<RiftTracker>;
     public function new(now:Float) session = new Fight(now);
     public function reset(now:Float):Void {
-        if (rift != null) rift.drain(now, completed, recaps, true);
+        if (rift != null) rift.drain(now, completed, recaps, true, history);
+        else {
+            finishPendingFight();
+            if (current != null) finishCurrent(now);
+        }
+        drainHistory(now, true);
         rift = null;
         profiles = []; party = []; me = ""; current = null; lastCombat = null;
         session = new Fight(now); boss = null; lastBoss = null;
@@ -203,10 +213,11 @@ class CombatModel {
             awaitingExitState = false;
         } else if (!inCombat && !awaitingExitState) onCombatEnter(me, now);
         if (rift != null) {
-            rift.drain(now, completed, recaps);
+            rift.drain(now, completed, recaps, false, history);
             return;
         }
         expirePendingFight(now);
+        drainHistory(now);
         if (boss != null && now - boss.last > 8) {
             boss.closed = now; lastBoss = boss; boss = null;
         }
@@ -256,8 +267,17 @@ class CombatModel {
         lastCombat = rift.last;
     }
     function finishPendingFight():Void {
-        if (hasLocalKill(pendingFight)) lastCombat = pendingFight;
+        if (hasLocalKill(pendingFight)) {
+            lastCombat = pendingFight;
+            pendingHistory.push(pendingFight);
+        }
         pendingFight = null;
+    }
+    function drainHistory(now:Float, force:Bool = false):Void {
+        // Death can precede its final damage RPC. Keep the same mutable fight
+        // through that grace period, then hand off a detached snapshot once.
+        while (pendingHistory.length > 0 && (force || now > pendingHistory[0].closed + ENTRY_DAMAGE_SECONDS))
+            history.push(pendingHistory.shift().copy());
     }
     function expirePendingFight(now:Float):Void {
         // Bound the whole buffer, so remote party damage while resting cannot
@@ -265,6 +285,10 @@ class CombatModel {
         if (pendingFight != null && now - pendingFight.start > ENTRY_DAMAGE_SECONDS) finishPendingFight();
     }
     function addToFight(fight:Fight, e:DamageEvent, info:PlayerInfo):Void {
+        fight.me = me;
+        if (profiles.exists(me)) fight.meName = profiles[me].name;
+        fight.difficulty = difficulty;
+        fight.activityId = activityId;
         fight.add(e, info);
         if (e.effect != 1 && (e.bossFlags & 0x38) != 0) {
             fight.bossKind = e.bossKind;
@@ -276,7 +300,10 @@ class CombatModel {
         // spent dodging or waiting in combat. Boss reports use a separate Fight.
         current.last = Math.max(current.start, now);
         current.closed = now;
-        if (current.players.iterator().hasNext()) lastCombat = current;
+        if (current.players.iterator().hasNext()) {
+            lastCombat = current;
+            pendingHistory.push(current);
+        }
         current = null;
     }
     public function record(e:DamageEvent):Void {
@@ -295,7 +322,7 @@ class CombatModel {
         if (member) {
             session.add(e, info);
             if (rift != null) {
-                rift.record(e, info, difficulty, activityId, me);
+                rift.record(e, info, difficulty, activityId, me, profiles.exists(me) ? profiles[me].name : "");
                 current = rift.current;
                 lastCombat = rift.last;
                 return;

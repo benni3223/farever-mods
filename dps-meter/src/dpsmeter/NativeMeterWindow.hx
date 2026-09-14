@@ -21,6 +21,8 @@ class NativeMeterWindow {
     var content:Dynamic;
     var chart:NativeDamageChart;
     var timer:Dynamic;
+    var historyButton:Dynamic;
+    final openHistory:Void->Void;
     var bossLabel:Dynamic;
     var bossCaption:String = "";
     var bossLabelWidth:Int = -1;
@@ -43,7 +45,9 @@ class NativeMeterWindow {
     var startHeight:Int = 0;
     var createRetry:Float = 0;
     var outOfCombatSince:Float = -1;
-    public function new(config:MeterSettings) this.config = config;
+    public function new(config:MeterSettings, openHistory:Void->Void) {
+        this.config = config; this.openHistory = openHistory;
+    }
 
     public function update(model:CombatModel, active:Bool, now:Float):Void {
         var ui = G.current("ui.BaseUI", "current");
@@ -125,6 +129,11 @@ class NativeMeterWindow {
         var left = G.enumeration("h2d.Align", "Left");
 
         toolbar = node("flow", G.field(header, "dom"), [], "dpsMeterToolbar", "horizontal");
+        historyButton = button(toolbar, "History", "dpsMeterHistory", openHistory);
+        absolute(G.field(toolbar, "obj"), historyButton);
+        padding(historyButton, 0);
+        size(historyButton, 82, 30);
+        position(historyButton, 12, 0);
         timer = label(toolbar, "0:00");
         absolute(G.field(toolbar, "obj"), timer);
         G.call("h2d.Text", "set_textAlign", timer, [left]);
@@ -182,7 +191,7 @@ class NativeMeterWindow {
         var textWidth = G.number(G.call("h2d.Text", "get_textWidth", timer)) * G.number(G.field(timer, "scaleX"), 1);
         var textHeight = G.number(G.call("h2d.Text", "get_textHeight", timer)) * G.number(G.field(timer, "scaleY"), 1);
         position(timer, width - 32 - textWidth, Math.max(0, (34 - textHeight) / 2));
-        var nameInset = 12; // Clear the native circular corner decoration.
+        var nameInset = 104; // Leave the history button and a gap before the name.
         var available = Std.int(Math.max(1, width - 32 - textWidth - 12 - nameInset));
         if (available != bossLabelWidth) {
             bossLabelWidth = available;
@@ -217,10 +226,11 @@ class NativeMeterWindow {
         size(G.field(content, "obj"), innerWidth - 16, bodyHeight - 24);
         position(G.field(content, "obj"), 8, 12);
         chart.resize(width - 32, Std.int(Math.max(20, bodyHeight - 24)));
-        // With no header buttons, the whole header can be used to drag.
-        G.set(dragSurface, "width", headerWidth * 1.0);
+        // The drag surface is above the toolbar; exclude the history button
+        // so it remains clickable while the meter is unlocked.
+        G.set(dragSurface, "width", (headerWidth - 116) * 1.0);
         G.set(dragSurface, "height", headerHeight * 1.0);
-        position(dragSurface, 0, 0);
+        position(dragSurface, 116, 0);
         position(resizeSurface, width - 22, height - 22);
         position(grip, width - 18, height - 18);
         lastRefresh = -1;

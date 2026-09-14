@@ -14,6 +14,7 @@ class DpsMeterMod {
     static var collector:Collector;
     static var view:NativeMeterWindow;
     static var recapView:NativeRiftRecapWindow;
+    static var historyView:NativeHistoryWindow;
     static var kills:KillNotifications;
     static var writer:RunWriter;
     static function main():Void {
@@ -22,7 +23,8 @@ class DpsMeterMod {
         MeterConfig.normalize(config);
         saveConfig();
         collector = new Collector(config);
-        view = new NativeMeterWindow(config);
+        historyView = new NativeHistoryWindow();
+        view = new NativeMeterWindow(config, () -> historyView.open());
         recapView = new NativeRiftRecapWindow();
         kills = new KillNotifications(config);
         writer = new RunWriter();
@@ -42,12 +44,33 @@ class DpsMeterMod {
 
     @:hlx.postfix(GameApp.onQuit)
     static function finishUploads(instance:Dynamic, result:Bool):Void {
-        if (result && writer != null) writer.stop();
+        if (result) finishHistory();
+    }
+
+    static function flushFights():Void {
+        while (collector.model.history.length > 0) {
+            writer.archive(collector.model.history[0]);
+            collector.model.history.shift();
+        }
+        while (collector.model.completed.length > 0) {
+            if (config.sendLogs) writer.enqueue(collector.model.completed[0]);
+            collector.model.completed.shift();
+        }
+    }
+    static function finishHistory():Void {
+        try {
+            if (collector != null && writer != null) {
+                collector.model.reset(haxe.Timer.stamp());
+                flushFights();
+            }
+        } catch (e:Dynamic) trace("[DPS Meter] Could not finalize fight history: " + Std.string(e));
+        if (writer != null) writer.stop();
     }
 
     @:hlx.prefix(GameApp.dispose)
     static function stopUploads(instance:Dynamic):HlxPrefixResult<Void> {
-        if (writer != null) writer.stop();
+        finishHistory();
+        if (historyView != null) historyView.dispose();
         // A later GameApp (for example after reconnecting) starts a new worker.
         writer = new RunWriter();
         return Continue;
@@ -55,7 +78,7 @@ class DpsMeterMod {
 
     @:hlx.prefix(ui.win.BaseWindow.autoDisplay)
     static function suppressMeterAutoDisplay(instance:Dynamic):HlxPrefixResult<Void> {
-        return NativeMeterWindow.constructing || NativeRiftRecapWindow.constructing ? Skip : Continue;
+        return NativeMeterWindow.constructing || NativeRiftRecapWindow.constructing || NativeHistoryWindow.constructing ? Skip : Continue;
     }
     @:hlx.prefix(ui.notify.NotifyManager.queue)
     static function positionKillPopup(instance:Dynamic, notification:Dynamic):HlxPrefixResult<Void> {
@@ -100,15 +123,14 @@ class DpsMeterMod {
                 config.unlocked = !config.unlocked; saveConfig();
             }
             if (config.enabled) collector.update(instance, now);
-            while (collector.model.completed.length > 0) {
-                var fight = collector.model.completed.shift();
-                if (config.sendLogs) writer.enqueue(fight);
-            }
+            flushFights();
             writer.update(now);
         } catch (_:Dynamic) {}
         // A UI failure must never stop the collector or discard a finished report.
         try view.update(collector.model, G.field(instance, "hero") != null, now) catch (_:Dynamic) {}
         try recapView.update(collector.model, config.enabled && config.showRiftRecaps, G.field(instance, "hero") != null, now) catch (_:Dynamic) {}
+        try historyView.update(writer, config.enabled && G.field(instance, "hero") != null, now)
+        catch (e:Dynamic) { historyView.dispose(); trace("[DPS Meter] Could not display history: " + Std.string(e)); }
         try kills.update(instance, now) catch (_:Dynamic) {}
     }
 }

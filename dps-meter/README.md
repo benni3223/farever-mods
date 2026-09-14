@@ -22,7 +22,8 @@ uploads to [Farever Logs](https://fareverlogs.fr/).
 
 All mod files are contained in `hlx/mods/dps-meter/`. Upload settings
 (`uploader.ini`), upload history (`uploader.log`), and queued reports (`logs/`)
-also live in this folder. An external uploader is not required.
+also live in this folder. Local fight charts live in `history/`. An external
+uploader is not required.
 
 Use DPS Meter in place of the original Group DPS `dinput8.dll` collector to avoid
 running two collectors that export the same encounters. Keep DLLs belonging to
@@ -50,6 +51,40 @@ can be removed if no other mod uses it.
 - **Summon tracking:** Minion damage credited to its owner and the skill that summoned it.
 - **Native, customizable window:** Move, resize, lock, and scroll the meter, with optional automatic hiding and a smooth fade.
 - **Rift tracking and recaps:** Separate gate and boss phases covering all players present, with both charts in one post-rift recap.
+- **Fight history:** Browse encounters by name, choose an attempt by duration, your DPS, and local date/time, then reopen its player and skill charts.
 - **Kill notifications:** Optional boss kill totals and Codex progress popups, including counts for completed entries.
 - **Automatic log uploads:** Send completed boss encounters to [Farever Logs](https://fareverlogs.fr/) in the background, with no external application.
 - **Better Mod Settings integration:** Customize display options and hotkeys, with settings and window placement saved between sessions.
+
+## Reviewing past fights
+
+Click **History** on the left of the meter's header. Choose an encounter name,
+then an attempt from the newest-first list. Each attempt shows its duration,
+your character's total DPS, local date and time, and character name. The DPS
+uses the same duration and one-second minimum as the live chart. If an older
+report did not identify your character, the list shows that your DPS is unavailable.
+
+Selecting an attempt replaces the list with that fight's damage chart. Click a
+player to see their skills; click a skill row to return to the player chart.
+**Back** returns to the same page of attempts, then to the encounter names.
+Both lists have page controls and scroll when space is limited. The history
+window stays open independently of the live meter's out-of-combat fade.
+
+History records ordinary combats, boss attempts, and both rift phases. Combats
+without a boss name appear under **Other combat**. A fight still in progress
+when you leave an area or exit normally is also preserved. Completed rift phases
+keep their separate **Rift: Gates** and **Rift: [boss name]** charts.
+
+All fight history and sent reports are kept indefinitely, across game restarts
+and character changes. The former uploader `keep_days` option is ignored; no
+age-based cleanup runs. Local history works even with log uploads disabled,
+and ordinary or abandoned fights are never submitted as completed boss reports.
+The first launch imports surviving reports from `logs/`, `logs/sent/`, and
+`logs/rejected/` without submitting them again. Previously deleted reports
+cannot be recovered. Older reports use their original encounter names and an
+estimated start time derived from the recorded export time and duration.
+
+Disk writes, history indexing, and chart reads run on the uploader worker.
+Only compact summaries are kept in its index; the browser requests one page
+or one chart at a time. Back up `hlx/mods/dps-meter/history/` to preserve your
+local charts when reinstalling the mod or moving to another computer.

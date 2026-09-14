@@ -7,6 +7,7 @@ import sys.io.File;
 import sys.thread.Deque;
 import sys.thread.Lock;
 import sys.thread.Mutex;
+import dpsmeter.FightHistory;
 
 private typedef QueuedRun = {name:String, report:Dynamic};
 
@@ -20,17 +21,42 @@ class LogUploader {
     final wake = new Lock();
     final saveMutex = new Mutex();
     final pending:Array<QueuedRun> = [];
+    final historyIncoming = new Deque<Dynamic>();
+    final historyPending:Array<Dynamic> = [];
+    final historyRequests = new Deque<HistoryRequest>();
+    final historyResponses = new Deque<HistoryResponse>();
+    final history:FightHistoryStore;
     final retryAt:Map<String, Float> = [];
     var apiUrl:String = DEFAULT_URL;
     var token:String = "";
     var pollSeconds:Float = 5;
-    var keepDays:Int = 7;
     var stopping:Bool = false;
     var nextSaveAt:Float = 0;
 
     public function new(root:String) {
         this.root = root;
         logs = root + "/logs";
+        history = new FightHistoryStore(root, log);
+    }
+
+    public function archive(record:Dynamic):Void { historyIncoming.add(record); wake.release(); }
+    public function requestHistory(request:HistoryRequest):Void { historyRequests.add(request); wake.release(); }
+    public function receiveHistory():Null<HistoryResponse> return historyResponses.pop(false);
+
+    function browseHistory():Void {
+        var request = historyRequests.pop(false);
+        // Fast navigation supersedes requests whose disk work has not started.
+        if (request == null) return;
+        var next = historyRequests.pop(false);
+        while (next != null) { request = next; next = historyRequests.pop(false); }
+        saveMutex.acquire();
+        try historyResponses.add(history.query(request))
+        catch (e:Dynamic) {
+            historyResponses.add({id: request.id, page: 0, total: 0, groups: [], entries: [], record: null,
+                error: "Could not read fight history. Try opening it again."});
+            log("History: " + Std.string(e));
+        }
+        saveMutex.release();
     }
 
     public function enqueue(name:String, report:Dynamic):Void {
@@ -58,12 +84,12 @@ class LogUploader {
                 // Saving encounters must also work if upload configuration or
                 // network initialization fails.
                 flush();
+                browseHistory();
                 if (!initialized) {
                     loadSettings();
                     FileSystem.createDirectory(logs + "/sent");
                     FileSystem.createDirectory(logs + "/rejected");
                     recoverDrafts();
-                    purgeSent();
                     initialized = true;
                     log("HLX uploader started");
                 }
@@ -86,7 +112,7 @@ class LogUploader {
         var path = root + "/uploader.ini";
         if (!FileSystem.exists(path)) {
             FileSystem.createDirectory(root);
-            File.saveContent(path, "api_url=" + DEFAULT_URL + "\ntoken=\npoll_sec=5\nkeep_days=7\n");
+            File.saveContent(path, "api_url=" + DEFAULT_URL + "\ntoken=\npoll_sec=5\n");
             return;
         }
         for (raw in File.getContent(path).split("\n")) {
@@ -102,9 +128,6 @@ class LogUploader {
                 case "poll_sec":
                     var seconds = Std.parseInt(value);
                     if (seconds != null && seconds > 0) pollSeconds = seconds;
-                case "keep_days":
-                    var days = Std.parseInt(value);
-                    if (days != null && days >= 0) keepDays = days;
                 default:
             }
         }
@@ -116,6 +139,15 @@ class LogUploader {
     function flush():Void {
         saveMutex.acquire();
         try {
+            try {
+                history.initialize();
+                var record = historyIncoming.pop(false);
+                while (record != null) { historyPending.push(record); record = historyIncoming.pop(false); }
+                while (historyPending.length > 0) {
+                    history.save(historyPending[0]);
+                    historyPending.shift();
+                }
+            } catch (e:Dynamic) log("History save will retry: " + Std.string(e));
             var item = incoming.pop(false);
             while (item != null) { pending.push(item); item = incoming.pop(false); }
             if (pending.length > 0) FileSystem.createDirectory(logs);
@@ -166,17 +198,6 @@ class LogUploader {
         }
     }
 
-    function purgeSent():Void {
-        if (keepDays == 0) return;
-        var cutoff = Date.now().getTime() - keepDays * 86400000.0;
-        var folder = logs + "/sent";
-        for (name in FileSystem.readDirectory(folder)) {
-            var path = folder + "/" + name;
-            if (isRun(name) && !FileSystem.isDirectory(path) && FileSystem.stat(path).mtime.getTime() < cutoff)
-                FileSystem.deleteFile(path);
-        }
-    }
-
     function progress():Void {
         if (shouldStop()) throw "Upload stopped";
         var now = haxe.Timer.stamp();
@@ -184,6 +205,7 @@ class LogUploader {
             nextSaveAt = now + 0.1;
             // Keep persisting new encounters even while a slow upload waits.
             flush();
+            browseHistory();
         }
     }
 

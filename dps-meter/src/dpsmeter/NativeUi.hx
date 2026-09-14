@@ -52,6 +52,11 @@ class NativeUi {
         G.call("h2d.Text", "set_textColor", obj, [0x5b4334]);
         return obj;
     }
+    public static function button(parent:Dynamic, value:String, id:String, click:Void->Void):Dynamic {
+        var object = G.field(node("button", parent, [value], id), "obj");
+        G.call("ui.UIElement", "set_onClick", object, [click]);
+        return object;
+    }
     public static function flow(dom:Dynamic, method:String, value:Dynamic):Void G.call("h2d.Flow", method, G.field(dom, "obj"), [value]);
     public static function style(object:Dynamic, property:String, value:Dynamic):Void {
         var dom = G.field(object, "dom");
