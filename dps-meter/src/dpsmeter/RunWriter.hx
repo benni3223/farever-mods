@@ -3,6 +3,7 @@ package dpsmeter;
 import dpsmeter.CombatModel.Fight;
 import sys.thread.Thread;
 import dpsmeter.FightHistory;
+import dpsmeter.BossRecords;
 
 /** The game thread hands off detached reports; the uploader owns disk and HTTP work. */
 class RunWriter {
@@ -26,6 +27,8 @@ class RunWriter {
     }
     public function requestHistory(request:HistoryRequest):Void { prepare(); uploader.requestHistory(request); }
     public function receiveHistory():Null<HistoryResponse> return uploader == null ? null : uploader.receiveHistory();
+    public function requestBossRecord(request:BossRecordRequest):Void { prepare(); uploader.requestBossRecord(request); }
+    public function receiveBossRecord():Null<BossRecordResponse> return uploader == null ? null : uploader.receiveBossRecord();
 
     public function enqueue(fight:Fight):Void {
         if (stopped) return;

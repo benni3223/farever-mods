@@ -276,6 +276,17 @@ class CombatModel {
         // Show the confirmed kill immediately, with an already-frozen clock.
         return hasLocalKill(pendingFight) ? pendingFight : lastCombat;
     }
+    public function bossRecordFight(kind:String, since:Float):Null<Fight> {
+        var latest:Null<Fight> = null;
+        // Progress replication can precede combat exit, arrive during the
+        // final-damage grace period, or follow the archive handoff. Include the
+        // one-shot buffer too. Never reuse a fight from before counter baseline.
+        for (list in [[current, pendingFight, lastCombat], pendingHistory, history])
+            for (fight in list) if (fight != null && fight.me == me && fight.bossKind == kind
+                && fight.phase != RiftTracker.GATES_PHASE && (fight.closed == 0 || fight.closed >= since)
+                && (latest == null || fight.start > latest.start)) latest = fight;
+        return latest;
+    }
     public function onCombatExit(heroUid:String, now:Float):Void {
         // Ordinary fights end on the local character's exit, even between
         // polls. A tracked Chakram attempt instead follows its boss lifecycle.

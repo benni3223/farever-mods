@@ -149,6 +149,6 @@ class DpsMeterMod {
         try recapView.update(collector.model, config.enabled && config.showRiftRecaps, G.field(instance, "hero") != null, now) catch (_:Dynamic) {}
         try historyView.update(writer, config.enabled && G.field(instance, "hero") != null, now)
         catch (e:Dynamic) { historyView.dispose(); trace("[DPS Meter] Could not display history: " + Std.string(e)); }
-        try kills.update(instance, now) catch (_:Dynamic) {}
+        try kills.update(instance, collector.model, writer, now) catch (_:Dynamic) {}
     }
 }

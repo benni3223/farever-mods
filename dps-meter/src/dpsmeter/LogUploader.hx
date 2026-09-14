@@ -8,6 +8,7 @@ import sys.thread.Deque;
 import sys.thread.Lock;
 import sys.thread.Mutex;
 import dpsmeter.FightHistory;
+import dpsmeter.BossRecords;
 
 private typedef QueuedRun = {name:String, report:Dynamic};
 
@@ -25,6 +26,8 @@ class LogUploader {
     final historyPending:Array<Dynamic> = [];
     final historyRequests = new Deque<HistoryRequest>();
     final historyResponses = new Deque<HistoryResponse>();
+    final bossRequests = new Deque<BossRecordRequest>();
+    final bossResponses = new Deque<BossRecordResponse>();
     final history:FightHistoryStore;
     final retryAt:Map<String, Float> = [];
     var apiUrl:String = DEFAULT_URL;
@@ -42,6 +45,24 @@ class LogUploader {
     public function archive(record:Dynamic):Void { historyIncoming.add(record); wake.release(); }
     public function requestHistory(request:HistoryRequest):Void { historyRequests.add(request); wake.release(); }
     public function receiveHistory():Null<HistoryResponse> return historyResponses.pop(false);
+    public function requestBossRecord(request:BossRecordRequest):Void { bossRequests.add(request); wake.release(); }
+    public function receiveBossRecord():Null<BossRecordResponse> return bossResponses.pop(false);
+
+    function readBossRecords():Void {
+        var request = bossRequests.pop(false);
+        if (request == null) return;
+        saveMutex.acquire();
+        // Separate from navigation coalescing: opening history must not discard
+        // a kill's lookup or consume its response, and vice versa.
+        while (request != null) {
+            try bossResponses.add(history.bossRecord(request)) catch (e:Dynamic) {
+                bossResponses.add({id: request.id, best: null, error: "Could not read boss records."});
+                log("Boss record: " + Std.string(e));
+            }
+            request = bossRequests.pop(false);
+        }
+        saveMutex.release();
+    }
 
     function browseHistory():Void {
         var first = historyRequests.pop(false);
@@ -86,6 +107,7 @@ class LogUploader {
                 // network initialization fails.
                 flush();
                 browseHistory();
+                readBossRecords();
                 if (!initialized) {
                     loadSettings();
                     FileSystem.createDirectory(logs + "/sent");
@@ -207,6 +229,7 @@ class LogUploader {
             // Keep persisting new encounters even while a slow upload waits.
             flush();
             browseHistory();
+            readBossRecords();
         }
     }
 

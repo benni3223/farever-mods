@@ -54,7 +54,7 @@ can be removed if no other mod uses it.
 - **Native, customizable window:** Move, resize, lock, and scroll the meter, with optional automatic hiding and a smooth fade.
 - **Rift tracking and recaps:** Separate gate and boss phases covering all players present, with both charts in one post-rift recap.
 - **Fight history:** Browse Boss Dungeons, Classic Dungeons, World Bosses, and Other encounters by difficulty; choose an attempt by date, character, party size, duration, and your DPS, then reopen its player and skill charts.
-- **Kill notifications:** Optional boss kill totals and Codex progress popups, including counts for completed entries.
+- **Kill notifications:** Optional boss kill totals with the previous fastest kill time, plus Codex progress popups including counts for completed entries.
 - **Automatic log uploads:** Send completed boss encounters to [Farever Logs](https://fareverlogs.fr/) in the background, with no external application.
 - **Better Mod Settings integration:** Customize display options and hotkeys, with settings and window placement saved between sessions.
 
@@ -83,6 +83,18 @@ including members who dealt no damage. Older logs without a saved roster show
 the recorded player count as a lower bound (for example, **Party: ≥2**). The DPS
 uses the same duration and one-second minimum as the live chart. If an older
 report did not identify your character, the list shows that your DPS is unavailable.
+Names and durations are treated as literal text, including **<1 sec** for instant fights.
+
+Boss kill notifications also show **Previous best**: the fastest earlier **Victory**
+against that boss on the same difficulty, for the same character name and class.
+Times include hundredths of a second. The current fight is excluded even if its
+log has already been saved, so a new record still shows the previous best; the
+new time becomes eligible on the next kill. A first recorded victory shows **none**.
+Existing logs with confirmed victories count immediately; older logs with unknown
+outcomes cannot establish a kill record. Missing character identity or difficulty
+shows **unavailable**. Recycling a record's log removes it from future comparisons.
+Lookups run on the background worker and briefly show an ellipsis while loading;
+the result updates the kill popup without extending its lifetime.
 
 Selecting an attempt replaces the list with that fight's damage chart. Its summary
 shows date and time, character name, your DPS, duration, and outcome together in that order. Click a

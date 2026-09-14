@@ -10,6 +10,8 @@ import dpsmeter.HistoryRequests;
 import dpsmeter.FightSnapshot;
 import dpsmeter.SnapshotTexture;
 import dpsmeter.HistoryOptions;
+import dpsmeter.BossRecords;
+import dpsmeter.LiteralText;
 import haxe.Json;
 import sys.FileSystem;
 import sys.io.File;
@@ -47,8 +49,109 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
-        lifecycle(); chakram(); outcomes(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotTextures(); historyOptions();
+        lifecycle(); chakram(); outcomes(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotTextures(); historyOptions(); literalLabels(); bossRecords();
         Sys.println('Fight history: $checks checks passed');
+    }
+    static function literalLabels():Void {
+        var record = FightHistory.encode(sample(), "instant"); record.duration = .001;
+        var detail = FightHistory.attemptDetail(FightHistory.entry(record));
+        var failed = false;
+        try Xml.parse("<text>" + detail + "</text>") catch (_:Dynamic) failed = true;
+        check(failed, "An unescaped sub-second attempt reproduces the native XML parse error");
+        for (value in [detail, "Wink <Warrior> & friends", "<b>Ratsar</b>", "[Warrior_RageStrike] $unit(Ratsar)",
+            "Literal &lt;tag&gt;", "Previous best: <0.01 sec", "Your DPS: 265"]) {
+            var encoded = LiteralText.escape(value);
+            var decoded = Xml.parse("<text>" + encoded + "</text>").firstElement().firstChild().nodeValue;
+            check(decoded == value, "Native XML label round-trips literal text: " + value);
+            check(!~/<([a-zA-Z]+)>(.*?)<\/\1>/.match(encoded)
+                && !~/\$([a-z_]+)\(([^)]*)\)/.match(encoded)
+                && !~/\[([!;A-Za-z0-9][A-Za-z0-9_]+)(-([A-Za-z0-9_]+))?\]([A-Za-z]*)/.match(encoded),
+                "Game formatting syntax is inert before XML decoding: " + value);
+        }
+    }
+    static function bossRecords():Void {
+        var root = temp("boss_records");
+        FileSystem.createDirectory(root + "/recycled");
+        var store = new FightHistoryStore(root, _ -> {}, path ->
+            FileSystem.rename(path, root + "/recycled/" + haxe.io.Path.withoutDirectory(path)));
+        var f = sample(); f.bossKind = "BossKind"; f.difficulty = 1; f.outcome = "Victory";
+        var prior = FightHistory.encode(f, "prior"); prior.duration = 72.34;
+        store.save(prior);
+        var query:BossRecordRequest = {id: 200, bossKind: "BossKind", difficulty: 1,
+            playerName: "Shawn", playerClass: "warrior", before: f.startedAt + 100000};
+        check(store.bossRecord(query).best == 72.34, "Previously saved victories are available without opening history");
+        var excluded = ["difficulty", "class", "character", "boss", "defeat", "unknown", "gates", "zero"];
+        for (reason in excluded) {
+            var other:Dynamic = Json.parse(Json.stringify(prior)); other.id = reason; other.duration = 1;
+            switch (reason) {
+                case "difficulty": other.difficulty = 2;
+                case "class": for (p in (cast other.players:Array<Dynamic>)) if (p.isMe) p.className = "mage";
+                case "character": for (p in (cast other.players:Array<Dynamic>)) if (p.isMe) p.name = "Someone else";
+                case "boss": other.bossKind = "AnotherBoss";
+                case "defeat": other.outcome = "Defeat";
+                case "unknown": Reflect.deleteField(other, "outcome");
+                case "gates": other.phase = dpsmeter.RiftTracker.GATES_PHASE;
+                case "zero": other.duration = 0;
+            }
+            store.save(other);
+            check(store.bossRecord(query).best == 72.34, "Prior record excludes " + reason);
+        }
+        var current:Dynamic = Json.parse(Json.stringify(prior)); current.id = "current";
+        current.startedAt = query.before; current.duration = 60;
+        store.save(current);
+        check(store.bossRecord(query).best == 72.34, "A newly archived faster current kill still displays the old record");
+        var reopened = new FightHistoryStore(root, _ -> {});
+        check(reopened.bossRecord(query).best == 72.34, "Restart rebuilds the same previous record from saved logs");
+        query.before += 100000;
+        check(store.bossRecord(query).best == 60, "The new record becomes eligible for the next encounter");
+        store.query(request("delete", "", 0, "current"));
+        check(store.bossRecord(query).best == 72.34, "Recycling the fastest log immediately restores the next fastest record");
+        query.bossKind = "NoKillsYet";
+        check(store.bossRecord(query).best == null && BossRecords.label(store.bossRecord(query)) == "Previous best: none",
+            "A first kill has no invented previous record");
+        query.bossKind = "BossKind"; query.difficulty = -1;
+        check(store.bossRecord(query).error != "" && BossRecords.label(store.bossRecord(query)) == "Previous best: unavailable",
+            "Missing difficulty is not mistaken for an empty record history");
+        query.difficulty = 1; query.playerClass = "";
+        check(store.bossRecord(query).error != "", "Missing character class cannot mix same-name characters");
+        query.playerClass = "warrior";
+        var worker = new LogUploader(root);
+        var queued:Dynamic = Json.parse(Json.stringify(prior)); queued.id = "queued";
+        queued.duration = 50; queued.startedAt = query.before;
+        worker.archive(queued); worker.requestBossRecord(query); worker.requestHistory(request("categories"));
+        worker.flush(); worker.browseHistory(); worker.readBossRecords();
+        check(worker.receiveBossRecord().best == 72.34, "Worker can save the current record before lookup without using it as prior best");
+        check(worker.receiveHistory().id == 17 && worker.receiveBossRecord() == null,
+            "History navigation and record notifications have independent response queues");
+        var next = {id: 201, bossKind: query.bossKind, difficulty: 1, playerName: "Shawn", playerClass: "warrior", before: query.before + 100000};
+        worker.requestBossRecord(query); worker.requestBossRecord(next); worker.readBossRecords();
+        check(worker.receiveBossRecord().id == 200 && worker.receiveBossRecord().best == 50,
+            "Consecutive boss lookups are not coalesced away and retain their own cutoff");
+        remove(root);
+
+        var m = model(); m.difficulty = 1; m.onCombatEnter("me", 10);
+        m.record(hit(10, 100, false, true));
+        var start = m.current.startedAt;
+        var q = BossRecords.request(1, "BossKind", m, 5, start + 100000);
+        check(q.before == start && q.playerName == "Shawn" && q.playerClass == "warrior" && q.difficulty == 1,
+            "Kill progress before combat exit uses the active encounter's start and stable character identity");
+        m.record(hit(12, 200, true, true)); m.onCombatExit("me", 12);
+        check(BossRecords.request(2, "BossKind", m, 5, start + 100000).before == start,
+            "The final-damage grace period retains the same record cutoff");
+        m.update(13, false); m.history = [];
+        check(BossRecords.request(3, "BossKind", m, 5, start + 100000).before == start,
+            "Draining the archive queue does not let the current kill become its own record");
+        check(BossRecords.request(4, "BossKind", m, 14, start + 100000).before == start + 100000,
+            "An unobserved shared kill does not reuse a fight older than the counter baseline");
+        m = model(); m.difficulty = 2; m.record(hit(20, 10, true, true));
+        check(BossRecords.request(5, "BossKind", m, 15, 1).before > 1,
+            "Instant kills in the pre-combat buffer also exclude themselves");
+        m = model(); m.difficulty = 1; m.enableRift(); m.updateRiftState(10, true, false, "BossKind");
+        m.record(hit(10, 100, false, true)); m.updateRiftState(20, true, true, "BossKind");
+        check(BossRecords.request(6, "BossKind", m, 5, 1).before == m.lastCombat.startedAt,
+            "Rift boss completion uses the boss phase's start, not the gates phase");
+        check(BossRecords.duration(72.34) == "1 min 12.34 sec" && BossRecords.duration(59.999) == "1 min 00.00 sec"
+            && BossRecords.duration(.001) == "<0.01 sec", "Record durations retain hundredths and round minute boundaries correctly");
     }
     static function chakramHit(time:Float, amount:Float, kill:Bool = false):DamageEvent {
         var e = hit(time, amount, kill, true, "me", "chakram");

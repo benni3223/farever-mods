@@ -47,13 +47,13 @@ class NativeUi {
     }
     public static function label(parent:Dynamic, value:String):Dynamic {
         // DOMKit's native text component supplies the same fonts as Options.
-        var d = node("text", parent, [value], "dpsMeterText");
+        var d = node("text", parent, [LiteralText.escape(value)], "dpsMeterText");
         var obj = G.field(d, "obj");
         G.call("h2d.Text", "set_textColor", obj, [0x5b4334]);
         return obj;
     }
     public static function button(parent:Dynamic, value:String, id:String, click:Void->Void):Dynamic {
-        var object = G.field(node("button", parent, [value], id), "obj");
+        var object = G.field(node("button", parent, [LiteralText.escape(value)], id), "obj");
         G.call("ui.UIElement", "set_onClick", object, [click]);
         return object;
     }
@@ -121,7 +121,9 @@ class NativeUi {
     }
     public static function position(obj:Dynamic, x:Float, y:Float):Void G.call("h2d.Object", "setPosition", obj, [x, y]);
     public static function show(obj:Dynamic, visible:Bool):Void { if (obj != null) G.call("h2d.Object", "set_visible", obj, [visible]); }
-    public static function setText(obj:Dynamic, value:String):Void { if (obj != null) G.call("ui.comp.FmtText", "set_text", obj, [value]); }
+    public static function setText(obj:Dynamic, value:String):Void {
+        if (obj != null) G.call("ui.comp.FmtText", "set_text", obj, [LiteralText.escape(value)]);
+    }
     public static function classColor(name:String):Int return switch (name) {
         // Original dinput8.dll palette at RVA 0x139e0, converted COLORREF -> RGB.
         case "warrior": 0xc95846; case "cleric": 0xd9b054; case "mage": 0x62b2c2; case "rogue": 0xa370be; default: 0xa89884;

@@ -14,6 +14,9 @@ class KillNotifications {
     var ready:Bool = false;
     var dirty:Bool = true;
     var nextRead:Float = 0;
+    var baselineAt:Float = 0;
+    var recordSequence:Int = 0;
+    var recordSince:Map<String, Float> = [];
 
     public function new(config:MeterSettings) {
         this.config = config;
@@ -24,16 +27,21 @@ class KillNotifications {
         if (object == progress) dirty = true;
     }
 
-    public function update(app:Dynamic, now:Float):Void {
+    public function update(app:Dynamic, model:CombatModel, writer:RunWriter, now:Float):Void {
         var nextHero = G.field(app, "hero");
         var nextLayer = G.field(nextHero, "layer");
         var nextProgress = G.field(G.field(nextHero, "player"), "progress");
         if (nextHero != hero || nextLayer != layer || nextProgress != progress) {
             hero = nextHero; layer = nextLayer; progress = nextProgress;
             ready = false; dirty = true; counts = []; nextRead = 0;
+            recordSince = []; baselineAt = now;
             popups.clear();
         }
         popups.update(hero != null && config.enabled, now);
+        // Drain even while idle or disabled. Stale responses cannot revive an
+        // expired popup or affect another character after a zone/login change.
+        var result = writer.receiveBossRecord();
+        while (result != null) { popups.recordResult(result, now); result = writer.receiveBossRecord(); }
         if (hero == null || progress == null || (!dirty && ready) || now < nextRead) return;
         var map = G.field(G.field(progress, "unitsProgress"), "map");
         if (map == null) return;
@@ -49,15 +57,15 @@ class KillNotifications {
         var previous = counts;
         counts = snapshot; dirty = false;
         // Loading a character or instance establishes history without replaying it.
-        if (!ready) { ready = true; return; }
+        if (!ready) { ready = true; baselineAt = now; return; }
         if (!config.enabled) return;
         for (id => count in snapshot) {
             var before = previous.exists(id) ? previous[id] : 0;
-            if (count > before) try show(id, before, count, now) catch (_:Dynamic) {}
+            if (count > before) try show(id, before, count, model, writer, now) catch (_:Dynamic) {}
         }
     }
 
-    function show(id:String, before:Int, count:Int, now:Float):Void {
+    function show(id:String, before:Int, count:Int, model:CombatModel, writer:RunWriter, now:Float):Void {
         var units = G.field(G.current("Data", "unit"), "byId");
         var unit = G.call("haxe.ds.StringMap", "get", units, [id]);
         if (unit == null) return;
@@ -81,7 +89,10 @@ class KillNotifications {
         }
         var name = G.text(G.staticCall("HText", "unit", [unit, null]), id);
         var total = category == "incomplete" ? Std.int(Math.min(count, goal)) + " / " + goal : Std.string(count);
+        var request = boss ? BossRecords.request(++recordSequence, id, model,
+            recordSince.exists(id) ? recordSince[id] : baselineAt, Date.now().getTime()) : null;
         popups.show(id, name + ": " + total + (count == 1 && category != "incomplete" ? " kill" : " kills"),
-            category, count, goal, now);
+            category, count, goal, now, request == null ? 0 : request.id);
+        if (request != null) { recordSince[id] = now; writer.requestBossRecord(request); }
     }
 }

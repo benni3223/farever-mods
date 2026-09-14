@@ -40,7 +40,7 @@ class HistoryDropdown {
             var windows = G.field(G.current("ui.BaseUI", "current"), "windows");
             var options = G.call("hl.types.ArrayObj", "slice", windows, [0, 0]);
             for (choice in choices) G.call("hl.types.ArrayObj", "pushDyn", options,
-                [{name: choice.name, value: choice.value, icon: null, group: null}]);
+                [{name: LiteralText.escape(choice.name), value: choice.value, icon: null, group: null}]);
             G.call("ui.comp.Dropdown", "set_options", object, [options]);
         }
         var index = 0;

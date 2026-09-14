@@ -183,6 +183,15 @@ class FightHistoryStore {
         } else throw "Unknown history action.";
         return response;
     }
+    public function bossRecord(request:BossRecords.BossRecordRequest):BossRecords.BossRecordResponse {
+        // Unknown identity/difficulty cannot establish a same-character,
+        // same-difficulty record. Never guess using the displayed boss name.
+        if (request.bossKind == "" || request.playerName == "" || request.playerClass == ""
+            || request.difficulty < 0 || !Math.isFinite(request.before) || request.before <= 0)
+            return {id: request.id, best: null, error: "Missing encounter identity or difficulty."};
+        index();
+        return {id: request.id, best: BossRecords.best(entries.iterator(), request), error: ""};
+    }
     function matches(entry:HistoryEntry, category:Null<String>):Bool
         return category == null || category == "" || HistoryCategory.resolve(entry, catalog) == category;
     function restoreLegacyMetadata(record:Dynamic):Void {

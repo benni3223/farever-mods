@@ -9,6 +9,8 @@ private typedef KillPopup = {
     category:String,
     object:Dynamic,
     title:Dynamic,
+    message:String,
+    recordId:Int,
     expires:Float
 };
 
@@ -23,7 +25,7 @@ class NativeKillPopups {
 
     public function new(config:MeterSettings) this.config = config;
 
-    public function show(id:String, message:String, category:String, count:Int, goal:Int, now:Float):Void {
+    public function show(id:String, message:String, category:String, count:Int, goal:Int, now:Float, recordId:Int = 0):Void {
         var ui = G.current("ui.BaseUI", "current");
         if (ui == null) return;
         if (owner != ui) { clear(); owner = ui; }
@@ -32,8 +34,10 @@ class NativeKillPopups {
         var settings = G.current("Const", "UI");
         fade = Math.max(0.1, G.number(G.field(settings, "Notification_DisappearDuration"), 0.4));
         var duration = Math.max(fade + 1, G.number(G.field(settings, "Notification_DefaultDuration"), 4));
+        var caption = message + (recordId == 0 ? "" : "  ·  Previous best: …");
         for (row in rows) if (row.id == id) {
-            setText(row.title, message);
+            setText(row.title, caption);
+            row.message = message; row.recordId = recordId;
             row.expires = now + duration; row.category = category;
             G.set(row.object, "alpha", 1);
             return;
@@ -54,11 +58,22 @@ class NativeKillPopups {
             var center = G.enumeration("h2d.Align", "Center");
             G.call("h2d.Text", "set_textAlign", title, [center]);
             style(title, "text-align", center);
-            setText(title, message);
-            rows.unshift({id: id, category: category, object: object, title: title, expires: now + duration});
+            setText(title, caption);
+            rows.unshift({id: id, category: category, object: object, title: title,
+                message: message, recordId: recordId, expires: now + duration});
             if (rows.length > 3) G.call("h2d.Object", "remove", rows.pop().object);
             update(true, now);
         } catch (e:Dynamic) { G.call("h2d.Object", "remove", object); throw e; }
+    }
+
+    public function recordResult(result:BossRecords.BossRecordResponse, now:Float):Void {
+        for (row in rows) if (row.recordId == result.id && row.expires > now) {
+            setText(row.title, row.message + "  ·  " + BossRecords.label(result));
+            row.recordId = 0;
+            // Preserve this kill's original lifetime and alpha. A late disk
+            // response is not another kill notification.
+            return;
+        }
     }
 
     public function update(active:Bool, now:Float):Void {
