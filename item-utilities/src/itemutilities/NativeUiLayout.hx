@@ -110,6 +110,23 @@ class NativeUiLayout {
         }
     }
 
+    /** Window occlusion includes blank panel space, not only drawable children. */
+    public static function windowBounds(window:Dynamic):OverlayRect {
+        if (window == null) return null;
+        // Heaps getBounds() asks getBoundsRec(..., false), so a Flow's layout
+        // rectangle is not included. Custom windows with absolute children can
+        // therefore report only fragments of their visible frame/content.
+        // calculatedWidth/Height describe the full panel in its own UI units;
+        // rect applies its current transform, camera, and viewport exactly once.
+        var width = number(window, "calculatedWidth");
+        var height = number(window, "calculatedHeight");
+        if (Math.isFinite(width) && Math.isFinite(height) && width > 0 && height > 0) {
+            var panel = rect(window, 0, 0, width, height);
+            if (panel != null) return panel;
+        }
+        return objectBounds(window, 0);
+    }
+
     static function logError(error:Dynamic):Void {
         if (errorLogged) return;
         errorLogged = true;

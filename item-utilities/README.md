@@ -7,6 +7,9 @@ A collection of inventory, bank, character preset, and item-safety quality-of-li
 Lock icons, lock editing, preset controls, and bank/Recycler buttons follow
 the game's current UI position and scale when changing resolution or resizing
 the window. Their click targets and inventory scrolling boundaries scale with them.
+Overlapping windows, including DPS Meter's Fight History, hide covered utility
+overlays and block their lock-edit click targets. Window coverage uses the full
+panel rectangle and is collected once per frame.
 
 ## Installation
 

@@ -245,6 +245,7 @@ class ItemUtilitiesMod {
     static var activeTooltip:Dynamic;
     static var activeTooltipShownAt:Float = 0;
     static var activeBaseUI:Dynamic;
+    static var windowOccluders:Array<OverlayRect>;
     static inline var INVENTORY_SLOT_SIZE = 48.0;
     static inline var TOOLTIP_BUTTON_DELAY = 0.2;
     static inline var TOOLTIP_OVERLAP_INSET = 4.0;
@@ -520,6 +521,7 @@ class ItemUtilitiesMod {
     static function afterWindowDisplayed(instance:Dynamic, window:Dynamic,
         root:Dynamic, result:Void):Void {
         activeBaseUI = instance;
+        windowOccluders = null;
     }
 
     @:hlx.prefix(st.Loadout.requestCompleteItem)
@@ -708,6 +710,7 @@ class ItemUtilitiesMod {
 
     @:hlx.postfix(ui.win.TitleWindow.onRemove)
     static function afterTitleWindowRemove(instance:Dynamic, result:Void):Void {
+        windowOccluders = null;
         var kept:Array<{ window:Dynamic, inventory:Dynamic }> = [];
         for (entry in openInventoryWindows)
             if (entry.window != instance) kept.push(entry);
@@ -747,6 +750,7 @@ class ItemUtilitiesMod {
 
     static function draw():Void {
         NativeUiLayout.beginFrame();
+        windowOccluders = null;
         refreshActiveHero();
         updateTalentPreset();
         updateSkillPreset();
@@ -2952,6 +2956,17 @@ class ItemUtilitiesMod {
     }
 
     static function windowOverlaps(x:Float, y:Float, width:Float, height:Float):Bool {
+        if (windowOccluders == null) collectWindowOccluders();
+        var area = new OverlayRect(x, y, x + width, y + height);
+        for (bounds in windowOccluders)
+            if (bounds.intersects(area)) return true;
+        return false;
+    }
+
+    static function collectWindowOccluders():Void {
+        // The same panel protects badges, lock-edit hit targets, preset buttons
+        // and deposit controls. Resolve it once per frame, not once per item.
+        windowOccluders = [];
         try {
             var windows = fieldOrNull(activeBaseUI, "windows");
             for (index in 0...arrayLength(windows)) {
@@ -2963,16 +2978,13 @@ class ItemUtilitiesMod {
                     || isAncestorOf(window, activeInventoryUI)
                     || isAncestorOf(window, playerInventoryComp))
                     continue;
-                if (fieldOrNull(window, "parent") == null
-                    || fieldOrNull(window, "visible") == false)
-                    continue;
-                if (objectOverlaps(window, x, y, width, height, 0))
-                    return true;
+                if (!isUiVisible(window)) continue;
+                var bounds = NativeUiLayout.windowBounds(window);
+                if (bounds != null) windowOccluders.push(bounds);
             }
         } catch (error:Dynamic) {
             logLockError("window bounds", error);
         }
-        return false;
     }
 
     static function isAncestorOf(ancestor:Dynamic, object:Dynamic):Bool {
