@@ -90,6 +90,8 @@ class FightHistoryStore {
         if (!currentActivities.exists(entry.activityId) || currentActivities[entry.activityId] == HistoryCategory.OTHER)
             catalog.activities[entry.activityId] = learned[entry.activityId].category;
     }
+    /** Preload compact summaries on the worker before the first kill needs them. */
+    public function warm():Void index();
     function index():Void {
         initialize();
         if (indexed) return;

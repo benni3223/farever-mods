@@ -59,7 +59,7 @@ class HistoryTest {
         try Xml.parse("<text>" + detail + "</text>") catch (_:Dynamic) failed = true;
         check(failed, "An unescaped sub-second attempt reproduces the native XML parse error");
         for (value in [detail, "Wink <Warrior> & friends", "<b>Ratsar</b>", "[Warrior_RageStrike] $unit(Ratsar)",
-            "Literal &lt;tag&gt;", "Previous best: <0.01 sec", "Your DPS: 265"]) {
+            "Literal &lt;tag&gt;", "Best: <0.01 sec", "Your DPS: 265"]) {
             var encoded = LiteralText.escape(value);
             var decoded = Xml.parse("<text>" + encoded + "</text>").firstElement().firstChild().nodeValue;
             check(decoded == value, "Native XML label round-trips literal text: " + value);
@@ -107,15 +107,24 @@ class HistoryTest {
         store.query(request("delete", "", 0, "current"));
         check(store.bossRecord(query).best == 72.34, "Recycling the fastest log immediately restores the next fastest record");
         query.bossKind = "NoKillsYet";
-        check(store.bossRecord(query).best == null && BossRecords.label(store.bossRecord(query)) == "Current best: none",
+        check(store.bossRecord(query).best == null && BossRecords.label(store.bossRecord(query)) == "Best: none",
             "A first kill has no invented previous record");
         query.bossKind = "BossKind"; query.difficulty = -1;
-        check(store.bossRecord(query).error != "" && BossRecords.label(store.bossRecord(query)) == "Current best: unavailable",
+        check(store.bossRecord(query).error != "" && BossRecords.label(store.bossRecord(query)) == "Best: unavailable",
             "Missing difficulty is not mistaken for an empty record history");
         query.difficulty = 1; query.playerClass = "";
         check(store.bossRecord(query).error != "", "Missing character class cannot mix same-name characters");
         query.playerClass = "warrior";
         var worker = new LogUploader(root);
+        worker.warmHistory();
+        // A fresh worker has not answered any queries. Once warmed, it must
+        // serve summaries without reopening old chart files at kill time.
+        var priorPath = root + "/history/prior.json";
+        var original = File.getContent(priorPath);
+        File.saveContent(priorPath, "{simulate an unreadable file after startup");
+        worker.requestBossRecord(query); worker.readBossRecords();
+        check(worker.receiveBossRecord().best == 72.34, "Startup warming serves the first kill from memory without reopening charts");
+        File.saveContent(priorPath, original);
         var queued:Dynamic = Json.parse(Json.stringify(prior)); queued.id = "queued";
         queued.duration = 50; queued.startedAt = query.before;
         worker.archive(queued); worker.requestBossRecord(query); worker.requestHistory(request("categories"));
@@ -153,26 +162,7 @@ class HistoryTest {
         check(BossRecords.duration(72.34) == "1 min 12.34 sec" && BossRecords.duration(59.999) == "1 min 00.00 sec"
             && BossRecords.duration(.001) == "<0.01 sec", "Record durations retain hundredths and round minute boundaries correctly");
         var best:BossRecordResponse = {id: 1, best: 10, error: ""};
-        var finished = sample(); finished.outcome = "Victory";
-        check(BossRecords.label(best, finished) == "Current best: 10.00 sec", "A tied kill keeps Current best");
-        finished.last = 21;
-        check(BossRecords.label(best, finished) == "Current best: 10.00 sec", "A slower kill keeps Current best");
-        finished.last = 19;
-        check(BossRecords.label(best, finished) == "Previous best: 10.00 sec", "A faster kill displays the previous record");
-        finished.outcome = "Defeat";
-        check(BossRecords.label(best, finished) == "Current best: 10.00 sec", "A shorter defeat cannot establish a kill record");
-        finished.outcome = ""; finished.closed = 0;
-        check(BossRecords.label(best, finished) == null, "An unfinished partial duration cannot claim a new record");
-        finished.last = 21; finished.closed = 21;
-        check(BossRecords.label(best, finished) == null, "Final damage still pending also defers the record label");
-        finished.outcome = "Victory";
-        check(BossRecords.label(best, finished) == "Current best: 10.00 sec", "Early lookup completes with the final duration, not its initially faster partial duration");
-        best.best = null;
-        check(BossRecords.label(best, finished) == "Previous best: none", "The first confirmed victory has no previous record");
-        best.best = 10;
-        check(BossRecords.label(best) == "Current best: 10.00 sec", "Unavailable current-fight timing never claims a new record");
-        best.error = "Read failed";
-        check(BossRecords.label(best, finished) == "Current best: unavailable", "A failed lookup cannot establish a new record");
+        check(BossRecords.label(best) == "Best: 10.00 sec", "The label is always Best without needing current-fight finalization");
     }
     static function chakramHit(time:Float, amount:Float, kill:Bool = false):DamageEvent {
         var e = hit(time, amount, kill, true, "me", "chakram");

@@ -27,15 +27,10 @@ class BossRecords {
             && (best == null || entry.duration < best)) best = entry.duration;
         return best;
     }
-    public static function label(result:BossRecordResponse, ?fight:Fight):Null<String> {
-        if (result.error != "") return "Current best: unavailable";
-        // Progress and the worker response may precede combat exit or its final
-        // damage grace period. A partial duration cannot establish a record.
-        if (fight != null && (fight.closed <= 0 || fight.outcome == "")) return null;
-        var elapsed = fight == null ? 0 : fight.duration();
-        var improved = fight != null && fight.outcome == "Victory" && Math.isFinite(elapsed) && elapsed > 0
-            && (result.best == null || elapsed < result.best);
-        return (improved ? "Previous best: " : "Current best: ") + (result.best == null ? "none" : duration(result.best));
+    public static function label(result:BossRecordResponse):String {
+        // Only the earlier record is displayed. Its label and value do not
+        // depend on combat exit, late damage, or the current fight's outcome.
+        return "Best: " + (result.error != "" ? "unavailable" : result.best == null ? "none" : duration(result.best));
     }
     public static function duration(seconds:Float):String {
         if (seconds < .01) return "<0.01 sec";

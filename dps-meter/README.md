@@ -85,18 +85,20 @@ uses the same duration and one-second minimum as the live chart. If an older
 report did not identify your character, the list shows that your DPS is unavailable.
 Names and durations are treated as literal text, including **<1 sec** for instant fights.
 
-Boss kill notifications also show **Current best**: the fastest earlier **Victory**
+Boss kill notifications also show **Best:** the fastest earlier **Victory**
 against that boss on the same difficulty, for the same character name and class.
 Times include hundredths of a second. The current fight is excluded even if its
-log has already been saved. A strictly faster victory changes the label to
-**Previous best** and shows the old record; slower or tied victories use **Current best**. The
-new time becomes eligible on the next kill. A first recorded victory shows **none**.
+log has already been saved. The label stays **Best:** for every kill. If you set
+a new record, the popup still shows the old best; the new time becomes eligible
+on the next kill. A first recorded victory shows **none**.
 Existing logs with confirmed victories count immediately; older logs with unknown
 outcomes cannot establish a kill record. Missing character identity or difficulty
 shows **unavailable**. Recycling a record's log removes it from future comparisons.
-Lookups run on the background worker and briefly show an ellipsis while loading
-or awaiting the current fight's finalized duration;
-the result updates the kill popup without extending its lifetime.
+The background worker loads the history index at startup and keeps its compact
+summaries in memory, updating them as logs are saved or recycled. Lookups can
+briefly show an ellipsis while that worker is busy, but no longer wait for the
+current fight to finish or settle its final damage. The result updates the kill
+popup without extending its lifetime.
 
 Selecting an attempt replaces the list with that fight's damage chart. Its summary
 shows date and time, character name, your DPS, duration, and outcome together in that order. Click a

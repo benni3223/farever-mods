@@ -11,8 +11,6 @@ private typedef KillPopup = {
     title:Dynamic,
     message:String,
     recordId:Int,
-    recordFight:Null<CombatModel.Fight>,
-    recordResponse:Null<BossRecords.BossRecordResponse>,
     expires:Float
 };
 
@@ -27,8 +25,7 @@ class NativeKillPopups {
 
     public function new(config:MeterSettings) this.config = config;
 
-    public function show(id:String, message:String, category:String, count:Int, goal:Int, now:Float, recordId:Int = 0,
-        ?recordFight:CombatModel.Fight):Void {
+    public function show(id:String, message:String, category:String, count:Int, goal:Int, now:Float, recordId:Int = 0):Void {
         var ui = G.current("ui.BaseUI", "current");
         if (ui == null) return;
         if (owner != ui) { clear(); owner = ui; }
@@ -41,7 +38,6 @@ class NativeKillPopups {
         for (row in rows) if (row.id == id) {
             setText(row.title, caption);
             row.message = message; row.recordId = recordId;
-            row.recordFight = recordFight; row.recordResponse = null;
             row.expires = now + duration; row.category = category;
             G.set(row.object, "alpha", 1);
             return;
@@ -64,7 +60,7 @@ class NativeKillPopups {
             style(title, "text-align", center);
             setText(title, caption);
             rows.unshift({id: id, category: category, object: object, title: title,
-                message: message, recordId: recordId, recordFight: recordFight, recordResponse: null, expires: now + duration});
+                message: message, recordId: recordId, expires: now + duration});
             if (rows.length > 3) G.call("h2d.Object", "remove", rows.pop().object);
             update(true, now);
         } catch (e:Dynamic) { G.call("h2d.Object", "remove", object); throw e; }
@@ -72,23 +68,12 @@ class NativeKillPopups {
 
     public function recordResult(result:BossRecords.BossRecordResponse, now:Float):Void {
         for (row in rows) if (row.recordId == result.id && row.expires > now) {
-            row.recordResponse = result;
+            setText(row.title, row.message + "  ·  " + BossRecords.label(result));
             row.recordId = 0;
-            applyRecord(row);
             // Preserve this kill's original lifetime and alpha. A late disk
             // response is not another kill notification.
             return;
         }
-    }
-
-    function applyRecord(row:KillPopup):Void {
-        if (row.recordResponse == null) return;
-        var label = BossRecords.label(row.recordResponse, row.recordFight);
-        if (label == null) return; // The collector still owns finalizing this fight.
-        setText(row.title, row.message + "  ·  " + label);
-        // Keep the exact fight on the game thread until finalized, never
-        // replace it with the next encounter or send mutable state to the worker.
-        row.recordResponse = null; row.recordFight = null;
     }
 
     public function update(active:Bool, now:Float):Void {
@@ -108,7 +93,6 @@ class NativeKillPopups {
             if (now >= row.expires || !enabled) {
                 rows.remove(row); G.call("h2d.Object", "remove", row.object); continue;
             }
-            applyRecord(row);
             // Widen both native flows so their CSS cannot constrain the title.
             size(row.object, width);
             size(G.field(row.object, "texts"), width);

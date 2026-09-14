@@ -48,6 +48,12 @@ class LogUploader {
     public function requestBossRecord(request:BossRecordRequest):Void { bossRequests.add(request); wake.release(); }
     public function receiveBossRecord():Null<BossRecordResponse> return bossResponses.pop(false);
 
+    function warmHistory():Void {
+        saveMutex.acquire();
+        try history.warm() catch (e:Dynamic) { saveMutex.release(); throw e; }
+        saveMutex.release();
+    }
+
     function readBossRecords():Void {
         var request = bossRequests.pop(false);
         if (request == null) return;
@@ -101,11 +107,21 @@ class LogUploader {
 
     public function run():Void {
         var initialized = false;
+        var historyWarmAttempted = false;
         while (!shouldStop()) {
             try {
                 // Saving encounters must also work if upload configuration or
                 // network initialization fails.
                 flush();
+                // Start loading at the first game update, not at the first
+                // boss kill. Later lookups reuse these in-memory summaries.
+                // This remains independent of upload settings and networking.
+                if (!historyWarmAttempted) {
+                    historyWarmAttempted = true;
+                    try warmHistory() catch (e:Dynamic) log("History preload: " + Std.string(e));
+                    // A preload failure must not block uploads or other work;
+                    // the next explicit history/record query can retry indexing.
+                }
                 browseHistory();
                 readBossRecords();
                 if (!initialized) {

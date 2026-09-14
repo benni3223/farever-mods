@@ -92,8 +92,7 @@ class KillNotifications {
         var request = boss ? BossRecords.request(++recordSequence, id, model,
             recordSince.exists(id) ? recordSince[id] : baselineAt, Date.now().getTime()) : null;
         popups.show(id, name + ": " + total + (count == 1 && category != "incomplete" ? " kill" : " kills"),
-            category, count, goal, now, request == null ? 0 : request.id,
-            request == null ? null : model.bossRecordFight(id, recordSince.exists(id) ? recordSince[id] : baselineAt));
+            category, count, goal, now, request == null ? 0 : request.id);
         if (request != null) { recordSince[id] = now; writer.requestBossRecord(request); }
     }
 }
