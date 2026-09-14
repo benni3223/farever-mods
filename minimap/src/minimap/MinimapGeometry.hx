@@ -23,13 +23,15 @@ class MinimapGeometry {
     }
 
     public static function north(size:Float, circular:Bool, rotation:Float, markerScale:Float):MapEdgePoint
-        return edge(Math.sin(rotation), -Math.cos(rotation), size, circular, 10 * markerScale);
+        // The complete enlarged glyph fits inside a 12 px radius. Leave two
+        // more pixels for the mask edge, including on rotated square maps.
+        return edge(Math.sin(rotation), -Math.cos(rotation), size, circular, 14 * markerScale);
 
     public static function alert(x:Float, y:Float, size:Float, circular:Bool, markerScale:Float, north:MapEdgePoint):MapEdgePoint {
         var point = edge(x, y, size, circular, 14 * markerScale);
         var dx = point.x - north.x, dy = point.y - north.y;
         // Reserve space for the compass only when this arrow would cover it.
-        return dx * dx + dy * dy < 22 * 22 * markerScale * markerScale
-            ? edge(x, y, size, circular, 34 * markerScale) : point;
+        return dx * dx + dy * dy < 24 * 24 * markerScale * markerScale
+            ? edge(x, y, size, circular, 38 * markerScale) : point;
     }
 }

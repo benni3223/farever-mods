@@ -37,7 +37,8 @@ class MinimapGeometryTest {
                 var north = M.north(size, circular, rotation, scale);
                 var nx = north.x - size / 2, ny = north.y - size / 2;
                 var extent = circular ? Math.sqrt(nx * nx + ny * ny) : Math.max(Math.abs(nx), Math.abs(ny));
-                close(extent, size / 2 - 10 * scale, "North stays on the rim across rotation, shape, size and marker scale");
+                close(extent, size / 2 - 14 * scale, "North stays on the rim across rotation, shape, size and marker scale");
+                check(extent + 12 * scale <= size / 2 - 2 * scale + .00001, "The enlarged N retains padding inside both map shapes");
                 close(nx * Math.cos(rotation) + ny * Math.sin(rotation), 0, "North follows the map's north vector");
                 check(nx * Math.sin(rotation) - ny * Math.cos(rotation) > 0, "North points outward in the correct hemisphere");
                 for (angle in [rotation - Math.PI / 2, 0., .7, 2.3, 4.1]) {
@@ -48,14 +49,14 @@ class MinimapGeometryTest {
                     check(edge + 12 * scale <= size / 2 + .00001, "The complete alert ring stays inside the map");
                     close(ax * Math.sin(angle) - ay * Math.cos(angle), 0, "Edge placement preserves the companion bearing");
                     var dx = arrow.x - north.x, dy = arrow.y - north.y;
-                    check(dx * dx + dy * dy >= 21 * 21 * scale * scale - .00001, "Alert rings leave the compass readable");
+                    check(dx * dx + dy * dy >= 24 * 24 * scale * scale - .00001, "Alert rings leave the enlarged compass readable");
                 }
             }
         var top = M.north(250, true, 0, 1);
         close(top.x, 125, "Fixed maps place N at top centre");
-        close(top.y, 10, "Fixed maps put the needle just inside the top edge");
+        close(top.y, 14, "Fixed maps leave padding above the enlarged needle");
         var right = M.north(250, true, Math.PI / 2, 1);
-        close(right.x, 240, "A quarter turn moves north to the right edge");
+        close(right.x, 236, "A quarter turn moves north to the right edge");
         close(right.y, 125, "A quarter turn preserves the vertical centre");
 
         var compass = new MinimapCompass(null);

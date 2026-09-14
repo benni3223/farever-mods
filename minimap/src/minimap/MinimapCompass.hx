@@ -12,21 +12,20 @@ class MinimapCompass {
 
     public function new(parent:Dynamic) {
         graphic = G.create("h2d.Graphics", [parent]);
-        // An ivory needle and a plain N, outlined against both light and dark
-        // terrain. Local pixel geometry avoids font loading or per-frame redraw.
+        // Filled convex shapes give the enlarged N square, complete ends.
+        // Avoid line joins/caps: their thin strokes lost detail at HUD size.
+        // Draw every outline first so the stems and diagonal join seamlessly.
         for (outline in [true, false]) {
             G.call("h2d.Graphics", "beginFill", graphic, [outline ? 0x201b1b : 0xfff3d6, 1.0]);
-            polygon(outline ? [0., -9., 4., -2., -4., -2.] : [0., -7., 2.3, -3., -2.3, -3.]);
+            polygon(outline ? [0., -11., 5., -3., -5., -3.] : [0., -8.5, 2.5, -4.5, -2.5, -4.5]);
+            polygon(outline ? [-6., -2., -1.5, -2., -1.5, 10., -6., 10.]
+                : [-5., -1., -2.5, -1., -2.5, 9., -5., 9.]);
+            polygon(outline ? [1.5, -2., 6., -2., 6., 10., 1.5, 10.]
+                : [2.5, -1., 5., -1., 5., 9., 2.5, 9.]);
+            polygon(outline ? [-6., -2., -1.5, -2., 6., 10., 1.5, 10.]
+                : [-5., -1., -2.5, -1., 5., 9., 2.5, 9.]);
             G.call("h2d.Graphics", "endFill", graphic);
         }
-        for (outline in [true, false]) {
-            G.call("h2d.Graphics", "lineStyle", graphic, [outline ? 3.5 : 1.7, outline ? 0x201b1b : 0xfff3d6, 1.0]);
-            G.call("h2d.Graphics", "moveTo", graphic, [-3., 7.]);
-            G.call("h2d.Graphics", "lineTo", graphic, [-3., 0.]);
-            G.call("h2d.Graphics", "lineTo", graphic, [3., 7.]);
-            G.call("h2d.Graphics", "lineTo", graphic, [3., 0.]);
-        }
-        G.call("h2d.Graphics", "lineStyle", graphic, [0., 0x000000, 1.0]);
     }
 
     public function update(size:Int, circular:Bool, rotation:Float, markerScale:Float):Void {
