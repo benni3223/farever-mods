@@ -43,7 +43,7 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
-        lifecycle(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown();
+        lifecycle(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails();
         Sys.println('Fight history: $checks checks passed');
     }
     static function lifecycle():Void {
@@ -239,7 +239,7 @@ class HistoryTest {
             var req = request("groups"); req.category = category;
             var groups = store.query(req);
             check(groups.groups.length == 1 && groups.groups[0].count == 1, "Category filters same-named encounters independently: " + category);
-            req = request("fights", "The Guardian"); req.category = category;
+            req = request("fights", groups.groups[0].name); req.category = category;
             check(store.query(req).entries[0].category == category, "Attempt list retains the selected category: " + category);
         }
         var legacyFight = sample(); legacyFight.bossKind = "FutureGuardian"; legacyFight.activityId = "FutureArena";
@@ -255,7 +255,7 @@ class HistoryTest {
         var reopened = new FightHistoryStore(root, _ -> {});
         var req = request("groups"); req.category = "Boss Dungeons"; req.catalog = catalog;
         var groups = reopened.query(req);
-        check(groups.groups.length == 2 && groups.groups[0].name == "The Future Guardian", "Original imported logs recover exact category metadata and localized names");
+        check(groups.groups.length == 2 && groups.groups[0].name == "The Future Guardian - Unknown difficulty", "Original imported logs recover category and name without inventing missing difficulty");
         var original:Dynamic = Json.parse(File.getContent(root + "/history/" + legacy.id + ".json"));
         check(!Reflect.hasField(original, "activityId"), "Metadata recovery leaves the existing archive file untouched");
         remove(root);
@@ -287,7 +287,9 @@ class HistoryTest {
             "CycleA" => {texts: {refs: {ref: "CycleB"}}}, "CycleB" => {texts: {refs: {ref: "CycleA"}}}
         ];
         GameAccess.globals["Data.skill"] = {byId: definitions};
-        GameAccess.globals["Texts.item_weapon_base_attack"] = "Base Attack";
+        // This native field is a formatter, not a label. Reproduce that shape
+        // so turning it into a function address cannot regress unnoticed.
+        GameAccess.globals["Texts.item_weapon_base_attack"] = (_:Dynamic) -> "Weapon damage description";
         GameAccess.globals["skillRefs"] = ["ChildEffect" => {id: "GA_Craft_Skill1"}];
         for (id => expected in ["Warrior_Rage_Strike" => "Raging Smash", "GA_Craft_FinalCombo" => "Brutal Frenzy",
             "Warrior_Hemorrhage_Status" => "Hemorrhage", "GA_Craft_Skill1" => "Rampage",
@@ -305,6 +307,56 @@ class HistoryTest {
         player.context.objectives.array = [{kind: "KillBoss", target: TestObjectiveTarget.Unit("NewBoss")}, {kind: "KillAllDungeonFoes", completed: true}];
         check(NativeCombatMetadata.activityCategory("TestClassic", false, player, activity) == "Classic Dungeons", "Completed clearing objective still identifies a classic dungeon despite Boss inheritance");
         check(NativeCombatMetadata.activityCategory("TestClassic", true, player, activity) == "World Bosses", "Native rift override");
+        var icons:Map<String, Dynamic> = ["Dungeon_Default" => {name: "Normal"}, "Dungeon_LevelMax" => {name: "Hard"}, "Dungeon_Heroic" => {name: "Heroic"}];
+        GameAccess.globals["Data.icon"] = {byId: icons};
+        var catalog = NativeCombatMetadata.catalog();
+        check(catalog.difficulties[0] == "Normal" && catalog.difficulties[1] == "Hard" && catalog.difficulties[2] == "Heroic", "Difficulty values use the native selection-screen icon names");
+    }
+    static function encounterDetails():Void {
+        var root = temp("difficulties"); var store = new FightHistoryStore(root, _ -> {});
+        for (difficulty in [0, 1, 2, -1]) {
+            var f = sample(); f.category = "Boss Dungeons"; f.bossName = "King Ratsar";
+            f.bossKind = "Ratsar"; f.activityId = "Arena"; f.difficulty = difficulty; f.partySize = 5;
+            var record = FightHistory.encode(f.copy(), "diff_" + (difficulty + 1));
+            store.save(record);
+            var restored = FightHistory.decode(Json.parse(Json.stringify(record)));
+            check(restored.difficulty == difficulty && restored.partySize == 5, "Difficulty and roster size survive copied and saved fights " + difficulty);
+        }
+        var req = request("groups"); req.category = "Boss Dungeons";
+        var groups = store.query(req).groups;
+        check(groups.length == 4, "One boss produces distinct Normal, Hard, Heroic, and unknown encounter choices");
+        for (name in ["Normal", "Hard", "Heroic", "Unknown difficulty"]) {
+            var req = request("fights", "King Ratsar - " + name); req.category = "Boss Dungeons";
+            check(store.query(req).entries.length == 1, "Selecting " + name + " only lists that difficulty");
+        }
+        var f = sample(); f.partySize = 5;
+        var entry = FightHistory.entry(FightHistory.encode(f, "details"));
+        check(FightHistory.attemptHeading(entry) == FightHistory.dateLabel(f.startedAt) + "  ·  Shawn  ·  Party: 5", "Attempt button starts with date, character, and complete roster size");
+        check(FightHistory.attemptDetail(entry) == "10 sec  ·  Your DPS: 35", "Attempt button second line has duration then DPS");
+        check(FightHistory.chartDetail(entry) == FightHistory.dateLabel(f.startedAt) + "  ·  Shawn  ·  Your DPS: 35  ·  10 sec", "Chart summary has date, character, DPS, duration in one row");
+        var old = FightHistory.encode(sample(), "old"); Reflect.deleteField(old, "difficulty"); Reflect.deleteField(old, "partySize");
+        entry = FightHistory.entry(old);
+        check(entry.difficulty == -1 && entry.partySize == 0 && entry.recordedPlayers == 2, "Old logs preserve unknown difficulty and only a lower bound on party size");
+        check(StringTools.endsWith(FightHistory.attemptHeading(entry), "Party: ≥2"), "Old logs cannot mistake damage contributors for the whole party");
+        var m = model(); m.party["passive"] = true;
+        m.onCombatEnter("me", 10); m.record(hit(10, 20)); m.onCombatExit("me", 12); m.update(13, false);
+        check(m.history[0].partySize == 3 && Lambda.count(m.history[0].players) == 1, "Party size includes members who never deal damage");
+        m = model(); m.party["passive"] = true; m.enableRift(); m.record(hit(10, 20)); m.reset(12);
+        check(m.history[0].partySize == 3, "Rift archive keeps the present-player roster size too");
+        // Previous history versions retained activity IDs but dropped difficulty.
+        // The original uploader report is matched by its exact session ID.
+        f = sample(); f.bossKind = "Ratsar"; f.activityId = "Arena"; f.difficulty = 2;
+        var report = f.json("20260914-132030", 8);
+        var legacy = FightHistory.legacy(report, f.startedAt + 10000, "legacy_" + haxe.crypto.Md5.encode(report.session_id));
+        Reflect.deleteField(legacy, "difficulty"); store.save(legacy);
+        FileSystem.createDirectory(root + "/logs/sent");
+        File.saveContent(root + "/logs/sent/run_20260914-132030_8.json", Json.stringify(report));
+        var reopened = new FightHistoryStore(root, _ -> {});
+        var recovered = reopened.query(request("chart", "", 0, legacy.id)).record;
+        check(recovered.difficulty == 2, "Recover missing difficulty even when legacy activity metadata already exists");
+        check(Json.parse(File.getContent(root + "/history/" + legacy.id + ".json")).difficulty == null, "Difficulty recovery never rewrites the old log");
+        check(HistoryCategory.encounterName({name: "Boss", difficulty: 7}, null) == "Boss - Difficulty 7", "Unrecognized future difficulty remains distinct");
+        remove(root);
     }
     static function breakdown():Void {
         var skill = new SkillStats(); skill.damage = 4500; skill.casts = 13; skill.hits = 15; skill.crits = 7;

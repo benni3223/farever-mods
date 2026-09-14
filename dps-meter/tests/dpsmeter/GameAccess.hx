@@ -18,6 +18,7 @@ class GameAccess {
         default: throw "Unexpected native metadata call: " + type + "." + name;
     };
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic return switch (type + "." + name) {
+        case "HActivity.all": [];
         case "HActivity.getInf": (cast globals["activities"]:Map<String, Dynamic>).get(args[0]);
         case "HActivity.isOfType": (cast field(args[0], "types"):Array<String>).indexOf(args[1]) >= 0;
         case "HSkill.getSkillRef": (cast globals["skillRefs"]:Map<String, Dynamic>).get(args[0]);

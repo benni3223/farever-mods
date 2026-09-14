@@ -25,7 +25,7 @@ class NativeHistoryWindow {
     var heading:Dynamic;
     var headingStyle:Dynamic;
     var detail:Dynamic;
-    var dateInfo:Dynamic;
+    var chartInfo:Dynamic;
     var list:Dynamic;
     var chartPanel:Dynamic;
     var chart:NativeDamageChart;
@@ -93,11 +93,10 @@ class NativeHistoryWindow {
         show(G.field(list, "obj"), false); show(G.field(chartPanel, "obj"), false);
         setText(empty, "Loading fight history..."); show(empty, true);
         G.call("h2d.Text", "set_text", heading, [headingText()]);
-        setText(detail, mode == "groups" || mode == "categories" ? "" : mode == "fights"
-            ? "Newest first · Times are shown in your local time" : entryDetail(entry));
-        show(detail, mode == "fights" || mode == "chart");
-        setText(dateInfo, mode == "chart" && entry != null ? entryDate(entry) : "");
-        show(dateInfo, mode == "chart");
+        setText(detail, mode == "fights" ? "Newest first · Times are shown in your local time" : "");
+        show(detail, mode == "fights");
+        G.call("h2d.Text", "set_text", chartInfo, [mode == "chart" ? FightHistory.chartDetail(entry) : ""]);
+        show(chartInfo, mode == "chart");
         show(back, mode != "categories");
         show(previous, false); show(next, false); show(pageLabel, false);
         // Literal text keeps Windows paths containing brackets or other markup
@@ -136,9 +135,9 @@ class NativeHistoryWindow {
                 row.entry = mode == "fights" ? response.entries[i] : null;
                 row.group = names ? response.groups[i].name : "";
                 row.caption = names ? response.groups[i].name
-                    : FightHistory.durationLabel(row.entry.duration) + "  ·  " + FightHistory.dpsLabel(row.entry.personalDps);
+                    : FightHistory.attemptHeading(row.entry);
                 row.description = names ? response.groups[i].count + (response.groups[i].count == 1 ? " fight" : " fights")
-                    : entryDate(row.entry);
+                    : FightHistory.attemptDetail(row.entry);
                 setText(row.name, row.caption); setText(row.detail, row.description);
             }
             show(G.field(list, "obj"), count > 0); show(empty, count == 0);
@@ -151,11 +150,6 @@ class NativeHistoryWindow {
         }
         lastRefresh = -1;
     }
-    static function entryDate(entry:HistoryEntry):String return FightHistory.dateLabel(entry.startedAt)
-        + (entry.playerName == "" ? "" : "  ·  " + entry.playerName);
-    static function entryDetail(entry:HistoryEntry):String return entry == null ? "" : FightHistory.durationLabel(entry.duration)
-        + "  ·  " + FightHistory.dpsLabel(entry.personalDps);
-
     function build(ui:Dynamic):Void {
         owner = ui;
         constructing = true;
@@ -191,7 +185,10 @@ class NativeHistoryWindow {
         absolute(window, header); absolute(window, content); absolute(content, bodyObject);
         absolute(bodyObject, options); absolute(options, container); absolute(container, G.field(panel, "obj"));
         back = button(panel, "Back", "dpsHistoryBack", goBack);
-        detail = label(panel, ""); dateInfo = label(panel, ""); empty = label(panel, "");
+        detail = label(panel, ""); empty = label(panel, "");
+        chartInfo = G.create("h2d.Text", [G.field(detail, "font"), G.field(panel, "obj")]);
+        G.call("h2d.Text", "set_textColor", chartInfo, [0x5b4334]);
+        G.call("h2d.Text", "set_lineBreak", chartInfo, [false]);
         headingStyle = label(panel, "");
         G.call("domkit.Properties", "addClass", G.field(headingStyle, "dom"), ["bold-14"]);
         show(headingStyle, false);
@@ -212,9 +209,9 @@ class NativeHistoryWindow {
         footer = G.create("h2d.Text", [G.field(detail, "font"), G.field(panel, "obj")]);
         G.call("h2d.Text", "set_textColor", footer, [0x5b4334]);
         G.call("h2d.Text", "set_lineBreak", footer, [false]);
-        for (object in [back, heading, detail, dateInfo, empty, G.field(list, "obj"), G.field(chartPanel, "obj"), previous, next, pageLabel, footer])
+        for (object in [back, heading, detail, chartInfo, empty, G.field(list, "obj"), G.field(chartPanel, "obj"), previous, next, pageLabel, footer])
             absolute(G.field(panel, "obj"), object);
-        for (text in [title, detail, dateInfo, empty, pageLabel]) {
+        for (text in [title, detail, empty, pageLabel]) {
             var left = G.enumeration("h2d.Align", "Left");
             G.call("h2d.Text", "set_textAlign", text, [left]); style(text, "text-align", left);
             G.call("ui.comp.FmtText", "set_useEllipsis", text, [true]);
@@ -259,16 +256,15 @@ class NativeHistoryWindow {
             G.call("h2d.Text", "set_text", heading, [headingText()]);
             position(heading, mode == "categories" ? 0 : 100, 0);
             G.call("ui.comp.FmtText", "set_maxWidthText", detail, [inner]); position(detail, 0, 60);
-            G.call("ui.comp.FmtText", "set_maxWidthText", dateInfo, [inner]); position(dateInfo, 0, 88);
-            var topInset = mode == "categories" || mode == "groups" ? 66 : mode == "fights" ? 100 : 124;
+            position(chartInfo, 0, 60);
+            var topInset = mode == "categories" || mode == "groups" ? 66 : 100;
             G.call("ui.comp.FmtText", "set_maxWidthText", empty, [inner]); position(empty, 0, topInset);
-            var chartHeight = Std.int(Math.max(30, bodyHeight - topInset - 84));
+            var chartHeight = Std.int(Math.max(30, bodyHeight - topInset - 112));
             for (object in [G.field(list, "obj"), G.field(chartPanel, "obj")]) { size(object, inner, chartHeight); position(object, 0, topInset); }
             chart.resize(inner, chartHeight);
-            size(previous, 108, 34); position(previous, 0, bodyHeight - 70);
-            size(next, 108, 34); position(next, inner - 108, bodyHeight - 70);
+            size(previous, 108, 34); position(previous, 0, bodyHeight - 96);
+            size(next, 108, 34); position(next, inner - 108, bodyHeight - 96);
             G.call("ui.comp.FmtText", "set_maxWidthText", pageLabel, [Std.int(Math.max(1, inner - 236))]);
-            position(footer, 0, bodyHeight - 24);
             G.call("ui.comp.FmtText", "set_maxWidthText", title, [w - 112]);
             lastRefresh = -1;
         }
@@ -280,9 +276,19 @@ class NativeHistoryWindow {
         if (font != null && font != headingFont) { headingFont = font; G.call("h2d.Text", "set_font", heading, [font]); }
         headingBaseScale = G.number(G.field(headingStyle, "scaleX"), 1);
         fitLiteral(heading, width - 48 - (mode == "categories" ? 0 : 100), headingBaseScale * 1.75);
-        fitLiteral(footer, width - 48, headingBaseScale);
+        position(heading, mode == "categories" ? 0 : 100, 8 + (34 - textHeight(heading)) / 2);
+        G.call("ui.comp.FmtText", "updateScale", detail);
+        var bodyFont = G.field(detail, "font");
+        for (text in [footer, chartInfo]) if (bodyFont != null && G.field(text, "font") != bodyFont)
+            G.call("h2d.Text", "set_font", text, [bodyFont]);
+        var bodyScale = G.number(G.field(detail, "scaleX"), 1);
+        fitLiteral(chartInfo, width - 48, bodyScale);
+        fitLiteral(footer, width - 48, bodyScale);
+        // Keep the actual rendered bottom of the path 24px above the panel's
+        // bottom, regardless of font size or UI scale.
+        position(footer, 0, height - 76 - 24 - textHeight(footer));
         position(title, (width - textWidth(title)) / 2, (60 - textHeight(title)) / 2);
-        position(pageLabel, (width - 48 - textWidth(pageLabel)) / 2, height - 76 - 66);
+        position(pageLabel, (width - 48 - textWidth(pageLabel)) / 2, height - 76 - 92);
         var inner = G.integer(G.call("h2d.Flow", "get_innerWidth", G.field(list, "obj")), width - 48);
         var scrollbar = G.field(G.field(list, "obj"), "scrollBar");
         if (scrollbar != null && G.field(scrollbar, "visible") == true)
@@ -311,6 +317,11 @@ class NativeHistoryWindow {
         G.set(point, "x", x); G.set(point, "y", y);
         var local = G.call("h2d.Object", "globalToLocal", root, [point]);
         return {x: G.number(G.field(local, "x")), y: G.number(G.field(local, "y"))};
+    }
+    public function closeFromEscape(ui:Dynamic):Bool {
+        if (window == null || owner != ui || G.field(window, "removed") == true || G.field(window, "parent") == null) return false;
+        dispose();
+        return true;
     }
     public function dispose():Void {
         requested = false; serial++;

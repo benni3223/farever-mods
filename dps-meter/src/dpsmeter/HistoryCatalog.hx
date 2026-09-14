@@ -4,7 +4,8 @@ package dpsmeter;
 typedef HistoryCatalog = {
     activities:Map<String, String>,
     names:Map<String, String>,
-    bosses:Map<String, Bool>
+    bosses:Map<String, Bool>,
+    ?difficulties:Map<Int, String>
 };
 
 class HistoryCategory {
@@ -54,5 +55,19 @@ class HistoryCategory {
             if (catalog.names.exists(id)) return "Rift: " + catalog.names[id];
         }
         return name;
+    }
+    public static function encounterName(record:Dynamic, catalog:Null<HistoryCatalog>):String {
+        var name = displayName(record, catalog);
+        var difficulty = FightHistory.difficulty(record.difficulty);
+        if (difficulty >= 0) {
+            var label = catalog != null && catalog.difficulties != null ? catalog.difficulties[difficulty] : null;
+            if (label == null || label == "") label = switch (difficulty) {
+                case 0: "Normal"; case 1: "Hard"; case 2: "Heroic";
+                default: "Difficulty " + difficulty;
+            };
+            return name + " - " + label;
+        }
+        var category = resolve(record, catalog);
+        return name + (category == BOSS || category == DUNGEON ? " - Unknown difficulty" : "");
     }
 }

@@ -57,16 +57,14 @@ class NativeSkillTable {
             row.percent = Std.string(SkillStats.rounded(v.percent, 1)) + "%";
             row.fraction = Math.max(0, Math.min(1, v.damage / Math.max(1, player.skills[ids[0]].damage)));
             row.color = classColor(player.info.className);
-            var tip = names[key] + "\n" + compact(v.damage) + " damage (" + row.percent + ") · " + compact(v.dps) + " DPS"
-                + "\n" + v.casts + " casts · " + compact(v.avgCast) + " avg cast"
-                + "\n" + v.hits + " hits · " + compact(v.avgHit) + " avg hit · " + SkillStats.rounded(v.crit, 1) + "% critical";
-            if (row.tip != tip) { row.tip = tip; G.call("ui.UIElement", "set_textTip", row.obj, [tip]); }
+            var values:Map<String, String> = row.values;
+            var signature = row.percent + "|" + [for (key in ["ability", "damage", "casts", "avgCast", "hits", "avgHit", "crit", "dps"]) values[key]].join("|");
             var nameText = (cast row.texts:Map<String, Dynamic>)["ability"];
             var font = G.field(nameText, "font"); var scale = G.field(nameText, "scaleX");
-            if (row.drawnTip != tip || row.drawnWidth != width || row.drawnFraction != row.fraction
+            if (row.drawnValues != signature || row.drawnWidth != width || row.drawnFraction != row.fraction
                 || row.drawnTile != row.tile || row.drawnColor != row.color || row.font != font || row.scale != scale) {
                 layout(row);
-                row.drawnTip = tip; row.drawnWidth = width; row.drawnFraction = row.fraction;
+                row.drawnValues = signature; row.drawnWidth = width; row.drawnFraction = row.fraction;
                 row.drawnTile = row.tile; row.drawnColor = row.color;
                 row.font = G.field(nameText, "font"); row.scale = G.field(nameText, "scaleX");
             }
@@ -82,8 +80,8 @@ class NativeSkillTable {
         var obj = G.field(dom, "obj"); padding(obj, 0);
         var row:Dynamic = {obj: obj, texts: new Map<String, Dynamic>(), values: new Map<String, String>(),
             graphic: G.create("h2d.Graphics", [obj]), icon: null, tile: null, percentText: null,
-            skill: "", percent: "", fraction: 0.0, color: 0, index: index, tip: "",
-            drawnTip: "", drawnWidth: 0, drawnFraction: -1.0, drawnTile: null, drawnColor: -1, font: null, scale: null};
+            skill: "", percent: "", fraction: 0.0, color: 0, index: index,
+            drawnValues: "", drawnWidth: 0, drawnFraction: -1.0, drawnTile: null, drawnColor: -1, font: null, scale: null};
         absolute(obj, row.graphic);
         for (key in ["ability", "damage", "casts", "avgCast", "hits", "avgHit", "crit", "dps"]) {
             var t = label(dom, ""); absolute(obj, t);

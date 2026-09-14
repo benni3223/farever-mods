@@ -45,7 +45,14 @@ class NativeCombatMetadata {
         return observed.exists(id) ? observed[id] : HistoryCategory.OTHER;
     }
     public static function catalog():HistoryCatalog {
-        var result:HistoryCatalog = {activities: [], names: [], bosses: []};
+        var result:HistoryCatalog = {activities: [], names: [], bosses: [], difficulties: []};
+        // Same icon definitions and numeric values as InstanceSelectScreen.
+        var difficultyIcons = ["Dungeon_Default", "Dungeon_LevelMax", "Dungeon_Heroic"];
+        for (i in 0...difficultyIcons.length) try {
+            var inf = G.call("haxe.ds.StringMap", "get", G.field(G.current("Data", "icon"), "byId"), [difficultyIcons[i]]);
+            var name = FightHistory.text(G.field(inf, "name"));
+            if (name != "") result.difficulties[i] = name;
+        } catch (e:Dynamic) warn(e);
         // All is intentionally unfiltered: retained logs can refer to retired
         // activities. Reading definitions does not load their maps or prefabs.
         try for (definition in G.array(G.staticCall("HActivity", "all", [null]))) {
@@ -75,9 +82,9 @@ class NativeCombatMetadata {
             var name = G.text(G.field(texts, "name"));
             var type = G.integer(G.field(inf, "type"), -1);
             if (name == "" && type >= 0 && type <= 3) {
-                // Unnamed normal combo steps use the same generic label as
-                // the weapon UI, keeping each hit's step number distinct.
-                name = G.text(G.current("Texts", "item_weapon_base_attack"), "Base Attack");
+                // item_weapon_base_attack is a function that formats a weapon
+                // DAMAGE DESCRIPTION, not an ability-name string.
+                name = "Base Attack";
                 if (type > 0) name += " " + (type + 1);
             }
             var source = "";

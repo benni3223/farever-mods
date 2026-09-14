@@ -80,6 +80,12 @@ class DpsMeterMod {
     static function suppressMeterAutoDisplay(instance:Dynamic):HlxPrefixResult<Void> {
         return NativeMeterWindow.constructing || NativeRiftRecapWindow.constructing || NativeHistoryWindow.constructing ? Skip : Continue;
     }
+    @:hlx.prefix(ui.BaseUI.closeFirstClosableUI)
+    static function closeHistoryOnEscape(instance:Dynamic, onlyEscapeClosable:Null<Bool>):HlxPrefixResult<Bool> {
+        // Participate in the native Escape/back route and consume this close
+        // action so it cannot also open EscapeMenu or close another window.
+        return historyView != null && historyView.closeFromEscape(instance) ? SkipWith(true) : Continue;
+    }
     @:hlx.prefix(ui.notify.NotifyManager.queue)
     static function positionKillPopup(instance:Dynamic, notification:Dynamic):HlxPrefixResult<Void> {
         // These native text components have their own screen placement/lifetime.

@@ -108,6 +108,7 @@ class Fight {
     public var bossLevel:Int = 0;
     public var bossFoeId:Int = 0;
     public var difficulty:Int = -1;
+    public var partySize:Int = 0;
     public var activityId:String = "";
     public var category:String = "";
     public var categoryVersion:Int = HistoryCatalog.HistoryCategory.VERSION;
@@ -136,6 +137,7 @@ class Fight {
         result.bossKind = bossKind; result.bossName = bossName; result.bossUid = bossUid; result.bossLevel = bossLevel;
         result.bossFlags = bossFlags;
         result.bossFoeId = bossFoeId; result.difficulty = difficulty; result.activityId = activityId;
+        result.partySize = partySize;
         result.category = category;
         result.categoryVersion = categoryVersion;
         result.me = me; result.meName = meName; result.participants = participants.copy(); result.targets = targets.copy();
@@ -296,6 +298,7 @@ class CombatModel {
         fight.me = me;
         if (profiles.exists(me)) fight.meName = profiles[me].name;
         fight.difficulty = difficulty;
+        fight.partySize = Std.int(Math.max(fight.partySize, Lambda.count(party)));
         fight.activityId = activityId;
         // The export's legacy boss mask also includes elites. Only actual boss
         // damage promotes a normal combat into a dungeon-boss history category.
@@ -336,7 +339,7 @@ class CombatModel {
         if (member) {
             session.add(e, info);
             if (rift != null) {
-                rift.record(e, info, difficulty, activityId, me, profiles.exists(me) ? profiles[me].name : "");
+                rift.record(e, info, difficulty, activityId, me, profiles.exists(me) ? profiles[me].name : "", Lambda.count(party));
                 current = rift.current;
                 lastCombat = rift.last;
                 return;

@@ -48,7 +48,7 @@ class RiftTracker {
         fight.defeated = true;
     }
 
-    public function record(e:DamageEvent, info:PlayerInfo, difficulty:Int, activityId:String, me:String, meName:String = ""):Void {
+    public function record(e:DamageEvent, info:PlayerInfo, difficulty:Int, activityId:String, me:String, meName:String = "", partySize:Int = 0):Void {
         // Clones can share the boss flag. Only the unit named by KillBoss can
         // start this phase or supply its boss identity; summons remain adds.
         var bossHit = e.effect != 1 && e.summoned != true
@@ -84,6 +84,7 @@ class RiftTracker {
             fights[index] = fight;
         }
         var end = fight.last;
+        fight.partySize = Std.int(Math.max(fight.partySize, partySize));
         fight.add(e, info);
         if (closed) {
             fight.last = end;

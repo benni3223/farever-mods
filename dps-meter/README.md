@@ -51,7 +51,7 @@ can be removed if no other mod uses it.
 - **Summon tracking:** Minion damage credited to its owner and the skill that summoned it.
 - **Native, customizable window:** Move, resize, lock, and scroll the meter, with optional automatic hiding and a smooth fade.
 - **Rift tracking and recaps:** Separate gate and boss phases covering all players present, with both charts in one post-rift recap.
-- **Fight history:** Browse Boss Dungeons, Classic Dungeons, World Bosses, and Other encounters; choose an attempt by duration, your DPS, and local date/time, then reopen its player and skill charts.
+- **Fight history:** Browse Boss Dungeons, Classic Dungeons, World Bosses, and Other encounters by difficulty; choose an attempt by date, character, party size, duration, and your DPS, then reopen its player and skill charts.
 - **Kill notifications:** Optional boss kill totals and Codex progress popups, including counts for completed entries.
 - **Automatic log uploads:** Send completed boss encounters to [Farever Logs](https://fareverlogs.fr/) in the background, with no external application.
 - **Better Mod Settings integration:** Customize display options and hotkeys, with settings and window placement saved between sessions.
@@ -59,12 +59,16 @@ can be removed if no other mod uses it.
 ## Reviewing past fights
 
 Click the **book icon** on the left of the meter's header. Choose a category and an encounter name,
-then an attempt from the newest-first list. Each attempt shows its duration,
-your character's total DPS, local date and time, and character name. The DPS
+then an attempt from the newest-first list. Each attempt shows local date and time,
+character name, and party size on the first row, then duration and your DPS on the
+second. New charts retain the largest party roster observed during the fight,
+including members who dealt no damage. Older logs without a saved roster show
+the recorded player count as a lower bound (for example, **Party: ≥2**). The DPS
 uses the same duration and one-second minimum as the live chart. If an older
 report did not identify your character, the list shows that your DPS is unavailable.
 
-Selecting an attempt replaces the list with that fight's damage chart. Click a
+Selecting an attempt replaces the list with that fight's damage chart. Its summary
+shows date and time, character name, your DPS, and duration together in that order. Click a
 player to see their skills; click a skill row to return to the player chart.
 Each ability occupies one row with its game icon, display name, total damage,
 share of your damage, and DPS. A full-width history view also has casts,
@@ -72,8 +76,9 @@ average damage per cast, hits, average damage per hit, and critical-hit percenta
 Ability DPS uses the entire fight's duration, matching the player's total DPS.
 The bars compare abilities against the highest-damage ability; the printed
 percentages use the player's total damage. Narrow windows keep the core columns
-readable; hover an ability to see all its statistics and its full name.
+readable. Ability rows have no hover tooltip.
 **Back** returns to the same page of attempts, then to the encounter names.
+**Escape** closes the history window without also closing a window underneath it.
 The encounter and attempt lists have page controls and scroll when space is limited. The history
 window stays open independently of the live meter's out-of-combat fade.
 The footer shows the full absolute path to the local chart archive. Section
@@ -90,7 +95,10 @@ the programming class names `Boss` and `Dungeon` do not determine the distinctio
 **World Bosses** contains rift phases. Only actual boss encounters enter the
 dungeon categories; ordinary combats and elites remain in **Other**.
 
-New charts retain their activity ID, category, and classification version.
+Encounters are separated by the game's difficulty labels, such as **King Ratsar -
+Normal**, **King Ratsar - Hard**, and **King Ratsar - Heroic**. Older dungeon logs
+whose difficulty cannot be recovered appear under **Unknown difficulty**.
+New charts retain their activity ID, category, classification version, and difficulty.
 The browser also uses these observed categories to classify older logs from the
 same activity, including after restarting the game. Three confirmed legacy
 encounters have explicit compatibility mappings: Ratsar and Chakram (internal
@@ -103,7 +111,7 @@ No old chart files are rewritten or deleted during reclassification.
 Rift phase names can still identify old rift charts. Game-provided names replace
 unit IDs where available. Skill labels read the game's `texts.name` directly,
 following explicit text references and the game's child-skill reference cache.
-Unnamed normal attack steps use the weapon UI's base-attack label and step number.
+Unnamed normal attack steps use **Base Attack**, **Base Attack 2**, and so on.
 The recorded skill IDs and damage totals remain unchanged, so old logs gain the
 display names without being recorded again. Removed definitions keep a readable
 ID fallback.

@@ -107,7 +107,8 @@ class FightHistoryStore {
         if (request.catalog != null) {
             // Detach the snapshot before enriching it on this worker.
             currentActivities = request.catalog.activities;
-            catalog = {activities: request.catalog.activities.copy(), names: request.catalog.names, bosses: request.catalog.bosses};
+            catalog = {activities: request.catalog.activities.copy(), names: request.catalog.names, bosses: request.catalog.bosses,
+                difficulties: request.catalog.difficulties};
             for (activity => entry in learned) if (!catalog.activities.exists(activity)
                 || catalog.activities[activity] == HistoryCategory.OTHER) catalog.activities[activity] = entry.category;
         }
@@ -117,6 +118,11 @@ class FightHistoryStore {
             if (!entries.exists(request.fightId)) throw "This fight log could not be found.";
             response.record = Json.parse(File.getContent(recordPath(request.fightId)));
             FightHistory.validate(response.record);
+            // The index may have recovered metadata from a surviving export.
+            // Apply it to this detached read too, without rewriting the log.
+            var summary = entries[request.fightId];
+            response.record.difficulty = summary.difficulty;
+            response.record.partySize = summary.partySize;
         } else if (request.action == "categories") {
             var counts:Map<String, Int> = [];
             for (entry in entries) {
@@ -128,7 +134,7 @@ class FightHistoryStore {
         } else if (request.action == "groups") {
             var counts:Map<String, Int> = [];
             for (entry in entries) if (matches(entry, request.category)) {
-                var name = HistoryCategory.displayName(entry, catalog);
+                var name = HistoryCategory.encounterName(entry, catalog);
                 counts[name] = counts.exists(name) ? counts[name] + 1 : 1;
             }
             var groups = [for (name => count in counts) {name: name, count: count}];
@@ -138,7 +144,7 @@ class FightHistoryStore {
             response.groups = groups.slice(response.page * FightHistory.PAGE_SIZE, (response.page + 1) * FightHistory.PAGE_SIZE);
         } else if (request.action == "fights") {
             var fights = [for (entry in entries) if (matches(entry, request.category)
-                && HistoryCategory.displayName(entry, catalog) == request.group) entry];
+                && HistoryCategory.encounterName(entry, catalog) == request.group) entry];
             fights.sort((a, b) -> a.startedAt == b.startedAt ? Reflect.compare(b.id, a.id) : a.startedAt > b.startedAt ? -1 : 1);
             response.total = fights.length;
             response.page = page(request.page, response.total);
@@ -150,7 +156,7 @@ class FightHistoryStore {
         return category == null || category == "" || HistoryCategory.resolve(entry, catalog) == category;
     function restoreLegacyMetadata(record:Dynamic):Void {
         var id = FightHistory.text(record.id);
-        if (!StringTools.startsWith(id, "legacy_") || FightHistory.text(record.activityId) != "") return;
+        if (!StringTools.startsWith(id, "legacy_") || (FightHistory.text(record.activityId) != "" && record.difficulty != null)) return;
         if (legacyMetadata == null) {
             legacyMetadata = [];
             // The original history release omitted these fields. Its stable
@@ -167,14 +173,16 @@ class FightHistoryStore {
                         if (key == "") key = name;
                         legacyMetadata["legacy_" + haxe.crypto.Md5.encode(key)] = {
                             activityId: FightHistory.text(report.activity_id), bossKind: FightHistory.text(report.boss_kind),
-                            phase: FightHistory.text(report.phase)
+                            phase: FightHistory.text(report.phase), difficulty: FightHistory.difficulty(report.difficulty),
+                            partySize: Std.int(FightHistory.number(report.party_size))
                         };
                     } catch (_:Dynamic) {}
                 }
         }
         var metadata = legacyMetadata[id];
-        if (metadata != null) for (field in ["activityId", "bossKind", "phase"])
-            Reflect.setField(record, field, Reflect.field(metadata, field));
+        if (metadata != null) for (field in ["activityId", "bossKind", "phase", "difficulty", "partySize"])
+            if (Reflect.field(record, field) == null || Reflect.field(record, field) == "")
+                Reflect.setField(record, field, Reflect.field(metadata, field));
     }
     static function page(requested:Int, total:Int):Int return Std.int(Math.max(0,
         Math.min(requested, Math.max(0, Math.ceil(total / FightHistory.PAGE_SIZE) - 1))));
