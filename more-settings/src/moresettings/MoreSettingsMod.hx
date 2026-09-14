@@ -13,6 +13,8 @@ class MoreSettingsMod {
     static var config:MoreSettingsConfig = SettingsData.defaults();
     static var audio:AudioControl;
     static var hideUi = new HideUiBinding();
+    static var autorun = new Autorun();
+    static var reportedAutorunError:Bool = false;
     static var reportedInputError:Bool = false;
     static var app:Dynamic;
     static var reportedAudioError:Bool = false;
@@ -35,6 +37,7 @@ class MoreSettingsMod {
         }
         SettingsData.normalize(config);
         hideUi.configure(config.hideUiKey);
+        autorun.configure(config.autorunKey);
         config.save();
         audio = new AudioControl(config);
         AllyEffects.configure(config);
@@ -42,6 +45,7 @@ class MoreSettingsMod {
             config = ModConfig.load(HlxRuntime.moduleName(), config);
             SettingsData.normalize(config);
             hideUi.configure(config.hideUiKey);
+            autorun.configure(config.autorunKey);
             AllyEffects.configure(config);
             try audio.configure(config) catch (e:Dynamic) audioError(e);
             audioRetryAt = 0;
@@ -61,13 +65,67 @@ class MoreSettingsMod {
 
     @:hlx.postfix(lib.Input.isPressed)
     static function hideUiPressed(key:String, result:Bool):Bool {
+        try result = autorun.input(key, result) catch (e:Dynamic) autorunError(e);
         try return hideUi.pressed(key, result) catch (e:Dynamic) inputError(e);
         return result;
+    }
+
+    @:hlx.postfix(lib.Input.isDown)
+    static function autorunInputDown(key:String, result:Bool):Bool {
+        try return autorun.input(key, result) catch (e:Dynamic) autorunError(e);
+        return result;
+    }
+
+    @:hlx.prefix(client.PlayerController.update)
+    static function beginAutorunInputs(instance:Dynamic, dt:Float):HlxPrefixResult<Void> {
+        try autorun.begin(instance) catch (e:Dynamic) autorunError(e);
+        return Continue;
+    }
+
+    @:hlx.postfix(client.PlayerController.updateInputs)
+    static function prepareAutorun(instance:Dynamic, dt:Float, result:Void):Void {
+        try autorun.prepare(instance) catch (e:Dynamic) autorunError(e);
+    }
+
+    @:hlx.prefix(client.PlayerController.getMoveDirection)
+    static function autorunDirection(instance:Dynamic, input:Dynamic):HlxPrefixResult<Dynamic> {
+        try autorun.direction(instance, input) catch (e:Dynamic) autorunError(e);
+        return Continue;
+    }
+
+    @:hlx.postfix(client.PlayerController.update)
+    static function finishAutorunInputs(instance:Dynamic, dt:Float, result:Void):Void {
+        autorun.finish(instance);
+    }
+
+    @:hlx.prefix(client.UnitController.requestSkill)
+    static function cancelAutorunForSkill(instance:Dynamic, skill:Dynamic, input:String):HlxPrefixResult<Dynamic> {
+        autorun.skill(instance);
+        return Continue;
+    }
+
+    @:hlx.prefix(client.UnitController.tryUseSkill)
+    static function cancelAutorunForAimedSkill(instance:Dynamic, skill:Dynamic, target:Dynamic):HlxPrefixResult<Void> {
+        autorun.skill(instance);
+        return Continue;
+    }
+
+    @:hlx.prefix(client.UnitController.onEnd)
+    static function endAutorun(instance:Dynamic):HlxPrefixResult<Void> {
+        autorun.ended(instance);
+        return Continue;
+    }
+
+    @:hlx.prefix(client.PlayerController.dispose)
+    static function disposeAutorun(instance:Dynamic):HlxPrefixResult<Void> {
+        autorun.ended(instance);
+        return Continue;
     }
 
     @:hlx.prefix(GameApp.update)
     static function beforeUpdate(instance:Dynamic, dt:Float):HlxPrefixResult<Void> {
         app = instance;
+        try autorun.watch(instance) catch (e:Dynamic) autorunError(e);
         AllyEffects.update(instance);
         if (audio != null && haxe.Timer.stamp() >= audioRetryAt)
             try audio.update(G.field(instance, "hero")) catch (e:Dynamic) audioError(e);
@@ -90,6 +148,7 @@ class MoreSettingsMod {
     static function dispose(instance:Dynamic):HlxPrefixResult<Void> {
         if (audio != null) try audio.dispose() catch (e:Dynamic) audioError(e);
         AllyEffects.dispose();
+        autorun.reset();
         app = null;
         return Continue;
     }
@@ -118,6 +177,14 @@ class MoreSettingsMod {
         if (!reportedInputError) {
             reportedInputError = true;
             trace("[More Settings] Hide UI binding: " + Std.string(error));
+        }
+    }
+
+    static function autorunError(error:Dynamic):Void {
+        autorun.reset();
+        if (!reportedAutorunError) {
+            reportedAutorunError = true;
+            trace("[More Settings] Autorun: " + Std.string(error));
         }
     }
 }

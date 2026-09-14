@@ -17,6 +17,11 @@
       "label": "Hide UI hotkey"
     },
     {
+      "key": "autorunKey",
+      "type": "keybinding",
+      "label": "Autorun hotkey"
+    },
+    {
       "type": "title",
       "label": "Unfocused Volume"
     },

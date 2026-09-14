@@ -2,7 +2,7 @@
 
 [Builds](https://github.com/xWink/farever-mods/actions/workflows/build-more-settings.yml) · [Releases](https://github.com/xWink/farever-mods/releases?q=more-settings%2Fv&expanded=true)
 
-Client settings for **Farever**: chat filtering, temporary audio levels, and separate ally presentation controls for rifts, dungeons, and the overworld. Previously called **More Audio Settings**.
+Client settings for **Farever**: autorun, chat filtering, temporary audio levels, and separate ally presentation controls for rifts, dungeons, and the overworld. Previously called **More Audio Settings**.
 
 ## Settings
 
@@ -10,7 +10,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 | Category | Controls | Defaults |
 | --- | --- | --- |
-| General | Disable profanity filter; Hide UI hotkey | Profanity option on (imports previous preference); Hide UI defaults to F2 |
+| General | Disable profanity filter; Hide UI hotkey; Autorun hotkey | Profanity option on (imports previous preference); Hide UI defaults to F2; autorun unassigned |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
@@ -20,6 +20,8 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 
 **Hide UI hotkey** rebinds the game's existing UI visibility shortcut. Choose a key under **General**; the default is **F2**. The selected key replaces the original keyboard binding and retains the game's normal hide/show behavior and input restrictions. Typing in chat or another text field does not hide the UI. Update Better Mod Settings too: its key-capture guard prevents assigning a shortcut from hiding the settings window. Bindings use one key; Escape cancels capture.
+
+**Autorun hotkey** toggles continuous forward movement. Movement input in any direction, attacks, skills, blocks, and dodges cancel it; jumping keeps it active. Movement and action detection follow your game's bindings, including gamepad movement. Typing or assigning a hotkey does not activate autorun. Losing focus, a blocking menu, death, travel, or a character/zone change clears it. The hotkey is unassigned by default.
 
 The unfocused setting temporarily limits Farever's master volume and restores it on focus, including any master-volume change made in the game's options. It never raises a quieter master setting.
 
@@ -64,6 +66,6 @@ build/event-volume-test
 
 The plugin output is `build/native/more_settings_audio.hdll`; install it in `hlx/plugins/more-settings/`. It resolves the public FMOD event-volume API from the game's loaded `fmodstudio.dll`; no game or FMOD binaries are bundled. If the plugin is missing or unavailable, an audio error is logged and the mod never falls back to changing a global volume for travel.
 
-Regression tests exercise the production UI binding adapter, volume controller, region/ability policy, classifier, and presentation tracker with a simulated native adapter. CI requires those tests plus native bridge tests before compiling and packaging both binaries. Native API and bytecode inspection supplements these tests; actual rendering/audio still require in-game multiplayer testing after game updates.
+Regression tests exercise the production UI binding adapter, autorun controller, volume controller, region/ability policy, classifier, and presentation tracker with a simulated native adapter. CI requires those tests plus native bridge tests before compiling and packaging both binaries. Native API and bytecode inspection supplements these tests; movement, rendering and audio still require in-game testing after game updates.
 
 The mod avoids repeating FMOD writes on unchanged frames. Model membership and adoption of existing effects refresh at most five times per second. Native member lookup and skill classification are cached; disabled filters avoid entity scans. Rendering hooks never skip skill execution or character animation updates.
