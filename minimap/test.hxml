@@ -17,3 +17,8 @@
 -cp tests
 -main MinimapGeometryTest
 --interp
+--next
+-cp src
+-cp tests
+-main CodexMarkersTest
+--interp

@@ -31,7 +31,7 @@ A compact overworld minimap with a centered player arrow.
 - Soulstone summoning circles with rune-ring and crystal markers.
 - Unopened treasure chest, undiscovered secret orb, and activity markers.
 - Hide completed activities while keeping ascensions and dungeons visible, with separate options to hide either.
-- Enemy filters for completed and incomplete Codex entries.
+- Independent enemy filters for Codex XP completion, full mastery, and enemies without Codex entries.
 - Companion markers with an option to hide variants already in your collection.
 - Yellow-ringed edge arrows guide you toward uncollected sparkling companions when their markers are out of view.
 - Yellow rings highlight sparkling enemies and bosses.
@@ -77,6 +77,8 @@ Secret orb tooltips always read **Secret Orb**. Sparkling companion alerts disap
 
 The **Activities** section includes **Show activities**, **Hide completed activities** (on by default), **Hide ascensions**, and **Hide dungeons** (both off by default). Completed ascensions and dungeons remain visible unless hidden with their own option. **Show activities** controls all three categories. Other activities, including rifts, still follow **Hide completed activities**. Markers use the game's world-map locations, including overworld entrances for instanced activities.
 
+**Hide completed Codex enemies** filters at the Codex XP-reward milestone. **Hide mastered Codex enemies** filters at each enemy's final Codex mastery threshold. Both options are in **Enemies** and default to off; existing saved preferences are preserved. To keep enemies visible until full mastery, turn **Hide completed Codex enemies** off and **Hide mastered Codex enemies** on. If both are enabled, the earlier completion milestone hides the marker. Both filters read the game's thresholds for normal, large, elite, and boss enemies and compare them with the current character's kill count.
+
 Settings use HLX's native persistence at `hlx/config/minimap/config.json`. Better Mod Settings is optional; the mod works with its defaults without it.
 
 ## Building
@@ -89,6 +91,6 @@ cd minimap
 haxe compile.hxml
 ```
 
-Run the marker classification, activity visibility, percentage-position, clipping, and compass regression tests with `haxe test.hxml` (no game or HLX runtime required).
+Run the marker classification, activity visibility, Codex milestone, percentage-position, clipping, and compass regression tests with `haxe test.hxml` (no game or HLX runtime required).
 
 Output: `build/minimap/minimap.hl`. The independent workflow packages this project and publishes releases for `minimap/v*` tags.

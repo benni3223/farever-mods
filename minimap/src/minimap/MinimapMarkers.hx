@@ -61,7 +61,7 @@ class MinimapMarkers {
     var classes:Map<String, String> = [];
     var gatherKinds:Map<String, String> = [];
     var gatherFilters:Map<String, String> = [];
-    var codexGoals:Map<String, Int> = [];
+    var codex = new CodexMarkers();
     var npcKinds:Map<String, String> = [];
     var landmarks:Map<String, MapPoint> = [];
     var stationSource:Dynamic;
@@ -260,7 +260,7 @@ class MinimapMarkers {
         var progress = G.field(player, "progress");
         var unitsProgress = G.field(G.field(progress, "unitsProgress"), "map");
         var collection = G.field(G.field(player, "accountProgress"), "collection");
-        var completed:Map<String, Bool> = [];
+        var hiddenCodex:Map<String, Bool> = [];
         var collected:Map<String, Bool> = [];
         if (config.showPlayers || config.showEnemies || config.showCompanions || config.sparklingCompanionAlerts)
         for (unit in G.array(G.field(layer, "units"))) {
@@ -309,15 +309,13 @@ class MinimapMarkers {
                     if (!config.showCompanions || !nearby || (config.hideCollectedCompanions && owned)) continue;
                 } else {
                     if (!config.showEnemies || G.call("ent.Foe", "isEnemyWith", unit, [hero]) != true) continue;
-                    var goal = codexGoal(id, inf);
-                    if (goal <= 0) {
-                        if (config.hideNonCodexEnemies) continue;
-                    } else if (config.hideCompletedCodexEnemies) {
-                        if (!completed.exists(id)) {
+                    if (config.hideCompletedCodexEnemies || config.hideMasteredCodexEnemies || config.hideNonCodexEnemies) {
+                        if (!hiddenCodex.exists(id)) {
                             var progress = unitsProgress == null ? null : G.call("haxe.ds.StringMap", "get", unitsProgress, [id]);
-                            completed[id] = G.integer(G.field(progress, "killCount")) >= goal;
+                            hiddenCodex[id] = codex.hidden(id, inf, G.integer(G.field(progress, "killCount")),
+                                config.hideCompletedCodexEnemies, config.hideMasteredCodexEnemies, config.hideNonCodexEnemies);
                         }
-                        if (completed[id]) continue;
+                        if (hiddenCodex[id]) continue;
                     }
                     if ((flags & 0x38) != 0) kind = "boss";
                 }
@@ -484,19 +482,6 @@ class MinimapMarkers {
         };
         npcKinds[id] = kind;
         return kind;
-    }
-
-    function codexGoal(id:String, inf:Dynamic):Int {
-        if (codexGoals.exists(id)) return codexGoals[id];
-        var goal = 0;
-        if (G.staticCall("data.CodexData", "isInCodex", [inf]) == true) {
-            var thresholds = G.array(G.staticCall("st.player.Progress", "getUnitProgressThreshold", [inf]));
-            var reward = G.integer(G.field(G.current("Const", "Codex"), "FoeXPRewardThresholdIndex")) - 1;
-            if (reward >= 0 && reward < thresholds.length) goal = G.integer(thresholds[reward]);
-        }
-        // Completion means earning the Codex XP reward, not the later ranks.
-        codexGoals[id] = goal;
-        return goal;
     }
 
     function gatherKind(inf:Dynamic):String {
