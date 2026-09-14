@@ -14,9 +14,16 @@ class HistoryDropdown {
     public function new(parent:Dynamic, id:String, choices:Array<HistoryChoice>, selected:String, changed:String->Void) {
         object = G.field(node("dropdown", parent, [false, false, "dps-history-options"], id), "obj");
         padding(object, 0);
+        // The history window is above gameRoot. Native Dropdown.toggle first
+        // registers its list under gameRoot, then honours this parent override.
+        // Append the list to the same root as history so it draws above it.
+        var popupRoot = G.field(G.current("ui.BaseUI", "current"), "root");
+        G.set(object, "getListLayout", () -> popupRoot);
         setChoices(choices, selected);
         G.call("ui.UIElement", "set_onClick", G.field(object, "select"), [() -> {
             G.call("ui.comp.Dropdown", "toggle", object, [null]);
+            var popup = G.field(object, "listWindow");
+            if (popup != null && G.field(popup, "parent") == popupRoot) absolute(popupRoot, popup);
             refreshColors();
         }]);
         G.set(object, "onValueChanged", (value:Dynamic) -> {
