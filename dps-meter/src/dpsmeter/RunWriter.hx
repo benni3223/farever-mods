@@ -14,6 +14,10 @@ class RunWriter {
     final historySession:String = DateTools.format(Date.now(), "%Y%m%d_%H%M%S") + "_" + Std.random(0x3fffffff);
 
     public function new() {}
+    public static function historyPath():String {
+        var path = haxe.io.Path.join([Sys.getCwd(), "hlx", "mods", "dps-meter", "history"]);
+        return Sys.systemName() == "Windows" ? StringTools.replace(path, "/", "\\") : path;
+    }
 
     public function archive(fight:Fight):Void {
         if (stopped) return;

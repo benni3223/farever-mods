@@ -2,6 +2,7 @@ import dpsmeter.CombatModel;
 import dpsmeter.FightHistory;
 import dpsmeter.FightHistoryStore;
 import dpsmeter.LogUploader;
+import dpsmeter.HistoryCatalog;
 import haxe.Json;
 import sys.FileSystem;
 import sys.io.File;
@@ -39,7 +40,7 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
-        lifecycle(); snapshots(); storage(); uploader();
+        lifecycle(); snapshots(); storage(); uploader(); categories();
         Sys.println('Fight history: $checks checks passed');
     }
     static function lifecycle():Void {
@@ -186,6 +187,68 @@ class HistoryTest {
         check(second.history.query(request("fights", "OldGuardian")).total == 1, "Restart does not duplicate legacy migration");
         second.archive(FightHistory.encode(sample(), "shutdown")); second.stop();
         check(FileSystem.exists(root + "/history/shutdown.json"), "Normal shutdown persists pending histories");
+        remove(root);
+    }
+    static function categories():Void {
+        check(HistoryCategory.fromTypes(true, true, true) == "World Bosses", "Rifts take priority over dungeon inheritance");
+        check(HistoryCategory.fromTypes(false, true, true) == "Boss Dungeons", "Boss subtype takes priority over Dungeon base");
+        check(HistoryCategory.fromTypes(false, false, true) == "Classic Dungeons", "Ordinary Dungeon type");
+        check(HistoryCategory.fromTypes(false, false, false) == "Other", "Unknown future activity safely belongs to Other");
+        var catalog:HistoryCatalog = {activities: ["FutureArena" => "Boss Dungeons", "FutureDungeon" => "Classic Dungeons", "FutureRift" => "World Bosses"],
+            names: ["FutureGuardian" => "The Future Guardian"], bosses: ["FutureGuardian" => true, "Crimson_Z3W_Caster_E" => false]};
+        var old:Dynamic = {name: "FutureGuardian", activityId: "FutureArena", bossKind: "FutureGuardian"};
+        check(HistoryCategory.resolve(old, catalog) == "Boss Dungeons", "Legacy activity ID uses running-game definitions, not a boss allowlist");
+        check(HistoryCategory.displayName(old, catalog) == "The Future Guardian", "Native localized name replaces legacy data ID");
+        check(HistoryCategory.resolve({name: "FutureGuardian"}, catalog) == "Other", "A boss name alone does not invent missing historical context");
+        check(HistoryCategory.resolve({name: "Rift: Gates"}, catalog) == "World Bosses", "Older rift gates recognizable without activity metadata");
+        check(HistoryCategory.resolve({name: "Rift: FutureGuardian"}, catalog) == "World Bosses", "Older rift boss recognizable without activity metadata");
+        check(HistoryCategory.displayName({name: "Rift: FutureGuardian"}, catalog) == "Rift: The Future Guardian", "Rift prefix preserved with localized name");
+        check(HistoryCategory.resolve({category: "Other", activityId: "FutureArena", bossKind: "FutureGuardian"}, catalog) == "Other", "Recorded nonboss context isn't promoted by a later catalog");
+        check(HistoryCategory.resolve({activityId: "FutureArena", bossKind: "Crimson_Z3W_Caster_E"}, catalog) == "Other", "Old elite uploads excluded from dungeon-boss filters");
+        var m = model(); m.activityId = "FutureArena"; m.activityCategory = "Boss Dungeons";
+        m.onCombatEnter("me", 10);
+        var boss = hit(10, 100, false, true); boss.bossFlags = 16; m.record(boss);
+        var elite = hit(11, 80, true, true, "me", "elite"); elite.bossKind = "Crimson_Z3W_Caster_E"; elite.bossName = elite.bossKind;
+        m.record(elite); m.onCombatExit("me", 12); m.update(13, false);
+        check(m.history[0].category == "Boss Dungeons", "New boss fight captures its native activity category");
+        check(m.history[0].bossName == "The Guardian", "Elite adds cannot replace a real boss's encounter name");
+        var encoded = FightHistory.encode(m.history[0], "category");
+        check(FightHistory.decode(Json.parse(Json.stringify(encoded))).category == "Boss Dungeons", "Category survives saving/reopening a chart");
+        check(encoded.activityId == "FutureArena" && encoded.bossKind == "BossKind", "New history retains source activity and boss identity");
+        m = model(); m.activityId = "FutureDungeon"; m.activityCategory = "Classic Dungeons";
+        m.onCombatEnter("me", 10); m.record(elite); m.onCombatExit("me", 12); m.update(13, false);
+        check(m.history[0].category == "Other", "Dungeon trash and elite fights remain under Other");
+        var root = temp("categories"); var store = new FightHistoryStore(root, _ -> {});
+        store.initialize();
+        for (category in HistoryCategory.all()) {
+            var f = sample(); f.category = category; store.save(FightHistory.encode(f, "category_" + category.split(" ").join("_")));
+        }
+        var req = request("categories"); req.catalog = catalog;
+        var categories = store.query(req);
+        check(categories.groups.length == 4 && categories.groups[0].name == "Boss Dungeons", "Category menu has the requested order");
+        for (category in HistoryCategory.all()) {
+            var req = request("groups"); req.category = category;
+            var groups = store.query(req);
+            check(groups.groups.length == 1 && groups.groups[0].count == 1, "Category filters same-named encounters independently: " + category);
+            req = request("fights", "The Guardian"); req.category = category;
+            check(store.query(req).entries[0].category == category, "Attempt list retains the selected category: " + category);
+        }
+        var legacyFight = sample(); legacyFight.bossKind = "FutureGuardian"; legacyFight.activityId = "FutureArena";
+        var report = legacyFight.json("20260914-132030", 6);
+        var legacy = FightHistory.legacy(report, legacyFight.startedAt + 10000, "legacy_" + haxe.crypto.Md5.encode(report.session_id));
+        check(legacy.activityId == "FutureArena" && legacy.bossKind == "FutureGuardian", "New imports preserve classification metadata");
+        // Simulate the first history release's omitted metadata, then restore it
+        // using the exact legacy session ID, with no destructive file migration.
+        for (field in ["activityId", "bossKind", "phase"]) Reflect.deleteField(legacy, field);
+        store.save(legacy);
+        FileSystem.createDirectory(root + "/logs/sent");
+        File.saveContent(root + "/logs/sent/run_20260914-132030_6.json", Json.stringify(report));
+        var reopened = new FightHistoryStore(root, _ -> {});
+        var req = request("groups"); req.category = "Boss Dungeons"; req.catalog = catalog;
+        var groups = reopened.query(req);
+        check(groups.groups.length == 2 && groups.groups[0].name == "The Future Guardian", "Original imported logs recover exact category metadata and localized names");
+        var original:Dynamic = Json.parse(File.getContent(root + "/history/" + legacy.id + ".json"));
+        check(!Reflect.hasField(original, "activityId"), "Metadata recovery leaves the existing archive file untouched");
         remove(root);
     }
 }

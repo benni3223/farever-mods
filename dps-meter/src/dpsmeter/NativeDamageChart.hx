@@ -12,6 +12,7 @@ class NativeDamageChart {
     var width:Int = 1;
     var displayed:Null<Fight>;
     var selectedPlayer:String = "";
+    var skillNames:Map<String, String> = [];
     var lastRefresh:Float = -1;
     var empty:Dynamic;
     public function new(parent:Dynamic, id:String, emptyText:String = "") {
@@ -41,6 +42,7 @@ class NativeDamageChart {
     public function update(fight:Null<Fight>, now:Float):Void {
         if (fight != displayed) {
             displayed = fight; selectedPlayer = "";
+            skillNames = [];
             resetScroll(); lastRefresh = -1;
         }
         if (now - lastRefresh < 0.20) return;
@@ -72,8 +74,9 @@ class NativeDamageChart {
                     + ", " + Std.int(total > 0 ? p.damage * 100 / total : 0) + "%)";
             } else {
                 var id = skillIds[i]; var s = selected.skills[id]; row.uid = "";
-                amount = s.damage; color = classColor(selected.info.className); label = id;
-                detail = compact(s.damage) + " damage";
+                if (!skillNames.exists(id)) skillNames[id] = NativeCombatMetadata.skillName(id);
+                amount = s.damage; color = classColor(selected.info.className); label = skillNames[id];
+                detail = compact(s.damage) + " (" + damagePercent(s.damage, selected.damage) + "%)";
                 setText(row.extra, s.casts + " casts  ·  " + s.hits + " hits  ·  " + s.crits + " crits");
             }
             row.caption = label;
@@ -156,7 +159,7 @@ class NativeDamageChart {
         var obj = G.field(d, "obj");
         var row:Dynamic = {obj: obj, heading: headingObject, name: name, details: details,
             extra: extra, bar: bar, uid: "", caption: "", lineHeight: 0, color: -1, width: 0};
-        G.call("ui.UIElement", "set_onClick", obj, [() -> { selectedPlayer = row.uid; resetScroll(); lastRefresh = -1; }]);
+        G.call("ui.UIElement", "set_onClick", obj, [() -> { selectedPlayer = row.uid; skillNames = []; resetScroll(); lastRefresh = -1; }]);
         sizeRow(row);
         return row;
     }

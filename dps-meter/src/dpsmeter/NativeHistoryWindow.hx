@@ -5,7 +5,7 @@ import dpsmeter.FightHistory;
 import dpsmeter.GameAccess as G;
 import dpsmeter.NativeUi.*;
 
-/** One native browser: encounter names -> attempts -> the existing damage chart. */
+/** One native browser: categories -> encounter names -> attempts -> damage chart. */
 class NativeHistoryWindow {
     public static var constructing:Bool = false;
     var requested:Bool = false;
@@ -23,6 +23,7 @@ class NativeHistoryWindow {
     var panel:Dynamic;
     var back:Dynamic;
     var heading:Dynamic;
+    var headingStyle:Dynamic;
     var detail:Dynamic;
     var dateInfo:Dynamic;
     var list:Dynamic;
@@ -37,7 +38,12 @@ class NativeHistoryWindow {
     var writer:RunWriter;
     var serial:Int = 0;
     var pending:Bool = false;
-    var mode:String = "groups";
+    var mode:String = "categories";
+    var category:String = "";
+    var catalog:HistoryCatalog;
+    var logsPath:String;
+    var headingFont:Dynamic;
+    var headingBaseScale:Float = 1;
     var group:String = "";
     var groupsPage:Int = 0;
     var fightsPage:Int = 0;
@@ -58,7 +64,11 @@ class NativeHistoryWindow {
         this.writer = writer;
         if (requested) {
             requested = false;
-            if (window == null) { build(ui); navigate("groups", "", 0); }
+            if (window == null) {
+                catalog = NativeCombatMetadata.catalog();
+                logsPath = RunWriter.historyPath();
+                build(ui); navigate("categories", "", 0);
+            }
         }
         if (window == null) return;
         var response = writer.receiveHistory();
@@ -75,28 +85,35 @@ class NativeHistoryWindow {
     }
     function navigate(mode:String, group:String, page:Int, ?entry:HistoryEntry):Void {
         this.mode = mode; this.group = group; this.page = page;
+        setText(title, "Fight History" + (category == "" ? "" : " · " + category));
         fight = null; pending = true; total = 0; serial++;
         if (mode == "groups") groupsPage = page;
         if (mode == "fights") fightsPage = page;
         for (row in rows) show(row.obj, false);
         show(G.field(list, "obj"), false); show(G.field(chartPanel, "obj"), false);
         setText(empty, "Loading fight history..."); show(empty, true);
-        setText(heading, mode == "groups" ? "Choose an encounter" : group);
-        setText(detail, mode == "groups" ? "All recorded fights, grouped by name" : mode == "fights"
+        G.call("h2d.Text", "set_text", heading, [headingText()]);
+        setText(detail, mode == "groups" || mode == "categories" ? "" : mode == "fights"
             ? "Newest first · Times are shown in your local time" : entryDetail(entry));
+        show(detail, mode == "fights" || mode == "chart");
         setText(dateInfo, mode == "chart" && entry != null ? entryDate(entry) : "");
         show(dateInfo, mode == "chart");
-        show(back, mode != "groups");
+        show(back, mode != "categories");
         show(previous, false); show(next, false); show(pageLabel, false);
-        setText(footer, mode == "chart" ? "Click a player for skills; click a skill to return to the players."
-            : "Fight logs are kept indefinitely.");
-        writer.requestHistory({id: serial, action: mode, group: group, page: page, fightId: entry == null ? "" : entry.id});
+        // Literal text keeps Windows paths containing brackets or other markup
+        // characters intact. The whole path scales to fit instead of ellipsizing.
+        G.call("h2d.Text", "set_text", footer, [logsPath]);
+        writer.requestHistory({id: serial, action: mode, group: group, page: page, fightId: entry == null ? "" : entry.id,
+            category: category, catalog: mode == "categories" ? catalog : null});
+        width = 0; // Navigation changes the amount of space above the list.
         lastRefresh = -1;
     }
     function goBack():Void {
         if (mode == "chart") navigate("fights", group, fightsPage);
-        else navigate("groups", "", groupsPage);
+        else if (mode == "fights") navigate("groups", "", groupsPage);
+        else { category = ""; navigate("categories", "", 0); }
     }
+    function headingText():String return mode == "categories" ? "Choose a category" : mode == "groups" ? "Choose an encounter" : group;
     function display(response:HistoryResponse):Void {
         pending = false; total = response.total; page = response.page;
         if (response.error != "") { setText(empty, response.error); show(empty, true); return; }
@@ -110,25 +127,26 @@ class NativeHistoryWindow {
             }
             show(empty, false); show(G.field(chartPanel, "obj"), true);
         } else {
-            if (mode == "groups") groupsPage = page; else fightsPage = page;
-            var count = mode == "groups" ? response.groups.length : response.entries.length;
+            var names = mode == "groups" || mode == "categories";
+            if (mode == "groups") groupsPage = page; else if (mode == "fights") fightsPage = page;
+            var count = names ? response.groups.length : response.entries.length;
             for (i in 0...rows.length) {
                 var row = rows[i]; show(row.obj, i < count);
                 if (i >= count) continue;
                 row.entry = mode == "fights" ? response.entries[i] : null;
-                row.group = mode == "groups" ? response.groups[i].name : "";
-                row.caption = mode == "groups" ? response.groups[i].name
+                row.group = names ? response.groups[i].name : "";
+                row.caption = names ? response.groups[i].name
                     : FightHistory.durationLabel(row.entry.duration) + "  ·  " + FightHistory.dpsLabel(row.entry.personalDps);
-                row.description = mode == "groups" ? response.groups[i].count + (response.groups[i].count == 1 ? " fight" : " fights")
+                row.description = names ? response.groups[i].count + (response.groups[i].count == 1 ? " fight" : " fights")
                     : entryDate(row.entry);
                 setText(row.name, row.caption); setText(row.detail, row.description);
             }
             show(G.field(list, "obj"), count > 0); show(empty, count == 0);
-            setText(empty, "No fights recorded yet. Finished fights will appear here.");
+            setText(empty, "No fights recorded in this category yet.");
             G.set(G.field(list, "obj"), "scrollPosY", 0.0);
             flow(list, "set_needReflow", true);
             show(previous, page > 0); show(next, (page + 1) * FightHistory.PAGE_SIZE < total);
-            show(pageLabel, total > 0);
+            show(pageLabel, total > 0 && mode != "categories");
             setText(pageLabel, "Page " + (page + 1) + " of " + Std.int(Math.max(1, Math.ceil(total / FightHistory.PAGE_SIZE))));
         }
         lastRefresh = -1;
@@ -173,7 +191,13 @@ class NativeHistoryWindow {
         absolute(window, header); absolute(window, content); absolute(content, bodyObject);
         absolute(bodyObject, options); absolute(options, container); absolute(container, G.field(panel, "obj"));
         back = button(panel, "Back", "dpsHistoryBack", goBack);
-        heading = label(panel, ""); detail = label(panel, ""); dateInfo = label(panel, ""); empty = label(panel, "");
+        detail = label(panel, ""); dateInfo = label(panel, ""); empty = label(panel, "");
+        headingStyle = label(panel, "");
+        G.call("domkit.Properties", "addClass", G.field(headingStyle, "dom"), ["bold-14"]);
+        show(headingStyle, false);
+        heading = G.create("h2d.Text", [G.field(detail, "font"), G.field(panel, "obj")]);
+        G.call("h2d.Text", "set_textColor", heading, [0x8A5F46]);
+        G.call("h2d.Text", "set_lineBreak", heading, [false]);
         list = node("flow", panel, [], "dpsHistoryList", "vertical");
         padding(G.field(list, "obj"), 0); flow(list, "set_verticalSpacing", 8); style(G.field(list, "obj"), "vspacing", 8);
         var scroll = G.enumeration("h2d.FlowOverflow", "Scroll");
@@ -184,10 +208,13 @@ class NativeHistoryWindow {
         chart = new NativeDamageChart(chartPanel, "dpsHistoryRows", "No damage recorded");
         previous = button(panel, "Previous", "dpsHistoryPrevious", () -> navigate(mode, group, page - 1));
         next = button(panel, "Next", "dpsHistoryNext", () -> navigate(mode, group, page + 1));
-        pageLabel = label(panel, ""); footer = label(panel, "");
+        pageLabel = label(panel, "");
+        footer = G.create("h2d.Text", [G.field(detail, "font"), G.field(panel, "obj")]);
+        G.call("h2d.Text", "set_textColor", footer, [0x5b4334]);
+        G.call("h2d.Text", "set_lineBreak", footer, [false]);
         for (object in [back, heading, detail, dateInfo, empty, G.field(list, "obj"), G.field(chartPanel, "obj"), previous, next, pageLabel, footer])
             absolute(G.field(panel, "obj"), object);
-        for (text in [title, heading, detail, dateInfo, empty, pageLabel, footer]) {
+        for (text in [title, detail, dateInfo, empty, pageLabel]) {
             var left = G.enumeration("h2d.Align", "Left");
             G.call("h2d.Text", "set_textAlign", text, [left]); style(text, "text-align", left);
             G.call("ui.comp.FmtText", "set_useEllipsis", text, [true]);
@@ -198,7 +225,8 @@ class NativeHistoryWindow {
         var row:Dynamic = {obj: null, name: null, detail: null, entry: null, group: "", caption: "", description: "", width: 0};
         row.obj = button(list, "", "dpsHistoryEntry" + i, () -> {
             if (pending) return;
-            if (row.entry != null) navigate("chart", group, page, row.entry);
+            if (mode == "categories") { category = row.group; navigate("groups", "", 0); }
+            else if (row.entry != null) navigate("chart", group, page, row.entry);
             else navigate("fights", row.group, 0);
         });
         padding(row.obj, 0);
@@ -227,26 +255,32 @@ class NativeHistoryWindow {
             size(content, w - 16, h - 68); position(content, 8, 60);
             for (object in wrappers) { size(object, w - 16, h - 68); position(object, 0, 0); }
             size(G.field(panel, "obj"), inner, bodyHeight); position(G.field(panel, "obj"), 16, 8);
-            size(back, 84, 34); position(back, 0, 0);
-            G.call("ui.comp.FmtText", "set_maxWidthText", heading, [inner - 100]);
-            setText(heading, mode == "groups" ? "Choose an encounter" : group);
-            position(heading, 100, 4);
-            G.call("ui.comp.FmtText", "set_maxWidthText", detail, [inner]); position(detail, 0, 46);
-            G.call("ui.comp.FmtText", "set_maxWidthText", dateInfo, [inner]); position(dateInfo, 0, 74);
-            G.call("ui.comp.FmtText", "set_maxWidthText", empty, [inner]); position(empty, 0, 92);
-            var chartHeight = Std.int(Math.max(30, bodyHeight - 194));
-            for (object in [G.field(list, "obj"), G.field(chartPanel, "obj")]) { size(object, inner, chartHeight); position(object, 0, 110); }
+            size(back, 84, 34); position(back, 0, 8);
+            G.call("h2d.Text", "set_text", heading, [headingText()]);
+            position(heading, mode == "categories" ? 0 : 100, 0);
+            G.call("ui.comp.FmtText", "set_maxWidthText", detail, [inner]); position(detail, 0, 60);
+            G.call("ui.comp.FmtText", "set_maxWidthText", dateInfo, [inner]); position(dateInfo, 0, 88);
+            var topInset = mode == "categories" || mode == "groups" ? 66 : mode == "fights" ? 100 : 124;
+            G.call("ui.comp.FmtText", "set_maxWidthText", empty, [inner]); position(empty, 0, topInset);
+            var chartHeight = Std.int(Math.max(30, bodyHeight - topInset - 84));
+            for (object in [G.field(list, "obj"), G.field(chartPanel, "obj")]) { size(object, inner, chartHeight); position(object, 0, topInset); }
             chart.resize(inner, chartHeight);
             size(previous, 108, 34); position(previous, 0, bodyHeight - 70);
             size(next, 108, 34); position(next, inner - 108, bodyHeight - 70);
             G.call("ui.comp.FmtText", "set_maxWidthText", pageLabel, [Std.int(Math.max(1, inner - 236))]);
-            G.call("ui.comp.FmtText", "set_maxWidthText", footer, [inner]); position(footer, 0, bodyHeight - 24);
+            position(footer, 0, bodyHeight - 24);
             G.call("ui.comp.FmtText", "set_maxWidthText", title, [w - 112]);
             lastRefresh = -1;
         }
         position(window, top.x + (bottom.x - top.x - width) / 2, top.y + (bottom.y - top.y - height) / 2);
     }
     function alignLabels():Void {
+        G.call("ui.comp.FmtText", "updateScale", headingStyle);
+        var font = G.field(headingStyle, "font");
+        if (font != null && font != headingFont) { headingFont = font; G.call("h2d.Text", "set_font", heading, [font]); }
+        headingBaseScale = G.number(G.field(headingStyle, "scaleX"), 1);
+        fitLiteral(heading, width - 48 - (mode == "categories" ? 0 : 100), headingBaseScale * 1.75);
+        fitLiteral(footer, width - 48, headingBaseScale);
         position(title, (width - textWidth(title)) / 2, (60 - textHeight(title)) / 2);
         position(pageLabel, (width - 48 - textWidth(pageLabel)) / 2, height - 76 - 66);
         var inner = G.integer(G.call("h2d.Flow", "get_innerWidth", G.field(list, "obj")), width - 48);
@@ -261,6 +295,11 @@ class NativeHistoryWindow {
             setText(row.name, row.caption); setText(row.detail, row.description);
             position(row.name, 12, 7); position(row.detail, 12, 35);
         }
+    }
+    static function fitLiteral(text:Dynamic, available:Float, desiredScale:Float):Void {
+        var natural = G.number(G.call("h2d.Text", "get_textWidth", text));
+        var scale = natural <= 0 ? desiredScale : Math.min(desiredScale, Math.max(1, available) / natural);
+        G.call("h2d.Object", "setScale", text, [scale]);
     }
     static function textWidth(text:Dynamic):Float {
         G.call("ui.comp.FmtText", "updateScale", text);
@@ -278,5 +317,6 @@ class NativeHistoryWindow {
         if (window != null) { var old = window; window = null; G.call("h2d.Object", "remove", old); }
         owner = null; rows = []; wrappers = []; frame = null; body = null; container = null;
         chart = null; fight = null; width = 0; height = 0;
+        headingFont = null; catalog = null;
     }
 }

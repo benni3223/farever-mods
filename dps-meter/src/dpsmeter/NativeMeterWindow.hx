@@ -129,10 +129,9 @@ class NativeMeterWindow {
         var left = G.enumeration("h2d.Align", "Left");
 
         toolbar = node("flow", G.field(header, "dom"), [], "dpsMeterToolbar", "horizontal");
-        historyButton = button(toolbar, "History", "dpsMeterHistory", openHistory);
+        historyButton = bookButton(toolbar, openHistory);
         absolute(G.field(toolbar, "obj"), historyButton);
         padding(historyButton, 0);
-        size(historyButton, 82, 30);
         position(historyButton, 12, 0);
         timer = label(toolbar, "0:00");
         absolute(G.field(toolbar, "obj"), timer);
@@ -191,7 +190,7 @@ class NativeMeterWindow {
         var textWidth = G.number(G.call("h2d.Text", "get_textWidth", timer)) * G.number(G.field(timer, "scaleX"), 1);
         var textHeight = G.number(G.call("h2d.Text", "get_textHeight", timer)) * G.number(G.field(timer, "scaleY"), 1);
         position(timer, width - 32 - textWidth, Math.max(0, (34 - textHeight) / 2));
-        var nameInset = 104; // Leave the history button and a gap before the name.
+        var nameInset = 56; // Leave the book button and a gap before the name.
         var available = Std.int(Math.max(1, width - 32 - textWidth - 12 - nameInset));
         if (available != bossLabelWidth) {
             bossLabelWidth = available;
@@ -228,9 +227,9 @@ class NativeMeterWindow {
         chart.resize(width - 32, Std.int(Math.max(20, bodyHeight - 24)));
         // The drag surface is above the toolbar; exclude the history button
         // so it remains clickable while the meter is unlocked.
-        G.set(dragSurface, "width", (headerWidth - 116) * 1.0);
+        G.set(dragSurface, "width", (headerWidth - 68) * 1.0);
         G.set(dragSurface, "height", headerHeight * 1.0);
-        position(dragSurface, 116, 0);
+        position(dragSurface, 68, 0);
         position(resizeSurface, width - 22, height - 22);
         position(grip, width - 18, height - 18);
         lastRefresh = -1;

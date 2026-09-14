@@ -47,18 +47,18 @@ can be removed if no other mod uses it.
 
 ## Highlights
 
-- **Live party DPS:** Damage, DPS, and team contribution with class-colored bars and clickable skill breakdowns.
+- **Live party DPS:** Damage, DPS, and team contribution with class-colored bars and clickable skill breakdowns using game skill names and each skill's share of that player's damage.
 - **Summon tracking:** Minion damage credited to its owner and the skill that summoned it.
 - **Native, customizable window:** Move, resize, lock, and scroll the meter, with optional automatic hiding and a smooth fade.
 - **Rift tracking and recaps:** Separate gate and boss phases covering all players present, with both charts in one post-rift recap.
-- **Fight history:** Browse encounters by name, choose an attempt by duration, your DPS, and local date/time, then reopen its player and skill charts.
+- **Fight history:** Browse Boss Dungeons, Classic Dungeons, World Bosses, and Other encounters; choose an attempt by duration, your DPS, and local date/time, then reopen its player and skill charts.
 - **Kill notifications:** Optional boss kill totals and Codex progress popups, including counts for completed entries.
 - **Automatic log uploads:** Send completed boss encounters to [Farever Logs](https://fareverlogs.fr/) in the background, with no external application.
 - **Better Mod Settings integration:** Customize display options and hotkeys, with settings and window placement saved between sessions.
 
 ## Reviewing past fights
 
-Click **History** on the left of the meter's header. Choose an encounter name,
+Click the **book icon** on the left of the meter's header. Choose a category and an encounter name,
 then an attempt from the newest-first list. Each attempt shows its duration,
 your character's total DPS, local date and time, and character name. The DPS
 uses the same duration and one-second minimum as the live chart. If an older
@@ -67,8 +67,26 @@ report did not identify your character, the list shows that your DPS is unavaila
 Selecting an attempt replaces the list with that fight's damage chart. Click a
 player to see their skills; click a skill row to return to the player chart.
 **Back** returns to the same page of attempts, then to the encounter names.
-Both lists have page controls and scroll when space is limited. The history
+The encounter and attempt lists have page controls and scroll when space is limited. The history
 window stays open independently of the live meter's out-of-combat fade.
+The footer shows the full absolute path to the local chart archive. Section
+headings use the same larger bold style as Better Mod Settings titles.
+
+Categories follow the running game's activity inheritance: **Boss Dungeons**
+uses Boss activities, **Classic Dungeons** uses other Dungeon activities, and
+**World Bosses** contains rift phases. Only actual boss encounters enter the
+dungeon categories; ordinary combats, elites, and other activities appear in
+**Other**. New bosses inheriting these activity types are handled automatically;
+there is no list of hardcoded boss names.
+
+New charts retain their activity ID and category. For older imported reports,
+the browser uses those original reports' activity metadata where it is still
+available. Charts made by the first history release omitted activity metadata;
+when their context cannot be recovered exactly, they remain in **Other**.
+Rift phase names can still identify old rift charts. Game-provided names replace
+unit IDs where available. Skill labels use the game's name resolver, including
+references from projectiles and other child effects to their named abilities;
+the recorded skill IDs and damage totals remain unchanged.
 
 History records ordinary combats, boss attempts, and both rift phases. Combats
 without a boss name appear under **Other combat**. A fight still in progress

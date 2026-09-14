@@ -78,6 +78,7 @@ class RiftTracker {
             fight.bossName = fight.phase;
             fight.difficulty = difficulty;
             fight.activityId = activityId;
+            fight.category = "World Bosses";
             fight.me = me;
             fight.meName = meName;
             fights[index] = fight;

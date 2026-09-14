@@ -3,10 +3,12 @@ package dpsmeter;
 import dpsmeter.CombatModel;
 
 typedef HistoryEntry = {
-    id:String, name:String, startedAt:Float, duration:Float, personalDps:Null<Float>, playerName:String
+    id:String, name:String, startedAt:Float, duration:Float, personalDps:Null<Float>, playerName:String,
+    category:String, activityId:String, bossKind:String, phase:String
 };
 typedef HistoryGroup = {name:String, count:Int};
-typedef HistoryRequest = {id:Int, action:String, group:String, page:Int, fightId:String};
+typedef HistoryRequest = {id:Int, action:String, group:String, page:Int, fightId:String,
+    ?category:String, ?catalog:HistoryCatalog};
 typedef HistoryResponse = {
     id:Int, page:Int, total:Int, groups:Array<HistoryGroup>, entries:Array<HistoryEntry>, record:Dynamic, error:String
 };
@@ -26,7 +28,8 @@ class FightHistory {
             }
         }];
         return {version: 1, id: id, name: name(fight), startedAt: fight.startedAt, duration: fight.duration(),
-            me: fight.me, meName: fight.meName, players: players};
+            me: fight.me, meName: fight.meName, players: players, category: fight.category,
+            activityId: fight.activityId, bossKind: fight.bossKind, phase: fight.phase};
     }
     public static function name(fight:Fight):String {
         return fight.phase != "" ? fight.phase : fight.bossName != "" ? fight.bossName
@@ -40,7 +43,8 @@ class FightHistory {
             damage = number(p.damage); playerName = text(p.name); break;
         }
         return {id: record.id, name: record.name, startedAt: record.startedAt, duration: record.duration,
-            personalDps: damage == null ? null : damage / Math.max(1, number(record.duration)), playerName: playerName};
+            personalDps: damage == null ? null : damage / Math.max(1, number(record.duration)), playerName: playerName,
+            category: text(record.category), activityId: text(record.activityId), bossKind: text(record.bossKind), phase: text(record.phase)};
     }
     public static function decode(record:Dynamic):Fight {
         validate(record);
@@ -50,6 +54,8 @@ class FightHistory {
         fight.closed = fight.last;
         fight.bossName = record.name;
         fight.me = text(record.me); fight.meName = text(record.meName);
+        fight.category = text(record.category); fight.activityId = text(record.activityId);
+        fight.bossKind = text(record.bossKind); fight.phase = text(record.phase);
         for (p in array(record.players)) {
             var uid = text(p.uid);
             if (uid == "") throw "A history player has no ID.";
@@ -92,7 +98,8 @@ class FightHistory {
                 skills: skills
             }
         }];
-        return {version: 1, id: id, name: name, startedAt: timestamp - duration * 1000, duration: duration, players: players};
+        return {version: 1, id: id, name: name, startedAt: timestamp - duration * 1000, duration: duration, players: players,
+            activityId: text(report.activity_id), bossKind: text(report.boss_kind), phase: phase};
     }
     public static function dateLabel(timestamp:Float):String {
         var date = Date.fromTime(timestamp);

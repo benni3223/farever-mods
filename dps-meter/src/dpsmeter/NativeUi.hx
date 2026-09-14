@@ -57,6 +57,29 @@ class NativeUi {
         G.call("ui.UIElement", "set_onClick", object, [click]);
         return object;
     }
+    public static function bookButton(parent:Dynamic, click:Void->Void):Dynamic {
+        var object = button(parent, "", "dpsMeterHistory", click);
+        padding(object, 0); size(object, 34, 30);
+        var book = G.create("h2d.Graphics", [object]);
+        absolute(object, book); position(book, 5, 5);
+        G.call("h2d.Graphics", "lineStyle", book, [1.5, 0x5b4334, 1.0]);
+        G.call("h2d.Graphics", "beginFill", book, [0xf3dfbc, 1.0]);
+        for (page in [[[12., 3.], [8., 1.], [1., 1.], [1., 17.], [8., 17.], [12., 19.]],
+            [[12., 3.], [16., 1.], [23., 1.], [23., 17.], [16., 17.], [12., 19.]]]) {
+            G.call("h2d.Graphics", "moveTo", book, [page[0][0], page[0][1]]);
+            for (i in 1...page.length) G.call("h2d.Graphics", "lineTo", book, [page[i][0], page[i][1]]);
+            G.call("h2d.Graphics", "lineTo", book, [page[0][0], page[0][1]]);
+        }
+        G.call("h2d.Graphics", "endFill", book);
+        G.call("h2d.Graphics", "lineStyle", book, [1.0, 0xb48c50, 1.0]);
+        for (y in [6., 10., 14.]) for (x in [4., 15.]) {
+            G.call("h2d.Graphics", "moveTo", book, [x, y]);
+            G.call("h2d.Graphics", "lineTo", book, [x + 5, y]);
+        }
+        return object;
+    }
+    public static function damagePercent(amount:Float, total:Float):String
+        return Std.string(SkillStats.rounded(total <= 0 ? 0 : amount * 100 / total, 1));
     public static function flow(dom:Dynamic, method:String, value:Dynamic):Void G.call("h2d.Flow", method, G.field(dom, "obj"), [value]);
     public static function style(object:Dynamic, property:String, value:Dynamic):Void {
         var dom = G.field(object, "dom");

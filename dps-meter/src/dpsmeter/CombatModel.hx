@@ -102,12 +102,14 @@ class Fight {
     public var isBoss:Bool = true;
     public var phase:String = "";
     public var bossKind:String = "";
+    public var bossFlags:Int = 0;
     public var bossName:String = "";
     public var bossUid:String = "";
     public var bossLevel:Int = 0;
     public var bossFoeId:Int = 0;
     public var difficulty:Int = -1;
     public var activityId:String = "";
+    public var category:String = "";
     public var me:String = "";
     public var meName:String = "";
     public function new(now:Float) { start = now; last = now; startedAt = Date.now().getTime(); }
@@ -131,7 +133,9 @@ class Fight {
         result.last = last; result.closed = closed; result.defeated = defeated;
         result.isBoss = isBoss; result.phase = phase;
         result.bossKind = bossKind; result.bossName = bossName; result.bossUid = bossUid; result.bossLevel = bossLevel;
+        result.bossFlags = bossFlags;
         result.bossFoeId = bossFoeId; result.difficulty = difficulty; result.activityId = activityId;
+        result.category = category;
         result.me = me; result.meName = meName; result.participants = participants.copy(); result.targets = targets.copy();
         for (id => p in players) {
             var next = new PlayerStats(p.info);
@@ -180,6 +184,7 @@ class CombatModel {
     public var recaps:Array<RiftRecap> = [];
     public var difficulty:Int = -1;
     public var activityId:String = "";
+    public var activityCategory:String = "Other";
     var lastKillSource:String = "";
     var lastKillAmount:Float = -1;
     var lastKillTarget:String = "";
@@ -200,6 +205,7 @@ class CombatModel {
         profiles = []; party = []; me = ""; current = null; lastCombat = null;
         session = new Fight(now); boss = null; lastBoss = null;
         lastKillSource = ""; lastKillAmount = -1; difficulty = -1; activityId = "";
+        activityCategory = "Other";
         lastKillTarget = ""; lastKillTime = -1;
         inCombat = false; awaitingExitState = false; pendingFight = null;
         // Completed reports and recaps remain queued across character/zone changes.
@@ -289,8 +295,14 @@ class CombatModel {
         if (profiles.exists(me)) fight.meName = profiles[me].name;
         fight.difficulty = difficulty;
         fight.activityId = activityId;
+        // The export's legacy boss mask also includes elites. Only actual boss
+        // damage promotes a normal combat into a dungeon-boss history category.
+        if (fight.category == "") fight.category = "Other";
+        if (e.effect != 1 && (e.bossFlags & 0x10) != 0) fight.category = activityCategory;
         fight.add(e, info);
-        if (e.effect != 1 && (e.bossFlags & 0x38) != 0) {
+        if (e.effect != 1 && (e.bossFlags & 0x38) != 0
+            && ((fight.bossFlags & 0x10) == 0 || (e.bossFlags & 0x10) != 0)) {
+            fight.bossFlags = e.bossFlags;
             fight.bossKind = e.bossKind;
             fight.bossName = e.bossName != null && e.bossName != "" ? e.bossName : e.bossKind;
         }
