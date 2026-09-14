@@ -27,3 +27,8 @@
 -cp tests
 -main AppearancePresetTest
 --interp
+--next
+-cp src
+-cp tests
+-main CharacterResetTest
+--interp

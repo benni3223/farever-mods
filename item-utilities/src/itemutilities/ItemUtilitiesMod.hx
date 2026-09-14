@@ -14,6 +14,7 @@ import hlx.runtime.Bus;
 import hlx.runtime.ModConfig;
 import modconfig.ConfigMigration;
 import hlx.runtime.HlxPrefixResult;
+import itemutilities.CharacterResetStore.CharacterResetKind;
 
 typedef ItemUtilitiesConfig = {
     var enabled:Bool;
@@ -267,10 +268,14 @@ class ItemUtilitiesMod {
             SETTINGS_CHANGED_TOPIC_PREFIX + HlxRuntime.moduleName(),
             onBetterModSettingsChanged
         );
-        Bus.subscribe(
-            "better-mod-settings/action/" + HlxRuntime.moduleName() + "/resetAppearancePresets",
-            resetAppearancePresets
-        );
+        var resetKinds:Array<CharacterResetKind> = [Locks, Equipment, Talent, Skill, Appearance];
+        for (kind in resetKinds) {
+            var resetKind:CharacterResetKind = kind;
+            Bus.subscribe(
+                "better-mod-settings/action/" + HlxRuntime.moduleName() + "/" + Std.string(resetKind),
+                function(_:Dynamic):Void resetCharacterData(resetKind)
+            );
+        }
         ImGui.register(HlxRuntime.moduleName(), draw);
     }
 
@@ -1299,29 +1304,70 @@ class ItemUtilitiesMod {
         talentPresetCharacterId = null;
     }
 
-    static function resetAppearancePresets(_:Dynamic):Void {
+    static function resetCharacterData(kind:CharacterResetKind):Void {
+        var label = CharacterResetStore.label(kind);
         try {
             var characterId = heroPersistentId(resolveHero());
-            if (characterId == null) throw "Log in to a character before resetting appearance presets.";
+            if (characterId == null) throw "Log in to a character before resetting saved data.";
             // Read the latest file, preserving other settings and preset types.
             // Commit the deletion before changing runtime state or reporting it.
             var values:Dynamic = Json.parse(sys.io.File.getContent(
                 "hlx/config/" + HlxRuntime.moduleName() + "/config.json"));
-            var cleared = AppearancePresetStore.cleared(values, characterId);
+            var cleared = CharacterResetStore.cleared(values, characterId, kind);
+            var remainingLocks = kind == Locks
+                ? CharacterResetStore.withoutCharacter(lockRecords, characterId) : null;
             ModConfig.save(HlxRuntime.moduleName(), cleared);
-            config.appearancePresets = cleared.appearancePresets;
-            config.selectedAppearancePresets = cleared.selectedAppearancePresets;
-            appearancePresetTransfer.cancel();
-            appearancePresetHero = null;
-            appearancePresetHost = null;
-            appearancePresetLoadout = null;
-            appearancePresetCharacterId = null;
-            selectedAppearancePreset = 0;
-            selectedAppearancePresetCharacterId = characterId;
-            appearancePresetStatus = "Appearance presets reset for this character.";
+            for (key in CharacterResetStore.fields(kind))
+                Reflect.setField(config, key, Reflect.field(cleared, key));
+            // Clear live caches as well, so the next save cannot resurrect data.
+            // Cancelling preset queues sends no new equip/talent/skill requests.
+            switch kind {
+                case Locks:
+                    lockRecords = remainingLocks;
+                case Equipment:
+                    weaponPresets = config.weaponPresets;
+                    selectedWeaponPresets = config.selectedWeaponPresets;
+                    cancelPresetTransfer();
+                    selectedWeaponPreset = 0;
+                    selectedWeaponPresetCharacterId = characterId;
+                case Talent:
+                    talentPresetTransfer.cancel();
+                    talentPresetHero = null;
+                    talentPresetHost = null;
+                    talentPresetSpecialization = null;
+                    talentPresetCharacterId = null;
+                    selectedTalentPreset = 0;
+                    selectedTalentPresetCharacterId = characterId;
+                    talentPresetStatus = label + " reset for this character.";
+                case Skill:
+                    skillPresetTransfer.cancel();
+                    skillPresetHero = null;
+                    skillPresetHost = null;
+                    skillPresetSpecialization = null;
+                    skillPresetCharacterId = null;
+                    selectedSkillPreset = 0;
+                    selectedSkillPresetCharacterId = characterId;
+                    skillPresetStatus = label + " reset for this character.";
+                case Appearance:
+                    appearancePresetTransfer.cancel();
+                    appearancePresetHero = null;
+                    appearancePresetHost = null;
+                    appearancePresetLoadout = null;
+                    appearancePresetCharacterId = null;
+                    selectedAppearancePreset = 0;
+                    selectedAppearancePresetCharacterId = characterId;
+                    appearancePresetStatus = label + " reset for this character.";
+            }
+            status = label + " reset for this character.";
         } catch (error:Dynamic) {
-            appearancePresetStatus = "Could not reset appearance presets.";
-            logLockError("reset appearance presets", error);
+            status = "Could not reset " + label.toLowerCase() + ".";
+            switch kind {
+                case Talent: talentPresetStatus = status;
+                case Skill: skillPresetStatus = status;
+                case Appearance: appearancePresetStatus = status;
+                default:
+            }
+            logLockError("reset " + label.toLowerCase(), error);
         }
     }
 
@@ -1771,7 +1817,11 @@ class ItemUtilitiesMod {
                 return;
             }
 
+            var requestQueue = presetEquipQueue;
             var callback = function(success:Bool):Void {
+                // A reply from before a reset must not advance a newly saved
+                // and activated preset's queue.
+                if (!presetTransferActive || presetEquipQueue != requestQueue) return;
                 if (success)
                     presetEquippedIndexes.push(targetIndex);
                 equipNextPresetItem();

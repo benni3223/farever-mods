@@ -37,6 +37,17 @@
       "label": "Sorting ignores locked items (but is slower)"
     },
     {
+      "key": "resetLocks",
+      "type": "button",
+      "label": "Reset locks",
+      "buttonText": "Reset",
+      "colour": "red",
+      "warning": {
+        "enabled": true,
+        "warningText": "Remove all saved item locks for your current character? This cannot be undone. These items will no longer be protected from selling, dropping, bank deposits, or recycling. Other characters' locks will stay unchanged."
+      }
+    },
+    {
       "type": "title",
       "label": "Consumables"
     },
@@ -64,14 +75,47 @@
       "type": "keybinding",
       "label": "Equipment preset 3 hotkey"
     },
+    {
+      "key": "resetEquipmentPresets",
+      "type": "button",
+      "label": "Reset equipment presets",
+      "buttonText": "Reset",
+      "colour": "red",
+      "warning": {
+        "enabled": true,
+        "warningText": "Delete all saved equipment presets for your current character? This cannot be undone. Your equipped items, hotkeys, and other characters' presets will stay unchanged."
+      }
+    },
     { "type": "title", "label": "Talent Presets" },
     { "key": "talentPreset1Hotkey", "type": "keybinding", "label": "Talent preset 1 hotkey" },
     { "key": "talentPreset2Hotkey", "type": "keybinding", "label": "Talent preset 2 hotkey" },
     { "key": "talentPreset3Hotkey", "type": "keybinding", "label": "Talent preset 3 hotkey" },
+    {
+      "key": "resetTalentPresets",
+      "type": "button",
+      "label": "Reset talent presets",
+      "buttonText": "Reset",
+      "colour": "red",
+      "warning": {
+        "enabled": true,
+        "warningText": "Delete all saved talent presets for your current character? This cannot be undone. Your allocated talents, hotkeys, and other characters' presets will stay unchanged."
+      }
+    },
     { "type": "title", "label": "Skill Presets" },
     { "key": "skillPreset1Hotkey", "type": "keybinding", "label": "Skill preset 1 hotkey" },
     { "key": "skillPreset2Hotkey", "type": "keybinding", "label": "Skill preset 2 hotkey" },
     { "key": "skillPreset3Hotkey", "type": "keybinding", "label": "Skill preset 3 hotkey" },
+    {
+      "key": "resetSkillPresets",
+      "type": "button",
+      "label": "Reset skill presets",
+      "buttonText": "Reset",
+      "colour": "red",
+      "warning": {
+        "enabled": true,
+        "warningText": "Delete all saved skill presets for your current character? This cannot be undone. Your equipped skills and runes, hotkeys, and other characters' presets will stay unchanged."
+      }
+    },
     { "type": "title", "label": "Appearance Presets" },
     { "key": "appearancePreset1Hotkey", "type": "keybinding", "label": "Appearance preset 1 hotkey" },
     { "key": "appearancePreset2Hotkey", "type": "keybinding", "label": "Appearance preset 2 hotkey" },

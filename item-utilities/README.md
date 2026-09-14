@@ -82,7 +82,10 @@ Manually re-locking an item reuses a matching unresolved record when its saved
 slot or unique item match identifies it. Separate identical items retain their
 own locks. Existing duplicate saved records are not automatically deleted.
 
-Locking visuals can be hidden without disabling or deleting saved locks. The settings menu also includes a separately confirmed **Delete all saved locks** action.
+Locking visuals can be hidden without disabling or deleting saved locks.
+**Reset locks** at the bottom of **Locking** asks for confirmation before removing
+all of the current character's locks, including unresolved and duplicate records.
+Items become unlocked immediately, and other characters' locks are preserved.
 
 An optional **Sorting ignores locked items (but is slower)** setting keeps
 every locked item in its exact inventory slot while sorting the unlocked items
@@ -183,6 +186,18 @@ mods to use this button.
 
 ### Settings
 
+The **Locking**, **Equipment Presets**, **Talent Presets**, **Skill Presets**, and
+**Appearance Presets** sections each end with a red **Reset** button. Each opens a
+warning with **Continue** and **Cancel** and affects only the current character
+and that category. Cancel or Escape makes no changes. A logged-in character is
+required, even when Item Utilities is disabled.
+
+Preset resets delete the saved presets and reset the selected slot to 1. Current
+equipment, allocated talents, equipped skills/runes, appearances, and hotkeys stay
+unchanged. Any pending application of that preset category stops; requests already
+sent to the game may still finish. Other characters and preset categories are
+preserved. Use the latest Better Mod Settings for these confirmation buttons.
+
 Available settings include:
 
 - Enable or disable Item Utilities
@@ -191,11 +206,12 @@ Available settings include:
 - Show or hide item-locking visuals
 - Keep locked items in their exact slots while sorting
 - Complete motes without the use animation's wait
-- Delete all saved locks
+- Reset the current character's locks after confirmation
 - Configure or clear hotkeys for equipment presets 1–3
 - Configure or clear hotkeys for talent presets 1–3
 - Configure or clear hotkeys for skill presets 1–3
 - Configure or clear hotkeys for appearance presets 1–3
+- Reset each preset category for the current character after confirmation
 
 ## Requirements
 
