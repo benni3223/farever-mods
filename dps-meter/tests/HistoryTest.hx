@@ -201,13 +201,13 @@ class HistoryTest {
         check(m.history[0].outcome == "Victory", "A one-shot victory works without a combat-entry event");
         m = model(); m.onCombatEnter("me", 10); m.record(hit(10, 20));
         m.onCombatExit("me", 12); m.update(13, false);
-        check(m.history[0].outcome == "Failure", "Leaving combat while an observed foe survives is a failure");
+        check(m.history[0].outcome == "Defeat", "Leaving combat while an observed foe survives is a failure");
 
         m = model(); m.onCombatEnter("me", 10);
         var bossHit = hit(10, 100, false, true, "me", "boss"); bossHit.bossFlags = 0x10;
         m.record(bossHit); m.record(hit(11, 20, true, false, "me", "add"));
         m.onCombatExit("me", 12); m.update(13, false);
-        check(m.history[0].outcome == "Failure", "Killing a boss's adds cannot count as defeating the boss");
+        check(m.history[0].outcome == "Defeat", "Killing a boss's adds cannot count as defeating the boss");
 
         m = model(); m.onCombatEnter("me", 10); m.record(bossHit);
         m.record(hit(11, 20, false, false, "me", "add"));
@@ -234,10 +234,18 @@ class HistoryTest {
         check(StringTools.endsWith(FightHistory.attemptHeading(entry), "Party: 3  ·  Victory")
             && StringTools.endsWith(FightHistory.chartDetail(entry), "2 sec  ·  Victory"),
             "Victory appears after party size in the list and after duration in the chart and snapshot summary");
-        saved.outcome = "Failure";
+        var parts = FightHistory.attemptHeadingParts(entry);
+        check(parts.player == entry.playerName && parts.before + parts.player + parts.after == FightHistory.attemptHeading(entry)
+            && parts.before.indexOf("Party:") < 0 && parts.after.indexOf("Party: 3") >= 0,
+            "The coloured name is isolated from the date, party size, and outcome without changing their text order");
+        var unnamed:HistoryEntry = Reflect.copy(entry); unnamed.playerName = "";
+        parts = FightHistory.attemptHeadingParts(unnamed);
+        check(parts.player == "" && parts.before == FightHistory.dateLabel(entry.startedAt)
+            && parts.after.indexOf("  ·  Party:") == 0, "An unknown character leaves no empty name or extra separator in the heading");
+        saved.outcome = "Defeat";
         var failure = FightHistory.encode(saved, "outcome_failure");
-        check(FightHistory.decode(failure).outcome == "Failure" && StringTools.endsWith(FightHistory.attemptHeading(FightHistory.entry(failure)), "Failure"),
-            "Failure survives serialization and has the requested history label");
+        check(FightHistory.decode(failure).outcome == "Defeat" && StringTools.endsWith(FightHistory.attemptHeading(FightHistory.entry(failure)), "Defeat"),
+            "Defeat survives serialization and has the requested history label");
         var root = temp("outcomes"); var store = new FightHistoryStore(root, _ -> {});
         store.save(record); store.save(failure);
         var reopened = new FightHistoryStore(root, _ -> {});
@@ -261,19 +269,19 @@ class HistoryTest {
         m.record(hit(20, 100, false, true)); m.record(clone); m.onTargetDeath("enemy", 21); m.update(22, false);
         check(m.history.length == 1 && m.history[0].outcome == "Victory", "Clearing Rift gates is a phase victory; a boss clone death does not complete the boss phase");
         m.reset(23);
-        check(m.history.length == 2 && m.history[1].outcome == "Failure", "Leaving an unfinished Rift boss records failure despite a lethal clone hit");
+        check(m.history.length == 2 && m.history[1].outcome == "Defeat", "Leaving an unfinished Rift boss records failure despite a lethal clone hit");
         m = model(); m.enableRift(); m.updateRiftState(10, false, false, "BossKind");
         m.record(hit(10, 20, true)); m.updateRiftState(20, true, false, "BossKind");
         m.record(hit(21, 100, false, true)); m.updateRiftState(25, true, true, "BossKind"); m.update(26, false);
         check(m.history.length == 2 && m.history[1].outcome == "Victory", "Rift boss objective completion confirms victory without needing the final damage RPC");
         m = model(); m.enableRift(); m.record(hit(10, 20, true)); m.reset(20);
-        check(m.history[0].outcome == "Failure", "Leaving Rift gates before their objective finishes is failure even if every observed gate died");
+        check(m.history[0].outcome == "Defeat", "Leaving Rift gates before their objective finishes is failure even if every observed gate died");
 
         m = model(); m.onCombatEnter("me", 10);
         m.updatePhrixes(10, "chakram", 1, true, false, false); m.record(chakramHit(10, 10));
         m.updatePhrixes(20, "chakram", 2, false, true, false); m.record(chakramHit(20, 20, true));
         m.onCombatExit("me", 20); m.reset(30);
-        check(m.history[0].outcome == "Failure", "Chakram's first-bar lethal result is not a victory when the full encounter is abandoned");
+        check(m.history[0].outcome == "Defeat", "Chakram's first-bar lethal result is not a victory when the full encounter is abandoned");
         check(dpsmeter.MeterConfig.defaults().historyHotkey == 0, "History hotkey starts unbound and cannot collide with an existing binding");
     }
     static function snapshots():Void {

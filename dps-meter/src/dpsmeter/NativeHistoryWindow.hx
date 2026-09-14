@@ -160,11 +160,16 @@ class NativeHistoryWindow {
                 if (i >= count) continue;
                 row.entry = mode == "fights" ? response.entries[i] : null;
                 row.group = names ? response.groups[i].name : "";
-                row.caption = names ? response.groups[i].name
-                    : FightHistory.attemptHeading(row.entry);
+                var parts = names ? {before: response.groups[i].name, player: "", after: ""}
+                    : FightHistory.attemptHeadingParts(row.entry);
+                row.caption = parts.before; row.playerCaption = parts.player; row.suffixCaption = parts.after;
                 row.description = names ? response.groups[i].count + (response.groups[i].count == 1 ? " fight" : " fights")
                     : FightHistory.attemptDetail(row.entry);
-                setText(row.name, row.caption); setText(row.detail, row.description);
+                setText(row.name, row.caption); setText(row.player, row.playerCaption); setText(row.suffix, row.suffixCaption);
+                setText(row.detail, row.description);
+                show(row.player, parts.player != ""); show(row.suffix, parts.after != "");
+                if (!names) colorPlayerName(row, classColor(row.entry.playerClass));
+                row.width = 0; // Different name lengths change the inline positions.
             }
             show(G.field(list, "obj"), count > 0); show(empty, count == 0);
             setText(empty, mode == "fights" && options.characterKey != "" ? "No fights match this character." : "No fights recorded in this category yet.");
@@ -211,9 +216,17 @@ class NativeHistoryWindow {
         try window = G.create("ui.win.TitleWindow", ["Options", null])
         catch (e:Dynamic) { constructing = false; throw e; }
         constructing = false;
-        G.call("ui.win.BaseWindow", "set_windowFlags", window, [8192]);
+        // GameUI.shouldFreeCursor checks registered windows for FreeCursor.
+        // Register history itself so removing a dropdown cannot relock the
+        // mouse. Keep PreventCloseOther (8192) to coexist with other windows.
+        var freeCursor = G.enumeration("ui.win.WindowFlags", "FreeCursor");
+        if (freeCursor == null) throw "The history window's cursor flag is unavailable.";
+        G.call("ui.win.BaseWindow", "set_windowFlags", window, [8192 | (1 << Type.enumIndex(freeCursor))]);
         root = G.field(ui, "root");
         G.call("h2d.Flow", "addChildAt", root, [window, G.call("h2d.Object", "get_numChildren", root)]);
+        // BaseUIRoot is a Flow, while displayWindow's optional parent requires
+        // a UIElement. Attach first, then register with no parent override.
+        G.call("ui.BaseUI", "displayWindow", ui, [window, null]);
         absolute(root, window);
         var dom = G.field(window, "dom");
         content = G.field(dom, "contentRoot");
@@ -285,7 +298,8 @@ class NativeHistoryWindow {
         width = 0; height = 0; layout();
     }
     function makeRow(i:Int):Void {
-        var row:Dynamic = {obj: null, name: null, detail: null, entry: null, group: "", caption: "", description: "", width: 0};
+        var row:Dynamic = {obj: null, name: null, player: null, suffix: null, detail: null, entry: null, group: "",
+            caption: "", playerCaption: "", suffixCaption: "", playerColor: -1, description: "", width: 0};
         row.obj = button(list, "", "dpsHistoryEntry" + i, () -> {
             if (pending) return;
             if (mode == "categories") { category = row.group; navigate("groups", "", 0); }
@@ -294,14 +308,26 @@ class NativeHistoryWindow {
         });
         padding(row.obj, 0);
         row.name = label(G.field(row.obj, "dom"), "");
+        row.player = label(G.field(row.obj, "dom"), "");
+        row.suffix = label(G.field(row.obj, "dom"), "");
         row.detail = label(G.field(row.obj, "dom"), "");
-        for (text in [row.name, row.detail]) {
+        for (text in [row.name, row.player, row.suffix, row.detail]) {
             absolute(row.obj, text);
             var left = G.enumeration("h2d.Align", "Left");
             G.call("h2d.Text", "set_textAlign", text, [left]); style(text, "text-align", left);
             G.call("ui.comp.FmtText", "set_useEllipsis", text, [true]);
         }
         rows.push(row);
+    }
+    static function colorPlayerName(row:Dynamic, value:Int):Void {
+        if (row.playerColor == value) return;
+        row.playerColor = value;
+        // Keep class colour local to the name. Date/party/outcome retain their
+        // existing native styles. Pin CSS to prevent hover recolouring.
+        style(row.player, "color", value);
+        var tint = G.field(row.player, "color");
+        if (tint != null) for (channel in ["x", "y", "z"]) G.set(tint, channel, 1.0);
+        G.call("h2d.HtmlText", "set_textColor", row.player, [value]);
     }
     function layout():Void {
         var scene = G.field(owner, "s2d");
@@ -373,9 +399,21 @@ class NativeHistoryWindow {
             if (row.width == inner) continue;
             row.width = inner;
             size(row.obj, Std.int(Math.max(1, inner)), 66);
-            for (text in [row.name, row.detail]) G.call("ui.comp.FmtText", "set_maxWidthText", text, [Std.int(Math.max(1, inner - 24))]);
-            setText(row.name, row.caption); setText(row.detail, row.description);
-            position(row.name, 12, 7); position(row.detail, 12, 35);
+            // Measure each segment with the game's font, so the name is inline
+            // and only the end of the heading ellipsizes at smaller widths.
+            var used = 0.0;
+            for (segment in [{object: row.name, caption: row.caption}, {object: row.player, caption: row.playerCaption},
+                {object: row.suffix, caption: row.suffixCaption}]) {
+                var available = inner - 24 - used;
+                show(segment.object, segment.caption != "" && available > 0);
+                if (segment.caption == "" || available <= 0) continue;
+                G.call("ui.comp.FmtText", "set_maxWidthText", segment.object, [Std.int(Math.max(1, available))]);
+                setText(segment.object, segment.caption);
+                position(segment.object, 12 + used, 7);
+                used += textWidth(segment.object);
+            }
+            G.call("ui.comp.FmtText", "set_maxWidthText", row.detail, [Std.int(Math.max(1, inner - 24))]);
+            setText(row.detail, row.description); position(row.detail, 12, 35);
         }
     }
     static function fitLiteral(text:Dynamic, available:Float, desiredScale:Float):Void {
@@ -404,7 +442,13 @@ class NativeHistoryWindow {
         if (options != null) { options.close(); options = null; }
         requested = false; serial++;
         selectedEntry = null; deleting = false; copying = false;
-        if (window != null) { var old = window; window = null; G.call("h2d.Object", "remove", old); }
+        if (window != null) {
+            var old = window; window = null;
+            // Unregister from its actual owner, including when BaseUI.current
+            // already changed during a disconnect or character switch.
+            if (owner != null) G.call("ui.BaseUI", "removeWindow", owner, [old]);
+            else G.call("h2d.Object", "remove", old);
+        }
         owner = null; rows = []; wrappers = []; frame = null; body = null; container = null;
         chart = null; fight = null; width = 0; height = 0;
         mode = "categories"; category = ""; group = ""; page = 0; groupsPage = 0; fightsPage = 0;

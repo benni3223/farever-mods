@@ -8,6 +8,7 @@ typedef HistoryEntry = {
     difficulty:Int, partySize:Int, recordedPlayers:Int, playerClass:String, outcome:String
 };
 typedef HistoryGroup = {name:String, count:Int};
+typedef HistoryHeading = {before:String, player:String, after:String};
 typedef HistoryCharacter = {key:String, name:String, className:String};
 typedef HistoryRequest = {id:Int, action:String, group:String, page:Int, fightId:String,
     ?category:String, ?catalog:HistoryCatalog, ?sortBy:String, ?ascending:Bool, ?character:String};
@@ -33,7 +34,7 @@ class FightHistory {
         return {version: 1, id: id, name: name(fight), startedAt: fight.startedAt, duration: fight.duration(),
             me: fight.me, meName: fight.meName, players: players, category: fight.category, categoryVersion: fight.categoryVersion,
             activityId: fight.activityId, bossKind: fight.bossKind, phase: fight.phase,
-            difficulty: fight.difficulty, partySize: fight.partySize, outcome: fight.outcome};
+            difficulty: fight.difficulty, partySize: fight.partySize, outcome: outcome(fight.outcome)};
     }
     public static function name(fight:Fight):String {
         return fight.phase != "" ? fight.phase : fight.bossName != "" ? fight.bossName
@@ -113,8 +114,15 @@ class FightHistory {
             activityId: text(report.activity_id), bossKind: text(report.boss_kind), phase: phase,
             difficulty: difficulty(report.difficulty), partySize: Std.int(number(report.party_size)), outcome: outcome(report.outcome)};
     }
-    public static function outcome(value:Dynamic):String return value == "Victory" || value == "Failure" ? value : "";
-    public static function outcomeLabel(entry:HistoryEntry):String return outcome(entry.outcome) == "" ? "Outcome unknown" : entry.outcome;
+    public static function outcome(value:Dynamic):String return switch (text(value)) {
+        case "Victory": "Victory";
+        case "Defeat": "Defeat";
+        default: "";
+    };
+    public static function outcomeLabel(entry:HistoryEntry):String {
+        var label = outcome(entry.outcome);
+        return label == "" ? "Outcome unknown" : label;
+    }
     public static function difficulty(value:Dynamic):Int return value == null ? -1 : Std.int(number(value));
     static function recordedPlayers(record:Dynamic):Int {
         var ids:Map<String, Bool> = [];
@@ -124,9 +132,16 @@ class FightHistory {
     }
     static function dateAndPlayer(entry:HistoryEntry):String return dateLabel(entry.startedAt)
         + (entry.playerName == "" ? "" : "  ·  " + entry.playerName);
-    public static function attemptHeading(entry:HistoryEntry):String return dateAndPlayer(entry) + "  ·  Party: "
-        + (entry.partySize > 0 ? Std.string(entry.partySize) : entry.recordedPlayers > 0 ? "≥" + entry.recordedPlayers : "unknown")
-        + "  ·  " + outcomeLabel(entry);
+    public static function attemptHeadingParts(entry:HistoryEntry):HistoryHeading return {
+        before: dateLabel(entry.startedAt) + (entry.playerName == "" ? "" : "  ·  "),
+        player: entry.playerName,
+        after: "  ·  Party: " + (entry.partySize > 0 ? Std.string(entry.partySize)
+            : entry.recordedPlayers > 0 ? "≥" + entry.recordedPlayers : "unknown") + "  ·  " + outcomeLabel(entry)
+    };
+    public static function attemptHeading(entry:HistoryEntry):String {
+        var parts = attemptHeadingParts(entry);
+        return parts.before + parts.player + parts.after;
+    }
     public static function attemptDetail(entry:HistoryEntry):String return durationLabel(entry.duration) + "  ·  " + dpsLabel(entry.personalDps);
     public static function chartDetail(entry:Null<HistoryEntry>):String return entry == null ? "" : dateAndPlayer(entry)
         + "  ·  " + dpsLabel(entry.personalDps) + "  ·  " + durationLabel(entry.duration) + "  ·  " + outcomeLabel(entry);

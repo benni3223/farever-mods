@@ -68,13 +68,17 @@ The list defaults to all characters, newest first. Use the controls
 above it to sort by time, your DPS, or duration in ascending or descending order,
 and filter by your character. Character names retain their class colour when opening,
 hovering, and selecting dropdown options. Clicking outside a dropdown closes it.
+The history window keeps the cursor available while it is open, including after
+selecting or dismissing a dropdown. Closing history releases its cursor request
+through the game's normal window handling.
 The selected
 sort and filter stay in place when opening a chart, going Back, or deleting a log;
 a new history window starts with the defaults. Sorting/filtering covers every log
 before pagination, and unavailable DPS stays last in either direction.
 Each attempt shows local date and time,
-character name, party size, and **Victory** or **Failure** on the first row, then duration and your DPS on the
-second. New charts retain the largest party roster observed during the fight,
+character name, party size, and **Victory** or **Defeat** on the first row, then duration and your DPS on the
+second. Only the character name uses its class colour; the other text keeps its
+normal colour. New charts retain the largest party roster observed during the fight,
 including members who dealt no damage. Older logs without a saved roster show
 the recorded player count as a lower bound (for example, **Party: ≥2**). The DPS
 uses the same duration and one-second minimum as the live chart. If an older
@@ -168,7 +172,7 @@ logs are retained as recorded.
 New logs save their outcome. Boss attempts require the boss's actual death;
 defeating adds alone is not a victory. Ordinary fights require all observed foes
 to die. Rift phases use their objective completion, so a boss clone's death does
-not count as a victory. Wipes and unfinished encounters left behind are failures.
+not count as a victory. Wipes and unfinished encounters left behind are defeats.
 Late death messages are included before the log is archived. Older logs without
 outcome data show **Outcome unknown**; their skill kill counts do not reliably
 identify boss victories. Outcomes also appear in clipboard snapshots.

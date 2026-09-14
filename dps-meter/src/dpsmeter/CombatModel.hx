@@ -134,7 +134,7 @@ class Fight {
             won = targets.iterator().hasNext();
             for (uid in targets.keys()) if (!killedTargets.exists(uid)) { won = false; break; }
         }
-        outcome = won ? "Victory" : "Failure";
+        outcome = won ? "Victory" : "Defeat";
     }
     public function duration(?now:Float):Float {
         return Math.max(0.001, (closed > 0 || now == null ? last : now) - start);

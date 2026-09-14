@@ -126,7 +126,7 @@ class RiftTracker {
             var snapshot = fights[index].copy();
             snapshot.last = Math.max(snapshot.start, now);
             snapshot.closed = now;
-            snapshot.outcome = "Failure";
+            snapshot.outcome = "Defeat";
             history.push(snapshot);
         }
     }
