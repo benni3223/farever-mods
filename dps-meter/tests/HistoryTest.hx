@@ -47,7 +47,7 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
-        lifecycle(); chakram(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotTextures(); historyOptions();
+        lifecycle(); chakram(); outcomes(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotTextures(); historyOptions();
         Sys.println('Fight history: $checks checks passed');
     }
     static function chakramHit(time:Float, amount:Float, kill:Bool = false):DamageEvent {
@@ -192,6 +192,89 @@ class HistoryTest {
         m.onCombatExit("me", 12); m.update(13, false);
         var passive = FightHistory.entry(FightHistory.encode(m.history[0], "passive"));
         check(passive.personalDps == 0 && passive.playerName == "Shawn", "A known local player who dealt no damage has zero DPS and keeps their name");
+    }
+    static function outcomes():Void {
+        var m = model(); m.onCombatEnter("me", 10);
+        m.record(hit(10, 20, true)); m.onCombatExit("me", 12); m.update(13, false);
+        check(m.history[0].outcome == "Victory", "Defeating every foe in an ordinary fight records a victory");
+        m = model(); m.record(hit(10, 20, true)); m.update(11, false);
+        check(m.history[0].outcome == "Victory", "A one-shot victory works without a combat-entry event");
+        m = model(); m.onCombatEnter("me", 10); m.record(hit(10, 20));
+        m.onCombatExit("me", 12); m.update(13, false);
+        check(m.history[0].outcome == "Failure", "Leaving combat while an observed foe survives is a failure");
+
+        m = model(); m.onCombatEnter("me", 10);
+        var bossHit = hit(10, 100, false, true, "me", "boss"); bossHit.bossFlags = 0x10;
+        m.record(bossHit); m.record(hit(11, 20, true, false, "me", "add"));
+        m.onCombatExit("me", 12); m.update(13, false);
+        check(m.history[0].outcome == "Failure", "Killing a boss's adds cannot count as defeating the boss");
+
+        m = model(); m.onCombatEnter("me", 10); m.record(bossHit);
+        m.record(hit(11, 20, false, false, "me", "add"));
+        m.onTargetDeath("boss", 12); m.onCombatExit("me", 12); m.update(13, false);
+        check(m.history[0].outcome == "Victory", "A native boss death records victory even with surviving adds and an external player's final blow");
+        check(m.completed.length == 0, "Outcome observation never invents a damage event or an uploader report");
+
+        m = model(); m.onCombatEnter("me", 10); m.record(bossHit);
+        m.onCombatExit("me", 12); m.onTargetDeath("boss", 12.2); m.update(13, false);
+        check(m.history[0].outcome == "Victory", "Boss death arriving just after local combat exit updates the pending archive");
+        m.onTargetDeath("anotherBoss", 14);
+        check(m.history[0].outcome == "Victory", "Unrelated later deaths cannot change an archived outcome");
+        m = model(); m.onCombatEnter("me", 10); m.record(bossHit); m.onCombatExit("me", 12);
+        var finalHit = hit(12.2, 200, true, true, "me", "boss"); finalHit.bossFlags = 0x10;
+        m.record(finalHit); m.update(13, false);
+        check(m.history[0].outcome == "Victory" && m.history[0].players["me"].damage == 300,
+            "Late lethal damage confirms victory without losing damage or creating a second log");
+
+        var saved = m.history[0].copy(); saved.partySize = 3;
+        var record = FightHistory.encode(saved, "outcome_victory");
+        var entry = FightHistory.entry(Json.parse(Json.stringify(record)));
+        check(FightHistory.decode(record).outcome == "Victory" && record.outcome == "Victory",
+            "A copied fight retains its outcome through JSON serialization and decoding");
+        check(StringTools.endsWith(FightHistory.attemptHeading(entry), "Party: 3  ·  Victory")
+            && StringTools.endsWith(FightHistory.chartDetail(entry), "2 sec  ·  Victory"),
+            "Victory appears after party size in the list and after duration in the chart and snapshot summary");
+        saved.outcome = "Failure";
+        var failure = FightHistory.encode(saved, "outcome_failure");
+        check(FightHistory.decode(failure).outcome == "Failure" && StringTools.endsWith(FightHistory.attemptHeading(FightHistory.entry(failure)), "Failure"),
+            "Failure survives serialization and has the requested history label");
+        var root = temp("outcomes"); var store = new FightHistoryStore(root, _ -> {});
+        store.save(record); store.save(failure);
+        var reopened = new FightHistoryStore(root, _ -> {});
+        check(reopened.query(request("chart", "", 0, record.id)).record.outcome == "Victory"
+            && reopened.query(request("fights", record.name)).entries.length == 2,
+            "Victory and failure records survive a store restart and remain in the same encounter list");
+        var old = FightHistory.encode(sample(), "old_outcome"); Reflect.deleteField(old, "outcome");
+        var unchanged = Json.stringify(old); store.save(old);
+        var oldEntry = FightHistory.entry(old);
+        check(oldEntry.outcome == "" && StringTools.endsWith(FightHistory.attemptHeading(oldEntry), "Outcome unknown")
+            && FightHistory.decode(old).outcome == "", "Older logs without outcome metadata are never labelled failure by default");
+        reopened = new FightHistoryStore(root, _ -> {}); reopened.query(request("chart", "", 0, old.id));
+        check(File.getContent(root + "/history/old_outcome.json") == unchanged, "Reading old outcome-less logs does not rewrite them");
+        var legacy = FightHistory.legacy(sample().json("20260914-120000", 1), Date.now().getTime(), "legacy_outcome");
+        check(FightHistory.entry(legacy).outcome == "", "Legacy exports without explicit outcomes are not guessed from skill kill counts");
+        remove(root);
+
+        m = model(); m.enableRift(); m.updateRiftState(10, false, false, "BossKind");
+        m.record(hit(10, 20, true)); m.updateRiftState(20, true, false, "BossKind");
+        var clone = hit(21, 30, true, true); clone.summoned = true;
+        m.record(hit(20, 100, false, true)); m.record(clone); m.onTargetDeath("enemy", 21); m.update(22, false);
+        check(m.history.length == 1 && m.history[0].outcome == "Victory", "Clearing Rift gates is a phase victory; a boss clone death does not complete the boss phase");
+        m.reset(23);
+        check(m.history.length == 2 && m.history[1].outcome == "Failure", "Leaving an unfinished Rift boss records failure despite a lethal clone hit");
+        m = model(); m.enableRift(); m.updateRiftState(10, false, false, "BossKind");
+        m.record(hit(10, 20, true)); m.updateRiftState(20, true, false, "BossKind");
+        m.record(hit(21, 100, false, true)); m.updateRiftState(25, true, true, "BossKind"); m.update(26, false);
+        check(m.history.length == 2 && m.history[1].outcome == "Victory", "Rift boss objective completion confirms victory without needing the final damage RPC");
+        m = model(); m.enableRift(); m.record(hit(10, 20, true)); m.reset(20);
+        check(m.history[0].outcome == "Failure", "Leaving Rift gates before their objective finishes is failure even if every observed gate died");
+
+        m = model(); m.onCombatEnter("me", 10);
+        m.updatePhrixes(10, "chakram", 1, true, false, false); m.record(chakramHit(10, 10));
+        m.updatePhrixes(20, "chakram", 2, false, true, false); m.record(chakramHit(20, 20, true));
+        m.onCombatExit("me", 20); m.reset(30);
+        check(m.history[0].outcome == "Failure", "Chakram's first-bar lethal result is not a victory when the full encounter is abandoned");
+        check(dpsmeter.MeterConfig.defaults().historyHotkey == 0, "History hotkey starts unbound and cannot collide with an existing binding");
     }
     static function snapshots():Void {
         var f = sample(); var record = FightHistory.encode(f, "snapshot");
@@ -509,13 +592,13 @@ class HistoryTest {
         }
         var f = sample(); f.partySize = 5;
         var entry = FightHistory.entry(FightHistory.encode(f, "details"));
-        check(FightHistory.attemptHeading(entry) == FightHistory.dateLabel(f.startedAt) + "  ·  Shawn  ·  Party: 5", "Attempt button starts with date, character, and complete roster size");
+        check(FightHistory.attemptHeading(entry) == FightHistory.dateLabel(f.startedAt) + "  ·  Shawn  ·  Party: 5  ·  Outcome unknown", "Attempt button starts with date, character, complete roster size, and outcome");
         check(FightHistory.attemptDetail(entry) == "10 sec  ·  Your DPS: 35", "Attempt button second line has duration then DPS");
-        check(FightHistory.chartDetail(entry) == FightHistory.dateLabel(f.startedAt) + "  ·  Shawn  ·  Your DPS: 35  ·  10 sec", "Chart summary has date, character, DPS, duration in one row");
+        check(FightHistory.chartDetail(entry) == FightHistory.dateLabel(f.startedAt) + "  ·  Shawn  ·  Your DPS: 35  ·  10 sec  ·  Outcome unknown", "Chart summary has date, character, DPS, duration, and outcome in one row");
         var old = FightHistory.encode(sample(), "old"); Reflect.deleteField(old, "difficulty"); Reflect.deleteField(old, "partySize");
         entry = FightHistory.entry(old);
         check(entry.difficulty == -1 && entry.partySize == 0 && entry.recordedPlayers == 2, "Old logs preserve unknown difficulty and only a lower bound on party size");
-        check(StringTools.endsWith(FightHistory.attemptHeading(entry), "Party: ≥2"), "Old logs cannot mistake damage contributors for the whole party");
+        check(FightHistory.attemptHeading(entry).indexOf("Party: ≥2  ·") >= 0, "Old logs cannot mistake damage contributors for the whole party");
         var m = model(); m.party["passive"] = true;
         m.onCombatEnter("me", 10); m.record(hit(10, 20)); m.onCombatExit("me", 12); m.update(13, false);
         check(m.history[0].partySize == 3 && Lambda.count(m.history[0].players) == 1, "Party size includes members who never deal damage");

@@ -11,6 +11,8 @@
     { "key": "sendLogs", "type": "checkbox", "label": "Upload combat logs to fareverlogs.fr" },
     { "key": "toggleHotkey", "type": "keybinding", "label": "Show or hide meter" },
     { "key": "unlockHotkey", "type": "keybinding", "label": "Lock or unlock window" },
+    { "type": "title", "label": "Combat History" },
+    { "key": "historyHotkey", "type": "keybinding", "label": "Open or close history hotkey" },
     { "type": "title", "label": "Kill Counter" },
     { "key": "showBossKills", "type": "checkbox", "label": "Show boss kills" },
     { "key": "showIncompleteCodexKills", "type": "checkbox", "label": "Show incomplete Codex kills" },

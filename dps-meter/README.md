@@ -61,14 +61,19 @@ can be removed if no other mod uses it.
 ## Reviewing past fights
 
 Click the **book icon** on the left of the meter's header. Choose a category and an encounter name,
-then an attempt. The list defaults to all characters, newest first. Use the controls
+then an attempt. You can also assign **Open or close history hotkey** in the new
+**Combat History** settings section; it starts unbound. It toggles the whole history
+window, ignores typing in text fields, and uses BMS's central hotkey-assignment protection.
+The list defaults to all characters, newest first. Use the controls
 above it to sort by time, your DPS, or duration in ascending or descending order,
-and filter by your character. Character names use their class colour. The selected
+and filter by your character. Character names retain their class colour when opening,
+hovering, and selecting dropdown options. Clicking outside a dropdown closes it.
+The selected
 sort and filter stay in place when opening a chart, going Back, or deleting a log;
 a new history window starts with the defaults. Sorting/filtering covers every log
 before pagination, and unavailable DPS stays last in either direction.
 Each attempt shows local date and time,
-character name, and party size on the first row, then duration and your DPS on the
+character name, party size, and **Victory** or **Failure** on the first row, then duration and your DPS on the
 second. New charts retain the largest party roster observed during the fight,
 including members who dealt no damage. Older logs without a saved roster show
 the recorded player count as a lower bound (for example, **Party: ≥2**). The DPS
@@ -76,7 +81,7 @@ uses the same duration and one-second minimum as the live chart. If an older
 report did not identify your character, the list shows that your DPS is unavailable.
 
 Selecting an attempt replaces the list with that fight's damage chart. Its summary
-shows date and time, character name, your DPS, and duration together in that order. Click a
+shows date and time, character name, your DPS, duration, and outcome together in that order. Click a
 player to see their skills; click a skill row to return to the player chart.
 Each ability occupies one row with its game icon, display name, total damage,
 share of your damage, and DPS. A full-width history view also has casts,
@@ -159,6 +164,14 @@ in one fight, using his replicated entity and phase state. The first health bar
 does not produce a completed boss report. A reset or wipe ends the attempt;
 leaving the area still preserves an unfinished chart. Previously saved split
 logs are retained as recorded.
+
+New logs save their outcome. Boss attempts require the boss's actual death;
+defeating adds alone is not a victory. Ordinary fights require all observed foes
+to die. Rift phases use their objective completion, so a boss clone's death does
+not count as a victory. Wipes and unfinished encounters left behind are failures.
+Late death messages are included before the log is archived. Older logs without
+outcome data show **Outcome unknown**; their skill kill counts do not reliably
+identify boss victories. Outcomes also appear in clipboard snapshots.
 
 Fight history and sent reports are kept indefinitely unless you explicitly remove
 them. They survive game restarts and character changes. The former uploader `keep_days` option is ignored; no

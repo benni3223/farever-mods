@@ -64,6 +64,10 @@ class NativeHistoryWindow {
 
     public function new() {}
     public function open():Void { requested = true; }
+    public function toggle():Void {
+        if (requested || (window != null && G.field(window, "removed") != true && G.field(window, "parent") != null)) dispose();
+        else open();
+    }
     public function update(writer:RunWriter, active:Bool, now:Float):Void {
         var ui = G.current("ui.BaseUI", "current");
         if (!active || ui == null) { dispose(); return; }
@@ -79,6 +83,7 @@ class NativeHistoryWindow {
             }
         }
         if (window == null) return;
+        if (mode == "fights") options.update();
         var response = writer.receiveHistory();
         while (response != null) {
             if (response.id == serial) display(response);
@@ -338,7 +343,6 @@ class NativeHistoryWindow {
         position(window, top.x + (bottom.x - top.x - width) / 2, top.y + (bottom.y - top.y - height) / 2);
     }
     function alignLabels():Void {
-        if (mode == "fights") options.refresh();
         G.call("ui.comp.FmtText", "updateScale", headingStyle);
         var font = G.field(headingStyle, "font");
         if (font != null && font != headingFont) { headingFont = font; G.call("h2d.Text", "set_font", heading, [font]); }

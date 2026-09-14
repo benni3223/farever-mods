@@ -110,6 +110,11 @@ class DpsMeterMod {
         if (collector != null && config.enabled) try collector.combatEnter(G.uid(instance), haxe.Timer.stamp())
         catch (_:Dynamic) {}
     }
+    @:hlx.postfix(ent.GameObject.rpcDie__impl)
+    static function onTargetDeath(instance:Dynamic, result:Void):Void {
+        if (collector != null && config.enabled) try collector.model.onTargetDeath(G.uid(instance), haxe.Timer.stamp())
+        catch (_:Dynamic) {}
+    }
     @:hlx.postfix(ent.Hero.onLeaveCombat)
     static function onCombatExit(instance:Dynamic, result:Void):Void {
         // This callback runs before set_isInCombat stores false. Observe the
@@ -127,6 +132,13 @@ class DpsMeterMod {
             }
             if (G.staticCall("hxd.Key", "isPressed", [config.unlockHotkey]) == true) {
                 config.unlocked = !config.unlocked; saveConfig();
+            }
+            // Read the same shared key state as the other hotkeys; BMS consumes
+            // assignment input centrally. Zero is unbound, not a mouse binding.
+            if (config.enabled && config.historyHotkey > 0 && G.field(instance, "hero") != null
+                && G.staticCall("hxd.Key", "isPressed", [config.historyHotkey]) == true) {
+                var ui = G.current("ui.BaseUI", "current");
+                if (ui != null && G.call("ui.BaseUI", "getFocusedTextInput", ui) == null) historyView.toggle();
             }
             if (config.enabled) collector.update(instance, now);
             flushFights();

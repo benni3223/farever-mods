@@ -94,11 +94,13 @@ class Fight {
     public var players:Map<String, PlayerStats> = [];
     public var participants:Map<String, Bool> = [];
     public var targets:Map<String, Bool> = [];
+    public var killedTargets:Map<String, Bool> = [];
     public var start:Float;
     public var startedAt:Float;
     public var last:Float;
     public var closed:Float = 0;
     public var defeated:Bool = false;
+    public var outcome:String = "";
     public var isBoss:Bool = true;
     public var phase:String = "";
     public var bossKind:String = "";
@@ -119,7 +121,20 @@ class Fight {
         if (!players.exists(e.source)) players[e.source] = new PlayerStats(info);
         players[e.source].add(e, info);
         if (e.effect != 1 && e.target != "") targets[e.target] = true;
+        if (e.effect != 1 && e.kill && e.target != "") killedTargets[e.target] = true;
         last = e.time;
+    }
+    public function finishOutcome():Void {
+        // Boss attempts require that boss's death. Killing its adds is not a
+        // victory. Ordinary combats succeed only when all observed foes died.
+        if (outcome != "") return;
+        var won = defeated;
+        if (!won && (bossFlags & 0x10) != 0) won = bossUid != "" && killedTargets.exists(bossUid);
+        else if (!won) {
+            won = targets.iterator().hasNext();
+            for (uid in targets.keys()) if (!killedTargets.exists(uid)) { won = false; break; }
+        }
+        outcome = won ? "Victory" : "Failure";
     }
     public function duration(?now:Float):Float {
         return Math.max(0.001, (closed > 0 || now == null ? last : now) - start);
@@ -133,6 +148,7 @@ class Fight {
         var result = new Fight(start);
         result.startedAt = startedAt;
         result.last = last; result.closed = closed; result.defeated = defeated;
+        result.outcome = outcome; result.killedTargets = killedTargets.copy();
         result.isBoss = isBoss; result.phase = phase;
         result.bossKind = bossKind; result.bossName = bossName; result.bossUid = bossUid; result.bossLevel = bossLevel;
         result.bossFlags = bossFlags;
@@ -336,8 +352,19 @@ class CombatModel {
     function drainHistory(now:Float, force:Bool = false):Void {
         // Death can precede its final damage RPC. Keep the same mutable fight
         // through that grace period, then hand off a detached snapshot once.
-        while (pendingHistory.length > 0 && (force || now > pendingHistory[0].closed + ENTRY_DAMAGE_SECONDS))
-            history.push(pendingHistory.shift().copy());
+        while (pendingHistory.length > 0 && (force || now > pendingHistory[0].closed + ENTRY_DAMAGE_SECONDS)) {
+            var finished = pendingHistory.shift();
+            finished.finishOutcome();
+            history.push(finished.copy());
+        }
+    }
+    public function onTargetDeath(uid:String, now:Float):Void {
+        // The native death RPC also covers a final blow from someone outside
+        // the party. Rift outcomes still come solely from their objectives.
+        if (rift != null || uid == "" || uid == "0") return;
+        for (fight in [current, pendingFight, lastCombat]) if (fight != null && fight.targets.exists(uid)
+            && (fight.closed == 0 || (now >= fight.closed && now - fight.closed <= ENTRY_DAMAGE_SECONDS)))
+            fight.killedTargets[uid] = true;
     }
     function expirePendingFight(now:Float):Void {
         // Bound the whole buffer, so remote party damage while resting cannot
@@ -359,6 +386,7 @@ class CombatModel {
             && ((fight.bossFlags & 0x10) == 0 || (e.bossFlags & 0x10) != 0)) {
             fight.bossFlags = e.bossFlags;
             fight.bossKind = e.bossKind;
+            fight.bossUid = e.target;
             fight.bossName = e.bossName != null && e.bossName != "" ? e.bossName : e.bossKind;
         }
     }

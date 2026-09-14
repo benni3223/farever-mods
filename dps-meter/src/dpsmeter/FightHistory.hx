@@ -5,7 +5,7 @@ import dpsmeter.CombatModel;
 typedef HistoryEntry = {
     id:String, name:String, startedAt:Float, duration:Float, personalDps:Null<Float>, playerName:String,
     category:String, categoryVersion:Int, activityId:String, bossKind:String, phase:String,
-    difficulty:Int, partySize:Int, recordedPlayers:Int, playerClass:String
+    difficulty:Int, partySize:Int, recordedPlayers:Int, playerClass:String, outcome:String
 };
 typedef HistoryGroup = {name:String, count:Int};
 typedef HistoryCharacter = {key:String, name:String, className:String};
@@ -33,7 +33,7 @@ class FightHistory {
         return {version: 1, id: id, name: name(fight), startedAt: fight.startedAt, duration: fight.duration(),
             me: fight.me, meName: fight.meName, players: players, category: fight.category, categoryVersion: fight.categoryVersion,
             activityId: fight.activityId, bossKind: fight.bossKind, phase: fight.phase,
-            difficulty: fight.difficulty, partySize: fight.partySize};
+            difficulty: fight.difficulty, partySize: fight.partySize, outcome: fight.outcome};
     }
     public static function name(fight:Fight):String {
         return fight.phase != "" ? fight.phase : fight.bossName != "" ? fight.bossName
@@ -51,7 +51,8 @@ class FightHistory {
             personalDps: damage == null ? null : damage / Math.max(1, number(record.duration)), playerName: playerName, playerClass: playerClass,
             category: text(record.category), categoryVersion: Std.int(number(record.categoryVersion)),
             activityId: text(record.activityId), bossKind: text(record.bossKind), phase: text(record.phase),
-            difficulty: difficulty(record.difficulty), partySize: Std.int(number(record.partySize)), recordedPlayers: recordedPlayers(record)};
+            difficulty: difficulty(record.difficulty), partySize: Std.int(number(record.partySize)), recordedPlayers: recordedPlayers(record),
+            outcome: outcome(record.outcome)};
     }
     public static function decode(record:Dynamic):Fight {
         validate(record);
@@ -65,6 +66,7 @@ class FightHistory {
         fight.categoryVersion = Std.int(number(record.categoryVersion));
         fight.bossKind = text(record.bossKind); fight.phase = text(record.phase);
         fight.difficulty = difficulty(record.difficulty); fight.partySize = Std.int(number(record.partySize));
+        fight.outcome = outcome(record.outcome); fight.defeated = fight.outcome == "Victory";
         for (p in array(record.players)) {
             var uid = text(p.uid);
             if (uid == "") throw "A history player has no ID.";
@@ -109,8 +111,10 @@ class FightHistory {
         }];
         return {version: 1, id: id, name: name, startedAt: timestamp - duration * 1000, duration: duration, players: players,
             activityId: text(report.activity_id), bossKind: text(report.boss_kind), phase: phase,
-            difficulty: difficulty(report.difficulty), partySize: Std.int(number(report.party_size))};
+            difficulty: difficulty(report.difficulty), partySize: Std.int(number(report.party_size)), outcome: outcome(report.outcome)};
     }
+    public static function outcome(value:Dynamic):String return value == "Victory" || value == "Failure" ? value : "";
+    public static function outcomeLabel(entry:HistoryEntry):String return outcome(entry.outcome) == "" ? "Outcome unknown" : entry.outcome;
     public static function difficulty(value:Dynamic):Int return value == null ? -1 : Std.int(number(value));
     static function recordedPlayers(record:Dynamic):Int {
         var ids:Map<String, Bool> = [];
@@ -121,10 +125,11 @@ class FightHistory {
     static function dateAndPlayer(entry:HistoryEntry):String return dateLabel(entry.startedAt)
         + (entry.playerName == "" ? "" : "  ·  " + entry.playerName);
     public static function attemptHeading(entry:HistoryEntry):String return dateAndPlayer(entry) + "  ·  Party: "
-        + (entry.partySize > 0 ? Std.string(entry.partySize) : entry.recordedPlayers > 0 ? "≥" + entry.recordedPlayers : "unknown");
+        + (entry.partySize > 0 ? Std.string(entry.partySize) : entry.recordedPlayers > 0 ? "≥" + entry.recordedPlayers : "unknown")
+        + "  ·  " + outcomeLabel(entry);
     public static function attemptDetail(entry:HistoryEntry):String return durationLabel(entry.duration) + "  ·  " + dpsLabel(entry.personalDps);
     public static function chartDetail(entry:Null<HistoryEntry>):String return entry == null ? "" : dateAndPlayer(entry)
-        + "  ·  " + dpsLabel(entry.personalDps) + "  ·  " + durationLabel(entry.duration);
+        + "  ·  " + dpsLabel(entry.personalDps) + "  ·  " + durationLabel(entry.duration) + "  ·  " + outcomeLabel(entry);
     public static function dateLabel(timestamp:Float):String {
         var date = Date.fromTime(timestamp);
         var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

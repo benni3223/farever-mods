@@ -3,6 +3,7 @@ package dpsmeter;
 import dpsmeter.FightHistory;
 import dpsmeter.HistoryDropdown.HistoryChoice;
 import dpsmeter.NativeUi.*;
+import dpsmeter.GameAccess as G;
 
 class NativeHistoryOptions {
     var sort:HistoryDropdown;
@@ -51,7 +52,21 @@ class NativeHistoryOptions {
         character.resize(width - characterX); position(character.object, characterX, narrow ? 98 : 56);
         return narrow ? 144 : 102;
     }
-    public function refresh():Void for (control in controls()) control.refreshColors();
+    public function update():Void {
+        var open = false;
+        for (control in controls()) if (control.isOpen()) { open = true; break; }
+        if (!open) return;
+        var pressed = false;
+        for (button in 0...3) if (G.staticCall("hxd.Key", "isPressed", [button]) == true) { pressed = true; break; }
+        if (!pressed) return;
+        var scene = G.field(G.current("ui.BaseUI", "current"), "s2d");
+        if (scene == null) return;
+        var x = G.number(G.call("h2d.Scene", "get_mouseX", scene));
+        var y = G.number(G.call("h2d.Scene", "get_mouseY", scene));
+        // Both button and popup use scene coordinates, even though the popup
+        // lives above the history window. The opening click stays inside.
+        for (control in controls()) control.closeOutside(x, y);
+    }
     public function closeOpen():Bool {
         var open = false;
         for (control in controls()) if (control.isOpen()) { control.close(); open = true; }

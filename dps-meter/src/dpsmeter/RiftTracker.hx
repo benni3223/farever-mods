@@ -46,6 +46,7 @@ class RiftTracker {
         fight.last = Math.max(fight.start, now);
         fight.closed = now;
         fight.defeated = true;
+        fight.outcome = "Victory";
     }
 
     public function record(e:DamageEvent, info:PlayerInfo, difficulty:Int, activityId:String, me:String, meName:String = "", partySize:Int = 0):Void {
@@ -90,6 +91,7 @@ class RiftTracker {
             fight.last = end;
             fight.closed = Math.max(fight.start, ended[index]);
             fight.defeated = true;
+            fight.outcome = "Victory";
         }
         if (bossHit && index == 1) {
             fight.bossKind = e.bossKind;
@@ -124,6 +126,7 @@ class RiftTracker {
             var snapshot = fights[index].copy();
             snapshot.last = Math.max(snapshot.start, now);
             snapshot.closed = now;
+            snapshot.outcome = "Failure";
             history.push(snapshot);
         }
     }

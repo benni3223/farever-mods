@@ -58,7 +58,6 @@ class HistoryDropdown {
     public function refreshColors():Void {
         var index = G.integer(G.field(object, "selectedIndex"));
         color(G.field(object, "selectText"), choiceColor(index));
-        if (!isOpen()) return;
         var items = G.array(G.field(object, "items"));
         for (i in 0...items.length) for (child in children(items[i]))
             if (G.field(child, "font") != null) color(child, choiceColor(i));
@@ -67,10 +66,26 @@ class HistoryDropdown {
         ? choices[index].color : 0x5b4334;
     static function color(text:Dynamic, value:Int):Void {
         if (text == null) return;
+        // Pin the native CSS property, including hover/selection recomputation.
+        // Correcting glyphs on a timer fights CSS and visibly flickers.
+        style(text, "color", value);
         // FmtText inherits HtmlText: colour belongs in its glyph data. Calling
         // Text's base setter instead multiplies that colour by a second tint.
         var tint = G.field(text, "color");
         if (tint != null) for (channel in ["x", "y", "z"]) G.set(tint, channel, 1.0);
         G.call("h2d.HtmlText", "set_textColor", text, [value]);
+    }
+    public function closeOutside(x:Float, y:Float):Void {
+        if (isOpen() && !contains(G.field(object, "select"), x, y)
+            && !contains(G.field(object, "listWindow"), x, y)) close();
+    }
+    static function contains(object:Dynamic, x:Float, y:Float):Bool {
+        if (object == null || G.field(object, "parent") == null) return false;
+        var point = HlxRuntime.allocInstance(HlxRuntime.resolveType("h2d.col.PointImpl"));
+        G.set(point, "x", x); G.set(point, "y", y);
+        var local = G.call("h2d.Object", "globalToLocal", object, [point]);
+        var px = G.number(G.field(local, "x")); var py = G.number(G.field(local, "y"));
+        return px >= 0 && py >= 0 && px < G.number(G.call("h2d.Flow", "get_outerWidth", object))
+            && py < G.number(G.call("h2d.Flow", "get_outerHeight", object));
     }
 }
