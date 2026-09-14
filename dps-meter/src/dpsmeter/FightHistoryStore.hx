@@ -14,7 +14,9 @@ class FightHistoryStore {
     final entries:Map<String, HistoryEntry> = [];
     var initialized:Bool = false;
     var indexed:Bool = false;
-    var catalog:HistoryCatalog;
+    var catalog:HistoryCatalog = {activities: [], names: [], bosses: []};
+    var currentActivities:Map<String, String> = [];
+    final learned:Map<String, HistoryEntry> = [];
     var legacyMetadata:Map<String, Dynamic>;
     public function new(root:String, log:String->Void) {
         this.root = root; this.folder = root + "/history"; this.log = log;
@@ -72,6 +74,15 @@ class FightHistoryStore {
             FileSystem.rename(temp, path);
         }
         if (indexed) entries[summary.id] = summary;
+        learn(summary);
+    }
+    function learn(entry:HistoryEntry):Void {
+        if (entry.categoryVersion != HistoryCategory.VERSION || entry.activityId == ""
+            || (entry.category != HistoryCategory.BOSS && entry.category != HistoryCategory.DUNGEON)) return;
+        var previous = learned[entry.activityId];
+        if (previous == null || previous.startedAt < entry.startedAt) learned[entry.activityId] = entry;
+        if (!currentActivities.exists(entry.activityId) || currentActivities[entry.activityId] == HistoryCategory.OTHER)
+            catalog.activities[entry.activityId] = learned[entry.activityId].category;
     }
     function index():Void {
         initialize();
@@ -86,13 +97,20 @@ class FightHistoryStore {
                 var entry = FightHistory.entry(record);
                 if (path != recordPath(entry.id)) throw "History filename does not match its ID.";
                 entries[entry.id] = entry;
+                learn(entry);
             } catch (e:Dynamic) log("Could not read " + name + ": " + Std.string(e));
         }
         indexed = true;
         legacyMetadata = null;
     }
     public function query(request:HistoryRequest):HistoryResponse {
-        if (request.catalog != null) catalog = request.catalog;
+        if (request.catalog != null) {
+            // Detach the snapshot before enriching it on this worker.
+            currentActivities = request.catalog.activities;
+            catalog = {activities: request.catalog.activities.copy(), names: request.catalog.names, bosses: request.catalog.bosses};
+            for (activity => entry in learned) if (!catalog.activities.exists(activity)
+                || catalog.activities[activity] == HistoryCategory.OTHER) catalog.activities[activity] = entry.category;
+        }
         index();
         var response:HistoryResponse = {id: request.id, page: 0, total: 0, groups: [], entries: [], record: null, error: ""};
         if (request.action == "chart") {

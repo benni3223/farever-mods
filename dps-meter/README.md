@@ -66,27 +66,47 @@ report did not identify your character, the list shows that your DPS is unavaila
 
 Selecting an attempt replaces the list with that fight's damage chart. Click a
 player to see their skills; click a skill row to return to the player chart.
+Each ability occupies one row with its game icon, display name, total damage,
+share of your damage, and DPS. A full-width history view also has casts,
+average damage per cast, hits, average damage per hit, and critical-hit percentage.
+Ability DPS uses the entire fight's duration, matching the player's total DPS.
+The bars compare abilities against the highest-damage ability; the printed
+percentages use the player's total damage. Narrow windows keep the core columns
+readable; hover an ability to see all its statistics and its full name.
 **Back** returns to the same page of attempts, then to the encounter names.
 The encounter and attempt lists have page controls and scroll when space is limited. The history
 window stays open independently of the live meter's out-of-combat fade.
 The footer shows the full absolute path to the local chart archive. Section
 headings use the same larger bold style as Better Mod Settings titles.
 
-Categories follow the running game's activity inheritance: **Boss Dungeons**
-uses Boss activities, **Classic Dungeons** uses other Dungeon activities, and
+**Boss Dungeons** are boss-only instances. **Classic Dungeons** have a dungeon
+monster-clearing phase before the boss. The game adds a `KillAllDungeonFoes`
+objective when it populates an instance with clearing foes, so the collector
+reads that replicated objective, including when it is already completed.
+Without it, a populated `KillBoss` target identifies a boss-only dungeon.
+It waits for initialized objectives instead of interpreting missing replication
+as an arena. This works for new instances using the same native objective system;
+the programming class names `Boss` and `Dungeon` do not determine the distinction.
 **World Bosses** contains rift phases. Only actual boss encounters enter the
-dungeon categories; ordinary combats, elites, and other activities appear in
-**Other**. New bosses inheriting these activity types are handled automatically;
-there is no list of hardcoded boss names.
+dungeon categories; ordinary combats and elites remain in **Other**.
 
-New charts retain their activity ID and category. For older imported reports,
-the browser uses those original reports' activity metadata where it is still
-available. Charts made by the first history release omitted activity metadata;
-when their context cannot be recovered exactly, they remain in **Other**.
+New charts retain their activity ID, category, and classification version.
+The browser also uses these observed categories to classify older logs from the
+same activity, including after restarting the game. Three confirmed legacy
+encounters have explicit compatibility mappings: Ratsar and Chakram (internal
+ID `Phrixes`) are boss dungeons; Robin Hoof is a classic dungeon. These mappings
+only apply when the original activity and boss IDs are present. Old inferred
+labels without reliable evidence are placed in **Other** until their activity
+is observed. Charts made by the first history release omitted activity metadata;
+the browser recovers it from the original export where that export still exists.
+No old chart files are rewritten or deleted during reclassification.
 Rift phase names can still identify old rift charts. Game-provided names replace
-unit IDs where available. Skill labels use the game's name resolver, including
-references from projectiles and other child effects to their named abilities;
-the recorded skill IDs and damage totals remain unchanged.
+unit IDs where available. Skill labels read the game's `texts.name` directly,
+following explicit text references and the game's child-skill reference cache.
+Unnamed normal attack steps use the weapon UI's base-attack label and step number.
+The recorded skill IDs and damage totals remain unchanged, so old logs gain the
+display names without being recorded again. Removed definitions keep a readable
+ID fallback.
 
 History records ordinary combats, boss attempts, and both rift phases. Combats
 without a boss name appear under **Other combat**. A fight still in progress

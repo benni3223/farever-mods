@@ -12,7 +12,7 @@ class NativeDamageChart {
     var width:Int = 1;
     var displayed:Null<Fight>;
     var selectedPlayer:String = "";
-    var skillNames:Map<String, String> = [];
+    var skillTable:NativeSkillTable;
     var lastRefresh:Float = -1;
     var empty:Dynamic;
     public function new(parent:Dynamic, id:String, emptyText:String = "") {
@@ -26,6 +26,9 @@ class NativeDamageChart {
         flow(rowsRoot, "set_overflow", scroll);
         style(object, "overflow", scroll);
         if (emptyText != "") empty = label(rowsRoot, emptyText);
+        skillTable = new NativeSkillTable(rowsRoot, id, () -> {
+            selectedPlayer = ""; resetScroll(); lastRefresh = -1;
+        });
     }
     public function resize(width:Int, height:Int):Void {
         this.width = width;
@@ -42,7 +45,7 @@ class NativeDamageChart {
     public function update(fight:Null<Fight>, now:Float):Void {
         if (fight != displayed) {
             displayed = fight; selectedPlayer = "";
-            skillNames = [];
+            skillTable.clear();
             resetScroll(); lastRefresh = -1;
         }
         if (now - lastRefresh < 0.20) return;
@@ -54,34 +57,24 @@ class NativeDamageChart {
         var total = 0.0;
         for (p in ranked) total += p.damage;
         var selected = fight == null ? null : fight.players[selectedPlayer];
-        var skillIds:Array<String> = [];
         if (selected != null) {
-            skillIds = [for (id in selected.skills.keys()) id];
-            skillIds.sort((a, b) -> Reflect.compare(selected.skills[b].damage, selected.skills[a].damage));
+            show(empty, false);
+            for (row in rows) show(row.obj, false);
+            skillTable.update(selected, seconds, availableRowWidth());
+            return;
         }
-        var count = selected == null ? ranked.length : skillIds.length;
+        show(skillTable.object, false);
+        var count = ranked.length;
         show(empty, count == 0);
         while (rows.length < count) rows.push(makeRow(rows.length));
         for (i in 0...rows.length) {
             var row = rows[i]; show(row.obj, i < count);
             if (i >= count) continue;
-            var amount:Float; var color:Int; var label:String; var detail:String;
-            if (selected == null) {
-                var p = ranked[i]; row.uid = p.info.uid; amount = p.damage;
-                color = classColor(p.info.className);
-                label = (i + 1) + ". " + p.info.name;
-                detail = compact(p.damage) + " (" + compact(seconds > 0 ? p.damage / seconds : 0)
-                    + ", " + Std.int(total > 0 ? p.damage * 100 / total : 0) + "%)";
-            } else {
-                var id = skillIds[i]; var s = selected.skills[id]; row.uid = "";
-                if (!skillNames.exists(id)) skillNames[id] = NativeCombatMetadata.skillName(id);
-                amount = s.damage; color = classColor(selected.info.className); label = skillNames[id];
-                detail = compact(s.damage) + " (" + damagePercent(s.damage, selected.damage) + "%)";
-                setText(row.extra, s.casts + " casts  ·  " + s.hits + " hits  ·  " + s.crits + " crits");
-            }
-            row.caption = label;
-            setText(row.details, detail);
-            show(row.extra, selected != null);
+            var p = ranked[i]; row.uid = p.info.uid;
+            var amount = p.damage; var color = classColor(p.info.className);
+            row.caption = (i + 1) + ". " + p.info.name;
+            setText(row.details, compact(p.damage) + " (" + compact(p.damage / seconds)
+                + ", " + Std.int(total > 0 ? p.damage * 100 / total : 0) + "%)");
             sizeRow(row);
             if (row.color != color) {
                 row.color = color;
@@ -89,7 +82,7 @@ class NativeDamageChart {
                 // Inline styles preserve the class tint through native CSS updates.
                 style(row.bar, "color", color); style(row.bar, "full-color", color);
             }
-            G.call("ui.comp.BaseGauge", "set_max", row.bar, [Math.max(1, selected == null ? total : selected.damage)]);
+            G.call("ui.comp.BaseGauge", "set_max", row.bar, [Math.max(1, total)]);
             G.call("ui.comp.BaseGauge", "set_value", row.bar, [amount]);
         }
     }
@@ -109,7 +102,6 @@ class NativeDamageChart {
             size(row.obj, rowWidth);
             size(row.heading, rowWidth);
             G.call("ui.comp.FmtText", "set_maxWidthText", row.details, [Std.int(Math.max(1, rowWidth - 60))]);
-            G.call("ui.comp.FmtText", "set_maxWidthText", row.extra, [rowWidth]);
             G.call("ui.comp.BaseGauge", "set_barWidth", row.bar, [rowWidth]);
             size(row.bar, rowWidth, 9);
         }
@@ -149,17 +141,14 @@ class NativeDamageChart {
             style(text, "text-align", left);
         }
         G.call("ui.comp.FmtText", "set_useEllipsis", name, [true]);
-        var extra = label(d, "");
-        G.call("ui.comp.FmtText", "set_useEllipsis", extra, [true]);
-        show(extra, false);
         var barDom = node("base-gauge", d, [], id + "Bar" + index);
         var bar = G.field(barDom, "obj");
         G.call("ui.comp.BaseGauge", "set_barHeight", bar, [7]);
         G.call("ui.comp.BaseGauge", "set_showValues", bar, [false]);
         var obj = G.field(d, "obj");
         var row:Dynamic = {obj: obj, heading: headingObject, name: name, details: details,
-            extra: extra, bar: bar, uid: "", caption: "", lineHeight: 0, color: -1, width: 0};
-        G.call("ui.UIElement", "set_onClick", obj, [() -> { selectedPlayer = row.uid; skillNames = []; resetScroll(); lastRefresh = -1; }]);
+            bar: bar, uid: "", caption: "", lineHeight: 0, color: -1, width: 0};
+        G.call("ui.UIElement", "set_onClick", obj, [() -> { selectedPlayer = row.uid; skillTable.clear(); resetScroll(); lastRefresh = -1; }]);
         sizeRow(row);
         return row;
     }

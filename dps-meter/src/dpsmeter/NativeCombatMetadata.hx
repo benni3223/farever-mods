@@ -5,17 +5,44 @@ import dpsmeter.HistoryCatalog;
 
 /** Read the running game's definitions, including inherited activities and skill references. */
 class NativeCombatMetadata {
-    public static function activityCategory(id:String, isRift:Bool):String {
+    static var activityTypes:Map<String, Int> = [];
+    static var observed:Map<String, String> = [];
+    static var warned:Bool = false;
+    public static function activityCategory(id:String, isRift:Bool, player:Dynamic, activity:Dynamic):String {
         if (isRift) return HistoryCategory.WORLD;
         if (id == "") return HistoryCategory.OTHER;
-        try return category(G.staticCall("HActivity", "getInf", [id])) catch (_:Dynamic) return HistoryCategory.OTHER;
+        try {
+            if (!activityTypes.exists(id)) {
+                var inf = G.staticCall("HActivity", "getInf", [id]);
+                // Retry until definitions have loaded.
+                if (inf == null) return HistoryCategory.OTHER;
+                activityTypes[id] = G.staticCall("HActivity", "isOfType", [inf, "Rift"]) == true ? 2
+                    : G.staticCall("HActivity", "isOfType", [inf, "Dungeon"]) == true ? 1 : 0;
+            }
+            if (activityTypes[id] == 2) return HistoryCategory.WORLD;
+            if (activityTypes[id] != 1 || activity == null) return HistoryCategory.OTHER;
+            var context = G.call("st.Player", "getActivityContext", player, [activity]);
+            if (context == null) context = G.field(activity, "globalCtx");
+            var ready = false; var clearFoes = false;
+            for (objective in G.array(G.field(context, "objectives"), true)) {
+                var kind = G.text(G.field(objective, "kind"));
+                if (kind == "KillAllDungeonFoes") clearFoes = true;
+                if (kind == "KillBoss") {
+                    var target = G.field(objective, "target");
+                    ready = target != null && Type.enumConstructor(target) == "Unit"
+                        && G.text(Type.enumParameters(target)[0]) != "";
+                }
+            }
+            var result = HistoryCategory.fromObjectives(false, true, ready, clearFoes);
+            if (result != HistoryCategory.OTHER) observed[id] = result;
+            return observed.exists(id) ? observed[id] : result;
+        } catch (e:Dynamic) { warn(e); return HistoryCategory.OTHER; }
     }
     static function category(inf:Dynamic):String {
         if (inf == null) return HistoryCategory.OTHER;
-        return HistoryCategory.fromTypes(
-            G.staticCall("HActivity", "isOfType", [inf, "Rift"]) == true,
-            G.staticCall("HActivity", "isOfType", [inf, "Boss"]) == true,
-            G.staticCall("HActivity", "isOfType", [inf, "Dungeon"]) == true);
+        if (G.staticCall("HActivity", "isOfType", [inf, "Rift"]) == true) return HistoryCategory.WORLD;
+        var id = G.text(G.field(inf, "id"));
+        return observed.exists(id) ? observed[id] : HistoryCategory.OTHER;
     }
     public static function catalog():HistoryCatalog {
         var result:HistoryCatalog = {activities: [], names: [], bosses: []};
@@ -39,20 +66,43 @@ class NativeCombatMetadata {
         return result;
     }
     public static function skillName(id:String):String {
-        if (id == "") return "Unknown skill";
-        try {
-            var sheet = G.current("Data", "skill");
-            var inf = G.call("haxe.ds.StringMap", "get", G.field(sheet, "byId"), [id]);
-            if (inf != null) {
-                // The native name resolver follows explicit text references and
-                // SKILLS_AUTO_REFS (e.g. a projectile's owning class ability).
-                var masteries = G.call("hl.types.ArrayObj", "slice", G.field(sheet, "all"), [0, 0]);
-                var spec:Dynamic = {inf: inf, rank: 1, maxRank: 1, masteries: masteries};
-                var name = G.text(G.staticCall("HText", "skill", [spec, null, null, null, null, null]));
-                if (name != "" && name != id) return name;
+        // Names live directly in texts.name. Do not manufacture a native
+        // SkillSpec (with typed mastery arrays) just to read a display string:
+        // a bridge/type failure there used to discard even simple valid names.
+        return SkillNames.resolve(id, key -> {
+            var inf = skillDefinition(key);
+            var texts = G.field(inf, "texts");
+            var name = G.text(G.field(texts, "name"));
+            var type = G.integer(G.field(inf, "type"), -1);
+            if (name == "" && type >= 0 && type <= 3) {
+                // Unnamed normal combo steps use the same generic label as
+                // the weapon UI, keeping each hit's step number distinct.
+                name = G.text(G.current("Texts", "item_weapon_base_attack"), "Base Attack");
+                if (type > 0) name += " " + (type + 1);
             }
-        } catch (_:Dynamic) {}
-        // A removed/untranslated skill should still be readable in old logs.
-        return StringTools.replace(id, "_", " ");
+            var source = "";
+            if (name == "" || StringTools.startsWith(name, "[")) try
+                source = G.text(G.field(G.staticCall("HSkill", "getSkillRef", [key]), "id"))
+            catch (e:Dynamic) warn(e);
+            if (inf == null && source == "") return null;
+            return {name: name, nameRef: G.text(G.field(G.field(texts, "refs"), "ref")), source: source};
+        });
+    }
+    static function skillDefinition(id:String):Dynamic {
+        try return G.call("haxe.ds.StringMap", "get", G.field(G.current("Data", "skill"), "byId"), [id])
+        catch (e:Dynamic) { warn(e); return null; }
+    }
+    public static function skillIcon(id:String):Dynamic {
+        try {
+            var inf = skillDefinition(id);
+            var gfx = G.field(inf, "gfx");
+            if (gfx == null) gfx = G.field(G.staticCall("HSkill", "getSkillRef", [id]), "gfx");
+            return gfx == null ? null : G.staticCall("ui.BaseUI", "getTile", [gfx, null, null]);
+        } catch (e:Dynamic) { warn(e); return null; }
+    }
+    static function warn(error:Dynamic):Void {
+        if (warned) return;
+        warned = true;
+        trace("[DPS Meter] Combat metadata unavailable: " + Std.string(error));
     }
 }

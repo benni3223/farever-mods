@@ -14,7 +14,6 @@ class Collector {
     var groupMembers:Map<String, Bool> = [];
     var profileRefresh:Map<String, Float> = [];
     var profileWeapons:Map<String, Dynamic> = [];
-    var categoryActivity:String = "";
     public function new(config:MeterSettings) {
         this.config = config;
         model = new CombatModel(haxe.Timer.stamp());
@@ -26,7 +25,6 @@ class Collector {
             model.reset(now); hero = nextHero; layer = nextLayer;
             groupMembers = []; lastGroupSeen = -1; lastRoster = -1;
             profileRefresh = []; profileWeapons = [];
-            categoryActivity = "";
         }
         if (hero == null) return;
         if (now - lastRoster < 0.25) return;
@@ -62,10 +60,9 @@ class Collector {
         model.difficulty = G.integer(G.field(layerConfig, "difficulty"), -1);
         model.activityId = G.text(G.field(layerConfig, "activityID"));
         if (model.activityId == "") model.activityId = G.text(G.field(G.field(layer, "mainActivity"), "kind"));
-        if (categoryActivity != model.activityId || inRift) {
-            model.activityCategory = NativeCombatMetadata.activityCategory(model.activityId, inRift);
-            categoryActivity = model.activityId;
-        }
+        // Objectives can arrive after entering the map; keep checking at the
+        // roster's 4 Hz cadence. Completion does not remove the clearing goal.
+        model.activityCategory = NativeCombatMetadata.activityCategory(model.activityId, inRift, player, G.field(layer, "mainActivity"));
         if (inRift) updateRiftState(player, now);
         // Encounter timing must not depend on optional lobby/report metadata.
         model.update(now, G.field(hero, "isInCombat") == true);

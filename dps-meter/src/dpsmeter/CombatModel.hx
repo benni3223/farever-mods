@@ -110,6 +110,7 @@ class Fight {
     public var difficulty:Int = -1;
     public var activityId:String = "";
     public var category:String = "";
+    public var categoryVersion:Int = HistoryCatalog.HistoryCategory.VERSION;
     public var me:String = "";
     public var meName:String = "";
     public function new(now:Float) { start = now; last = now; startedAt = Date.now().getTime(); }
@@ -136,6 +137,7 @@ class Fight {
         result.bossFlags = bossFlags;
         result.bossFoeId = bossFoeId; result.difficulty = difficulty; result.activityId = activityId;
         result.category = category;
+        result.categoryVersion = categoryVersion;
         result.me = me; result.meName = meName; result.participants = participants.copy(); result.targets = targets.copy();
         for (id => p in players) {
             var next = new PlayerStats(p.info);

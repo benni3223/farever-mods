@@ -4,7 +4,7 @@ import dpsmeter.CombatModel;
 
 typedef HistoryEntry = {
     id:String, name:String, startedAt:Float, duration:Float, personalDps:Null<Float>, playerName:String,
-    category:String, activityId:String, bossKind:String, phase:String
+    category:String, categoryVersion:Int, activityId:String, bossKind:String, phase:String
 };
 typedef HistoryGroup = {name:String, count:Int};
 typedef HistoryRequest = {id:Int, action:String, group:String, page:Int, fightId:String,
@@ -28,7 +28,7 @@ class FightHistory {
             }
         }];
         return {version: 1, id: id, name: name(fight), startedAt: fight.startedAt, duration: fight.duration(),
-            me: fight.me, meName: fight.meName, players: players, category: fight.category,
+            me: fight.me, meName: fight.meName, players: players, category: fight.category, categoryVersion: fight.categoryVersion,
             activityId: fight.activityId, bossKind: fight.bossKind, phase: fight.phase};
     }
     public static function name(fight:Fight):String {
@@ -44,7 +44,8 @@ class FightHistory {
         }
         return {id: record.id, name: record.name, startedAt: record.startedAt, duration: record.duration,
             personalDps: damage == null ? null : damage / Math.max(1, number(record.duration)), playerName: playerName,
-            category: text(record.category), activityId: text(record.activityId), bossKind: text(record.bossKind), phase: text(record.phase)};
+            category: text(record.category), categoryVersion: Std.int(number(record.categoryVersion)),
+            activityId: text(record.activityId), bossKind: text(record.bossKind), phase: text(record.phase)};
     }
     public static function decode(record:Dynamic):Fight {
         validate(record);
@@ -55,6 +56,7 @@ class FightHistory {
         fight.bossName = record.name;
         fight.me = text(record.me); fight.meName = text(record.meName);
         fight.category = text(record.category); fight.activityId = text(record.activityId);
+        fight.categoryVersion = Std.int(number(record.categoryVersion));
         fight.bossKind = text(record.bossKind); fight.phase = text(record.phase);
         for (p in array(record.players)) {
             var uid = text(p.uid);

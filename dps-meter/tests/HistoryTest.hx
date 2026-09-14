@@ -3,6 +3,9 @@ import dpsmeter.FightHistory;
 import dpsmeter.FightHistoryStore;
 import dpsmeter.LogUploader;
 import dpsmeter.HistoryCatalog;
+import dpsmeter.SkillBreakdown;
+import dpsmeter.NativeCombatMetadata;
+import dpsmeter.GameAccess;
 import haxe.Json;
 import sys.FileSystem;
 import sys.io.File;
@@ -40,7 +43,7 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
-        lifecycle(); snapshots(); storage(); uploader(); categories();
+        lifecycle(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown();
         Sys.println('Fight history: $checks checks passed');
     }
     static function lifecycle():Void {
@@ -190,10 +193,11 @@ class HistoryTest {
         remove(root);
     }
     static function categories():Void {
-        check(HistoryCategory.fromTypes(true, true, true) == "World Bosses", "Rifts take priority over dungeon inheritance");
-        check(HistoryCategory.fromTypes(false, true, true) == "Boss Dungeons", "Boss subtype takes priority over Dungeon base");
-        check(HistoryCategory.fromTypes(false, false, true) == "Classic Dungeons", "Ordinary Dungeon type");
-        check(HistoryCategory.fromTypes(false, false, false) == "Other", "Unknown future activity safely belongs to Other");
+        check(HistoryCategory.fromObjectives(true, true, true, true) == "World Bosses", "Rifts take priority over clearing objectives");
+        check(HistoryCategory.fromObjectives(false, true, true, false) == "Boss Dungeons", "Boss target with no clearing phase is a boss dungeon");
+        check(HistoryCategory.fromObjectives(false, true, true, true) == "Classic Dungeons", "Clearing phase makes a classic dungeon");
+        check(HistoryCategory.fromObjectives(false, true, false, false) == "Other", "Do not classify partially replicated objectives as an arena");
+        check(HistoryCategory.fromObjectives(false, false, true, true) == "Other", "World activities cannot become dungeons through objectives alone");
         var catalog:HistoryCatalog = {activities: ["FutureArena" => "Boss Dungeons", "FutureDungeon" => "Classic Dungeons", "FutureRift" => "World Bosses"],
             names: ["FutureGuardian" => "The Future Guardian"], bosses: ["FutureGuardian" => true, "Crimson_Z3W_Caster_E" => false]};
         var old:Dynamic = {name: "FutureGuardian", activityId: "FutureArena", bossKind: "FutureGuardian"};
@@ -203,7 +207,12 @@ class HistoryTest {
         check(HistoryCategory.resolve({name: "Rift: Gates"}, catalog) == "World Bosses", "Older rift gates recognizable without activity metadata");
         check(HistoryCategory.resolve({name: "Rift: FutureGuardian"}, catalog) == "World Bosses", "Older rift boss recognizable without activity metadata");
         check(HistoryCategory.displayName({name: "Rift: FutureGuardian"}, catalog) == "Rift: The Future Guardian", "Rift prefix preserved with localized name");
-        check(HistoryCategory.resolve({category: "Other", activityId: "FutureArena", bossKind: "FutureGuardian"}, catalog) == "Other", "Recorded nonboss context isn't promoted by a later catalog");
+        check(HistoryCategory.resolve({category: "Other", categoryVersion: 2, activityId: "FutureArena", bossKind: "Crimson_Z3W_Caster_E"}, catalog) == "Other", "Recorded nonboss context isn't promoted by a later catalog");
+        check(HistoryCategory.resolve({category: "Classic Dungeons", activityId: "Unknown", bossKind: "Ratsar"}, catalog) == "Boss Dungeons", "Correct old Ratsar misclassification");
+        check(HistoryCategory.resolve({category: "Classic Dungeons", activityId: "Unknown", bossKind: "Phrixes"}, catalog) == "Boss Dungeons", "Chakram uses its actual internal ID");
+        check(HistoryCategory.resolve({activityId: "Unknown", bossKind: "RobinHoof"}, catalog) == "Classic Dungeons", "Robin Hoof has a clearing phase");
+        check(HistoryCategory.resolve({category: "Classic Dungeons", activityId: "Unknown", bossKind: "FutureGuardian"}, catalog) == "Other", "Unverified old inheritance label is not treated as evidence");
+        check(HistoryCategory.resolve({phase: "Rift: Boss", activityId: "Unknown", bossKind: "Ratsar"}, catalog) == "World Bosses", "Rift instances override legacy boss fallback");
         check(HistoryCategory.resolve({activityId: "FutureArena", bossKind: "Crimson_Z3W_Caster_E"}, catalog) == "Other", "Old elite uploads excluded from dungeon-boss filters");
         var m = model(); m.activityId = "FutureArena"; m.activityCategory = "Boss Dungeons";
         m.onCombatEnter("me", 10);
@@ -250,5 +259,76 @@ class HistoryTest {
         var original:Dynamic = Json.parse(File.getContent(root + "/history/" + legacy.id + ".json"));
         check(!Reflect.hasField(original, "activityId"), "Metadata recovery leaves the existing archive file untouched");
         remove(root);
+        root = temp("learned"); store = new FightHistoryStore(root, _ -> {});
+        var oldRecord = FightHistory.encode(sample(), "old");
+        oldRecord.category = "Classic Dungeons"; oldRecord.categoryVersion = 0;
+        oldRecord.activityId = "NewArena"; oldRecord.bossKind = "NewBoss";
+        store.save(oldRecord);
+        req = request("groups"); req.category = "Other";
+        check(store.query(req).groups[0].count == 1, "Unobserved legacy activity starts unclassified");
+        var observed = sample(); observed.category = "Boss Dungeons"; observed.activityId = "NewArena"; observed.bossKind = "NewBoss";
+        store.save(FightHistory.encode(observed, "observed"));
+        reopened = new FightHistoryStore(root, _ -> {});
+        req = request("groups"); req.category = "Boss Dungeons";
+        req.catalog = {activities: [], names: [], bosses: []};
+        check(reopened.query(req).groups[0].count == 2, "Saved objective evidence reclassifies older logs after restart");
+        check(Json.parse(File.getContent(root + "/history/old.json")).category == "Classic Dungeons", "Reclassification never rewrites old damage logs");
+        remove(root);
+    }
+    static function metadata():Void {
+        var definitions:Map<String, Dynamic> = [
+            "Warrior_Rage_Strike" => {texts: {name: "Raging Smash"}},
+            "GA_Craft_FinalCombo" => {texts: {name: "Brutal Frenzy"}},
+            "Warrior_Hemorrhage_Status" => {texts: {name: "Hemorrhage"}},
+            "GA_Craft_Skill1" => {texts: {name: "Rampage"}},
+            "GA_Base_Attack" => {type: 0, texts: {}}, "GA_Base_Attack2" => {type: 1, texts: {}},
+            "RefEffect" => {texts: {refs: {ref: "GA_Craft_Skill1"}}},
+            "Bracket" => {texts: {name: "[GA_Craft_FinalCombo]"}},
+            "CycleA" => {texts: {refs: {ref: "CycleB"}}}, "CycleB" => {texts: {refs: {ref: "CycleA"}}}
+        ];
+        GameAccess.globals["Data.skill"] = {byId: definitions};
+        GameAccess.globals["Texts.item_weapon_base_attack"] = "Base Attack";
+        GameAccess.globals["skillRefs"] = ["ChildEffect" => {id: "GA_Craft_Skill1"}];
+        for (id => expected in ["Warrior_Rage_Strike" => "Raging Smash", "GA_Craft_FinalCombo" => "Brutal Frenzy",
+            "Warrior_Hemorrhage_Status" => "Hemorrhage", "GA_Craft_Skill1" => "Rampage",
+            "GA_Base_Attack" => "Base Attack", "GA_Base_Attack2" => "Base Attack 2",
+            "RefEffect" => "Rampage", "Bracket" => "Brutal Frenzy", "ChildEffect" => "Rampage"])
+            check(NativeCombatMetadata.skillName(id) == expected, "Native display-name metadata: " + id);
+        check(NativeCombatMetadata.skillName("CycleA") == "CycleA", "Cyclic name references terminate safely");
+        check(NativeCombatMetadata.skillName("Removed_Skill") == "Removed Skill", "Removed skills keep a readable fallback");
+        GameAccess.globals["activities"] = ["TestArena" => {types: ["Dungeon"]}, "TestClassic" => {types: ["Boss", "Dungeon"]}];
+        var activity:Dynamic = {};
+        var player:Dynamic = {context: {objectives: {array: []}}};
+        check(NativeCombatMetadata.activityCategory("TestArena", false, player, activity) == "Other", "Wait for native objective replication");
+        player.context.objectives.array = [{kind: "KillBoss", target: TestObjectiveTarget.Unit("NewBoss")}];
+        check(NativeCombatMetadata.activityCategory("TestArena", false, player, activity) == "Boss Dungeons", "Dungeon implementation can be a boss-only arena");
+        player.context.objectives.array = [{kind: "KillBoss", target: TestObjectiveTarget.Unit("NewBoss")}, {kind: "KillAllDungeonFoes", completed: true}];
+        check(NativeCombatMetadata.activityCategory("TestClassic", false, player, activity) == "Classic Dungeons", "Completed clearing objective still identifies a classic dungeon despite Boss inheritance");
+        check(NativeCombatMetadata.activityCategory("TestClassic", true, player, activity) == "World Bosses", "Native rift override");
+    }
+    static function breakdown():Void {
+        var skill = new SkillStats(); skill.damage = 4500; skill.casts = 13; skill.hits = 15; skill.crits = 7;
+        var values = SkillBreakdown.values(skill, 25000, 82);
+        check(values.damage == 4500 && values.percent == 18 && Math.abs(values.dps - 54.87804878) < .00001, "Ability damage/share/DPS use player damage and whole-fight duration");
+        check(values.avgCast == 4500 / 13 && values.avgHit == 300 && values.crit == 700 / 15, "Separate cast/hit averages and hit-based crit percentage");
+        var empty = SkillBreakdown.values(new SkillStats(), 0, 0);
+        check(empty.percent == 0 && empty.dps == 0 && empty.avgCast == 0 && empty.avgHit == 0 && empty.crit == 0, "Empty charts have finite statistics");
+        check(SkillBreakdown.values(skill, 4500, .001).dps == 4500, "Instant-fight DPS matches the player chart's one-second floor");
+        var f = sample(); var roundtrip = FightHistory.decode(Json.parse(Json.stringify(FightHistory.encode(f, "table"))));
+        var totalDps = 0.0; var totalPercent = 0.0;
+        for (s in roundtrip.players["me"].skills) {
+            var v = SkillBreakdown.values(s, roundtrip.players["me"].damage, roundtrip.duration(9999));
+            totalDps += v.dps; totalPercent += v.percent;
+        }
+        check(totalDps == 35.05 && totalPercent == 100, "Reopened ability DPS sums to the archived player's DPS");
+        for (width in [280, 360, 579, 580, 799, 800, 828, 852]) {
+            var columns = SkillBreakdown.columns(width); var edge = 0;
+            for (c in columns) { check(c.x == edge && c.width > 0, "Table columns cannot overlap at width " + width); edge += c.width; }
+            check(edge == width && columns[0].key == "ability" && columns[1].key == "damage"
+                && columns[columns.length - 1].key == "dps", "Core information fits every supported width " + width);
+        }
+        check(SkillBreakdown.columns(828).length == 8, "Normal history width shows every reference column");
     }
 }
+
+enum TestObjectiveTarget { Unit(id:String); }
