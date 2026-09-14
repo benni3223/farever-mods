@@ -11,6 +11,7 @@ typedef MeterSettings = {
     var hideDelay:Int;
     var showRiftRecaps:Bool;
     var showBossKills:Bool;
+    // Keep persisted keys so existing choices carry over to the mastery filters.
     var showIncompleteCodexKills:Bool;
     var showCompletedCodexKills:Bool;
     var unlocked:Bool;

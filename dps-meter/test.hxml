@@ -2,3 +2,8 @@
 -cp tests
 -main HistoryTest
 --interp
+--next
+-cp src
+-cp tests
+-main KillNotificationsTest
+--interp

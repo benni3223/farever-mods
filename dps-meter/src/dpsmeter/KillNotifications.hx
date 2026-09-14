@@ -77,21 +77,23 @@ class KillNotifications {
         } else {
             if (G.staticCall("data.CodexData", "isInCodex", [unit]) != true) return;
             var thresholds = G.array(G.staticCall("st.player.Progress", "getUnitProgressThreshold", [unit]));
-            var rewardIndex = G.integer(G.field(G.current("Const", "Codex"), "FoeXPRewardThresholdIndex")) - 1;
-            if (rewardIndex < 0 || rewardIndex >= thresholds.length) return;
-            goal = G.integer(thresholds[rewardIndex]);
+            // Match native CodexData.maxProgress, including enemy-specific
+            // normal, large, elite and boss thresholds; the XP reward is earlier.
+            if (thresholds.length == 0) return;
+            goal = G.integer(thresholds[thresholds.length - 1]);
             if (goal <= 0) return;
-            // Include the rewarding kill in incomplete-entry notifications.
-            // Later Codex ranks do not change whether the XP reward was earned.
-            category = before < goal ? "incomplete" : "completed";
-            if (count > goal && config.showCompletedCodexKills) category = "completed";
-            if (category == "incomplete" ? !config.showIncompleteCodexKills : !config.showCompletedCodexKills) return;
+            // Include the mastery-finishing kill in progress notifications.
+            // Batched shared kills can cross mastery: prefer the full total when
+            // mastered counts are enabled, otherwise show the final goal/goal.
+            category = before < goal ? "unmastered" : "mastered";
+            if (count > goal && config.showCompletedCodexKills) category = "mastered";
+            if (category == "unmastered" ? !config.showIncompleteCodexKills : !config.showCompletedCodexKills) return;
         }
         var name = G.text(G.staticCall("HText", "unit", [unit, null]), id);
-        var total = category == "incomplete" ? Std.int(Math.min(count, goal)) + " / " + goal : Std.string(count);
+        var total = category == "unmastered" ? Std.int(Math.min(count, goal)) + " / " + goal : Std.string(count);
         var request = boss ? BossRecords.request(++recordSequence, id, model,
             recordSince.exists(id) ? recordSince[id] : baselineAt, Date.now().getTime()) : null;
-        popups.show(id, name + ": " + total + (count == 1 && category != "incomplete" ? " kill" : " kills"),
+        popups.show(id, name + ": " + total + (count == 1 && category != "unmastered" ? " kill" : " kills"),
             category, count, goal, now, request == null ? 0 : request.id);
         if (request != null) { recordSince[id] = now; writer.requestBossRecord(request); }
     }

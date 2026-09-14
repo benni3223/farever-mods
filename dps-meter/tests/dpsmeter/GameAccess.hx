@@ -23,6 +23,9 @@ class GameAccess {
     }
     public static function call(type:String, name:String, object:Dynamic, ?args:Array<Dynamic>):Dynamic return switch (type + "." + name) {
         case "haxe.ds.StringMap.get": (cast object:Map<String, Dynamic>).get(args[0]);
+        case "haxe.ds.StringMap.keys": (cast object:Map<String, Dynamic>).keys();
+        case "haxe.ds._StringMap.StringMapKeysIterator.hasNext": object.hasNext();
+        case "haxe.ds._StringMap.StringMapKeysIterator.next": object.next();
         case "st.Player.getActivityContext": field(object, "context");
         case "h3d.mat.Texture.capturePixels":
             if (object.format != "RGBA") throw "Unsupported texture format " + object.format;
@@ -41,6 +44,9 @@ class GameAccess {
     };
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic return switch (type + "." + name) {
         case "HActivity.all": [];
+        case "data.CodexData.isInCodex": field(args[0], "inCodex") == true;
+        case "st.player.Progress.getUnitProgressThreshold": field(args[0], "thresholds");
+        case "HText.unit": field(args[0], "name");
         case "HActivity.getInf": (cast globals["activities"]:Map<String, Dynamic>).get(args[0]);
         case "HActivity.isOfType": (cast field(args[0], "types"):Array<String>).indexOf(args[1]) >= 0;
         case "HSkill.getSkillRef": (cast globals["skillRefs"]:Map<String, Dynamic>).get(args[0]);

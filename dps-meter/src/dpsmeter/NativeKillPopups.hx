@@ -87,7 +87,7 @@ class NativeKillPopups {
         for (row in rows.copy()) {
             var enabled = switch (row.category) {
                 case "boss": config.showBossKills;
-                case "incomplete": config.showIncompleteCodexKills;
+                case "unmastered": config.showIncompleteCodexKills;
                 default: config.showCompletedCodexKills;
             };
             if (now >= row.expires || !enabled) {

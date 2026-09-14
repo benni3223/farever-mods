@@ -15,8 +15,8 @@
     { "key": "historyHotkey", "type": "keybinding", "label": "Open or close history hotkey" },
     { "type": "title", "label": "Kill Counter" },
     { "key": "showBossKills", "type": "checkbox", "label": "Show boss kills" },
-    { "key": "showIncompleteCodexKills", "type": "checkbox", "label": "Show incomplete Codex kills" },
-    { "key": "showCompletedCodexKills", "type": "checkbox", "label": "Show completed Codex kills" },
+    { "key": "showIncompleteCodexKills", "type": "checkbox", "label": "Show unmastered Codex kills" },
+    { "key": "showCompletedCodexKills", "type": "checkbox", "label": "Show mastered Codex kills" },
     { "type": "title", "label": "Recaps" },
     { "key": "showRiftRecaps", "type": "checkbox", "label": "Show Rift recaps" }
   ]

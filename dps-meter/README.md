@@ -54,7 +54,7 @@ can be removed if no other mod uses it.
 - **Native, customizable window:** Move, resize, lock, and scroll the meter, with optional automatic hiding and a smooth fade.
 - **Rift tracking and recaps:** Separate gate and boss phases covering all players present, with both charts in one post-rift recap.
 - **Fight history:** Browse Boss Dungeons, Classic Dungeons, World Bosses, and Other encounters by difficulty; choose an attempt by date, character, party size, duration, and your DPS, then reopen its player and skill charts.
-- **Kill notifications:** Optional boss kill totals with the previous fastest kill time, plus Codex progress popups including counts for completed entries.
+- **Kill notifications:** Optional boss kill totals with the previous fastest kill time. **Show unmastered Codex kills** displays progress through each enemy's final mastery requirement, including the finishing kill. **Show mastered Codex kills** displays subsequent kill totals. The target comes from the game's enemy-specific Codex thresholds, rather than the earlier XP reward milestone. Existing settings are preserved; unmastered notifications default to on and mastered notifications to off.
 - **Automatic log uploads:** Send completed boss encounters to [Farever Logs](https://fareverlogs.fr/) in the background, with no external application.
 - **Better Mod Settings integration:** Customize display options and hotkeys, with settings and window placement saved between sessions.
 
