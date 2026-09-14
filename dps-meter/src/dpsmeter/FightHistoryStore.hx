@@ -15,9 +15,10 @@ class FightHistoryStore {
     final entries:Map<String, HistoryEntry> = [];
     var initialized:Bool = false;
     var indexed:Bool = false;
-    var catalog:HistoryCatalog = {activities: [], names: [], bosses: []};
+    var catalog:HistoryCatalog = {activities: [], names: [], bosses: [], bossCategories: []};
     var currentActivities:Map<String, String> = [];
     final learned:Map<String, HistoryEntry> = [];
+    final learnedBosses:Map<String, String> = [];
     var legacyMetadata:Map<String, Dynamic>;
     public function new(root:String, log:String->Void, ?recycle:String->Void) {
         this.root = root; this.folder = root + "/history"; this.log = log;
@@ -79,8 +80,11 @@ class FightHistoryStore {
         learn(summary);
     }
     function learn(entry:HistoryEntry):Void {
-        if (entry.categoryVersion != HistoryCategory.VERSION || entry.activityId == ""
+        if (entry.categoryVersion != HistoryCategory.VERSION
             || (entry.category != HistoryCategory.BOSS && entry.category != HistoryCategory.DUNGEON)) return;
+        HistoryCategory.observeBoss(learnedBosses, entry.bossKind, entry.category);
+        HistoryCategory.observeBoss(catalog.bossCategories, entry.bossKind, entry.category);
+        if (entry.activityId == "") return;
         var previous = learned[entry.activityId];
         if (previous == null || previous.startedAt < entry.startedAt) learned[entry.activityId] = entry;
         if (!currentActivities.exists(entry.activityId) || currentActivities[entry.activityId] == HistoryCategory.OTHER)
@@ -110,7 +114,12 @@ class FightHistoryStore {
             // Detach the snapshot before enriching it on this worker.
             currentActivities = request.catalog.activities;
             catalog = {activities: request.catalog.activities.copy(), names: request.catalog.names, bosses: request.catalog.bosses,
-                difficulties: request.catalog.difficulties};
+                difficulties: request.catalog.difficulties,
+                bossCategories: request.catalog.bossCategories == null ? [] : request.catalog.bossCategories.copy()};
+            for (boss => category in learnedBosses) {
+                if (category == HistoryCategory.OTHER) catalog.bossCategories[boss] = category;
+                else HistoryCategory.observeBoss(catalog.bossCategories, boss, category);
+            }
             for (activity => entry in learned) if (!catalog.activities.exists(activity)
                 || catalog.activities[activity] == HistoryCategory.OTHER) catalog.activities[activity] = entry.category;
         }
@@ -164,9 +173,10 @@ class FightHistoryStore {
             response.page = page(request.page, response.total);
             response.groups = groups.slice(response.page * FightHistory.PAGE_SIZE, (response.page + 1) * FightHistory.PAGE_SIZE);
         } else if (request.action == "fights") {
+            response.characters = HistoryOptions.characters(entries.iterator());
             var fights = [for (entry in entries) if (matches(entry, request.category)
-                && HistoryCategory.encounterName(entry, catalog) == request.group) entry];
-            fights.sort((a, b) -> a.startedAt == b.startedAt ? Reflect.compare(b.id, a.id) : a.startedAt > b.startedAt ? -1 : 1);
+                && HistoryCategory.encounterName(entry, catalog) == request.group && HistoryOptions.matches(entry, request.character)) entry];
+            fights.sort((a, b) -> HistoryOptions.compare(a, b, request.sortBy, request.ascending == true));
             response.total = fights.length;
             response.page = page(request.page, response.total);
             response.entries = fights.slice(response.page * FightHistory.PAGE_SIZE, (response.page + 1) * FightHistory.PAGE_SIZE);

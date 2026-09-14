@@ -26,6 +26,7 @@ class NativeHistoryWindow {
     var headingStyle:Dynamic;
     var detail:Dynamic;
     var chartInfo:Dynamic;
+    var options:NativeHistoryOptions;
     var list:Dynamic;
     var chartPanel:Dynamic;
     var chart:NativeDamageChart;
@@ -102,8 +103,8 @@ class NativeHistoryWindow {
         show(G.field(list, "obj"), false); show(G.field(chartPanel, "obj"), false);
         setText(empty, "Loading fight history..."); show(empty, true);
         G.call("h2d.Text", "set_text", heading, [headingText()]);
-        setText(detail, mode == "fights" ? "Newest first · Times are shown in your local time" : "");
-        show(detail, mode == "fights");
+        show(detail, false);
+        options.setVisible(mode == "fights");
         G.call("h2d.Text", "set_text", chartInfo, [mode == "chart" ? FightHistory.chartDetail(entry) : ""]);
         show(chartInfo, mode == "chart");
         show(footer, mode == "categories"); show(folderButton, mode == "categories");
@@ -113,7 +114,8 @@ class NativeHistoryWindow {
         // characters intact. The whole path scales to fit instead of ellipsizing.
         G.call("h2d.Text", "set_text", footer, [logsPath]);
         writer.requestHistory({id: serial, action: mode, group: group, page: page, fightId: entry == null ? "" : entry.id,
-            category: category, catalog: mode == "categories" ? catalog : null});
+            category: category, catalog: mode == "categories" ? catalog : null,
+            sortBy: options.sortBy, ascending: options.ascending, character: options.characterKey});
         width = 0; // Navigation changes the amount of space above the list.
         lastRefresh = -1;
     }
@@ -144,6 +146,7 @@ class NativeHistoryWindow {
             show(empty, false); show(G.field(chartPanel, "obj"), true);
             show(deleteButton, true); show(snapshotButton, true);
         } else {
+            if (mode == "fights") options.setCharacters(response.characters);
             var names = mode == "groups" || mode == "categories";
             if (mode == "groups") groupsPage = page; else if (mode == "fights") fightsPage = page;
             var count = names ? response.groups.length : response.entries.length;
@@ -159,7 +162,7 @@ class NativeHistoryWindow {
                 setText(row.name, row.caption); setText(row.detail, row.description);
             }
             show(G.field(list, "obj"), count > 0); show(empty, count == 0);
-            setText(empty, "No fights recorded in this category yet.");
+            setText(empty, mode == "fights" && options.characterKey != "" ? "No fights match this character." : "No fights recorded in this category yet.");
             G.set(G.field(list, "obj"), "scrollPosY", 0.0);
             flow(list, "set_needReflow", true);
             show(previous, page > 0); show(next, (page + 1) * FightHistory.PAGE_SIZE < total);
@@ -237,6 +240,9 @@ class NativeHistoryWindow {
         deleteButton = button(panel, "Delete log", "dpsHistoryDelete", deleteLog);
         HistoryButtons.red(deleteButton);
         detail = label(panel, ""); empty = label(panel, "");
+        this.options = new NativeHistoryOptions(panel, () -> {
+            if (mode == "fights") navigate("fights", group, 0);
+        });
         chartInfo = G.create("h2d.Text", [G.field(detail, "font"), G.field(panel, "obj")]);
         G.call("h2d.Text", "set_textColor", chartInfo, [0x5b4334]);
         G.call("h2d.Text", "set_lineBreak", chartInfo, [false]);
@@ -314,7 +320,8 @@ class NativeHistoryWindow {
             position(heading, mode == "categories" ? 0 : 100, 0);
             G.call("ui.comp.FmtText", "set_maxWidthText", detail, [inner]); position(detail, 0, 60);
             position(chartInfo, 0, 60);
-            var topInset = mode == "categories" || mode == "groups" ? 66 : 100;
+            var optionsBottom = this.options.layout(inner);
+            var topInset = mode == "categories" || mode == "groups" ? 66 : mode == "fights" ? optionsBottom : 100;
             G.call("ui.comp.FmtText", "set_maxWidthText", empty, [inner]); position(empty, 0, topInset);
             // Only the category page reserves a folder row. Other pages need
             // room for their existing Delete or pagination controls alone.
@@ -331,6 +338,7 @@ class NativeHistoryWindow {
         position(window, top.x + (bottom.x - top.x - width) / 2, top.y + (bottom.y - top.y - height) / 2);
     }
     function alignLabels():Void {
+        if (mode == "fights") options.refresh();
         G.call("ui.comp.FmtText", "updateScale", headingStyle);
         var font = G.field(headingStyle, "font");
         if (font != null && font != headingFont) { headingFont = font; G.call("h2d.Text", "set_font", heading, [font]); }
@@ -384,15 +392,18 @@ class NativeHistoryWindow {
     }
     public function closeFromEscape(ui:Dynamic):Bool {
         if (window == null || owner != ui || G.field(window, "removed") == true || G.field(window, "parent") == null) return false;
+        if (options != null && options.closeOpen()) return true;
         dispose();
         return true;
     }
     public function dispose():Void {
+        if (options != null) { options.close(); options = null; }
         requested = false; serial++;
         selectedEntry = null; deleting = false; copying = false;
         if (window != null) { var old = window; window = null; G.call("h2d.Object", "remove", old); }
         owner = null; rows = []; wrappers = []; frame = null; body = null; container = null;
         chart = null; fight = null; width = 0; height = 0;
+        mode = "categories"; category = ""; group = ""; page = 0; groupsPage = 0; fightsPage = 0;
         headingFont = null; catalog = null;
     }
 }

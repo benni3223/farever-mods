@@ -7,6 +7,7 @@ import dpsmeter.HistoryCatalog;
 class NativeCombatMetadata {
     static var activityTypes:Map<String, Int> = [];
     static var observed:Map<String, String> = [];
+    static var observedBosses:Map<String, String> = [];
     static var warned:Bool = false;
     public static function activityCategory(id:String, isRift:Bool, player:Dynamic, activity:Dynamic):String {
         if (isRift) return HistoryCategory.WORLD;
@@ -22,19 +23,26 @@ class NativeCombatMetadata {
             if (activityTypes[id] == 2) return HistoryCategory.WORLD;
             if (activityTypes[id] != 1 || activity == null) return HistoryCategory.OTHER;
             var context = G.call("st.Player", "getActivityContext", player, [activity]);
-            if (context == null) context = G.field(activity, "globalCtx");
             var ready = false; var clearFoes = false;
-            for (objective in G.array(G.field(context, "objectives"), true)) {
+            var bosses:Array<String> = [];
+            // Personal and shared contexts can replicate at different times.
+            // Scan both, including completed goals, before deciding arena vs dungeon.
+            var contexts = [context]; var global = G.field(activity, "globalCtx");
+            if (global != context) contexts.push(global);
+            for (ctx in contexts) for (objective in G.array(G.field(ctx, "objectives"), true)) {
                 var kind = G.text(G.field(objective, "kind"));
                 if (kind == "KillAllDungeonFoes") clearFoes = true;
                 if (kind == "KillBoss") {
                     var target = G.field(objective, "target");
-                    ready = target != null && Type.enumConstructor(target) == "Unit"
-                        && G.text(Type.enumParameters(target)[0]) != "";
+                    if (target != null && Type.enumConstructor(target) == "Unit") {
+                        var boss = G.text(Type.enumParameters(target)[0]);
+                        if (boss != "") { ready = true; if (bosses.indexOf(boss) < 0) bosses.push(boss); }
+                    }
                 }
             }
             var result = HistoryCategory.fromObjectives(false, true, ready, clearFoes);
             if (result != HistoryCategory.OTHER) observed[id] = result;
+            for (boss in bosses) HistoryCategory.observeBoss(observedBosses, boss, result);
             return observed.exists(id) ? observed[id] : result;
         } catch (e:Dynamic) { warn(e); return HistoryCategory.OTHER; }
     }
@@ -45,7 +53,7 @@ class NativeCombatMetadata {
         return observed.exists(id) ? observed[id] : HistoryCategory.OTHER;
     }
     public static function catalog():HistoryCatalog {
-        var result:HistoryCatalog = {activities: [], names: [], bosses: [], difficulties: []};
+        var result:HistoryCatalog = {activities: [], names: [], bosses: [], difficulties: [], bossCategories: observedBosses.copy()};
         // Same icon definitions and numeric values as InstanceSelectScreen.
         var difficultyIcons = ["Dungeon_Default", "Dungeon_LevelMax", "Dungeon_Heroic"];
         for (i in 0...difficultyIcons.length) try {

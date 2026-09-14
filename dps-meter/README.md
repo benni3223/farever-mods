@@ -61,7 +61,13 @@ can be removed if no other mod uses it.
 ## Reviewing past fights
 
 Click the **book icon** on the left of the meter's header. Choose a category and an encounter name,
-then an attempt from the newest-first list. Each attempt shows local date and time,
+then an attempt. The list defaults to all characters, newest first. Use the controls
+above it to sort by time, your DPS, or duration in ascending or descending order,
+and filter by your character. Character names use their class colour. The selected
+sort and filter stay in place when opening a chart, going Back, or deleting a log;
+a new history window starts with the defaults. Sorting/filtering covers every log
+before pagination, and unavailable DPS stays last in either direction.
+Each attempt shows local date and time,
 character name, and party size on the first row, then duration and your DPS on the
 second. New charts retain the largest party roster observed during the fight,
 including members who dealt no damage. Older logs without a saved roster show
@@ -77,11 +83,12 @@ share of your damage, and DPS. A full-width history view also has casts,
 average damage per cast, hits, average damage per hit, and critical-hit percentage.
 Ability DPS uses the entire fight's duration, matching the player's total DPS.
 Wide tables label the share/bar area **Damage (%)** and the numeric total **Damage**.
-The bars compare abilities against the highest-damage ability; the printed
-percentages use the player's total damage. Narrow windows keep the core columns
+The bars and printed percentages both use the player's total damage, so a skill
+responsible for 20% of the damage fills 20% of its bar. Narrow windows keep the core columns
 readable. Ability rows have no hover tooltip.
 **Back** returns to the same page of attempts, then to the encounter names.
-**Escape** closes the history window without also closing a window underneath it.
+**Escape** closes an open sort/filter dropdown first, then the history window,
+without also closing a window underneath it.
 The encounter and attempt lists have page controls and scroll when space is limited. The history
 window stays open independently of the live meter's out-of-combat fade.
 The folder row appears only at the bottom of **Choose a category** and shows the
@@ -107,7 +114,7 @@ reindex a chart restored outside the game.
 **Boss Dungeons** are boss-only instances. **Classic Dungeons** have a dungeon
 monster-clearing phase before the boss. The game adds a `KillAllDungeonFoes`
 objective when it populates an instance with clearing foes, so the collector
-reads that replicated objective, including when it is already completed.
+reads both personal and shared replicated objectives, including completed ones.
 Without it, a populated `KillBoss` target identifies a boss-only dungeon.
 It waits for initialized objectives instead of interpreting missing replication
 as an arena. This works for new instances using the same native objective system;
@@ -120,12 +127,16 @@ Normal**, **King Ratsar - Hard**, and **King Ratsar - Heroic**. Older dungeon lo
 whose difficulty cannot be recovered appear under **Unknown difficulty**.
 New charts retain their activity ID, category, classification version, and difficulty.
 The browser also uses these observed categories to classify older logs from the
-same activity, including after restarting the game. Three confirmed legacy
+same activity or an unambiguously identified boss, including after restarting the
+game. Exact, unique game-provided boss names can recover the oldest imports when
+their boss ID was omitted. Bosses observed in both dungeon formats need activity
+metadata to distinguish them; similarly named monsters are never substring-matched.
+Three confirmed legacy
 encounters have explicit compatibility mappings: Ratsar and Chakram (internal
 ID `Phrixes`) are boss dungeons; Robin Hoof is a classic dungeon. These mappings
-only apply when the original activity and boss IDs are present. Old inferred
-labels without reliable evidence are placed in **Other** until their activity
-is observed. Charts made by the first history release omitted activity metadata;
+also work when the old activity ID is missing. Old inferred labels without
+reliable evidence remain in **Other** until their activity or boss is observed,
+or a verified compatibility mapping is added. Charts made by the first history release omitted activity metadata;
 the browser recovers it from the original export where that export still exists.
 No old chart files are rewritten or deleted during reclassification.
 Rift phase names can still identify old rift charts. Game-provided names replace

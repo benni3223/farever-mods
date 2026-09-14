@@ -5,6 +5,7 @@ typedef HistoryCatalog = {
     activities:Map<String, String>,
     names:Map<String, String>,
     bosses:Map<String, Bool>,
+    ?bossCategories:Map<String, String>,
     ?difficulties:Map<Int, String>
 };
 
@@ -26,6 +27,13 @@ class HistoryCategory {
         case "RobinHoof": DUNGEON;
         default: OTHER;
     };
+    public static function observeBoss(categories:Map<String, String>, kind:String, category:String):Void {
+        if (kind == "" || (category != BOSS && category != DUNGEON)) return;
+        // A reused boss ID can appear in both dungeon formats. Ambiguous
+        // evidence must never override an encounter's actual activity context.
+        if (!categories.exists(kind)) categories[kind] = category;
+        else if (categories[kind] != category) categories[kind] = OTHER;
+    }
     public static function resolve(record:Dynamic, catalog:Null<HistoryCatalog>):String {
         var stored = FightHistory.text(record.category);
         var phase = FightHistory.text(record.phase);
@@ -37,14 +45,23 @@ class HistoryCategory {
         // which does not describe whether a dungeon has a clearing phase.
         if (record.categoryVersion == VERSION && all().indexOf(stored) >= 0 && stored != OTHER) return stored;
         var boss = FightHistory.text(record.bossKind);
+        if (boss == "" && catalog != null) {
+            // First-release imports sometimes saved only the display name.
+            // Accept an exact, unique known-boss name; never substring-match.
+            if (catalog.bosses[name] == true) boss = name;
+            else for (id => label in catalog.names) if (label == name && catalog.bosses[id] == true) {
+                if (boss != "") return OTHER;
+                boss = id;
+            }
+        }
         if (boss == "" || (catalog != null && catalog.bosses.exists(boss) && !catalog.bosses[boss])) return OTHER;
-        // Old exports carry activity IDs. The first history format didn't;
-        // those stay in Other rather than guessing from a boss-name substring.
         if (catalog != null && activity != "" && catalog.activities.exists(activity)) {
             var category = catalog.activities[activity];
             if (category != OTHER) return category;
         }
-        return activity == "" ? OTHER : legacyBoss(boss);
+        if (catalog != null && catalog.bossCategories != null && catalog.bossCategories.exists(boss))
+            return catalog.bossCategories[boss];
+        return legacyBoss(boss);
     }
     public static function displayName(record:Dynamic, catalog:Null<HistoryCatalog>):String {
         var name = FightHistory.text(record.name);

@@ -22,16 +22,16 @@ class HistoryButtons {
         var g = G.create("h2d.Graphics", [button]); absolute(button, g); position(g, 6, 5);
         G.call("h2d.Graphics", "lineStyle", g, [1.5, 0x5b4334, 1.0]);
         G.call("h2d.Graphics", "beginFill", g, [0xf4e4cf, 1.0]);
-        G.call("h2d.Graphics", "drawRect", g, [23., 3., 15., 20.]);
+        G.call("h2d.Graphics", "drawRect", g, [19., 3., 19., 20.]);
         G.call("h2d.Graphics", "endFill", g);
         G.call("h2d.Graphics", "beginFill", g, [0xb99a70, 1.0]);
-        G.call("h2d.Graphics", "drawRect", g, [27., 1., 7., 4.]);
+        G.call("h2d.Graphics", "drawRect", g, [24., 1., 9., 4.]);
         G.call("h2d.Graphics", "endFill", g);
         G.call("h2d.Graphics", "beginFill", g, [0xf3dfbc, 1.0]);
-        path(g, [[1., 8.], [6., 8.], [9., 4.], [18., 4.], [21., 8.], [27., 8.], [27., 23.], [1., 23.], [1., 8.]]);
+        path(g, [[1., 12.], [5., 12.], [7., 9.], [14., 9.], [16., 12.], [21., 12.], [21., 23.], [1., 23.], [1., 12.]]);
         G.call("h2d.Graphics", "endFill", g);
-        G.call("h2d.Graphics", "drawCircle", g, [14., 15., 6., 24]);
-        G.call("h2d.Graphics", "drawCircle", g, [14., 15., 3., 18]);
+        G.call("h2d.Graphics", "drawCircle", g, [11., 17., 4.5, 24]);
+        G.call("h2d.Graphics", "drawCircle", g, [11., 17., 2., 18]);
         return button;
     }
     public static function red(button:Dynamic):Void {

@@ -5,13 +5,15 @@ import dpsmeter.CombatModel;
 typedef HistoryEntry = {
     id:String, name:String, startedAt:Float, duration:Float, personalDps:Null<Float>, playerName:String,
     category:String, categoryVersion:Int, activityId:String, bossKind:String, phase:String,
-    difficulty:Int, partySize:Int, recordedPlayers:Int
+    difficulty:Int, partySize:Int, recordedPlayers:Int, playerClass:String
 };
 typedef HistoryGroup = {name:String, count:Int};
+typedef HistoryCharacter = {key:String, name:String, className:String};
 typedef HistoryRequest = {id:Int, action:String, group:String, page:Int, fightId:String,
-    ?category:String, ?catalog:HistoryCatalog};
+    ?category:String, ?catalog:HistoryCatalog, ?sortBy:String, ?ascending:Bool, ?character:String};
 typedef HistoryResponse = {
-    id:Int, page:Int, total:Int, groups:Array<HistoryGroup>, entries:Array<HistoryEntry>, record:Dynamic, error:String
+    id:Int, page:Int, total:Int, groups:Array<HistoryGroup>, entries:Array<HistoryEntry>, record:Dynamic, error:String,
+    ?characters:Array<HistoryCharacter>
 };
 
 /** Detached, versioned chart snapshots. No game types or monotonic clocks on disk. */
@@ -41,11 +43,12 @@ class FightHistory {
         validate(record);
         var damage:Null<Float> = text(record.me) == "" ? null : 0;
         var playerName = text(record.meName);
-        for (p in array(record.players)) if (p.isMe == true) {
-            damage = number(p.damage); playerName = text(p.name); break;
+        var playerClass = "";
+        for (p in array(record.players)) if (p.isMe == true || (text(record.me) != "" && text(p.uid) == text(record.me))) {
+            damage = number(p.damage); playerName = text(p.name); playerClass = text(p.className).toLowerCase(); break;
         }
         return {id: record.id, name: record.name, startedAt: record.startedAt, duration: record.duration,
-            personalDps: damage == null ? null : damage / Math.max(1, number(record.duration)), playerName: playerName,
+            personalDps: damage == null ? null : damage / Math.max(1, number(record.duration)), playerName: playerName, playerClass: playerClass,
             category: text(record.category), categoryVersion: Std.int(number(record.categoryVersion)),
             activityId: text(record.activityId), bossKind: text(record.bossKind), phase: text(record.phase),
             difficulty: difficulty(record.difficulty), partySize: Std.int(number(record.partySize)), recordedPlayers: recordedPlayers(record)};

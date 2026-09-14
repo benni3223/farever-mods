@@ -9,6 +9,7 @@ import dpsmeter.GameAccess;
 import dpsmeter.HistoryRequests;
 import dpsmeter.FightSnapshot;
 import dpsmeter.SnapshotTexture;
+import dpsmeter.HistoryOptions;
 import haxe.Json;
 import sys.FileSystem;
 import sys.io.File;
@@ -46,7 +47,7 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
-        lifecycle(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotTextures();
+        lifecycle(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotTextures(); historyOptions();
         Sys.println('Fight history: $checks checks passed');
     }
     static function lifecycle():Void {
@@ -276,6 +277,28 @@ class HistoryTest {
         req.catalog = {activities: [], names: [], bosses: []};
         check(reopened.query(req).groups[0].count == 2, "Saved objective evidence reclassifies older logs after restart");
         check(Json.parse(File.getContent(root + "/history/old.json")).category == "Classic Dungeons", "Reclassification never rewrites old damage logs");
+        var missingActivity = FightHistory.encode(sample(), "missing_activity");
+        missingActivity.category = "Other"; missingActivity.categoryVersion = 0;
+        missingActivity.activityId = ""; missingActivity.bossKind = "NewBoss";
+        store.save(missingActivity);
+        reopened = new FightHistoryStore(root, _ -> {});
+        req = request("groups"); req.category = "Boss Dungeons";
+        check(reopened.query(req).groups[0].count == 3, "Confirmed boss evidence recovers logs without an activity ID after restart");
+        req.catalog = {activities: [], names: [], bosses: []};
+        check(reopened.query(req).groups[0].count == 3, "Opening a fresh catalog preserves learned boss categories");
+        check(Json.parse(File.getContent(root + "/history/missing_activity.json")).activityId == "", "Boss recovery does not rewrite archives");
+        var bossCatalog:HistoryCatalog = {activities: [], names: ["NewBoss" => "New Guardian"], bosses: ["NewBoss" => true],
+            bossCategories: ["NewBoss" => "Boss Dungeons"]};
+        check(HistoryCategory.resolve({name: "New Guardian"}, bossCatalog) == "Boss Dungeons", "Exact unique display names recover early imported boss logs");
+        check(HistoryCategory.resolve({name: "New Guardian's add"}, bossCatalog) == "Other", "Boss recovery never matches a substring");
+        bossCatalog.names["DifferentBoss"] = "New Guardian"; bossCatalog.bosses["DifferentBoss"] = true;
+        check(HistoryCategory.resolve({name: "New Guardian"}, bossCatalog) == "Other", "Ambiguous localized boss names stay unclassified");
+        HistoryCategory.observeBoss(bossCatalog.bossCategories, "NewBoss", "Classic Dungeons");
+        check(HistoryCategory.resolve({bossKind: "NewBoss"}, bossCatalog) == "Other", "Boss IDs reused in both dungeon formats require activity evidence");
+        bossCatalog.activities["Arena"] = "Boss Dungeons";
+        check(HistoryCategory.resolve({bossKind: "NewBoss", activityId: "Arena"}, bossCatalog) == "Boss Dungeons", "Exact activity takes priority over ambiguous boss evidence");
+        check(HistoryCategory.resolve({name: "Rift: New Guardian", bossKind: "NewBoss"}, bossCatalog) == "World Bosses", "Boss fallback never takes a rift out of World Bosses");
+        check(HistoryCategory.resolve({bossKind: "Ratsar"}, null) == "Boss Dungeons", "Confirmed legacy Ratsar ID works without old activity metadata");
         remove(root);
     }
     static function metadata():Void {
@@ -310,10 +333,73 @@ class HistoryTest {
         player.context.objectives.array = [{kind: "KillBoss", target: TestObjectiveTarget.Unit("NewBoss")}, {kind: "KillAllDungeonFoes", completed: true}];
         check(NativeCombatMetadata.activityCategory("TestClassic", false, player, activity) == "Classic Dungeons", "Completed clearing objective still identifies a classic dungeon despite Boss inheritance");
         check(NativeCombatMetadata.activityCategory("TestClassic", true, player, activity) == "World Bosses", "Native rift override");
+        var sharedObjectives:Array<Dynamic> = [
+            {kind: "KillBoss", target: TestObjectiveTarget.Unit("SharedBoss")}, {kind: "KillAllDungeonFoes", completed: true}];
+        var sharedActivity:Dynamic = {globalCtx: {objectives: {array: sharedObjectives}}};
+        player.context.objectives.array = [];
+        check(NativeCombatMetadata.activityCategory("TestClassic", false, player, sharedActivity) == "Classic Dungeons", "Shared objectives are read even when a personal context exists but is empty");
         var icons:Map<String, Dynamic> = ["Dungeon_Default" => {name: "Normal"}, "Dungeon_LevelMax" => {name: "Hard"}, "Dungeon_Heroic" => {name: "Heroic"}];
         GameAccess.globals["Data.icon"] = {byId: icons};
         var catalog = NativeCombatMetadata.catalog();
         check(catalog.difficulties[0] == "Normal" && catalog.difficulties[1] == "Hard" && catalog.difficulties[2] == "Heroic", "Difficulty values use the native selection-screen icon names");
+        check(catalog.bossCategories["SharedBoss"] == "Classic Dungeons", "Native objective boss IDs populate the history recovery catalog");
+    }
+    static function historyOptions():Void {
+        var root = temp("options"); var store = new FightHistoryStore(root, _ -> {});
+        // Enough records to catch sorting/filtering only the current page.
+        for (i in 0...12) {
+            var record = FightHistory.encode(sample(), "sort_" + StringTools.lpad(Std.string(i), "0", 2));
+            record.startedAt += i * 1000; record.duration = 12 - i;
+            var mine:Dynamic = FightHistory.array(record.players).filter(p -> p.isMe == true)[0];
+            mine.uid = "spawn_" + i; record.me = mine.uid;
+            mine.name = i % 2 == 0 ? "Wink" : "Priest"; mine.className = i % 2 == 0 ? "warrior" : "cleric";
+            mine.damage = (i % 3) * 100 * record.duration;
+            store.save(record);
+        }
+        var group = store.query(request("groups")).groups[0].name;
+        var req = request("fights", group); var result = store.query(req);
+        check(result.total == 12 && result.entries[0].id == "sort_11", "Default is all characters, newest first");
+        check(result.characters.length == 2, "Character picker deduplicates changing spawned-hero UIDs");
+        check(result.characters[0].name == "Priest" && result.characters[0].className == "cleric", "Character picker sorts names and carries class colours");
+        for (field in ["time", "dps", "duration"]) for (asc in [false, true]) {
+            req.sortBy = field; req.ascending = asc; req.page = 0;
+            var first = store.query(req); req.page = 1;
+            var all = first.entries.concat(store.query(req).entries);
+            var sorted = true;
+            for (i in 1...all.length) {
+                var a = all[i - 1]; var b = all[i];
+                var x = field == "time" ? a.startedAt : field == "duration" ? a.duration : a.personalDps;
+                var y = field == "time" ? b.startedAt : field == "duration" ? b.duration : b.personalDps;
+                if (asc ? x > y : x < y) sorted = false;
+            }
+            check(sorted && all.length == 12, "Sorts the entire archive before pagination: " + field + (asc ? " ascending" : " descending"));
+        }
+        req.page = 99; req.character = haxe.Json.stringify(["Wink", "warrior"]);
+        result = store.query(req);
+        check(result.total == 6 && result.page == 0 && result.entries.length == 6, "Character filtering precedes counts and page clamping");
+        check(result.entries.filter(e -> e.playerName != "Wink").length == 0, "Filtered attempts belong only to the requested character");
+        check(result.characters.length == 2, "Filtering does not remove other characters from the picker");
+        var sameName = FightHistory.encode(sample(), "same_name");
+        for (p in FightHistory.array(sameName.players)) if (p.isMe == true) { p.name = "Wink"; p.className = "mage"; }
+        store.save(sameName);
+        check(store.query(req).total == 6 && store.query(req).characters.length == 3, "Same name on different classes remains distinct");
+        req.character = "missing";
+        check(store.query(req).total == 0 && store.query(req).characters.length == 3, "Empty filter results still allow changing the filter");
+        var unknown = FightHistory.encode(sample(), "no_personal_dps"); unknown.me = ""; unknown.meName = "";
+        for (p in FightHistory.array(unknown.players)) p.isMe = false;
+        store.save(unknown);
+        req.character = ""; req.sortBy = "dps";
+        for (asc in [false, true]) {
+            req.ascending = asc; req.page = 1; result = store.query(req);
+            check(result.entries[result.entries.length - 1].id == "no_personal_dps", "Unavailable DPS sorts last in " + (asc ? "ascending" : "descending") + " order");
+        }
+        req.page = 0; req.ascending = false; result = store.query(req);
+        check(result.entries[0].id == "sort_11" && result.entries[1].id == "sort_08", "Equal DPS uses stable newest-first tie breaking");
+        var encoded = FightHistory.encode(sample(), "uid_fallback");
+        for (p in FightHistory.array(encoded.players)) p.isMe = false;
+        var summary = FightHistory.entry(encoded);
+        check(summary.playerName == "Shawn" && summary.playerClass == "warrior" && Math.abs(summary.personalDps - 35.05) < .0001, "Older records can recover personal stats from the recorded local UID");
+        remove(root);
     }
     static function encounterDetails():Void {
         var root = temp("difficulties"); var store = new FightHistoryStore(root, _ -> {});

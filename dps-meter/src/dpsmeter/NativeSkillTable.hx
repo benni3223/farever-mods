@@ -55,7 +55,7 @@ class NativeSkillTable {
                 "avgCast" => compact(v.avgCast), "hits" => Std.string(v.hits), "avgHit" => compact(v.avgHit),
                 "crit" => Std.string(SkillStats.rounded(v.crit, 1)) + "%", "dps" => compact(v.dps)];
             row.percent = Std.string(SkillStats.rounded(v.percent, 1)) + "%";
-            row.fraction = Math.max(0, Math.min(1, v.damage / Math.max(1, player.skills[ids[0]].damage)));
+            row.fraction = Math.max(0, Math.min(1, v.percent / 100));
             row.color = classColor(player.info.className);
             var values:Map<String, String> = row.values;
             var signature = row.percent + "|" + [for (key in ["ability", "damage", "casts", "avgCast", "hits", "avgHit", "crit", "dps"]) values[key]].join("|");
