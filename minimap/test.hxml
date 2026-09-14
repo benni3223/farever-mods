@@ -12,3 +12,8 @@
 -cp tests
 -main SoulstoneMarkersTest
 --interp
+--next
+-cp src
+-cp tests
+-main MinimapGeometryTest
+--interp

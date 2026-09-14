@@ -22,6 +22,7 @@ A compact overworld minimap with a centered player arrow.
 - A square or circular minimap using Farever's own map artwork.
 - Follows your position an arrow showing your character's facing direction.
 - Fixed orientation, character-following rotation, or camera-following rotation.
+- An outlined N and compass needle track north along the minimap edge.
 - Adjustable zoom, size, and transparency.
 - Marker scale slider resizes icons and all arrows together.
 - Left or right corner placement with X/Y offsets from 0–100% in 1% steps.
@@ -32,7 +33,7 @@ A compact overworld minimap with a centered player arrow.
 - Hide completed activities while keeping ascensions and dungeons visible, with separate options to hide either.
 - Enemy filters for completed and incomplete Codex entries.
 - Companion markers with an option to hide variants already in your collection.
-- Yellow edge arrows guide you toward uncollected sparkling companions.
+- Yellow-ringed edge arrows guide you toward uncollected sparkling companions when their markers are out of view.
 - Yellow rings highlight sparkling enemies and bosses.
 - Individual plant and ore type filters.
 - Hover over markers to see their names below the map
@@ -62,9 +63,13 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Weapon Upgrade | Light-blue sword and upward arrow |
 | Crafting Station | Orange hammer and workbench |
 | Chests | Orange rectangular treasure chest |
-| Undiscovered secret orbs | Light-blue circle |
+| Undiscovered secret orbs | Gold orb with an ivory centre and broken purple rings |
 
 **Show NPCs** also controls the Guild Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
+
+Secret orb tooltips always read **Secret Orb**. Sparkling companion alerts disappear whenever any part of the companion marker is visible, and reappear when it leaves the map. This follows zoom and rotation for both map shapes. Alerts still work when normal companion markers are disabled. Their yellow rings have no height arrows; ordinary markers retain their height indicators.
+
+The north indicator stays at the top of a fixed map and follows north around the edge of a rotating map. It scales with the other markers. Compass and alert geometry is cached; movement updates only their transforms and visibility.
 
 **Show soulstone summoning circles** is on by default in **Markers**. These landmarks use the world's element definitions and identify interactions that consume an item of type **Soulstone**. They remain visible without a soulstone in your inventory and are independent of activity-completion filters. Locations and elevation come from the native world prefab; definitions and icon geometry are cached.
 
@@ -84,6 +89,6 @@ cd minimap
 haxe compile.hxml
 ```
 
-Run the marker classification, activity visibility, and percentage-position regression tests with `haxe test.hxml` (no game or HLX runtime required).
+Run the marker classification, activity visibility, percentage-position, clipping, and compass regression tests with `haxe test.hxml` (no game or HLX runtime required).
 
 Output: `build/minimap/minimap.hl`. The independent workflow packages this project and publishes releases for `minimap/v*` tags.

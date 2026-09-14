@@ -35,6 +35,7 @@ class MinimapView {
     var npcPivot:Dynamic;
     var npcTerrain:Dynamic;
     var markers:MinimapMarkers;
+    var compass:MinimapCompass;
     var arrow:Dynamic;
     var input:Dynamic;
     var hovered:Bool = false;
@@ -135,7 +136,8 @@ class MinimapView {
         selectTiles(x, y, radius);
         loadNextTile();
         markers.update(hero, config, x, y, radius, scale, rotation);
-        markers.updateAlerts(config, x, y, size, rotation);
+        markers.updateAlerts(config, x, y, size, scale, rotation);
+        compass.update(size, circular, rotation, markerScale / 100);
         show(true);
         updateHover(hero, x, y, rotation);
     }
@@ -206,6 +208,7 @@ class MinimapView {
         npcPivot = G.create("h2d.Object", [mask]);
         npcTerrain = G.create("h2d.Object", [npcPivot]);
         markers = new MinimapMarkers(terrain, npcTerrain, mask, LEVEL);
+        compass = new MinimapCompass(mask);
         input = G.create("h2d.Interactive", [1.0, 1.0, panel, null]);
         position(input, BORDER, BORDER);
         G.call("h2d.Interactive", "set_cursor", input, [G.current("hxd.Cursor", "Default")]);
@@ -417,7 +420,7 @@ class MinimapView {
         }
         owner = null; world = null; root = null; loader = null;
         frame = null; mask = null; circleMask = null; squareFilter = null; circleFilter = null;
-        pivot = null; terrain = null; tileLayer = null; arrow = null; markers = null;
+        pivot = null; terrain = null; tileLayer = null; arrow = null; markers = null; compass = null;
         npcPivot = null; npcTerrain = null;
         input = null; hovered = false; hoverText = null; hoverShadow = null; hoverCaption = "";
         transparency = -1;

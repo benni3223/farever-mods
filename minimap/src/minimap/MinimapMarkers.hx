@@ -15,6 +15,7 @@ private typedef MapPoint = {
     var ?entity:Dynamic;
     var ?inf:Dynamic;
     var ?name:String;
+    var ?hasMarker:Bool;
 }
 
 private typedef ElevationMarker = {
@@ -49,7 +50,6 @@ class MinimapMarkers {
     var alertLayer:Dynamic;
     var alertTargets:Array<MapPoint> = [];
     var alertArrows:Array<Dynamic> = [];
-    var alertElevations:Array<Dynamic> = [];
     var alertPositions:Array<{x:Float, y:Float, point:MapPoint}> = [];
     var level:String;
     var layer:Dynamic;
@@ -133,53 +133,36 @@ class MinimapMarkers {
         }
     }
 
-    public function updateAlerts(config:MinimapSettings, x:Float, y:Float, size:Int, rotation:Float):Void {
+    public function updateAlerts(config:MinimapSettings, x:Float, y:Float, size:Int, scale:Float, rotation:Float):Void {
         var count = config.sparklingCompanionAlerts ? alertTargets.length : 0;
         while (alertArrows.length > count) {
             G.call("h2d.Object", "remove", alertArrows.pop());
-            G.call("h2d.Object", "remove", alertElevations.pop());
         }
         while (alertArrows.length < count) {
             var arrow = G.create("h2d.Graphics", [alertLayer]);
-            drawPlayerArrow(arrow, 8, 0xffdc42);
+            drawAlertArrow(arrow);
             alertArrows.push(arrow);
-            var elevation = G.create("h2d.Graphics", [alertLayer]);
-            drawPlayerArrow(elevation, 4, 0xfff3d6);
-            alertElevations.push(elevation);
         }
         alertPositions = [];
         if (count == 0) return;
         // Keep geometry cached; only position and rotate the few active arrows
         // each frame so they follow movement and camera rotation smoothly.
         var c = Math.cos(rotation), s = Math.sin(rotation);
-        var edge = size / 2 - 12 * markerScale;
+        var north = MinimapGeometry.north(size, config.circular, rotation, markerScale);
         for (i in 0...count) {
             var point = alertTargets[i];
-            var dx = point.x - x, dy = point.y - y;
+            var dx = (point.x - x) * scale, dy = (point.y - y) * scale;
             var sx = dx * c - dy * s, sy = dx * s + dy * c;
-            var extent = config.circular ? Math.sqrt(sx * sx + sy * sy) : Math.max(Math.abs(sx), Math.abs(sy));
-            var visible = extent > 0.001 && G.field(point.entity, "removed") != true;
+            var visible = G.field(point.entity, "removed") != true && MinimapGeometry.showAlert(point.hasMarker == true,
+                sx, sy, size, config.circular, (markerRadius("companion") + 3.5) * markerScale);
             var arrow = alertArrows[i];
             G.call("h2d.Object", "setScale", arrow, [markerScale]);
             G.call("h2d.Object", "set_visible", arrow, [visible]);
-            var direction = elevationDirection(point.z, heroHeight);
-            var elevation = alertElevations[i];
-            G.call("h2d.Object", "setScale", elevation, [markerScale]);
-            G.call("h2d.Object", "set_visible", elevation, [visible && direction != 0]);
             if (!visible) continue;
-            var px = size / 2 + sx * edge / extent;
-            var py = size / 2 + sy * edge / extent;
-            G.call("h2d.Object", "setPosition", arrow, [px, py]);
+            var pos = MinimapGeometry.alert(sx, sy, size, config.circular, markerScale, north);
+            G.call("h2d.Object", "setPosition", arrow, [pos.x, pos.y]);
             G.call("h2d.Object", "set_rotation", arrow, [Math.atan2(sy, sx)]);
-            alertPositions.push({x: px, y: py, point: point});
-            if (direction != 0) {
-                // Place height cues inward from the edge, keeping both map shapes clipped cleanly.
-                var distance = Math.sqrt(sx * sx + sy * sy);
-                var ex = px - sx * 10 * markerScale / distance, ey = py - sy * 10 * markerScale / distance;
-                G.call("h2d.Object", "setPosition", elevation, [ex, ey]);
-                G.call("h2d.Object", "set_rotation", elevation, [-direction * Math.PI / 2]);
-                alertPositions.push({x: ex, y: ey, point: point});
-            }
+            alertPositions.push({x: pos.x, y: pos.y, point: point});
         }
     }
 
@@ -187,7 +170,7 @@ class MinimapMarkers {
         var i = alertPositions.length;
         while (i > 0) {
             var alert = alertPositions[--i];
-            if (nearCursor(x, y, alert.x, alert.y, 11 * markerScale) && G.field(alert.point.entity, "removed") != true)
+            if (nearCursor(x, y, alert.x, alert.y, 12 * markerScale) && G.field(alert.point.entity, "removed") != true)
                 return markerName(alert.point);
         }
         return "";
@@ -293,6 +276,7 @@ class MinimapMarkers {
             var sparkling = (flags & (1 << 22)) != 0;
             var companion = G.text(G.field(inf, "type")) == "Critter";
             var alert = config.sparklingCompanionAlerts && companion && sparkling;
+            var point:MapPoint = null;
             // Alerts scan every replicated unit, with no minimap-distance cutoff.
             if (!nearby && !alert) continue;
             if (G.field(unit, "dying") == true || G.call("ent.GameObject", "isDead", unit) == true) continue;
@@ -318,8 +302,10 @@ class MinimapMarkers {
                             collected[pet] = G.call("st.player.Collection", "hasPet", collection, [pet]) == true;
                         owned = collected[pet];
                     }
-                    if (alert && collection != null && !owned)
-                        alertTargets.push({kind: kind, x: px, y: py, z: G.number(G.field(unit, "posz"), Math.NaN), sparkling: true, entity: unit});
+                    if (alert && collection != null && !owned) {
+                        point = {kind: kind, x: px, y: py, z: G.number(G.field(unit, "posz"), Math.NaN), sparkling: true, entity: unit};
+                        alertTargets.push(point);
+                    }
                     if (!config.showCompanions || !nearby || (config.hideCollectedCompanions && owned)) continue;
                 } else {
                     if (!config.showEnemies || G.call("ent.Foe", "isEnemyWith", unit, [hero]) != true) continue;
@@ -336,8 +322,12 @@ class MinimapMarkers {
                     if ((flags & 0x38) != 0) kind = "boss";
                 }
             }
-            points.push({kind: kind, x: px, y: py, z: G.number(G.field(unit, "posz"), Math.NaN), sparkling: sparkling, entity: unit,
-                heading: kind == "player" ? G.number(G.field(unit, "rotationZ")) : 0});
+            if (point == null) point = {kind: kind, x: px, y: py, z: G.number(G.field(unit, "posz"), Math.NaN), sparkling: sparkling, entity: unit,
+                heading: kind == "player" ? G.number(G.field(unit, "rotationZ")) : 0};
+            // Share the exact sampled position with the alert. Settings can
+            // hide normal companion markers while leaving alerts enabled.
+            point.hasMarker = true;
+            points.push(point);
         }
 
         if (config.showPlants || config.showOre || config.showNpcs || config.showChests) for (element in G.array(G.field(layer, "interactibles"))) {
@@ -585,7 +575,7 @@ class MinimapMarkers {
     static function markerRadius(kind:String):Float return switch kind {
         case "bank", "demon", "craft", "upgrade", "recycler", "chest", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
-        case "obelisk", "dungeon", "soulstone": 8;
+        case "obelisk", "dungeon", "soulstone", "secretOrb": 8;
         default: 3.5;
     };
 
@@ -651,6 +641,7 @@ class MinimapMarkers {
     }
 
     function markerName(point:MapPoint):String {
+        if (point.kind == "secretOrb") return "Secret Orb";
         if (point.name != null) return point.name;
         var name = "";
         try {
@@ -674,7 +665,6 @@ class MinimapMarkers {
             }
         } catch (_:Dynamic) {}
         if (name == "") name = switch point.kind {
-            case "secretOrb": "Secret orb";
             case "chest": "Chest";
             case "respawn": "Respawn point";
             case "obelisk": "Obelisk";
@@ -750,7 +740,7 @@ class MinimapMarkers {
 
     function drawIcon(point:MapPoint):Void {
         var kind = point.kind;
-        if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone") {
+        if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }
@@ -760,7 +750,6 @@ class MinimapMarkers {
             case "activity": 0x7f3e91;
             case "ascension": 0xffc45a;
             case "chest": 0xffa044;
-            case "secretOrb": 0x8fd8ff;
             case "enemy", "boss": 0xff6860;
             case "respawn": 0xffffff;
             case "npc": 0xffdf78;
@@ -902,6 +891,15 @@ class MinimapMarkers {
         G.call("h2d.Graphics", "beginFill", graphics, [color, 1.0]);
         arrowShape(graphics, 0, 0, radius, 0);
         G.call("h2d.Graphics", "endFill", graphics);
+    }
+
+    static function drawAlertArrow(graphics:Dynamic):Void {
+        for (ring in [{r: 12., color: 0x201b1b}, {r: 11., color: 0xffdc42}, {r: 8.5, color: 0x201b1b}]) {
+            G.call("h2d.Graphics", "beginFill", graphics, [ring.color, 1.0]);
+            G.call("h2d.Graphics", "drawCircle", graphics, [0., 0., ring.r, 32]);
+            G.call("h2d.Graphics", "endFill", graphics);
+        }
+        drawPlayerArrow(graphics, 7, 0xffdc42);
     }
 
     static function arrowShape(graphics:Dynamic, x:Float, y:Float, radius:Float, heading:Float):Void {

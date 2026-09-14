@@ -8,6 +8,50 @@ class LandmarkIcons {
         if (kind == "obelisk") obelisk(graphics, radius);
         else if (kind == "dungeon") dungeon(graphics, radius);
         else if (kind == "soulstone") soulstone(graphics, radius);
+        else if (kind == "secretOrb") secretOrb(graphics, radius);
+    }
+
+    static function secretOrb(g:Dynamic, r:Float):Void {
+        // The in-world orb has a warm gold centre and broken lavender orbits.
+        // Flat bands and solid colours keep that silhouette readable at 16 px.
+        for (i in 0...3) {
+            var angle = -2.9 + i * Math.PI * 2 / 3;
+            fill(g, 0x35283e);
+            arc(g, r + 0.7, 2.5, angle - 0.05, 1.52);
+            end(g);
+            fill(g, 0xc594ec);
+            arc(g, r, 1.25, angle, 1.42);
+            end(g);
+            fill(g, 0x9b6fc6);
+            arc(g, r * 0.77, 0.8, angle + 0.55, 0.92);
+            end(g);
+        }
+        fill(g, 0x655132);
+        circle(g, 0, 0, r * 0.57);
+        end(g);
+        fill(g, 0xf2be4f);
+        circle(g, 0, 0, r * 0.49);
+        polygon(g, r, [-0.13, -0.65, 0.13, -0.65, 0.1, -0.39, -0.1, -0.39]);
+        for (side in [-1, 1])
+            polygon(g, r, [0.39, -0.1, 0.66, -0.14, 0.66, 0.14, 0.39, 0.1], side);
+        polygon(g, r, [-0.1, 0.39, 0.1, 0.39, 0.13, 0.65, -0.13, 0.65]);
+        end(g);
+        fill(g, 0xffe778);
+        circle(g, 0, 0, r * 0.35);
+        end(g);
+        fill(g, 0xfff8c8);
+        circle(g, -r * 0.06, -r * 0.06, r * 0.22);
+        end(g);
+    }
+
+    static function arc(g:Dynamic, radius:Float, width:Float, angle:Float, sweep:Float):Void {
+        // Separate convex quads avoid a concave ring polygon's triangulation.
+        var inner = radius - width;
+        for (i in 0...10) {
+            var a = angle + sweep * i / 10, b = angle + sweep * (i + 1) / 10;
+            polygon(g, 1, [Math.cos(a) * radius, Math.sin(a) * radius, Math.cos(b) * radius, Math.sin(b) * radius,
+                Math.cos(b) * inner, Math.sin(b) * inner, Math.cos(a) * inner, Math.sin(a) * inner]);
+        }
     }
 
     static function soulstone(g:Dynamic, r:Float):Void {
