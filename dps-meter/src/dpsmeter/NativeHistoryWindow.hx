@@ -186,7 +186,7 @@ class NativeHistoryWindow {
         if (pending || copying || fight == null || selectedEntry == null) return;
         copying = true;
         try {
-            NativeFightSnapshot.copy(fight, selectedEntry, group, G.field(detail, "font"), headingFont);
+            NativeFightSnapshot.copy(fight, selectedEntry, group, G.field(detail, "font"), headingFont, chart.snapshotPlayer(fight));
             status("Snapshot copied to clipboard.");
         } catch (error:Dynamic) {
             status(Std.string(error), true);

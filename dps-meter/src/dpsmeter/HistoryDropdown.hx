@@ -66,6 +66,11 @@ class HistoryDropdown {
     function choiceColor(index:Int):Int return index >= 0 && index < choices.length && choices[index].color != null
         ? choices[index].color : 0x5b4334;
     static function color(text:Dynamic, value:Int):Void {
-        if (text != null) G.call("h2d.Text", "set_textColor", text, [value]);
+        if (text == null) return;
+        // FmtText inherits HtmlText: colour belongs in its glyph data. Calling
+        // Text's base setter instead multiplies that colour by a second tint.
+        var tint = G.field(text, "color");
+        if (tint != null) for (channel in ["x", "y", "z"]) G.set(tint, channel, 1.0);
+        G.call("h2d.HtmlText", "set_textColor", text, [value]);
     }
 }

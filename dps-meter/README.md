@@ -96,11 +96,13 @@ full absolute path to the local archive. Click its **folder icon** to open that
 location in Explorer. Encounter lists and charts use the extra vertical space. Section
 headings use the same larger bold style as Better Mod Settings titles.
 
-While viewing a fight or a player's breakdown, the **camera/clipboard button** at
-the top right copies an image of the complete player damage chart. It includes
-the encounter, fight summary, and every recorded player's damage, DPS, and share.
-The image grows vertically to include all players, independently of the window's
-scroll position or selected player. It uses the game's fonts and class colours;
+The **camera/clipboard button** at the top right copies the chart you are viewing.
+The party view includes every recorded player's damage, DPS, and share. While
+viewing a player's breakdown, it instead includes that player's complete ability
+table, with icons, display names, damage, share, casts, averages, hits, critical-hit
+percentage, and DPS. Both include the encounter and fight summary. The image grows
+vertically to include every row, independently of the window's scroll position.
+It uses the game's fonts and class colours;
 the folder path and window controls are excluded. Paste the image into a chat or
 image editor. A short message confirms successful copying.
 
@@ -151,6 +153,12 @@ History records ordinary combats, boss attempts, and both rift phases. Combats
 without a boss name appear under **Other combat**. A fight still in progress
 when you leave an area or exit normally is also preserved. Completed rift phases
 keep their separate **Rift: Gates** and **Rift: [boss name]** charts.
+
+New Chakram recordings keep both health bars and the intervening bridge sequence
+in one fight, using his replicated entity and phase state. The first health bar
+does not produce a completed boss report. A reset or wipe ends the attempt;
+leaving the area still preserves an unfinished chart. Previously saved split
+logs are retained as recorded.
 
 Fight history and sent reports are kept indefinitely unless you explicitly remove
 them. They survive game restarts and character changes. The former uploader `keep_days` option is ignored; no

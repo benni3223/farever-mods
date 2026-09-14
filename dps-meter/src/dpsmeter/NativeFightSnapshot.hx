@@ -2,14 +2,15 @@ package dpsmeter;
 
 import dpsmeter.CombatModel.Fight;
 import dpsmeter.FightHistory.HistoryEntry;
+import dpsmeter.FightSnapshot.SnapshotPlan;
 import dpsmeter.GameAccess as G;
 import dpsmeter.NativeUi.*;
 
-/** Offscreen player chart: native fonts and class colours, with no viewport crop. */
+/** Offscreen chart or skill table: native fonts and class colours, without viewport cropping. */
 class NativeFightSnapshot {
-    public static function copy(fight:Fight, entry:HistoryEntry, encounter:String, bodyFont:Dynamic, titleFont:Dynamic):Void {
+    public static function copy(fight:Fight, entry:HistoryEntry, encounter:String, bodyFont:Dynamic, titleFont:Dynamic, playerId:String = ""):Void {
         if (bodyFont == null || titleFont == null) throw "The chart fonts are not ready. Try again.";
-        var plan = FightSnapshot.plan(fight);
+        var plan = FightSnapshot.plan(fight, playerId);
         var scene = G.create("h2d.Scene", []);
         var root = G.create("h2d.Object", [scene]);
         var graphic = G.create("h2d.Graphics", [root]);
@@ -18,22 +19,25 @@ class NativeFightSnapshot {
         try {
             rect(graphic, 0, 0, plan.width, plan.height, 0xcfbbb0);
             rect(graphic, 0, 0, plan.width, 64, 0xecd5ca);
-            text(root, titleFont, encounter, 24, 14, 852, 28, 0x815c43);
-            text(root, bodyFont, FightHistory.chartDetail(entry), 24, 78, 852, 18, 0x5b4334);
-            text(root, titleFont, "Player", 24, 112, 440, 17);
-            text(root, titleFont, "Damage", 468, 112, 140, 17, 0x5b4334, true);
-            text(root, titleFont, "DPS", 620, 112, 120, 17, 0x5b4334, true);
-            text(root, titleFont, "Damage (%)", 752, 112, 124, 17, 0x5b4334, true);
-            for (i in 0...plan.rows.length) {
-                var row = plan.rows[i]; var y = 140 + i * plan.rowHeight;
-                text(root, bodyFont, row.name, 24, y, 440, 18);
-                text(root, bodyFont, compact(row.damage), 468, y, 140, 18, 0x5b4334, true);
-                text(root, bodyFont, compact(row.dps), 620, y, 120, 18, 0x5b4334, true);
-                text(root, bodyFont, Std.string(dpsmeter.CombatModel.SkillStats.rounded(row.percent, 1)) + "%", 752, y, 124, 18, 0x5b4334, true);
-                rect(graphic, 24, y + 28, 852, 8, 0xb29a8c);
-                rect(graphic, 24, y + 28, 852 * row.percent / 100, 8, classColor(row.className));
+            text(root, titleFont, encounter, 24, 14, plan.width - 48, 28, 0x815c43);
+            text(root, bodyFont, FightHistory.chartDetail(entry), 24, 78, plan.width - 48, 18, 0x5b4334);
+            if (plan.breakdown) drawBreakdown(root, graphic, plan, bodyFont, titleFont);
+            else {
+                text(root, titleFont, "Player", 24, 112, 440, 17);
+                text(root, titleFont, "Damage", 468, 112, 140, 17, 0x5b4334, true);
+                text(root, titleFont, "DPS", 620, 112, 120, 17, 0x5b4334, true);
+                text(root, titleFont, "Damage (%)", 752, 112, 124, 17, 0x5b4334, true);
+                for (i in 0...plan.rows.length) {
+                    var row = plan.rows[i]; var y = 140 + i * plan.rowHeight;
+                    text(root, bodyFont, row.name, 24, y, 440, 18);
+                    text(root, bodyFont, compact(row.damage), 468, y, 140, 18, 0x5b4334, true);
+                    text(root, bodyFont, compact(row.dps), 620, y, 120, 18, 0x5b4334, true);
+                    text(root, bodyFont, Std.string(dpsmeter.CombatModel.SkillStats.rounded(row.percent, 1)) + "%", 752, y, 124, 18, 0x5b4334, true);
+                    rect(graphic, 24, y + 28, 852, 8, 0xb29a8c);
+                    rect(graphic, 24, y + 28, 852 * row.percent / 100, 8, classColor(row.className));
+                }
+                if (plan.rows.length == 0) text(root, bodyFont, "No damage recorded", 24, 140, 852, 18);
             }
-            if (plan.rows.length == 0) text(root, bodyFont, "No damage recorded", 24, 140, 852, 18);
             var output = haxe.io.Bytes.alloc(plan.width * plan.height * 4);
             // The constructor allocates immediately. Supply a native ArrayObj
             // containing Target before allocation, never an ArrayDyn or a late flag.
@@ -72,6 +76,44 @@ class NativeFightSnapshot {
             throw error;
         }
         cleanup(scene, root, texture, pixels);
+    }
+    static function drawBreakdown(root:Dynamic, graphic:Dynamic, plan:SnapshotPlan, bodyFont:Dynamic, titleFont:Dynamic):Void {
+        var inner = plan.width - 48;
+        text(root, titleFont, plan.playerName + " · Ability breakdown", 24, 110, inner, 22, classColor(plan.playerClass));
+        var columns = SkillBreakdown.columns(inner);
+        for (column in columns) {
+            var x = 24 + column.x; var width = column.width - 10;
+            if (column.key == "damage") {
+                text(root, titleFont, "Damage (%)", x, 150, width - 80, 16);
+                text(root, titleFont, "Damage", x + width - 74, 150, 74, 16, 0x5b4334, true);
+            } else text(root, titleFont, column.title, x, 150, width, 16, 0x5b4334, column.key != "ability");
+        }
+        for (i in 0...plan.skills.length) {
+            var row = plan.skills[i]; var v = row.values; var y = 180 + i * plan.rowHeight;
+            if (i % 2 == 0) rect(graphic, 24, y, inner, plan.rowHeight, 0xc4afa3);
+            var values = ["damage" => compact(v.damage), "casts" => Std.string(v.casts), "avgCast" => compact(v.avgCast),
+                "hits" => Std.string(v.hits), "avgHit" => compact(v.avgHit),
+                "crit" => Std.string(dpsmeter.CombatModel.SkillStats.rounded(v.crit, 1)) + "%", "dps" => compact(v.dps)];
+            for (column in columns) {
+                var x = 24 + column.x; var width = column.width - 10;
+                if (column.key == "ability") {
+                    var tile = NativeCombatMetadata.skillIcon(row.id);
+                    if (tile != null) {
+                        var icon = G.create("h2d.Bitmap", [tile, root]);
+                        G.call("h2d.Object", "setScale", icon, [26 / Math.max(1, Math.max(G.number(G.field(tile, "width")), G.number(G.field(tile, "height"))))]);
+                        position(icon, x + 3, y + 7);
+                    }
+                    text(root, titleFont, NativeCombatMetadata.skillName(row.id), x + 34, y + 11, width - 34, 17);
+                } else if (column.key == "damage") {
+                    text(root, bodyFont, Std.string(dpsmeter.CombatModel.SkillStats.rounded(v.percent, 1)) + "%", x, y + 11, 51, 17, 0x5b4334, true);
+                    var barX = x + 58; var barWidth = width - 58 - 74 - 6;
+                    rect(graphic, barX, y + 16, barWidth, 8, 0xb29a8c);
+                    rect(graphic, barX, y + 16, barWidth * Math.max(0, Math.min(1, v.percent / 100)), 8, classColor(plan.playerClass));
+                    text(root, bodyFont, values[column.key], x + width - 74, y + 11, 74, 17, 0x5b4334, true);
+                } else text(root, column.key == "dps" ? titleFont : bodyFont, values[column.key], x, y + 11, width, 17, 0x5b4334, true);
+            }
+        }
+        if (plan.skills.length == 0) text(root, bodyFont, "No ability damage recorded", 24, 180, inner, 18);
     }
     static function cleanup(scene:Dynamic, root:Dynamic, texture:Dynamic, pixels:Dynamic):Void {
         if (pixels != null) try G.call("hxd.Pixels", "dispose", pixels) catch (_:Dynamic) {}

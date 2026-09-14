@@ -197,6 +197,13 @@ class CombatModel {
     var awaitingExitState:Bool = false;
     var pendingFight:Null<Fight>;
     var rift:Null<RiftTracker>;
+    // Chakram keeps the same Phrixes entity through both health bars. Its
+    // bridge transition can clear the hero's combat flag for much longer than
+    // the ordinary late-damage grace period. Track that entity, not its name.
+    var phrixesUid:String = "";
+    var phrixesPhase:Int = 0;
+    var phrixesInactiveAt:Float = -1;
+    var phrixesDeadAt:Float = -1;
     public function new(now:Float) session = new Fight(now);
     public function reset(now:Float):Void {
         if (rift != null) rift.drain(now, completed, recaps, true, history);
@@ -212,6 +219,7 @@ class CombatModel {
         activityCategory = "Other";
         lastKillTarget = ""; lastKillTime = -1;
         inCombat = false; awaitingExitState = false; pendingFight = null;
+        clearPhrixes();
         // Completed reports and recaps remain queued across character/zone changes.
     }
     public function update(now:Float, localInCombat:Bool):Void {
@@ -228,7 +236,7 @@ class CombatModel {
         }
         expirePendingFight(now);
         drainHistory(now);
-        if (boss != null && now - boss.last > 8) {
+        if (boss != null && (phrixesUid == "" || boss.bossUid != phrixesUid) && now - boss.last > 8) {
             boss.closed = now; lastBoss = boss; boss = null;
         }
     }
@@ -238,6 +246,7 @@ class CombatModel {
         inCombat = true;
         awaitingExitState = false;
         if (rift != null) return;
+        if (current != null && phrixesUid != "") return;
         expirePendingFight(now);
         // Entry alone never starts the clock. Retain an opening hit if its
         // damage notification preceded entry; otherwise wait for first damage.
@@ -252,12 +261,13 @@ class CombatModel {
         return hasLocalKill(pendingFight) ? pendingFight : lastCombat;
     }
     public function onCombatExit(heroUid:String, now:Float):Void {
-        // The local character's exit is an encounter boundary even if another
-        // party member still has a combat flag, or we re-enter between polls.
+        // Ordinary fights end on the local character's exit, even between
+        // polls. A tracked Chakram attempt instead follows its boss lifecycle.
         if (me == "" || heroUid != me) return;
         inCombat = false;
         awaitingExitState = true;
         if (rift != null) return;
+        if (current != null && phrixesUid != "") return;
         finishPendingFight();
         if (current != null) finishCurrent(now);
     }
@@ -269,6 +279,46 @@ class CombatModel {
         rift = new RiftTracker();
         current = null; lastCombat = null; pendingFight = null;
         boss = null; lastBoss = null;
+        clearPhrixes();
+    }
+    /** Only called for a Phrixes entity that our party actually damaged. */
+    public function updatePhrixes(now:Float, uid:String, phase:Int, active:Bool, transition:Bool, dead:Bool):Void {
+        if (rift != null || uid == "" || uid == "0") return;
+        if (phrixesUid != "" && (phrixesUid != uid || phase < phrixesPhase)) endPhrixes(now, false);
+        if (dead) {
+            if (uid == phrixesUid) {
+                // Death state may precede the lethal RPC even while the local
+                // hero remains in combat. Keep that hit in this same fight.
+                if (phrixesDeadAt < 0) phrixesDeadAt = now;
+                if (now - phrixesDeadAt > ENTRY_DAMAGE_SECONDS) endPhrixes(phrixesDeadAt, true);
+            }
+            return;
+        }
+        phrixesUid = uid; phrixesPhase = phase;
+        if (active || transition) phrixesInactiveAt = -1;
+        else {
+            if (phrixesInactiveAt < 0) phrixesInactiveAt = now;
+            // Let replicated phase/health and combat fields settle, but do not
+            // join a reset boss to a later attempt. Use its first inactive time,
+            // not the grace period or a hero exit from an earlier phase.
+            if (now - phrixesInactiveAt >= 1) endPhrixes(phrixesInactiveAt, false);
+        }
+    }
+    public function trackingPhrixes(uid:String):Bool return phrixesUid == uid && uid != "";
+    function clearPhrixes():Void {
+        phrixesUid = ""; phrixesPhase = 0; phrixesInactiveAt = -1; phrixesDeadAt = -1;
+    }
+    function endPhrixes(now:Float, defeated:Bool):Void {
+        if (current != null && current.targets.exists(phrixesUid)) {
+            current.defeated = defeated;
+            finishCurrent(now);
+        }
+        if (!defeated) {
+            // A wipe must not be resumed by the legacy uploader's idle heuristic.
+            if (boss != null && boss.bossUid == phrixesUid) boss = null;
+            if (lastBoss != null && lastBoss.bossUid == phrixesUid) lastBoss = null;
+        }
+        clearPhrixes();
     }
     public function updateRiftState(now:Float, bossSpawned:Bool, bossDefeated:Bool, bossKind:String):Void {
         if (rift == null) return;
@@ -333,6 +383,11 @@ class CombatModel {
             lastKillSource = e.source; lastKillAmount = e.amount;
             lastKillTarget = e.target; lastKillTime = e.time;
         }
+        if (e.kill && e.target == phrixesUid && phrixesPhase >= 1 && phrixesPhase <= 2) {
+            // Phrixes.canDie explicitly forbids death in these phases. A lethal
+            // first-bar result starts the transformation, not a completed report.
+            e = Reflect.copy(e); e.kill = false;
+        }
         var info = profiles[e.source];
         if (info == null) return;
         var member = party.exists(e.source) || e.source == me;
@@ -344,7 +399,7 @@ class CombatModel {
                 lastCombat = rift.last;
                 return;
             }
-            if (inCombat) {
+            if (inCombat || (current != null && phrixesUid != "")) {
                 if (current == null && e.effect != 1) current = new Fight(e.time);
                 if (current != null) addToFight(current, e, info);
             } else if (e.effect != 1) {
@@ -365,11 +420,12 @@ class CombatModel {
             }
         }
         if (rift != null) return;
+        if (e.kill && e.target == phrixesUid) endPhrixes(e.time, true);
         // Match the DLL's target.inf.flags mask, including world/elite bosses.
         var bossHit = e.effect != 1 && (e.bossFlags & 0x38) != 0;
         if (bossHit && member && (boss == null || (boss.bossKind != e.bossKind && e.time - boss.last > 15))) {
             var previous = lastBoss;
-            var resume = previous != null && previous.me == me && previous.bossKind == e.bossKind
+            var resume = e.bossKind != "Phrixes" && previous != null && previous.me == me && previous.bossKind == e.bossKind
                 && previous.bossLevel == e.bossLevel && previous.bossFoeId == e.bossFoeId
                 && ((e.target != "" && previous.bossUid == e.target
                     && e.time - previous.closed <= (previous.defeated ? 15 : 120))

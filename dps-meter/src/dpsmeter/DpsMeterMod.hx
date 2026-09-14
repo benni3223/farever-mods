@@ -107,14 +107,14 @@ class DpsMeterMod {
     }
     @:hlx.postfix(ent.Hero.onEnterCombat)
     static function onCombatEnter(instance:Dynamic, result:Void):Void {
-        if (collector != null && config.enabled) try collector.model.onCombatEnter(G.uid(instance), haxe.Timer.stamp())
+        if (collector != null && config.enabled) try collector.combatEnter(G.uid(instance), haxe.Timer.stamp())
         catch (_:Dynamic) {}
     }
     @:hlx.postfix(ent.Hero.onLeaveCombat)
     static function onCombatExit(instance:Dynamic, result:Void):Void {
         // This callback runs before set_isInCombat stores false. Observe the
         // actual exit event instead of polling that field or another party member.
-        if (collector != null && config.enabled) try collector.model.onCombatExit(G.uid(instance), haxe.Timer.stamp())
+        if (collector != null && config.enabled) try collector.combatExit(G.uid(instance), haxe.Timer.stamp())
         catch (_:Dynamic) {}
     }
     @:hlx.postfix(GameApp.update)

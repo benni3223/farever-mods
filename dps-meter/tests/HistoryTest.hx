@@ -47,8 +47,97 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
-        lifecycle(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotTextures(); historyOptions();
+        lifecycle(); chakram(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotTextures(); historyOptions();
         Sys.println('Fight history: $checks checks passed');
+    }
+    static function chakramHit(time:Float, amount:Float, kill:Bool = false):DamageEvent {
+        var e = hit(time, amount, kill, true, "me", "chakram");
+        e.bossKind = "Phrixes"; e.bossFlags = 0x10; e.bossName = "High Inquisitor Chakram";
+        return e;
+    }
+    static function chakram():Void {
+        var m = model(); m.onCombatEnter("me", 10);
+        m.updatePhrixes(10, "chakram", 1, true, false, false);
+        m.record(chakramHit(10, 100));
+        m.updatePhrixes(20, "chakram", 1, false, true, false);
+        m.record(chakramHit(20, 200, true));
+        m.onCombatExit("me", 20);
+        m.update(21, false);
+        check(m.history.length == 0 && m.current != null && m.current.players["me"].damage == 300,
+            "Chakram's first health bar and local combat exit do not archive a separate encounter");
+        check(m.completed.length == 0 && m.boss != null && m.boss.players["me"].kills == 0,
+            "A lethal first health bar does not produce a boss kill or upload");
+        m.updatePhrixes(22, "chakram", 2, false, true, false);
+        m.updatePhrixes(60, "chakram", 3, false, true, false);
+        m.update(60, false);
+        check(m.current.duration(60) == 50 && m.boss != null, "The long bridge transition retains both clocks and the uploader aggregate");
+        m.record(hit(61, 50, false, false, "ally", "bridgeAdd"));
+        check(m.current.players["ally"].damage == 50, "Party damage during the bridge belongs to the held encounter");
+        m.updatePhrixes(70, "chakram", 4, true, false, false);
+        m.onCombatEnter("me", 70); m.record(chakramHit(71, 300));
+        check(m.current.start == 10 && m.current.players["me"].damage == 600, "Re-entering combat in demon form preserves first-phase damage and start time");
+        m.updatePhrixes(80, "chakram", 4, false, false, true);
+        m.onCombatExit("me", 80);
+        m.record(chakramHit(80.1, 400, true)); m.update(81, false);
+        check(m.history.length == 1 && m.history[0].players["me"].damage == 1000 && m.history[0].defeated,
+            "Death-before-damage ordering still records one complete two-phase fight");
+        check(m.completed.length == 1 && m.completed[0].players["me"].damage == 1000,
+            "Only the real final kill queues the combined boss report");
+        check(Math.abs(m.history[0].duration() - 70.1) < .000001 && m.history[0].players["me"].kills == 1,
+            "Combined duration includes the bridge, with exactly one boss kill");
+        m.updatePhrixes(83, "chakram", 1, true, false, false);
+        m.onCombatEnter("me", 83); m.record(chakramHit(83, 5));
+        check(m.current.start == 83 && m.boss.players["me"].damage == 5, "A new kill attempt never resumes an already completed Chakram report");
+
+        // A first-bar wipe is not a transformation; allow one second for native
+        // replication to settle, then freeze the actual exit, not the grace time.
+        m = model(); m.onCombatEnter("me", 10);
+        m.updatePhrixes(10, "chakram", 1, true, false, false); m.record(chakramHit(10, 10));
+        m.updatePhrixes(15, "chakram", 1, false, false, false); m.onCombatExit("me", 15);
+        m.updatePhrixes(16, "chakram", 1, false, false, false); m.update(16, false);
+        check(m.history.length == 1 && m.history[0].duration() == 5 && !m.history[0].defeated && m.boss == null,
+            "A first-phase wipe finishes at the local exit and discards the incomplete uploader fight");
+        m.updatePhrixes(17, "chakram", 1, true, false, false); m.onCombatEnter("me", 17); m.record(chakramHit(17, 7));
+        check(m.current.start == 17 && m.boss.players["me"].damage == 7, "A same-entity wipe and retry stays a separate attempt");
+
+        m.updatePhrixes(20, "chakram", 4, true, false, false); m.record(chakramHit(20, 8));
+        m.updatePhrixes(22, "chakram", 4, false, false, false); m.onCombatExit("me", 22);
+        m.updatePhrixes(23, "chakram", 4, false, false, false); m.update(23, false);
+        check(m.history.length == 2 && m.current == null && m.completed.length == 0,
+            "A wipe at a demon-form checkpoint ends even when the phase number does not decrease");
+        m.updatePhrixes(24, "chakram", 4, true, false, false); m.onCombatEnter("me", 24); m.record(chakramHit(24, 3));
+        check(m.current.start == 24 && m.boss.players["me"].damage == 3, "Checkpoint retries do not inherit a previous attempt's damage");
+        m.updatePhrixes(25, "chakram", 1, true, false, false); m.record(chakramHit(25, 2)); m.update(26, true);
+        check(m.history.length == 3 && m.current.start == 25 && m.boss.players["me"].damage == 2,
+            "A phase regression also splits a reset that occurs between combat polls");
+        m.updatePhrixes(27, "chakram", 2, false, true, false); m.onCombatExit("me", 27); m.reset(40);
+        check(m.history.length == 4 && m.history[3].duration() == 15 && m.current == null,
+            "Leaving the zone during a bridge transition preserves the unfinished fight once");
+
+        m = model(); m.onCombatEnter("me", 10);
+        m.updatePhrixes(10, "chakram", 4, true, false, false); m.record(chakramHit(10, 11));
+        m.updatePhrixes(15, "chakram", 4, false, false, true);
+        m.record(chakramHit(15.1, 9, true)); m.update(16, true);
+        check(m.history.length == 1 && m.history[0].players["me"].damage == 20 && m.current == null,
+            "Final death before the lethal RPC does not create a one-hit second log when the hero's flag is still true");
+
+        m = model(); m.onCombatEnter("me", 10);
+        m.updatePhrixes(10, "chakram", 4, true, false, false); m.record(chakramHit(10, 12));
+        m.updatePhrixes(15, "chakram", 4, false, false, true);
+        m.updatePhrixes(15.6, "chakram", 4, false, false, true); m.update(16, false);
+        check(m.history.length == 1 && m.history[0].duration() == 5 && m.completed.length == 0,
+            "Missing final RPC still closes local history at observed death without inventing an upload");
+
+        m = model(); m.onCombatEnter("me", 10);
+        m.updatePhrixes(10, "chakram", 1, true, false, false); m.record(chakramHit(10, 10));
+        m.onCombatExit("me", 15);
+        m.updatePhrixes(20, "chakram", 3, false, true, false);
+        m.updatePhrixes(40, "chakram", 4, true, false, false);
+        m.record(hit(50, 20, false, false, "ally", "chakram"));
+        m.updatePhrixes(60, "chakram", 4, false, false, false);
+        m.updatePhrixes(61, "chakram", 4, false, false, false); m.update(61, false);
+        check(m.history.length == 1 && m.history[0].duration() == 50 && m.history[0].players["ally"].damage == 20,
+            "A later party wipe never rewinds the duration to the local hero's first-phase exit");
     }
     static function lifecycle():Void {
         var m = model();
@@ -512,6 +601,32 @@ class HistoryTest {
         check(FightSnapshot.plan(instant).rows[0].dps == 7, "Snapshot DPS uses the same one-second floor for instant fights");
         plan = FightSnapshot.plan(new Fight(1));
         check(plan.rows.length == 0 && plan.height > 140, "Empty snapshots reserve readable empty-state space");
+
+        f = sample(); plan = FightSnapshot.plan(f, "me");
+        check(plan.breakdown && plan.rows.length == 0 && plan.skills.length == 1 && plan.playerName == "Shawn"
+            && plan.playerClass == "warrior", "Selected-player snapshots contain that player's ability table, not the party chart");
+        check(plan.skills[0].id == "Strike" && plan.skills[0].values.damage == 350.5 && plan.skills[0].values.percent == 100
+            && plan.skills[0].values.dps == 35.05, "Breakdown snapshot totals, percentage and DPS use the selected player and full fight duration");
+        check(FightSnapshot.plan(f, "ally").skills[0].values.damage == 500, "Selecting another player snapshots that player's damage");
+        for (i in 0...80) {
+            var e = hit(12, i + 1); e.skill = "Ability_" + i;
+            f.players["me"].add(e, profile());
+        }
+        plan = FightSnapshot.plan(f, "me");
+        var percent = 0.0; for (skill in plan.skills) percent += skill.values.percent;
+        check(plan.skills.length == 81 && plan.height >= 180 + 81 * 40 && plan.width == 1200,
+            "Breakdown snapshots expand vertically for every skill, with width for all detailed columns");
+        check(plan.skills[0].id == "Strike" && plan.skills[1].id == "Ability_79" && Math.abs(percent - 100) < .000001,
+            "Snapshot skills sort by damage and share the player's total, rather than filling the top skill's bar");
+        check(!FightSnapshot.plan(f).breakdown && FightSnapshot.plan(f).rows.length == 2,
+            "Returning to the party view restores a complete party snapshot");
+        failed = false;
+        try FightSnapshot.plan(f, "missing") catch (_:Dynamic) failed = true;
+        check(failed, "A missing selected player reports an error instead of copying a different view");
+        var empty = new Fight(1); empty.players["me"] = new PlayerStats(profile());
+        plan = FightSnapshot.plan(empty, "me");
+        check(plan.breakdown && plan.skills.length == 0 && plan.height > 180, "Empty ability tables retain their selected-player heading and empty state");
+        check(FightSnapshot.plan(instant, "me").skills[0].values.dps == 7, "Breakdown snapshots share the live chart's one-second minimum duration");
     }
     static function snapshotTextures():Void {
         GameAccess.globals["hxd.PixelFormat.RGBA"] = "RGBA";

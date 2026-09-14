@@ -14,6 +14,7 @@ class Collector {
     var groupMembers:Map<String, Bool> = [];
     var profileRefresh:Map<String, Float> = [];
     var profileWeapons:Map<String, Dynamic> = [];
+    var phrixes:Dynamic;
     public function new(config:MeterSettings) {
         this.config = config;
         model = new CombatModel(haxe.Timer.stamp());
@@ -25,6 +26,7 @@ class Collector {
             model.reset(now); hero = nextHero; layer = nextLayer;
             groupMembers = []; lastGroupSeen = -1; lastRoster = -1;
             profileRefresh = []; profileWeapons = [];
+            phrixes = null;
         }
         if (hero == null) return;
         if (now - lastRoster < 0.25) return;
@@ -64,6 +66,7 @@ class Collector {
         // roster's 4 Hz cadence. Completion does not remove the clearing goal.
         model.activityCategory = NativeCombatMetadata.activityCategory(model.activityId, inRift, player, G.field(layer, "mainActivity"));
         if (inRift) updateRiftState(player, now);
+        refreshPhrixes(now);
         // Encounter timing must not depend on optional lobby/report metadata.
         model.update(now, G.field(hero, "isInCombat") == true);
         if (group != null && model.activityId != "" && model.difficulty < 0) {
@@ -75,6 +78,28 @@ class Collector {
                 model.difficulty = G.integer(G.field(lobby, "difficulty"), -1);
             }
         }
+    }
+    public function combatEnter(uid:String, now:Float):Void {
+        if (uid == model.me) refreshPhrixes(now);
+        model.onCombatEnter(uid, now);
+    }
+    public function combatExit(uid:String, now:Float):Void {
+        if (uid == model.me) refreshPhrixes(now);
+        model.onCombatExit(uid, now);
+    }
+    function refreshPhrixes(now:Float, observedHit:Bool = false):Void {
+        if (phrixes == null) return;
+        var uid = G.uid(phrixes);
+        if (!observedHit && !model.trackingPhrixes(uid)) { phrixes = null; return; }
+        var phase = G.integer(G.field(phrixes, "phase"));
+        var dead = G.call("ent.GameObject", "isDead", phrixes) == true;
+        // Native Phrixes phases 2/3 cover the transformation and bridge. At
+        // phase 1's lethal hit the server holds health at 1 before advancing.
+        var transition = phase == 2 || phase == 3 || (phase == 1
+            && (G.call("ent.Unit", "isAtDeathDoor", phrixes) == true
+                || G.number(G.call("ent.Unit", "get_health", phrixes), 2) <= 1));
+        model.updatePhrixes(now, uid, phase, G.field(phrixes, "isInCombat") == true, transition, dead);
+        if (!model.trackingPhrixes(uid)) phrixes = null;
     }
     function updateRiftState(player:Dynamic, now:Float):Void {
         var activity = G.field(layer, "mainActivity");
@@ -151,6 +176,12 @@ class Collector {
         var kind = G.text(G.field(target, "kind"));
         if (kind == "") kind = G.text(G.field(inf, "id"));
         var bossFlags = G.integer(G.field(inf, "flags"));
+        if (kind == "Phrixes" && G.field(target, "summonOwner") == null && G.field(layer, "isRift") != true
+            && G.integer(G.field(damage, "effect")) != 1 && G.number(G.field(damage, "_amount")) > 0
+            && (uid == model.me || model.party.exists(uid))) {
+            phrixes = target;
+            refreshPhrixes(now, true);
+        }
         var bossName = "";
         if ((bossFlags & 0x38) != 0) {
             // Use the game's localized, phase-aware name instead of its data ID.
