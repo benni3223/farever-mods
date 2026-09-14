@@ -92,10 +92,11 @@ class NativeSkillTable {
                 G.call("domkit.Properties", "addClass", G.field(t, "dom"), ["bold-14"]);
             (cast row.texts:Map<String, Dynamic>)[key] = t;
         }
+        row.percentText = label(dom, ""); absolute(obj, row.percentText);
+        G.call("ui.comp.FmtText", "set_useEllipsis", row.percentText, [true]);
+        if (index < 0) G.call("domkit.Properties", "addClass", G.field(row.percentText, "dom"), ["bold-14"]);
         if (index >= 0) {
             row.icon = G.create("h2d.Bitmap", [null, obj]); absolute(obj, row.icon);
-            row.percentText = label(dom, ""); absolute(obj, row.percentText);
-            G.call("ui.comp.FmtText", "set_useEllipsis", row.percentText, [true]);
             G.call("ui.UIElement", "set_onClick", obj, [back]);
         }
         return row;
@@ -110,7 +111,8 @@ class NativeSkillTable {
         var texts:Map<String, Dynamic> = row.texts;
         var values:Map<String, String> = row.values;
         for (t in texts) show(t, false);
-        if (!heading) { show(row.percentText, false); position(row.icon, 5, 7); }
+        show(row.percentText, false);
+        if (!heading) position(row.icon, 5, 7);
         for (column in columns) {
             var t = texts[column.key]; show(t, true);
             var x = column.x + 5.0;
@@ -119,15 +121,19 @@ class NativeSkillTable {
             if (column.key == "ability") {
                 if (!heading && row.tile != null) { x += 32; cellWidth -= 32; }
                 fit(t, value, x, cellWidth, height, false);
-            } else if (!heading && column.key == "damage") {
+            } else if (column.key == "damage") {
                 if (cellWidth >= 190) {
-                    // Percentage, proportional bar, and total share one cell.
-                    fit(row.percentText, row.percent, x, 51, height, true); show(row.percentText, true);
-                    var barX = x + 58; var barWidth = cellWidth - 115;
-                    rect(row.graphic, barX, 16, barWidth, 8, 0x5b4334, .2);
-                    rect(row.graphic, barX, 16, barWidth * row.fraction, 8, row.color, .95);
-                    fit(t, value, x + cellWidth - 52, 52, height, true);
-                } else fit(t, value + " (" + row.percent + ")", x, cellWidth, height, true);
+                    // Give the share/bar and the numeric total their own headings.
+                    show(row.percentText, true);
+                    if (heading) fit(row.percentText, "Damage (%)", x, cellWidth - 58, height, false);
+                    else {
+                        fit(row.percentText, row.percent, x, 51, height, true);
+                        var barX = x + 58; var barWidth = cellWidth - 115;
+                        rect(row.graphic, barX, 16, barWidth, 8, 0x5b4334, .2);
+                        rect(row.graphic, barX, 16, barWidth * row.fraction, 8, row.color, .95);
+                    }
+                    fit(t, heading ? "Damage" : value, x + cellWidth - 52, 52, height, true);
+                } else fit(t, heading ? column.title : value + " (" + row.percent + ")", x, cellWidth, height, true);
             } else fit(t, value, x, cellWidth, height, true);
         }
     }

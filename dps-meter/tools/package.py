@@ -14,4 +14,7 @@ for source, target in [
     (project / "README.md", module / "README.md"),
 ]:
     shutil.copy2(source, target)
-print("Packaged dps-meter.hl; no executable helper, launcher, DLL, or user config included")
+plugin = package / "hlx/plugins/dps-meter"
+plugin.mkdir(parents=True)
+shutil.copy2(project / "build/native/dps_meter_desktop.hdll", plugin / "dps_meter_desktop.hdll")
+print("Packaged DPS Meter and its desktop plugin; no executable helper or user config included")

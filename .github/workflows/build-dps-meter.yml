@@ -54,6 +54,15 @@ jobs:
         run: haxe compile.hxml
       - name: Test fight history and combat boundaries
         run: haxe test.hxml
+      - name: Build desktop plugin
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y g++-mingw-w64-x86-64-posix
+          bash native/build.sh
+      - name: Test snapshot pixel buffers
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror tests/image_buffer_test.cpp -o build/native/image-buffer-test
+          build/native/image-buffer-test
       - name: Package HLX mod
         run: python tools/package.py
       - uses: actions/upload-artifact@v4
@@ -62,8 +71,24 @@ jobs:
           path: dps-meter/package/
           if-no-files-found: error
 
-  release:
+  windows-desktop:
     needs: [build]
+    runs-on: windows-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: farever-dps-meter
+          path: package
+      - name: Verify Windows clipboard and recoverable deletion
+        shell: pwsh
+        run: ./dps-meter/tests/desktop_windows_test.ps1 -Plugin ./package/hlx/plugins/dps-meter/dps_meter_desktop.hdll
+
+  release:
+    needs: [build, windows-desktop]
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/tags/dps-meter/v')
     runs-on: ubuntu-latest
     timeout-minutes: 5

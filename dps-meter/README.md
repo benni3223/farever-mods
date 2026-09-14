@@ -17,13 +17,15 @@ uploads to [Farever Logs](https://fareverlogs.fr/).
 1. Install [HLX Core](https://github.com/hlx-framework/hlx-core).
 2. Install [Better Mod Settings](https://github.com/xWink/farever-mods/tree/main/better-mod-settings) to configure the meter in-game.
 3. Download the latest DPS Meter [release](https://github.com/xWink/farever-mods/releases?q=dps-meter&expanded=true) or the `farever-dps-meter` artifact from a successful [build](https://github.com/xWink/farever-mods/actions/workflows/build-dps-meter.yml).
-4. Extract the ZIP directly into the Farever game directory. The archive already contains `hlx/mods/dps-meter/`.
+4. Extract the complete ZIP directly into the Farever game directory. It contains `hlx/mods/dps-meter/` and `hlx/plugins/dps-meter/`.
 5. Launch Farever.
 
-All mod files are contained in `hlx/mods/dps-meter/`. Upload settings
+The mod and its data are contained in `hlx/mods/dps-meter/`. Upload settings
 (`uploader.ini`), upload history (`uploader.log`), and queued reports (`logs/`)
 also live in this folder. Local fight charts live in `history/`. An external
-uploader is not required.
+uploader is not required. The included Windows x64 desktop plugin,
+`hlx/plugins/dps-meter/dps_meter_desktop.hdll`, supports folder opening, Recycle Bin
+deletion, and image clipboard access. Install this folder too when updating manually.
 
 Use DPS Meter in place of the original Group DPS `dinput8.dll` collector to avoid
 running two collectors that export the same encounters. Keep DLLs belonging to
@@ -74,6 +76,7 @@ Each ability occupies one row with its game icon, display name, total damage,
 share of your damage, and DPS. A full-width history view also has casts,
 average damage per cast, hits, average damage per hit, and critical-hit percentage.
 Ability DPS uses the entire fight's duration, matching the player's total DPS.
+Wide tables label the share/bar area **Damage (%)** and the numeric total **Damage**.
 The bars compare abilities against the highest-damage ability; the printed
 percentages use the player's total damage. Narrow windows keep the core columns
 readable. Ability rows have no hover tooltip.
@@ -81,8 +84,24 @@ readable. Ability rows have no hover tooltip.
 **Escape** closes the history window without also closing a window underneath it.
 The encounter and attempt lists have page controls and scroll when space is limited. The history
 window stays open independently of the live meter's out-of-combat fade.
-The footer shows the full absolute path to the local chart archive. Section
+The folder row sits just below the chart and shows the full absolute path to the
+local archive. Click its **folder icon** to open that location in Explorer. Section
 headings use the same larger bold style as Better Mod Settings titles.
+
+While viewing a fight or a player's breakdown, the **camera/clipboard button** at
+the top right copies an image of the complete player damage chart. It includes
+the encounter, fight summary, and every recorded player's damage, DPS, and share.
+The image grows vertically to include all players, independently of the window's
+scroll position or selected player. It uses the game's fonts and class colours;
+the folder path and window controls are excluded. Paste the image into a chat or
+image editor. A short message confirms successful copying.
+
+The red **Delete log** button at the bottom right moves that fight's local chart
+to the Windows Recycle Bin, then returns to the attempt list. If recycling is
+unavailable, the action reports an error and retains the log. There is no
+permanent-delete fallback. Uploader reports, other fights, and configuration are
+unaffected. You can restore the chart from the Recycle Bin; restart Farever to
+reindex a chart restored outside the game.
 
 **Boss Dungeons** are boss-only instances. **Classic Dungeons** have a dungeon
 monster-clearing phase before the boss. The game adds a `KillAllDungeonFoes`
@@ -121,8 +140,8 @@ without a boss name appear under **Other combat**. A fight still in progress
 when you leave an area or exit normally is also preserved. Completed rift phases
 keep their separate **Rift: Gates** and **Rift: [boss name]** charts.
 
-All fight history and sent reports are kept indefinitely, across game restarts
-and character changes. The former uploader `keep_days` option is ignored; no
+Fight history and sent reports are kept indefinitely unless you explicitly remove
+them. They survive game restarts and character changes. The former uploader `keep_days` option is ignored; no
 age-based cleanup runs. Local history works even with log uploads disabled,
 and ordinary or abandoned fights are never submitted as completed boss reports.
 The first launch imports surviving reports from `logs/`, `logs/sent/`, and

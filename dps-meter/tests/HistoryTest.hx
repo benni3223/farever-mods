@@ -6,6 +6,8 @@ import dpsmeter.HistoryCatalog;
 import dpsmeter.SkillBreakdown;
 import dpsmeter.NativeCombatMetadata;
 import dpsmeter.GameAccess;
+import dpsmeter.HistoryRequests;
+import dpsmeter.FightSnapshot;
 import haxe.Json;
 import sys.FileSystem;
 import sys.io.File;
@@ -43,7 +45,7 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
-        lifecycle(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails();
+        lifecycle(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions();
         Sys.println('Fight history: $checks checks passed');
     }
     static function lifecycle():Void {
@@ -357,6 +359,72 @@ class HistoryTest {
         check(Json.parse(File.getContent(root + "/history/" + legacy.id + ".json")).difficulty == null, "Difficulty recovery never rewrites the old log");
         check(HistoryCategory.encounterName({name: "Boss", difficulty: 7}, null) == "Boss - Difficulty 7", "Unrecognized future difficulty remains distinct");
         remove(root);
+    }
+    static function historyActions():Void {
+        var root = temp("recycle");
+        var recycled:Array<String> = [];
+        FileSystem.createDirectory(root + "/Recycle Bin");
+        var store = new FightHistoryStore(root, _ -> {}, path -> {
+            recycled.push(path);
+            FileSystem.rename(path, root + "/Recycle Bin/" + haxe.io.Path.withoutDirectory(path));
+        });
+        var source = FightHistory.encode(sample(), "chosen");
+        store.save(source); store.save(FightHistory.encode(sample(), "keep"));
+        store.query(request("delete", "", 0, "chosen"));
+        check(recycled.length == 1 && recycled[0] == FileSystem.fullPath(root + "/history") + "/chosen.json", "Only the selected archive file is passed to the recycler by absolute path");
+        check(File.getContent(root + "/Recycle Bin/chosen.json") == Json.stringify(source), "The recycled log keeps its full original contents for recovery");
+        check(store.query(request("fights", "The Guardian")).entries.length == 1, "Successful recycling removes the fight from the index immediately");
+        check(FileSystem.exists(root + "/history/keep.json"), "Other combat logs are untouched");
+        var reopened = new FightHistoryStore(root, _ -> {});
+        check(reopened.query(request("fights", "The Guardian")).entries.length == 1, "Deleted chart stays absent after restarting the archive");
+        var failing = new FightHistoryStore(root, _ -> {}, _ -> { throw "Recycle unavailable"; });
+        var failed = false;
+        try failing.query(request("delete", "", 0, "keep")) catch (_:Dynamic) failed = true;
+        check(failed && FileSystem.exists(root + "/history/keep.json") && failing.query(request("fights", "The Guardian")).entries.length == 1,
+            "Recycle failure preserves the file and index instead of permanently deleting");
+        var noOp = new FightHistoryStore(root, _ -> {}, _ -> {});
+        failed = false;
+        try noOp.query(request("delete", "", 0, "keep")) catch (_:Dynamic) failed = true;
+        check(failed && noOp.query(request("fights", "The Guardian")).entries.length == 1, "A recycler reporting success without moving the file cannot hide it");
+        var unexpectedlyDestructive = new FightHistoryStore(root, _ -> {}, path -> { FileSystem.deleteFile(path); throw "Shell could not confirm recycling"; });
+        var retainedContent = File.getContent(root + "/history/keep.json");
+        failed = false;
+        try unexpectedlyDestructive.query(request("delete", "", 0, "keep")) catch (_:Dynamic) failed = true;
+        check(failed && File.getContent(root + "/history/keep.json") == retainedContent,
+            "An unexpected destructive shell failure restores the complete log from its recovery backup");
+        check(!FileSystem.exists(root + "/history/chosen.json.tmp") && !FileSystem.exists(root + "/history/keep.json.tmp"),
+            "Completed and rolled-back deletion leave no draft that could resurrect or replace a chart later");
+        failed = false;
+        try store.query(request("delete", "", 0, "../keep")) catch (_:Dynamic) failed = true;
+        check(failed && recycled.length == 1, "Invalid or unindexed IDs never reach the filesystem recycler");
+        var queue = HistoryRequests.coalesce([request("groups"), request("fights"), request("delete", "", 0, "keep"), request("chart"), request("categories")]);
+        check([for (r in queue) r.action].join(",") == "fights,delete,categories", "Navigation coalescing preserves every explicit deletion in order");
+        queue = HistoryRequests.coalesce([request("delete", "", 0, "a"), request("delete", "", 0, "b")]);
+        check(queue.length == 2 && queue[0].fightId == "a" && queue[1].fightId == "b", "Consecutive mutations cannot supersede one another");
+        // Exercise the actual worker's navigation queue, not just its coalescer.
+        var worker = new LogUploader(root);
+        var failedDelete = request("delete", "", 0, "keep"); failedDelete.id = 100;
+        var followup = request("categories"); followup.id = 101;
+        worker.requestHistory(failedDelete); worker.requestHistory(followup); worker.browseHistory();
+        var result = worker.receiveHistory();
+        check(result.id == 100 && result.error != "", "Worker reports the deletion result even when navigation arrives immediately after it");
+        check(worker.receiveHistory().id == 101 && FileSystem.exists(root + "/history/keep.json"), "Worker then services navigation; missing native bridge never deletes permanently");
+        remove(root);
+
+        var f = sample(); var plan = FightSnapshot.plan(f);
+        check(plan.rows.length == 2 && plan.rows[0].name == "1. Ally" && plan.rows[0].dps == 50, "Snapshot uses the full ranked party and archived fight duration");
+        check(Math.abs(plan.rows[0].percent + plan.rows[1].percent - 100) < .000001, "Snapshot contributions use all players' total damage");
+        var original = Json.stringify(FightHistory.encode(f, "unchanged"));
+        FightSnapshot.plan(f);
+        check(Json.stringify(FightHistory.encode(f, "unchanged")) == original, "Snapshot planning does not mutate the saved chart");
+        for (i in 0...120) { var uid = "player_" + i; f.add(hit(12, i + 1, false, false, uid), profile(uid, false)); }
+        plan = FightSnapshot.plan(f);
+        check(plan.rows.length == 122 && plan.height > 5800 && plan.height >= 140 + 122 * plan.rowHeight,
+            "Large rift snapshots grow tall enough for every row beyond the visible viewport");
+        var instant = new Fight(10); instant.add(hit(10, 7), profile()); instant.closed = 10;
+        check(FightSnapshot.plan(instant).rows[0].dps == 7, "Snapshot DPS uses the same one-second floor for instant fights");
+        plan = FightSnapshot.plan(new Fight(1));
+        check(plan.rows.length == 0 && plan.height > 140, "Empty snapshots reserve readable empty-state space");
     }
     static function breakdown():Void {
         var skill = new SkillStats(); skill.damage = 4500; skill.casts = 13; skill.hits = 15; skill.crits = 7;

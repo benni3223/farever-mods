@@ -34,6 +34,16 @@ class NativeHistoryWindow {
     var next:Dynamic;
     var pageLabel:Dynamic;
     var footer:Dynamic;
+    var folderButton:Dynamic;
+    var deleteButton:Dynamic;
+    var snapshotButton:Dynamic;
+    var actionStatus:Dynamic;
+    var selectedEntry:HistoryEntry;
+    var deleting:Bool = false;
+    var copying:Bool = false;
+    var chartHeight:Int = 0;
+    var shownChartHeight:Int = -1;
+    var topInset:Int = 0;
     var rows:Array<Dynamic> = [];
     var writer:RunWriter;
     var serial:Int = 0;
@@ -85,6 +95,8 @@ class NativeHistoryWindow {
     }
     function navigate(mode:String, group:String, page:Int, ?entry:HistoryEntry):Void {
         this.mode = mode; this.group = group; this.page = page;
+        selectedEntry = entry; deleting = false;
+        status(""); show(deleteButton, false); show(snapshotButton, false);
         setText(title, "Fight History" + (category == "" ? "" : " · " + category));
         fight = null; pending = true; total = 0; serial++;
         if (mode == "groups") groupsPage = page;
@@ -115,6 +127,13 @@ class NativeHistoryWindow {
     function headingText():String return mode == "categories" ? "Choose a category" : mode == "groups" ? "Choose an encounter" : group;
     function display(response:HistoryResponse):Void {
         pending = false; total = response.total; page = response.page;
+        if (deleting) {
+            deleting = false;
+            if (response.error != "") {
+                status(response.error, true); show(deleteButton, true); show(snapshotButton, true);
+            } else navigate("fights", group, fightsPage);
+            return;
+        }
         if (response.error != "") { setText(empty, response.error); show(empty, true); return; }
         if (mode == "chart") {
             try fight = FightHistory.decode(response.record)
@@ -125,6 +144,7 @@ class NativeHistoryWindow {
                 return;
             }
             show(empty, false); show(G.field(chartPanel, "obj"), true);
+            show(deleteButton, true); show(snapshotButton, true);
         } else {
             var names = mode == "groups" || mode == "categories";
             if (mode == "groups") groupsPage = page; else if (mode == "fights") fightsPage = page;
@@ -149,6 +169,35 @@ class NativeHistoryWindow {
             setText(pageLabel, "Page " + (page + 1) + " of " + Std.int(Math.max(1, Math.ceil(total / FightHistory.PAGE_SIZE))));
         }
         lastRefresh = -1;
+    }
+    function openFolder():Void {
+        try { DesktopActions.openFolder(logsPath); status(""); }
+        catch (error:Dynamic) status(Std.string(error), true);
+    }
+    function deleteLog():Void {
+        if (pending || copying || fight == null || selectedEntry == null) return;
+        pending = true; deleting = true; serial++;
+        show(deleteButton, false); show(snapshotButton, false);
+        status("Moving log to the Recycle Bin...");
+        writer.requestHistory({id: serial, action: "delete", group: group, page: fightsPage, fightId: selectedEntry.id});
+    }
+    function copySnapshot():Void {
+        if (pending || copying || fight == null || selectedEntry == null) return;
+        copying = true;
+        try {
+            NativeFightSnapshot.copy(fight, selectedEntry, group, G.field(detail, "font"), headingFont);
+            status("Snapshot copied to clipboard.");
+        } catch (error:Dynamic) {
+            status(Std.string(error), true);
+            trace("[DPS Meter] Snapshot: " + Std.string(error));
+        }
+        copying = false;
+    }
+    function status(message:String, error:Bool = false):Void {
+        if (actionStatus == null) return;
+        G.call("h2d.Text", "set_text", actionStatus, [message]);
+        G.call("h2d.Text", "set_textColor", actionStatus, [error ? 0x982c24 : 0x526b31]);
+        show(actionStatus, message != ""); lastRefresh = -1;
     }
     function build(ui:Dynamic):Void {
         owner = ui;
@@ -185,6 +234,10 @@ class NativeHistoryWindow {
         absolute(window, header); absolute(window, content); absolute(content, bodyObject);
         absolute(bodyObject, options); absolute(options, container); absolute(container, G.field(panel, "obj"));
         back = button(panel, "Back", "dpsHistoryBack", goBack);
+        folderButton = HistoryButtons.folder(panel, openFolder);
+        snapshotButton = HistoryButtons.snapshot(panel, copySnapshot);
+        deleteButton = button(panel, "Delete log", "dpsHistoryDelete", deleteLog);
+        HistoryButtons.red(deleteButton);
         detail = label(panel, ""); empty = label(panel, "");
         chartInfo = G.create("h2d.Text", [G.field(detail, "font"), G.field(panel, "obj")]);
         G.call("h2d.Text", "set_textColor", chartInfo, [0x5b4334]);
@@ -209,7 +262,11 @@ class NativeHistoryWindow {
         footer = G.create("h2d.Text", [G.field(detail, "font"), G.field(panel, "obj")]);
         G.call("h2d.Text", "set_textColor", footer, [0x5b4334]);
         G.call("h2d.Text", "set_lineBreak", footer, [false]);
-        for (object in [back, heading, detail, chartInfo, empty, G.field(list, "obj"), G.field(chartPanel, "obj"), previous, next, pageLabel, footer])
+        actionStatus = G.create("h2d.Text", [G.field(detail, "font"), G.field(panel, "obj")]);
+        G.call("h2d.Text", "set_lineBreak", actionStatus, [false]);
+        show(actionStatus, false);
+        for (object in [back, heading, detail, chartInfo, empty, G.field(list, "obj"), G.field(chartPanel, "obj"), previous, next, pageLabel, footer,
+            folderButton, snapshotButton, deleteButton, actionStatus])
             absolute(G.field(panel, "obj"), object);
         for (text in [title, detail, empty, pageLabel]) {
             var left = G.enumeration("h2d.Align", "Left");
@@ -253,17 +310,20 @@ class NativeHistoryWindow {
             for (object in wrappers) { size(object, w - 16, h - 68); position(object, 0, 0); }
             size(G.field(panel, "obj"), inner, bodyHeight); position(G.field(panel, "obj"), 16, 8);
             size(back, 84, 34); position(back, 0, 8);
+            size(snapshotButton, 50, 34); position(snapshotButton, inner - 50, 8);
+            size(deleteButton, 138, 34); position(deleteButton, inner - 138, bodyHeight - 50);
             G.call("h2d.Text", "set_text", heading, [headingText()]);
             position(heading, mode == "categories" ? 0 : 100, 0);
             G.call("ui.comp.FmtText", "set_maxWidthText", detail, [inner]); position(detail, 0, 60);
             position(chartInfo, 0, 60);
-            var topInset = mode == "categories" || mode == "groups" ? 66 : 100;
+            topInset = mode == "categories" || mode == "groups" ? 66 : 100;
             G.call("ui.comp.FmtText", "set_maxWidthText", empty, [inner]); position(empty, 0, topInset);
-            var chartHeight = Std.int(Math.max(30, bodyHeight - topInset - 112));
+            chartHeight = Std.int(Math.max(30, bodyHeight - topInset - (mode == "chart" ? 112 : 144)));
             for (object in [G.field(list, "obj"), G.field(chartPanel, "obj")]) { size(object, inner, chartHeight); position(object, 0, topInset); }
             chart.resize(inner, chartHeight);
-            size(previous, 108, 34); position(previous, 0, bodyHeight - 96);
-            size(next, 108, 34); position(next, inner - 108, bodyHeight - 96);
+            shownChartHeight = chartHeight;
+            size(previous, 108, 34); position(previous, 0, bodyHeight - 82);
+            size(next, 108, 34); position(next, inner - 108, bodyHeight - 82);
             G.call("ui.comp.FmtText", "set_maxWidthText", pageLabel, [Std.int(Math.max(1, inner - 236))]);
             G.call("ui.comp.FmtText", "set_maxWidthText", title, [w - 112]);
             lastRefresh = -1;
@@ -275,20 +335,30 @@ class NativeHistoryWindow {
         var font = G.field(headingStyle, "font");
         if (font != null && font != headingFont) { headingFont = font; G.call("h2d.Text", "set_font", heading, [font]); }
         headingBaseScale = G.number(G.field(headingStyle, "scaleX"), 1);
-        fitLiteral(heading, width - 48 - (mode == "categories" ? 0 : 100), headingBaseScale * 1.75);
+        fitLiteral(heading, width - 48 - (mode == "categories" ? 0 : 100) - (mode == "chart" ? 62 : 0), headingBaseScale * 1.75);
         position(heading, mode == "categories" ? 0 : 100, 8 + (34 - textHeight(heading)) / 2);
         G.call("ui.comp.FmtText", "updateScale", detail);
         var bodyFont = G.field(detail, "font");
-        for (text in [footer, chartInfo]) if (bodyFont != null && G.field(text, "font") != bodyFont)
+        for (text in [footer, chartInfo, actionStatus]) if (bodyFont != null && G.field(text, "font") != bodyFont)
             G.call("h2d.Text", "set_font", text, [bodyFont]);
         var bodyScale = G.number(G.field(detail, "scaleX"), 1);
         fitLiteral(chartInfo, width - 48, bodyScale);
-        fitLiteral(footer, width - 48, bodyScale);
-        // Keep the actual rendered bottom of the path 24px above the panel's
-        // bottom, regardless of font size or UI scale.
-        position(footer, 0, height - 76 - 24 - textHeight(footer));
+        fitLiteral(footer, width - 48 - 44, bodyScale);
+        var usedHeight = mode == "chart" && fight != null ? chart.visibleContentHeight(chartHeight) : chartHeight;
+        if (mode == "chart" && fight != null && shownChartHeight != usedHeight) {
+            // Shrink the scroll hit area too, so it cannot cover the folder
+            // button placed in space that a short chart no longer needs.
+            shownChartHeight = usedHeight;
+            size(G.field(chartPanel, "obj"), width - 48, usedHeight);
+            chart.resize(width - 48, usedHeight);
+        }
+        var folderY = topInset + usedHeight + 12;
+        size(folderButton, 34, 30); position(folderButton, 0, folderY);
+        position(footer, 44, folderY + (30 - textHeight(footer)) / 2);
+        fitLiteral(actionStatus, width - 48 - (mode == "chart" ? 152 : 0), bodyScale);
+        position(actionStatus, 0, height - 76 - (mode == "chart" ? 33 : 23) - textHeight(actionStatus) / 2);
         position(title, (width - textWidth(title)) / 2, (60 - textHeight(title)) / 2);
-        position(pageLabel, (width - 48 - textWidth(pageLabel)) / 2, height - 76 - 92);
+        position(pageLabel, (width - 48 - textWidth(pageLabel)) / 2, height - 76 - 65 - textHeight(pageLabel) / 2);
         var inner = G.integer(G.call("h2d.Flow", "get_innerWidth", G.field(list, "obj")), width - 48);
         var scrollbar = G.field(G.field(list, "obj"), "scrollBar");
         if (scrollbar != null && G.field(scrollbar, "visible") == true)
@@ -325,6 +395,7 @@ class NativeHistoryWindow {
     }
     public function dispose():Void {
         requested = false; serial++;
+        selectedEntry = null; deleting = false; copying = false;
         if (window != null) { var old = window; window = null; G.call("h2d.Object", "remove", old); }
         owner = null; rows = []; wrappers = []; frame = null; body = null; container = null;
         chart = null; fight = null; width = 0; height = 0;

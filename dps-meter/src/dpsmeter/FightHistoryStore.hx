@@ -11,6 +11,7 @@ class FightHistoryStore {
     final root:String;
     final folder:String;
     final log:String->Void;
+    final recycle:String->Void;
     final entries:Map<String, HistoryEntry> = [];
     var initialized:Bool = false;
     var indexed:Bool = false;
@@ -18,8 +19,9 @@ class FightHistoryStore {
     var currentActivities:Map<String, String> = [];
     final learned:Map<String, HistoryEntry> = [];
     var legacyMetadata:Map<String, Dynamic>;
-    public function new(root:String, log:String->Void) {
+    public function new(root:String, log:String->Void, ?recycle:String->Void) {
         this.root = root; this.folder = root + "/history"; this.log = log;
+        this.recycle = recycle == null ? DesktopActions.recycle : recycle;
     }
     public function initialize():Void {
         if (initialized) return;
@@ -114,7 +116,26 @@ class FightHistoryStore {
         }
         index();
         var response:HistoryResponse = {id: request.id, page: 0, total: 0, groups: [], entries: [], record: null, error: ""};
-        if (request.action == "chart") {
+        if (request.action == "delete") {
+            if (!entries.exists(request.fightId)) throw "This fight log could not be found.";
+            var path = recordPath(request.fightId);
+            if (!FileSystem.exists(path) || FileSystem.isDirectory(path)) throw "This fight log could not be found.";
+            // The existing .json.tmp recovery handles a crash during the shell
+            // operation too. Keep this backup until recycling is confirmed.
+            // Even an unexpected OS permanent-delete fallback cannot lose the log.
+            var backup = path + ".tmp";
+            File.copy(path, backup);
+            try {
+                recycle(FileSystem.fullPath(path));
+                if (FileSystem.exists(path)) throw "The log is still in the history folder; it was not removed from the list.";
+                FileSystem.deleteFile(backup); // Only the confirmed-recycled backup.
+            } catch (error:Dynamic) {
+                if (!FileSystem.exists(path)) FileSystem.rename(backup, path);
+                else if (FileSystem.exists(backup)) FileSystem.deleteFile(backup);
+                throw error;
+            }
+            entries.remove(request.fightId);
+        } else if (request.action == "chart") {
             if (!entries.exists(request.fightId)) throw "This fight log could not be found.";
             response.record = Json.parse(File.getContent(recordPath(request.fightId)));
             FightHistory.validate(response.record);

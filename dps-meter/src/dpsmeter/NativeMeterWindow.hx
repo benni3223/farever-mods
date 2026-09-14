@@ -190,6 +190,9 @@ class NativeMeterWindow {
         var textWidth = G.number(G.call("h2d.Text", "get_textWidth", timer)) * G.number(G.field(timer, "scaleX"), 1);
         var textHeight = G.number(G.call("h2d.Text", "get_textHeight", timer)) * G.number(G.field(timer, "scaleY"), 1);
         position(timer, width - 32 - textWidth, Math.max(0, (34 - textHeight) / 2));
+        // Center the actual styled button on the same 34px toolbar as the timer.
+        var buttonHeight = G.number(G.call("h2d.Flow", "get_outerHeight", historyButton), 30);
+        position(historyButton, 12, (34 - buttonHeight) / 2);
         var nameInset = 56; // Leave the book button and a gap before the name.
         var available = Std.int(Math.max(1, width - 32 - textWidth - 12 - nameInset));
         if (available != bossLabelWidth) {

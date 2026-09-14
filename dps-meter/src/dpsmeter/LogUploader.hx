@@ -44,16 +44,17 @@ class LogUploader {
     public function receiveHistory():Null<HistoryResponse> return historyResponses.pop(false);
 
     function browseHistory():Void {
-        var request = historyRequests.pop(false);
-        // Fast navigation supersedes requests whose disk work has not started.
-        if (request == null) return;
+        var first = historyRequests.pop(false);
+        if (first == null) return;
+        var requests = [first];
         var next = historyRequests.pop(false);
-        while (next != null) { request = next; next = historyRequests.pop(false); }
+        while (next != null) { requests.push(next); next = historyRequests.pop(false); }
         saveMutex.acquire();
-        try historyResponses.add(history.query(request))
+        // Rapid navigation can replace reads, but never an explicit deletion.
+        for (request in HistoryRequests.coalesce(requests)) try historyResponses.add(history.query(request))
         catch (e:Dynamic) {
             historyResponses.add({id: request.id, page: 0, total: 0, groups: [], entries: [], record: null,
-                error: "Could not read fight history. Try opening it again."});
+                error: request.action == "delete" ? Std.string(e) : "Could not read fight history. Try opening it again."});
             log("History: " + Std.string(e));
         }
         saveMutex.release();
