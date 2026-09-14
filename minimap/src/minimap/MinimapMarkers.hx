@@ -148,7 +148,7 @@ class MinimapMarkers {
         // Keep geometry cached; only position and rotate the few active arrows
         // each frame so they follow movement and camera rotation smoothly.
         var c = Math.cos(rotation), s = Math.sin(rotation);
-        var north = MinimapGeometry.north(size, config.circular, rotation, markerScale);
+        var north = config.showNorthIndicator ? MinimapGeometry.north(size, config.circular, rotation, markerScale) : null;
         for (i in 0...count) {
             var point = alertTargets[i];
             var dx = (point.x - x) * scale, dy = (point.y - y) * scale;

@@ -137,7 +137,7 @@ class MinimapView {
         loadNextTile();
         markers.update(hero, config, x, y, radius, scale, rotation);
         markers.updateAlerts(config, x, y, size, scale, rotation);
-        compass.update(size, circular, rotation, markerScale / 100);
+        compass.update(size, circular, rotation, markerScale / 100, config.showNorthIndicator);
         show(true);
         updateHover(hero, x, y, rotation);
     }

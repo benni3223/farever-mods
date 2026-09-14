@@ -9,6 +9,7 @@ class MinimapCompass {
     var lastCircular:Bool = false;
     var lastRotation:Float = Math.NaN;
     var lastScale:Float = 0;
+    var lastVisible:Bool = true;
 
     public function new(parent:Dynamic) {
         graphic = G.create("h2d.Graphics", [parent]);
@@ -28,7 +29,12 @@ class MinimapCompass {
         }
     }
 
-    public function update(size:Int, circular:Bool, rotation:Float, markerScale:Float):Void {
+    public function update(size:Int, circular:Bool, rotation:Float, markerScale:Float, visible:Bool = true):Void {
+        if (visible != lastVisible) {
+            G.call("h2d.Object", "set_visible", graphic, [visible]);
+            lastVisible = visible;
+        }
+        if (!visible) return;
         if (size == lastSize && circular == lastCircular && rotation == lastRotation && markerScale == lastScale) return;
         var point = MinimapGeometry.north(size, circular, rotation, markerScale);
         G.call("h2d.Object", "setPosition", graphic, [point.x, point.y]);

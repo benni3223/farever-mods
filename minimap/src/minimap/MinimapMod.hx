@@ -14,6 +14,7 @@ typedef MinimapSettings = {
     var followCamera:Bool;
     var circular:Bool;
     var leftCorner:Bool;
+    var showNorthIndicator:Bool;
     var xOffset:Float;
     var yOffset:Float;
     var showPlayers:Bool;
@@ -50,7 +51,7 @@ class MinimapMod {
     @:hlx.config
     static var config:MinimapSettings = {
         enabled: true, transparency: 0, zoom: 30, size: 250, markerScale: 100, rotateMap: true, followCamera: true,
-        circular: true, leftCorner: true, xOffset: 0, yOffset: 0,
+        circular: true, leftCorner: true, showNorthIndicator: true, xOffset: 0, yOffset: 0,
         showPlayers: true, showPlants: true, showOre: true, showEnemies: true,
         hideCompletedCodexEnemies: true, hideNonCodexEnemies: true,
         showCompanions: true, hideCollectedCompanions: true, sparklingCompanionAlerts: true,

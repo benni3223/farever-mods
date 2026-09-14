@@ -27,8 +27,9 @@ class MinimapGeometry {
         // more pixels for the mask edge, including on rotated square maps.
         return edge(Math.sin(rotation), -Math.cos(rotation), size, circular, 14 * markerScale);
 
-    public static function alert(x:Float, y:Float, size:Float, circular:Bool, markerScale:Float, north:MapEdgePoint):MapEdgePoint {
+    public static function alert(x:Float, y:Float, size:Float, circular:Bool, markerScale:Float, north:Null<MapEdgePoint>):MapEdgePoint {
         var point = edge(x, y, size, circular, 14 * markerScale);
+        if (north == null) return point;
         var dx = point.x - north.x, dy = point.y - north.y;
         // Reserve space for the compass only when this arrow would cover it.
         return dx * dx + dy * dy < 24 * 24 * markerScale * markerScale
