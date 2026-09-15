@@ -3,9 +3,3 @@
 -cp tests
 -main SettingsTest
 --interp
---next
--cp src
--cp tests/stubs
--cp tests
--main AutorunTest
---interp
