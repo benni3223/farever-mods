@@ -223,17 +223,24 @@ class LandmarkIcons {
         end(g);
     }
 
-    public static function alertTriangle(g:Dynamic, radius:Float, color:Int):Void {
-        // A solid triangle distinguishes offscreen alerts from player arrows.
-        // Keep enough width to read at HUD size while retaining a pointed profile.
+    public static function alertArrow(g:Dynamic, radius:Float, color:Int):Void {
+        // A long shaft and triangular head distinguish alerts from player arrows.
         // Point along +X so the existing destination rotation still applies.
-        var vertices = [1., 0., -0.75, 0.55, -0.75, -0.55];
         fill(g, 0x201b1b);
-        polygon(g, radius + 1, vertices);
+        alertArrowShape(g, radius, 0.75);
         end(g);
         fill(g, color);
-        polygon(g, radius, vertices);
+        alertArrowShape(g, radius, 0);
         end(g);
+    }
+
+    static function alertArrowShape(g:Dynamic, r:Float, padding:Float):Void {
+        var tail = -0.9 * r - padding, shoulder = 0.4 * r;
+        var shaft = 0.16 * r + padding, head = 0.35 * r + padding;
+        // Two convex fills avoid a concave junction and keep the outline intact
+        // where the shaft meets the head. Padding stays inside the alert bounds.
+        polygon(g, 1, [tail, -shaft, shoulder, -shaft, shoulder, shaft, tail, shaft]);
+        polygon(g, 1, [r + padding, 0, shoulder - padding, head, shoulder - padding, -head]);
     }
 
     public static function sparklingRing(g:Dynamic, radius:Float):Void {
