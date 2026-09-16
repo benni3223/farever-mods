@@ -185,7 +185,7 @@ class MinimapMarkers {
 
     function updateRiftAlert(config:MinimapSettings, x:Float, y:Float, size:Int, scale:Float, rotation:Float, rifts:RiftMarkers):Void {
         riftAlertPosition = null;
-        var target = config.riftAlerts && RiftTiming.alert(rifts.remaining) ? rifts.upcoming : null;
+        var target = config.riftAlerts ? rifts.alertTarget() : null;
         var visible = false;
         if (target != null) {
             var dx = (target.x - x) * scale, dy = (target.y - y) * scale;

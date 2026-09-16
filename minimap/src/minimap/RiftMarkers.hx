@@ -9,6 +9,8 @@ class RiftMarkers {
     public var remaining(default, null):Float = Math.NaN;
     public var points(default, null):Array<RiftPoint> = [];
     public var upcoming(default, null):Null<RiftPoint>;
+    var portalOpen:Bool = false;
+    var openPortal:Null<RiftPoint>;
     var level:String;
     var layer:Dynamic;
     var nextRefresh:Float = 0;
@@ -23,6 +25,14 @@ class RiftMarkers {
     var reportedError:Bool = false;
 
     public function new(level:String) this.level = level;
+
+    public inline function alertActive():Bool return portalOpen || RiftTiming.alert(remaining);
+
+    public inline function alertTarget():Null<RiftPoint> {
+        // Keep guiding to the current portal until it closes, even after the
+        // countdown and prediction have advanced to the next Rift.
+        return portalOpen ? openPortal : (RiftTiming.alert(remaining) ? upcoming : null);
+    }
 
     public static function name(kind:String):String return switch kind {
         case "riftPortal": "Rift Portal";
@@ -50,6 +60,8 @@ class RiftMarkers {
         remaining = Math.NaN;
         points = [];
         upcoming = null;
+        portalOpen = false;
+        openPortal = null;
         try sample() catch (error:Dynamic) {
             if (!reportedError) {
                 reportedError = true;
@@ -91,11 +103,11 @@ class RiftMarkers {
         refreshCandidates();
         var activeId = G.text(G.field(event, "activeRift"));
         var pending = event != null && G.call("st.event.WorldEvent", "isPending", event) == true;
-        var open = event != null && G.call("st.event.WorldEvent", "isOngoing", event) == true
+        portalOpen = event != null && G.call("st.event.WorldEvent", "isOngoing", event) == true
             && G.number(G.call("st.event.WorldEvent", "get_remainingTime", event)) > 0;
-        if (open) {
-            var point = locate(activeId, "riftPortal");
-            if (point != null) points.push(point);
+        if (portalOpen) {
+            openPortal = locate(activeId, "riftPortal");
+            if (openPortal != null) points.push(openPortal);
         }
         if (pending) {
             // Replicated event data always wins over a prediction.
