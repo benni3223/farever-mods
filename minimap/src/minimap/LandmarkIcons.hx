@@ -236,7 +236,7 @@ class LandmarkIcons {
 
     static function alertArrowShape(g:Dynamic, r:Float, padding:Float):Void {
         var tail = -0.9 * r - padding, shoulder = 0.4 * r;
-        var shaft = 0.16 * r + padding, head = 0.35 * r + padding;
+        var shaft = 0.19 * r + padding, head = 0.39 * r + padding;
         // Two convex fills avoid a concave junction and keep the outline intact
         // where the shaft meets the head. Padding stays inside the alert bounds.
         polygon(g, 1, [tail, -shaft, shoulder, -shaft, shoulder, shaft, tail, shaft]);
