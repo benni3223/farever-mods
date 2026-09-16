@@ -196,7 +196,7 @@ class MinimapMarkers {
             if (visible) {
                 if (riftArrow == null) {
                     riftArrow = G.create("h2d.Graphics", [alertLayer]);
-                    drawPlayerArrow(riftArrow, 9, 0xff6860);
+                    drawPlayerArrow(riftArrow, 9, LandmarkIcons.RIFT_ALERT_COLOR);
                 }
                 var north = config.showNorthIndicator ? MinimapGeometry.north(size, config.circular, rotation, markerScale) : null;
                 var pos = MinimapGeometry.alert(sx, sy, size, config.circular, markerScale, north);
@@ -716,8 +716,8 @@ class MinimapMarkers {
 
     function draw(points:Array<MapPoint>, scale:Float):Void {
         hitPoints = [];
-        // Preserve marker priority, with services above other map content.
-        for (kind in ["player", "activity", "ascension", "dungeon", "inactiveRift", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
+        // All Rift states draw above enemies; services retain top priority.
+        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
             for (point in points) if (point.kind == kind) {
                 point.elevation = elevationDirection(point.z, heroHeight);
                 hitPoints.push(point);

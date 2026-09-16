@@ -317,7 +317,7 @@ class MinimapView {
                 riftHeight = G.number(G.call("h2d.Text", "get_textHeight", riftText)) * riftFontScale;
             }
         }
-        var color = config.riftAlerts && rifts.alertActive() ? 0xff6860 : 0xfff3d6;
+        var color = config.riftAlerts && rifts.alertActive() ? LandmarkIcons.RIFT_ALERT_COLOR : 0xfff3d6;
         if (color != riftColor) {
             riftColor = color;
             G.call("h2d.Text", "set_textColor", riftText, [color]);

@@ -4,6 +4,8 @@ import minimap.GameAccess as G;
 
 /** Local pixel geometry, retained by the marker pool across refreshes. */
 class LandmarkIcons {
+    public static inline var RIFT_ALERT_COLOR:Int = 0xff66df;
+
     public static function draw(graphics:Dynamic, kind:String, radius:Float):Void {
         if (kind == "obelisk") obelisk(graphics, radius);
         else if (kind == "dungeon") dungeon(graphics, radius);
@@ -88,33 +90,39 @@ class LandmarkIcons {
     }
 
     static function upcomingRift(g:Dynamic, r:Float):Void {
-        // Five horned faces in two staggered rows. The back row stays visible
-        // above the two larger front faces, even at the default minimap scale.
-        demonHead(g, r, -0.62, -0.37, 0.3);
-        demonHead(g, r, 0, -0.43, 0.32);
-        demonHead(g, r, 0.62, -0.37, 0.3);
-        demonHead(g, r, -0.42, 0.35, 0.4);
-        demonHead(g, r, 0.42, 0.35, 0.4);
-    }
-
-    static function demonHead(g:Dynamic, r:Float, x:Float, y:Float, size:Float):Void {
-        var face = [-0.72, -0.14, -0.94, -0.96, -0.28, -0.52, 0.28, -0.52,
-            0.94, -0.96, 0.72, -0.14, 0.63, 0.5, 0, 0.86, -0.63, 0.5];
+        // Broken violet ribbons spiral into a bright pink spark, like the
+        // forming world portal. Leave gaps instead of an open portal's centre.
+        var ribbons:Array<Array<Float>> = [
+            [-0.84, -0.58, -0.42, -0.85, 0.14, -0.96, 0.63, -0.76,
+                0.86, -0.51, 0.35, -0.66, -0.22, -0.68],
+            [-0.58, -0.49, -0.12, -0.34, 0.4, -0.02, 0.56, 0.27,
+                0.21, 0.02, -0.23, -0.19],
+            [-0.67, -0.1, -0.25, 0.18, -0.06, 0.33, 0.08, 0.58,
+                -0.18, 0.45, -0.37, 0.22],
+            [-0.05, 0.36, -0.32, 0.38, -0.62, 0.63, -0.74, 0.94,
+                -0.43, 0.72, -0.19, 0.59, 0.06, 0.51],
+            [0.04, 0.43, 0.29, 0.55, 0.44, 0.78, 0.75, 0.92,
+                0.4, 0.88, 0.19, 0.68, -0.03, 0.58]
+        ];
         for (pass in 0...2) {
-            var s = size + (pass == 0 ? 0.1 : 0);
-            var vertices:Array<Float> = [];
-            for (i in 0...Std.int(face.length / 2)) {
-                vertices.push(x + face[i * 2] * s);
-                vertices.push(y + face[i * 2 + 1] * s);
+            for (i in 0...ribbons.length) {
+                fill(g, pass == 0 ? 0x32133e : (i < 2 ? 0x8c36bc : 0xf624bf));
+                polygon(g, pass == 0 ? r + 1 : r, ribbons[i]);
+                end(g);
             }
-            fill(g, pass == 0 ? 0x321b20 : 0xef5350);
-            polygon(g, r, vertices);
-            end(g);
         }
-        fill(g, 0xffefb3);
-        for (side in [-1, 1])
-            polygon(g, r, [x + side * size * 0.16, y + size * 0.11,
-                x + side * size * 0.55, y - size * 0.12, x + side * size * 0.49, y + size * 0.24]);
+        fill(g, 0xc574ed);
+        polygon(g, r, [-0.65, -0.66, -0.25, -0.82, 0.18, -0.84,
+            0.54, -0.7, 0.14, -0.73, -0.23, -0.74]);
+        end(g);
+        fill(g, RIFT_ALERT_COLOR);
+        polygon(g, r, [0.44, -0.17, 0.68, -0.08, 0.8, 0.13, 0.73, 0.38,
+            0.69, 0.13, 0.6, 0.03]);
+        polygon(g, r, [-0.05, 0.22, 0.08, 0.36, 0.3, 0.41, 0.11, 0.51,
+            0.03, 0.7, -0.1, 0.55, -0.34, 0.51, -0.17, 0.39]);
+        end(g);
+        fill(g, 0xffcef5);
+        polygon(g, r, [-0.03, 0.32, 0.07, 0.44, -0.02, 0.57, -0.13, 0.45]);
         end(g);
     }
 

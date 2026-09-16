@@ -43,10 +43,10 @@ class RiftMarkersTest {
         var rifts = new RiftMarkers("World");
         rifts.update(layer, 0);
         eq(rifts.remaining, 1700., "native cadence and synchronized clock drive timer before announcement");
-        eq(rifts.alertActive(), false, "no red timer outside the alert window without an open portal");
+        eq(rifts.alertActive(), false, "no alert colour outside the alert window without an open portal");
         eq(rifts.alertTarget(), null, "no arrow outside the alert window without an open portal");
         eq(rifts.upcoming.id, "First", "upcoming location uses native selection order");
-        eq(rifts.upcoming.kind, "upcomingRift", "unopened portal uses demon marker");
+        eq(rifts.upcoming.kind, "upcomingRift", "unopened portal uses forming portal marker");
         eq(G.randomSeeds[0], 5400, "next expected event time seeds an isolated native RNG");
         eq(G.randomCounts[0], 3, "other maps count; duplicates and non-portals do not");
         eq(rifts.points.length, 1, "only chosen upcoming portal is visible");
@@ -67,7 +67,7 @@ class RiftMarkersTest {
         rifts.update(layer, 2);
         eq(rifts.remaining, 494., "replicated native event timer overrides derived timing");
         eq(rifts.upcoming.id, "Second", "replicated portal overrides prediction");
-        eq(rifts.alertActive(), true, "upcoming Rift within 15 minutes makes the timer red");
+        eq(rifts.alertActive(), true, "upcoming Rift within 15 minutes activates the timer colour");
         eq(rifts.alertTarget().id, "Second", "upcoming alert points to the announced portal");
         eq(rifts.points[0].kind, "upcomingRift", "pending event does not draw an open portal");
         shown = rifts.displayPoints(false);
@@ -85,14 +85,14 @@ class RiftMarkersTest {
         eq(rifts.points.length, 1, "same location next cycle does not duplicate the open marker");
         eq(G.randomSeeds[1], 7200, "next cycle advances prediction seed");
         eq(rifts.remaining, 1750., "open event still counts down to the next Rift");
-        eq(rifts.alertActive(), true, "open portal keeps the timer red beyond 15 minutes");
+        eq(rifts.alertActive(), true, "open portal keeps the timer alert colour beyond 15 minutes");
         eq(rifts.alertTarget().kind, "riftPortal", "alert follows the open portal when the next Rift shares its location");
         eq(rifts.displayPoints(false).length, 2, "open/next same location has no duplicate inactive marker");
         eq(rifts.displayPoints(true)[0].kind, "riftPortal", "inactive filter preserves open portals");
         G.riftEvent.openRemaining = 0.;
         rifts.update(layer, 4);
         eq(rifts.points[0].kind, "upcomingRift", "expired open state cannot leave a stale portal marker");
-        eq(rifts.alertActive(), false, "expired portal clears red timer before closed state arrives");
+        eq(rifts.alertActive(), false, "expired portal clears alert colour before closed state arrives");
         eq(rifts.alertTarget(), null, "expired portal clears its alert arrow");
         G.riftEvent.state = "closed";
         rifts.update(layer, 5);
@@ -115,7 +115,7 @@ class RiftMarkersTest {
         rifts.update(layer, 5.6);
         eq(rifts.points.length, 1, "closing a portal removes only its current marker");
         eq(rifts.points[0].id, "First", "upcoming marker survives current portal closure");
-        eq(rifts.alertActive(), false, "closed event clears red timer even with positive stale remaining time");
+        eq(rifts.alertActive(), false, "closed event clears alert colour even with positive stale remaining time");
         eq(rifts.alertTarget(), null, "closed event clears open portal arrow");
         shown = rifts.displayPoints(false);
         eq(shown[1].id, "Second", "closed portal returns to its inactive location");
