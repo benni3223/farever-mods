@@ -203,7 +203,7 @@ class MinimapMarkers {
                 G.call("h2d.Object", "setScale", riftArrow, [markerScale]);
                 G.call("h2d.Object", "setPosition", riftArrow, [pos.x, pos.y]);
                 G.call("h2d.Object", "set_rotation", riftArrow, [Math.atan2(sy, sx)]);
-                riftAlertPosition = {x: pos.x, y: pos.y, name: target.kind == "riftPortal" ? "Rift Portal" : "Upcoming Rift"};
+                riftAlertPosition = {x: pos.x, y: pos.y, name: RiftMarkers.name(target.kind)};
             }
         }
         if (riftArrow != null) G.call("h2d.Object", "set_visible", riftArrow, [visible]);
@@ -421,9 +421,9 @@ class MinimapMarkers {
                 }
                 points.push(point);
             }
-            for (point in rifts.points) if (near(point.x, point.y, x, y, radius))
+            for (point in rifts.displayPoints(config.hideInactiveRifts)) if (near(point.x, point.y, x, y, radius))
                 points.push({kind: point.kind, x: point.x, y: point.y, z: point.z,
-                    name: point.kind == "riftPortal" ? "Rift Portal" : "Upcoming Rift"});
+                    name: RiftMarkers.name(point.kind)});
         }
         return points;
     }
@@ -599,6 +599,7 @@ class MinimapMarkers {
         case "plant", "ore", "boss": 5;
         case "obelisk", "dungeon", "soulstone", "secretOrb": 8;
         case "targetDummy", "riftPortal", "upcomingRift": 9;
+        case "inactiveRift": 7;
         default: 3.5;
     };
 
@@ -716,7 +717,7 @@ class MinimapMarkers {
     function draw(points:Array<MapPoint>, scale:Float):Void {
         hitPoints = [];
         // Preserve marker priority, with services above other map content.
-        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
+        for (kind in ["player", "activity", "ascension", "dungeon", "inactiveRift", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
             for (point in points) if (point.kind == kind) {
                 point.elevation = elevationDirection(point.z, heroHeight);
                 hitPoints.push(point);
@@ -765,7 +766,7 @@ class MinimapMarkers {
     function drawIcon(point:MapPoint):Void {
         var kind = point.kind;
         if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy"
-            || kind == "riftPortal" || kind == "upcomingRift") {
+            || kind == "riftPortal" || kind == "upcomingRift" || kind == "inactiveRift") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }
@@ -787,22 +788,14 @@ class MinimapMarkers {
         };
         var sparkling = point.sparkling == true;
         var radius = markerRadius(kind);
+        if (kind == "companion" && sparkling) LandmarkIcons.sparklingRing(graphics, radius + 3.5);
         G.call("h2d.Graphics", "beginFill", graphics, [0x201b1b, 0.95]);
-        if (kind == "companion" && sparkling)
-            G.call("h2d.Graphics", "drawCircle", graphics, [0.0, 0.0, radius + 3.5, 32]);
-        else shape(point, radius + (sparkling ? 3.5 : 1));
+        shape(point, radius + (sparkling && kind != "companion" ? 3.5 : 1));
         G.call("h2d.Graphics", "endFill", graphics);
-        if (sparkling && (kind == "enemy" || kind == "boss" || kind == "companion")) {
+        if (sparkling && (kind == "enemy" || kind == "boss")) {
             G.call("h2d.Graphics", "beginFill", graphics, [0xffdc42, 1.0]);
-            if (kind == "companion")
-                G.call("h2d.Graphics", "drawCircle", graphics, [0.0, 0.0, radius + 2.5, 32]);
-            else shape(point, radius + 2.5);
+            shape(point, radius + 2.5);
             G.call("h2d.Graphics", "endFill", graphics);
-            if (kind == "companion") {
-                G.call("h2d.Graphics", "beginFill", graphics, [0x201b1b, 1.0]);
-                G.call("h2d.Graphics", "drawCircle", graphics, [0.0, 0.0, radius, 32]);
-                G.call("h2d.Graphics", "endFill", graphics);
-            }
         }
         G.call("h2d.Graphics", "beginFill", graphics, [color, 1.0]);
         shape(point, radius);
@@ -919,11 +912,7 @@ class MinimapMarkers {
     }
 
     static function drawAlertArrow(graphics:Dynamic):Void {
-        for (ring in [{r: 12., color: 0x201b1b}, {r: 11., color: 0xffdc42}, {r: 8.5, color: 0x201b1b}]) {
-            G.call("h2d.Graphics", "beginFill", graphics, [ring.color, 1.0]);
-            G.call("h2d.Graphics", "drawCircle", graphics, [0., 0., ring.r, 32]);
-            G.call("h2d.Graphics", "endFill", graphics);
-        }
+        LandmarkIcons.sparklingRing(graphics, 12);
         drawPlayerArrow(graphics, 7, 0xffdc42);
     }
 

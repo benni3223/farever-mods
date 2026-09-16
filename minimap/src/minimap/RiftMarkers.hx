@@ -16,12 +16,32 @@ class RiftMarkers {
     var period:Float = Math.NaN;
     var elementSource:Dynamic;
     var candidates:Array<String> = [];
+    var inactive:Array<RiftPoint> = [];
     var locations:Map<String, RiftPoint> = [];
     var predictedSeed:Null<Int>;
     var predictedId:String = "";
     var reportedError:Bool = false;
 
     public function new(level:String) this.level = level;
+
+    public static function name(kind:String):String return switch kind {
+        case "riftPortal": "Rift Portal";
+        case "upcomingRift": "Upcoming Rift";
+        default: "Inactive Rift";
+    };
+
+    public function displayPoints(hideInactive:Bool):Array<RiftPoint> {
+        if (hideInactive) return points;
+        var result = points.copy();
+        for (point in inactive) {
+            // Each location gets one state. Active/announced portals replace
+            // the cached inactive marker without changing countdown or alerts.
+            var occupied = false;
+            for (active in points) if (active.id == point.id) { occupied = true; break; }
+            if (!occupied) result.push(point);
+        }
+        return result;
+    }
 
     public function update(nextLayer:Dynamic, now:Float):Void {
         if (nextLayer == layer && now < nextRefresh) return;
@@ -107,6 +127,7 @@ class RiftMarkers {
         if (source == elementSource) return;
         elementSource = source;
         candidates = [];
+        inactive = [];
         locations = [];
         predictedSeed = null;
         if (source == null) return;
@@ -118,6 +139,11 @@ class RiftMarkers {
                 || G.field(definition, "mapId") == null || G.integer(G.field(inf, "type"), -1) != 20) continue;
             var id = G.text(G.field(inf, "id"));
             if (id != "" && candidates.indexOf(id) < 0) candidates.push(id);
+        }
+        // Resolve static locations once per definition table, not every frame.
+        for (id in candidates) {
+            var point = locate(id, "inactiveRift");
+            if (point != null) inactive.push(point);
         }
     }
 

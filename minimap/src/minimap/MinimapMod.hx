@@ -39,6 +39,7 @@ typedef MinimapSettings = {
     var hideCompletedActivities:Bool;
     var hideAscensions:Bool;
     var hideDungeons:Bool;
+    var hideInactiveRifts:Bool;
     var hideCopper:Bool;
     var hideIron:Bool;
     var hideTin:Bool;
@@ -61,7 +62,7 @@ class MinimapMod {
         showCompanions: true, hideCollectedCompanions: true, sparklingCompanionAlerts: true,
         showRespawnPoints: true, showObelisks: true, showSoulstoneCircles: true, showNpcs: true,
         showChests: true, showSecretOrbs: true, showActivities: true,
-        hideCompletedActivities: true, hideAscensions: false, hideDungeons: false,
+        hideCompletedActivities: true, hideAscensions: false, hideDungeons: false, hideInactiveRifts: false,
         hideCopper: false, hideIron: false, hideTin: false, hideTungstene: false,
         hideMadrigold: false, hideLavendula: false, hideAncientThyme: false, hideZealotus: false
     };

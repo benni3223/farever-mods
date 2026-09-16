@@ -48,6 +48,11 @@ class RiftMarkersTest {
         eq(G.randomSeeds[0], 5400, "next expected event time seeds an isolated native RNG");
         eq(G.randomCounts[0], 3, "other maps count; duplicates and non-portals do not");
         eq(rifts.points.length, 1, "only chosen upcoming portal is visible");
+        var shown = rifts.displayPoints(false);
+        eq(shown.length, 2, "all known locations on this map have markers");
+        eq(shown[1].id, "Second", "unselected portal gets an inactive marker");
+        eq(shown[1].kind, "inactiveRift", "inactive locations use their own icon");
+        eq(rifts.displayPoints(true).length, 1, "inactive filter keeps the upcoming Rift");
         for (i in 1...100) rifts.update(layer, i / 1000);
         eq(G.riftReads, 1, "native event sampling is bounded, not per frame");
         clock.serverNow = 200;
@@ -61,6 +66,9 @@ class RiftMarkersTest {
         eq(rifts.remaining, 494., "replicated native event timer overrides derived timing");
         eq(rifts.upcoming.id, "Second", "replicated portal overrides prediction");
         eq(rifts.points[0].kind, "upcomingRift", "pending event does not draw an open portal");
+        shown = rifts.displayPoints(false);
+        eq(shown.length, 2, "announced location replaces its inactive marker");
+        eq(shown[1].id, "First", "previous prediction becomes inactive when announcement differs");
 
         G.riftEvent.state = "open";
         G.riftEvent.countdown = 1750.;
@@ -73,6 +81,8 @@ class RiftMarkersTest {
         eq(rifts.points.length, 1, "same location next cycle does not duplicate the open marker");
         eq(G.randomSeeds[1], 7200, "next cycle advances prediction seed");
         eq(rifts.remaining, 1750., "open event still counts down to the next Rift");
+        eq(rifts.displayPoints(false).length, 2, "open/next same location has no duplicate inactive marker");
+        eq(rifts.displayPoints(true)[0].kind, "riftPortal", "inactive filter preserves open portals");
         G.riftEvent.openRemaining = 0.;
         rifts.update(layer, 4);
         eq(rifts.points[0].kind, "upcomingRift", "expired open state cannot leave a stale portal marker");
@@ -90,10 +100,14 @@ class RiftMarkersTest {
         eq(rifts.points[0].id, "Second", "open marker stays at current event");
         eq(rifts.points[1].id, "First", "next marker appears at future event");
         eq(G.elementReads, 2, "definition reload rebuilds the candidate cache");
+        eq(rifts.displayPoints(false).length, 2, "current and upcoming replace both inactive markers");
         G.riftEvent.state = "closed";
         rifts.update(layer, 5.6);
         eq(rifts.points.length, 1, "closing a portal removes only its current marker");
         eq(rifts.points[0].id, "First", "upcoming marker survives current portal closure");
+        shown = rifts.displayPoints(false);
+        eq(shown[1].id, "Second", "closed portal returns to its inactive location");
+        eq(shown[1].kind, "inactiveRift", "closed portal has an inactive icon");
 
         G.riftEvent = null;
         G.randomIndex = 0;
@@ -101,6 +115,10 @@ class RiftMarkersTest {
         rifts.update(layer, 6);
         eq(rifts.points.length, 0, "portals on another map are not projected onto this map");
         eq(rifts.upcoming, null, "another map cannot produce a misleading edge arrow");
+        shown = rifts.displayPoints(false);
+        eq(shown.length, 2, "known local sites stay visible when the next Rift is on another map");
+        eq(shown[0].kind, "inactiveRift", "local sites are inactive when next Rift is elsewhere");
+        eq(rifts.displayPoints(true).length, 0, "inactive filter hides only the remaining local sites");
         rifts.update({_time: {_time: {serverStart: 3600., serverNow: 200.}}, worldEvents: {}}, 6.01);
         eq(rifts.remaining, 1600., "layer switch refreshes immediately within throttle window");
 
@@ -123,6 +141,7 @@ class RiftMarkersTest {
         unavailable.update({worldEvents: {}}, 0);
         eq(unavailable.remaining > 0 && unavailable.remaining <= 3600, true, "missing native time allows hour fallback");
         eq(unavailable.upcoming, null, "fallback never guesses a portal position");
+        eq(unavailable.displayPoints(false).length, 2, "known inactive locations do not need a predicted schedule");
 
         for (circular in [false, true]) {
             eq(MinimapGeometry.showAlert(true, 0, 0, 250, circular, 10), false, "visible Rift hides arrow");

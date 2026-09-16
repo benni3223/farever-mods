@@ -23,7 +23,7 @@ A compact overworld minimap with a centered player arrow.
 - Follows your position an arrow showing your character's facing direction.
 - Fixed orientation, character-following rotation, or camera-following rotation.
 - An outlined N and compass needle track north along the minimap edge.
-- A server-synchronized Rift countdown above the map, with upcoming and open portal markers.
+- A server-synchronized Rift countdown above the map, with inactive, upcoming, and open portal markers.
 - Red Rift alerts during the final 15 minutes, including an arrow when the destination is off-screen.
 - Adjustable zoom, size, and transparency.
 - Marker scale slider resizes icons and all arrows together.
@@ -56,7 +56,8 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Activities | Purple square with a white four-point star |
 | Ascensions | Gold device with a bright cyan core |
 | Dungeons | Stone doorway with a purple and cyan portal |
-| Upcoming Rift | Three red horned demons |
+| Inactive Rift | Smaller grey closed fissure |
+| Upcoming Rift | Five red horned demons |
 | Open Rift Portal | Jagged pink tear with a dark interior |
 | Respawn points | White cross |
 | Obelisks | Broad grey stone idol with a split crown and gold inlays |
@@ -72,13 +73,15 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 
 **Show NPCs** also controls the Guild Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
 
-Secret orb tooltips always read **Secret Orb**. Sparkling companion alerts disappear whenever any part of the companion marker is visible, and reappear when it leaves the map. This follows zoom and rotation for both map shapes. Alerts still work when normal companion markers are disabled. Their yellow rings have no height arrows; ordinary markers retain their height indicators.
+Secret orb tooltips always read **Secret Orb**. Sparkling companion alerts disappear whenever any part of the companion marker is visible, and reappear when it leaves the map. This follows zoom and rotation for both map shapes. Alerts still work when normal companion markers are disabled. Both sparkling companion markers and their alert arrows have yellow rings with transparent centres, letting the map show through around the pawprint or arrow. Their alert rings have no height arrows; ordinary markers retain their height indicators.
 
 **Show north indicator** is on by default in **General**. The north indicator stays at the top of a fixed map and follows north around the edge of a rotating map. It scales with the other markers. Compass and alert geometry is cached; movement updates only their transforms and visibility. Turning it off also frees its edge space for sparkling companion alerts.
 
 **Show Rift timer** and **Rift alerts** follow the north setting in **General**, both on by default. The `mm:ss` countdown sits above the minimap with a slightly larger gap than the hover caption. It uses the native Rift event timer when available, otherwise the game's Rift frequency and synchronized server clock. A local top-of-the-hour fallback is used only if native timing is unavailable; fallback time never supplies a guessed portal location. The countdown advances to the next Rift when the current one opens.
 
 Rift locations follow the replicated event's selected portal. Before the event is announced, the upcoming marker uses the same candidate order, event-time seed, and isolated native random generator as the game's own Rift selection. Open portals use the live event state and disappear when the portal closes. If consecutive Rifts choose the same location, the open icon takes precedence over the upcoming icon. Rift markers follow **Show activities**, but completion filters never hide them.
+
+Other known Rift locations appear as smaller grey closed fissures, with the hover label **Inactive Rift**. Each location has just one marker: inactive markers change to the upcoming or open design as appropriate. **Hide inactive Rift locations**, in **Activities**, defaults to off and hides only the inactive markers. Static locations are cached and never generate Rift alert arrows.
 
 With **Rift alerts** enabled, the countdown turns red at **15:00** or less. A red arrow without a ring or height indicator points to the next Rift until its upcoming/portal marker enters view, including partial visibility. This follows zoom, rotation, and both minimap shapes. Alerts work independently of timer visibility and can still guide you when activity markers are disabled. Definitions, selected locations, and icon geometry are cached; native event state is sampled five times per second and text changes only when its displayed second or colour changes. These features only read game state and do not send server commands.
 
@@ -88,7 +91,7 @@ With **Rift alerts** enabled, the countdown turns red at **15:00** or less. A re
 
 **X offset %** and **Y offset %** are in **General**, both defaulting to **0%**. X moves right from the left corner, or left from the right corner; Y always moves down. **50%** centers the minimap on that axis. **100%** reaches the opposite screen edge with the same 24 UI-pixel margin as the starting edge, including the map's border. Position updates with minimap size, window size, and UI scale. Both map shapes and their hover/zoom controls move together.
 
-The **Activities** section includes **Show activities**, **Hide completed activities** (on by default), **Hide ascensions**, and **Hide dungeons** (both off by default). Completed ascensions and dungeons remain visible unless hidden with their own option. **Show activities** controls all three categories. Other activities, including rifts, still follow **Hide completed activities**. Markers use the game's world-map locations, including overworld entrances for instanced activities.
+The **Activities** section includes **Show activities**, **Hide completed activities** (on by default), **Hide ascensions**, **Hide dungeons**, and **Hide inactive Rift locations** (all three off by default). Completed ascensions and dungeons remain visible unless hidden with their own option. **Show activities** controls all activity markers, including Rifts. Ordinary activities follow **Hide completed activities**; Rifts follow their current event state instead. Markers use the game's world-map locations, including overworld entrances for instanced activities.
 
 **Hide mastered Codex enemies** filters at each enemy's final Codex mastery threshold. **Hide partially completed Codex enemies** filters at the Codex XP-reward milestone. Both options are in **Enemies** and default to off; existing saved preferences are preserved. To keep enemies visible until full mastery, turn **Hide mastered Codex enemies** on and **Hide partially completed Codex enemies** off. If both are enabled, the earlier completion milestone hides the marker. Both filters read the game's thresholds for normal, large, elite, and boss enemies and compare them with the current character's kill count.
 

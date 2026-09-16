@@ -12,6 +12,29 @@ class LandmarkIcons {
         else if (kind == "targetDummy") targetDummy(graphics, radius);
         else if (kind == "riftPortal") riftPortal(graphics, radius);
         else if (kind == "upcomingRift") upcomingRift(graphics, radius);
+        else if (kind == "inactiveRift") inactiveRift(graphics, radius);
+    }
+
+    static function inactiveRift(g:Dynamic, r:Float):Void {
+        // A narrow, sealed grey fissure based on the approved reference.
+        var seam = [0.1, -1., 0.28, -0.54, 0.15, -0.25, 0.29, 0.0,
+            0.15, 0.23, 0.43, 0.14, 0.2, 0.5, -0.04, 1., -0.24, 0.45,
+            -0.14, 0.15, -0.31, -0.03, -0.16, -0.33, -0.39, -0.55,
+            -0.1, -0.41, -0.06, -0.73];
+        fill(g, 0x29272c);
+        polygon(g, r + 1, seam);
+        end(g);
+        fill(g, 0x929295);
+        polygon(g, r, seam);
+        end(g);
+        fill(g, 0xc7c7ca);
+        polygon(g, r, [0.07, -0.8, 0.15, -0.51, -0.02, -0.13, 0.09, 0.12,
+            -0.06, 0.45, -0.04, 0.79, -0.14, 0.44, -0.01, 0.13, -0.12, -0.13, 0.07, -0.53]);
+        end(g);
+        fill(g, 0x29272c);
+        polygon(g, r, [0.15, -0.51, 0.0, -0.13, 0.12, 0.12, -0.02, 0.45,
+            -0.04, 0.79, -0.06, 0.45, 0.04, 0.13, -0.07, -0.13, 0.1, -0.52]);
+        end(g);
     }
 
     static function riftPortal(g:Dynamic, r:Float):Void {
@@ -38,10 +61,13 @@ class LandmarkIcons {
     }
 
     static function upcomingRift(g:Dynamic, r:Float):Void {
-        // Three red horned faces: a compact group of demons at minimap scale.
-        demonHead(g, r, -0.53, -0.12, 0.43);
-        demonHead(g, r, 0.53, -0.12, 0.43);
-        demonHead(g, r, 0, 0.36, 0.53);
+        // Five horned faces in two staggered rows. The back row stays visible
+        // above the two larger front faces, even at the default minimap scale.
+        demonHead(g, r, -0.62, -0.37, 0.3);
+        demonHead(g, r, 0, -0.43, 0.32);
+        demonHead(g, r, 0.62, -0.37, 0.3);
+        demonHead(g, r, -0.42, 0.35, 0.4);
+        demonHead(g, r, 0.42, 0.35, 0.4);
     }
 
     static function demonHead(g:Dynamic, r:Float, x:Float, y:Float, size:Float):Void {
@@ -132,6 +158,16 @@ class LandmarkIcons {
         fill(g, 0xfff8c8);
         circle(g, -r * 0.06, -r * 0.06, r * 0.22);
         end(g);
+    }
+
+    public static function sparklingRing(g:Dynamic, radius:Float):Void {
+        // Stroke the ring instead of filling disks: its centre stays transparent.
+        // Retain thin dark edges for contrast, then reset stroke state for icons.
+        G.call("h2d.Graphics", "lineStyle", g, [4.5, 0x201b1b, 1.0]);
+        G.call("h2d.Graphics", "drawCircle", g, [0., 0., radius - 2.25, 32]);
+        G.call("h2d.Graphics", "lineStyle", g, [2.5, 0xffdc42, 1.0]);
+        G.call("h2d.Graphics", "drawCircle", g, [0., 0., radius - 2.25, 32]);
+        G.call("h2d.Graphics", "lineStyle", g, [0., 0, 0.0]);
     }
 
     static function arc(g:Dynamic, radius:Float, width:Float, angle:Float, sweep:Float):Void {

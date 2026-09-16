@@ -30,6 +30,7 @@
     { "key": "hideCompletedActivities", "type": "checkbox", "label": "Hide completed activities" },
     { "key": "hideAscensions", "type": "checkbox", "label": "Hide ascensions" },
     { "key": "hideDungeons", "type": "checkbox", "label": "Hide dungeons" },
+    { "key": "hideInactiveRifts", "type": "checkbox", "label": "Hide inactive Rift locations" },
     { "type": "title", "label": "Ore" },
     { "key": "showOre", "type": "checkbox", "label": "Show ore" },
     { "key": "hideCopper", "type": "checkbox", "label": "Hide Copper" },
