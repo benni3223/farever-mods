@@ -9,6 +9,43 @@ class LandmarkIcons {
         else if (kind == "dungeon") dungeon(graphics, radius);
         else if (kind == "soulstone") soulstone(graphics, radius);
         else if (kind == "secretOrb") secretOrb(graphics, radius);
+        else if (kind == "targetDummy") targetDummy(graphics, radius);
+    }
+
+    static function targetDummy(g:Dynamic, r:Float):Void {
+        // Flat sack head and padded torso on a wooden cross, with a red target.
+        fill(g, 0x38291f);
+        dummyShape(g, r + 1);
+        end(g);
+        fill(g, 0x96704b);
+        dummyShape(g, r);
+        end(g);
+        fill(g, 0xd5ac76);
+        circle(g, 0, -0.7 * r, 0.26 * r);
+        polygon(g, r, [-0.52, -0.36, 0.52, -0.36, 0.57, 0.18, 0.38, 0.52,
+            -0.38, 0.52, -0.57, 0.18]);
+        for (side in [-1, 1])
+            polygon(g, r, [0.61, -0.3, 0.83, -0.3, 0.83, 0.11, 0.61, 0.11], side);
+        end(g);
+        fill(g, 0xb82e34);
+        circle(g, 0, 0.07 * r, 0.34 * r);
+        end(g);
+        fill(g, 0xe4bc87);
+        circle(g, 0, 0.07 * r, 0.23 * r);
+        end(g);
+        fill(g, 0xb82e34);
+        circle(g, 0, 0.07 * r, 0.12 * r);
+        end(g);
+    }
+
+    static function dummyShape(g:Dynamic, r:Float):Void {
+        circle(g, 0, -0.7 * r, 0.3 * r);
+        polygon(g, r, [-1, -0.23, 1, -0.23, 1, 0.06, -1, 0.06]);
+        polygon(g, r, [-0.16, -0.5, 0.16, -0.5, 0.16, 1, -0.16, 1]);
+        polygon(g, r, [-0.57, -0.4, 0.57, -0.4, 0.62, 0.18, 0.42, 0.56,
+            -0.42, 0.56, -0.62, 0.18]);
+        for (side in [-1, 1])
+            polygon(g, r, [0.58, -0.34, 0.87, -0.34, 0.87, 0.15, 0.58, 0.15], side);
     }
 
     static function secretOrb(g:Dynamic, r:Float):Void {

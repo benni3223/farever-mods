@@ -11,8 +11,8 @@ class CodexMarkers {
     public function new() {}
 
     public function hidden(id:String, inf:Dynamic, kills:Int, hideCompleted:Bool,
-        hideMastered:Bool, hideNonCodex:Bool):Bool {
-        if (!hideCompleted && !hideMastered && !hideNonCodex) return false;
+        hideMastered:Bool):Bool {
+        if (!hideCompleted && !hideMastered) return false;
         var goal = goals.get(id);
         if (goal == null) {
             goal = {inCodex: G.staticCall("data.CodexData", "isInCodex", [inf]) == true,
@@ -27,7 +27,7 @@ class CodexMarkers {
             }
             goals.set(id, goal);
         }
-        if (!goal.inCodex) return hideNonCodex;
+        if (!goal.inCodex) return false;
         return (hideCompleted && goal.completed > 0 && kills >= goal.completed)
             || (hideMastered && goal.mastered > 0 && kills >= goal.mastered);
     }

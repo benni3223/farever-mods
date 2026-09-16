@@ -61,7 +61,7 @@ class MinimapMarkers {
     var classes:Map<String, String> = [];
     var gatherKinds:Map<String, String> = [];
     var gatherFilters:Map<String, String> = [];
-    var codex = new CodexMarkers();
+    var enemies = new EnemyMarkers();
     var npcKinds:Map<String, String> = [];
     var landmarks:Map<String, MapPoint> = [];
     var stationSource:Dynamic;
@@ -260,7 +260,7 @@ class MinimapMarkers {
         var progress = G.field(player, "progress");
         var unitsProgress = G.field(G.field(progress, "unitsProgress"), "map");
         var collection = G.field(G.field(player, "accountProgress"), "collection");
-        var hiddenCodex:Map<String, Bool> = [];
+        var enemyKinds:Map<String, String> = [];
         var collected:Map<String, Bool> = [];
         if (config.showPlayers || config.showEnemies || config.showCompanions || config.sparklingCompanionAlerts)
         for (unit in G.array(G.field(layer, "units"))) {
@@ -309,15 +309,14 @@ class MinimapMarkers {
                     if (!config.showCompanions || !nearby || (config.hideCollectedCompanions && owned)) continue;
                 } else {
                     if (!config.showEnemies || G.call("ent.Foe", "isEnemyWith", unit, [hero]) != true) continue;
-                    if (config.hideCompletedCodexEnemies || config.hideMasteredCodexEnemies || config.hideNonCodexEnemies) {
-                        if (!hiddenCodex.exists(id)) {
-                            var progress = unitsProgress == null ? null : G.call("haxe.ds.StringMap", "get", unitsProgress, [id]);
-                            hiddenCodex[id] = codex.hidden(id, inf, G.integer(G.field(progress, "killCount")),
-                                config.hideCompletedCodexEnemies, config.hideMasteredCodexEnemies, config.hideNonCodexEnemies);
-                        }
-                        if (hiddenCodex[id]) continue;
+                    if (!enemyKinds.exists(id)) {
+                        var needsProgress = config.hideCompletedCodexEnemies || config.hideMasteredCodexEnemies;
+                        var progress = !needsProgress || unitsProgress == null ? null : G.call("haxe.ds.StringMap", "get", unitsProgress, [id]);
+                        enemyKinds[id] = enemies.kind(inf, G.integer(G.field(progress, "killCount")),
+                            config.hideCompletedCodexEnemies, config.hideMasteredCodexEnemies, config.hideTargetDummies);
                     }
-                    if ((flags & 0x38) != 0) kind = "boss";
+                    kind = enemyKinds[id];
+                    if (kind == "") continue;
                 }
             }
             if (point == null) point = {kind: kind, x: px, y: py, z: G.number(G.field(unit, "posz"), Math.NaN), sparkling: sparkling, entity: unit,
@@ -561,6 +560,7 @@ class MinimapMarkers {
         case "bank", "demon", "craft", "upgrade", "recycler", "chest", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
         case "obelisk", "dungeon", "soulstone", "secretOrb": 8;
+        case "targetDummy": 9;
         default: 3.5;
     };
 
@@ -633,7 +633,7 @@ class MinimapMarkers {
             if (point.entity != null) {
                 var type = switch point.kind {
                     case "player": "ent.Hero";
-                    case "enemy", "boss", "companion": "ent.Unit";
+                    case "enemy", "boss", "companion", "targetDummy": "ent.Unit";
                     case "plant", "ore": "ent.interactible.Gatherable";
                     default: "ent.Element";
                 };
@@ -667,6 +667,7 @@ class MinimapMarkers {
             case "player": "Player";
             case "companion": "Companion";
             case "enemy", "boss": "Enemy";
+            case "targetDummy": "Target dummy";
             default: "NPC";
         };
         // Static names are retained; live samples expire at the next refresh.
@@ -677,7 +678,7 @@ class MinimapMarkers {
     function draw(points:Array<MapPoint>, scale:Float):Void {
         hitPoints = [];
         // Preserve marker priority, with services above other map content.
-        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "respawn", "obelisk", "soulstone", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
+        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
             for (point in points) if (point.kind == kind) {
                 point.elevation = elevationDirection(point.z, heroHeight);
                 hitPoints.push(point);
@@ -725,7 +726,7 @@ class MinimapMarkers {
 
     function drawIcon(point:MapPoint):Void {
         var kind = point.kind;
-        if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb") {
+        if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }

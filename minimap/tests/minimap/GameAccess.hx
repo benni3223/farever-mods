@@ -11,6 +11,8 @@ class GameAccess {
     public static var codexMembershipReads:Int = 0;
     public static var codexThresholdReads:Int = 0;
     public static var codexRewardIndex:Float = 2;
+    public static var dummyGroup:Null<Int> = 42;
+    public static var dummyGroupReads:Int = 0;
 
     public static function create(type:String, args:Array<Dynamic>):Dynamic {
         if (type == "h2d.Graphics") return {parent: args[0], x: 0., y: 0., rotation: 0., scale: 1.};
@@ -33,6 +35,10 @@ class GameAccess {
     }
 
     public static function current(type:String, name:String):Dynamic {
+        if (type == "_Data.Unit_group_Impl_" && name == "Dummy") {
+            dummyGroupReads++;
+            return dummyGroup;
+        }
         if (type == "Data" && name == "item") return {byId: items};
         if (type == "Const" && name == "Codex") return {FoeXPRewardThresholdIndex: codexRewardIndex};
         throw "Unexpected native static field";

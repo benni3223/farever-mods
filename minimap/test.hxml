@@ -22,3 +22,8 @@
 -cp tests
 -main CodexMarkersTest
 --interp
+--next
+-cp src
+-cp tests
+-main EnemyMarkersTest
+--interp

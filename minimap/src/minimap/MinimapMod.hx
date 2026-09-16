@@ -23,7 +23,7 @@ typedef MinimapSettings = {
     var showEnemies:Bool;
     var hideCompletedCodexEnemies:Bool;
     var hideMasteredCodexEnemies:Bool;
-    var hideNonCodexEnemies:Bool;
+    var hideTargetDummies:Bool;
     var showCompanions:Bool;
     var hideCollectedCompanions:Bool;
     var sparklingCompanionAlerts:Bool;
@@ -52,9 +52,9 @@ class MinimapMod {
     @:hlx.config
     static var config:MinimapSettings = {
         enabled: true, transparency: 0, zoom: 30, size: 250, markerScale: 100, rotateMap: true, followCamera: true,
-        circular: true, leftCorner: true, showNorthIndicator: true, xOffset: 0, yOffset: 0,
+        circular: true, leftCorner: false, showNorthIndicator: true, xOffset: 0, yOffset: 0,
         showPlayers: true, showPlants: true, showOre: true, showEnemies: true,
-        hideCompletedCodexEnemies: false, hideMasteredCodexEnemies: false, hideNonCodexEnemies: true,
+        hideCompletedCodexEnemies: false, hideMasteredCodexEnemies: false, hideTargetDummies: false,
         showCompanions: true, hideCollectedCompanions: true, sparklingCompanionAlerts: true,
         showRespawnPoints: true, showObelisks: true, showSoulstoneCircles: true, showNpcs: true,
         showChests: true, showSecretOrbs: true, showActivities: true,

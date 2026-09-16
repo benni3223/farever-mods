@@ -44,7 +44,7 @@
     { "key": "showEnemies", "type": "checkbox", "label": "Show enemies" },
     { "key": "hideMasteredCodexEnemies", "type": "checkbox", "label": "Hide mastered Codex enemies" },
     { "key": "hideCompletedCodexEnemies", "type": "checkbox", "label": "Hide partially completed Codex enemies" },
-    { "key": "hideNonCodexEnemies", "type": "checkbox", "label": "Hide enemies without Codex entries" },
+    { "key": "hideTargetDummies", "type": "checkbox", "label": "Hide target dummies" },
     { "type": "title", "label": "Companions" },
     { "key": "showCompanions", "type": "checkbox", "label": "Show companions" },
     { "key": "hideCollectedCompanions", "type": "checkbox", "label": "Hide collected companions" },

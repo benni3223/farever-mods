@@ -25,13 +25,13 @@ A compact overworld minimap with a centered player arrow.
 - An outlined N and compass needle track north along the minimap edge.
 - Adjustable zoom, size, and transparency.
 - Marker scale slider resizes icons and all arrows together.
-- Left or right corner placement with X/Y offsets from 0–100% in 1% steps.
+- Left or right corner placement (right by default) with X/Y offsets from 0–100% in 1% steps.
 - Directional player arrows and markers for enemies, resources, NPCs, obelisks, and respawn points.
 - Distinct icons for Guild Merchants, Demon Huntresses, and crafting, upgrade, and recycling stations.
 - Soulstone summoning circles with rune-ring and crystal markers.
 - Unopened treasure chest, undiscovered secret orb, and activity markers.
 - Hide completed activities while keeping ascensions and dungeons visible, with separate options to hide either.
-- Independent enemy filters for Codex XP completion, full mastery, and enemies without Codex entries.
+- Independent enemy filters for Codex XP completion, full mastery, and target dummies.
 - Companion markers with an option to hide variants already in your collection.
 - Yellow-ringed edge arrows guide you toward uncollected sparkling companions when their markers are out of view.
 - Yellow rings highlight sparkling enemies and bosses.
@@ -49,6 +49,7 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Plants | Green leaf |
 | Ore | Gray stone |
 | Enemies | Red circle; larger for bosses; thick yellow ring for sparkling variants |
+| Target dummies | Tan practice dummy on a wooden cross, with a red bullseye |
 | Companions | Green pawprint; thick yellow ring for sparkling variants |
 | Activities | Purple square with a white four-point star |
 | Ascensions | Gold device with a bright cyan core |
@@ -73,11 +74,15 @@ Secret orb tooltips always read **Secret Orb**. Sparkling companion alerts disap
 
 **Show soulstone summoning circles** is on by default in **Markers**. These landmarks use the world's element definitions and identify interactions that consume an item of type **Soulstone**. They remain visible without a soulstone in your inventory and are independent of activity-completion filters. Locations and elevation come from the native world prefab; definitions and icon geometry are cached.
 
+**Show in left corner** defaults to off, placing new installations on the right. Existing saved corner preferences are preserved.
+
 **X offset %** and **Y offset %** are in **General**, both defaulting to **0%**. X moves right from the left corner, or left from the right corner; Y always moves down. **50%** centers the minimap on that axis. **100%** reaches the opposite screen edge with the same 24 UI-pixel margin as the starting edge, including the map's border. Position updates with minimap size, window size, and UI scale. Both map shapes and their hover/zoom controls move together.
 
 The **Activities** section includes **Show activities**, **Hide completed activities** (on by default), **Hide ascensions**, and **Hide dungeons** (both off by default). Completed ascensions and dungeons remain visible unless hidden with their own option. **Show activities** controls all three categories. Other activities, including rifts, still follow **Hide completed activities**. Markers use the game's world-map locations, including overworld entrances for instanced activities.
 
 **Hide mastered Codex enemies** filters at each enemy's final Codex mastery threshold. **Hide partially completed Codex enemies** filters at the Codex XP-reward milestone. Both options are in **Enemies** and default to off; existing saved preferences are preserved. To keep enemies visible until full mastery, turn **Hide mastered Codex enemies** on and **Hide partially completed Codex enemies** off. If both are enabled, the earlier completion milestone hides the marker. Both filters read the game's thresholds for normal, large, elite, and boss enemies and compare them with the current character's kill count.
+
+**Hide target dummies** is off by default in **Enemies**. Dummies have their own marker and use the game's native Dummy group, independent of their names or Codex progress. **Show enemies** controls them too. The former **Hide enemies without Codex entries** option has been removed; its old saved value no longer hides anything. Other enemies without Codex entries stay visible.
 
 Settings use HLX's native persistence at `hlx/config/minimap/config.json`. Better Mod Settings is optional; the mod works with its defaults without it.
 
