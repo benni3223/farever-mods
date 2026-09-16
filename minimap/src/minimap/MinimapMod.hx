@@ -15,6 +15,8 @@ typedef MinimapSettings = {
     var circular:Bool;
     var leftCorner:Bool;
     var showNorthIndicator:Bool;
+    var showRiftTimer:Bool;
+    var riftAlerts:Bool;
     var xOffset:Float;
     var yOffset:Float;
     var showPlayers:Bool;
@@ -53,6 +55,7 @@ class MinimapMod {
     static var config:MinimapSettings = {
         enabled: true, transparency: 0, zoom: 30, size: 250, markerScale: 100, rotateMap: true, followCamera: true,
         circular: true, leftCorner: false, showNorthIndicator: true, xOffset: 0, yOffset: 0,
+        showRiftTimer: true, riftAlerts: true,
         showPlayers: true, showPlants: true, showOre: true, showEnemies: true,
         hideCompletedCodexEnemies: false, hideMasteredCodexEnemies: false, hideTargetDummies: false,
         showCompanions: true, hideCollectedCompanions: true, sparklingCompanionAlerts: true,

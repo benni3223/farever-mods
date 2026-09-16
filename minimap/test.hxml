@@ -27,3 +27,8 @@
 -cp tests
 -main EnemyMarkersTest
 --interp
+--next
+-cp src
+-cp tests
+-main RiftMarkersTest
+--interp

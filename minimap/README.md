@@ -23,6 +23,8 @@ A compact overworld minimap with a centered player arrow.
 - Follows your position an arrow showing your character's facing direction.
 - Fixed orientation, character-following rotation, or camera-following rotation.
 - An outlined N and compass needle track north along the minimap edge.
+- A server-synchronized Rift countdown above the map, with upcoming and open portal markers.
+- Red Rift alerts during the final 15 minutes, including an arrow when the destination is off-screen.
 - Adjustable zoom, size, and transparency.
 - Marker scale slider resizes icons and all arrows together.
 - Left or right corner placement (right by default) with X/Y offsets from 0–100% in 1% steps.
@@ -54,6 +56,8 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Activities | Purple square with a white four-point star |
 | Ascensions | Gold device with a bright cyan core |
 | Dungeons | Stone doorway with a purple and cyan portal |
+| Upcoming Rift | Three red horned demons |
+| Open Rift Portal | Jagged pink tear with a dark interior |
 | Respawn points | White cross |
 | Obelisks | Broad grey stone idol with a split crown and gold inlays |
 | Soulstone summoning circles | Purple rune ring surrounding a pink faceted soulstone |
@@ -71,6 +75,12 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 Secret orb tooltips always read **Secret Orb**. Sparkling companion alerts disappear whenever any part of the companion marker is visible, and reappear when it leaves the map. This follows zoom and rotation for both map shapes. Alerts still work when normal companion markers are disabled. Their yellow rings have no height arrows; ordinary markers retain their height indicators.
 
 **Show north indicator** is on by default in **General**. The north indicator stays at the top of a fixed map and follows north around the edge of a rotating map. It scales with the other markers. Compass and alert geometry is cached; movement updates only their transforms and visibility. Turning it off also frees its edge space for sparkling companion alerts.
+
+**Show Rift timer** and **Rift alerts** follow the north setting in **General**, both on by default. The `mm:ss` countdown sits above the minimap with a slightly larger gap than the hover caption. It uses the native Rift event timer when available, otherwise the game's Rift frequency and synchronized server clock. A local top-of-the-hour fallback is used only if native timing is unavailable; fallback time never supplies a guessed portal location. The countdown advances to the next Rift when the current one opens.
+
+Rift locations follow the replicated event's selected portal. Before the event is announced, the upcoming marker uses the same candidate order, event-time seed, and isolated native random generator as the game's own Rift selection. Open portals use the live event state and disappear when the portal closes. If consecutive Rifts choose the same location, the open icon takes precedence over the upcoming icon. Rift markers follow **Show activities**, but completion filters never hide them.
+
+With **Rift alerts** enabled, the countdown turns red at **15:00** or less. A red arrow without a ring or height indicator points to the next Rift until its upcoming/portal marker enters view, including partial visibility. This follows zoom, rotation, and both minimap shapes. Alerts work independently of timer visibility and can still guide you when activity markers are disabled. Definitions, selected locations, and icon geometry are cached; native event state is sampled five times per second and text changes only when its displayed second or colour changes. These features only read game state and do not send server commands.
 
 **Show soulstone summoning circles** is on by default in **Markers**. These landmarks use the world's element definitions and identify interactions that consume an item of type **Soulstone**. They remain visible without a soulstone in your inventory and are independent of activity-completion filters. Locations and elevation come from the native world prefab; definitions and icon geometry are cached.
 
@@ -96,6 +106,6 @@ cd minimap
 haxe compile.hxml
 ```
 
-Run the marker classification, activity visibility, Codex milestone, percentage-position, clipping, and compass regression tests with `haxe test.hxml` (no game or HLX runtime required).
+Run the marker classification, activity visibility, Rift schedule/state, Codex milestone, percentage-position, clipping, and compass regression tests with `haxe test.hxml` (no game or HLX runtime required).
 
 Output: `build/minimap/minimap.hl`. The independent workflow packages this project and publishes releases for `minimap/v*` tags.

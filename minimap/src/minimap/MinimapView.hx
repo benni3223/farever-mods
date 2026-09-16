@@ -36,6 +36,16 @@ class MinimapView {
     var npcTerrain:Dynamic;
     var markers:MinimapMarkers;
     var compass:MinimapCompass;
+    var rifts:RiftMarkers;
+    var riftText:Dynamic;
+    var riftShadow:Dynamic;
+    var riftCaption:String = "";
+    var riftColor:Int = -1;
+    var riftFontScale:Float = 1;
+    var riftWidth:Float = 0;
+    var riftHeight:Float = 0;
+    var riftX:Float = Math.NaN;
+    var riftY:Float = Math.NaN;
     var arrow:Dynamic;
     var input:Dynamic;
     var hovered:Bool = false;
@@ -135,9 +145,11 @@ class MinimapView {
         var radius = size / (2 * scale) * (config.rotateMap && !circular ? Math.sqrt(2) : 1);
         selectTiles(x, y, radius);
         loadNextTile();
-        markers.update(hero, config, x, y, radius, scale, rotation);
-        markers.updateAlerts(config, x, y, size, scale, rotation);
+        rifts.update(G.field(hero, "layer"), haxe.Timer.stamp());
+        markers.update(hero, config, x, y, radius, scale, rotation, rifts);
+        markers.updateAlerts(config, x, y, size, scale, rotation, rifts);
         compass.update(size, circular, rotation, markerScale / 100, config.showNorthIndicator);
+        updateRiftTimer(config);
         show(true);
         updateHover(hero, x, y, rotation);
     }
@@ -209,6 +221,7 @@ class MinimapView {
         npcTerrain = G.create("h2d.Object", [npcPivot]);
         markers = new MinimapMarkers(terrain, npcTerrain, mask, LEVEL);
         compass = new MinimapCompass(mask);
+        rifts = new RiftMarkers(LEVEL);
         input = G.create("h2d.Interactive", [1.0, 1.0, panel, null]);
         position(input, BORDER, BORDER);
         G.call("h2d.Interactive", "set_cursor", input, [G.current("hxd.Cursor", "Default")]);
@@ -279,6 +292,46 @@ class MinimapView {
         // A footer outside the clipping mask stays whole in circular mode too.
         position(hoverShadow, x + 1, y + 1);
         position(hoverText, x, y);
+    }
+
+    function updateRiftTimer(config:MinimapSettings):Void {
+        var caption = config.showRiftTimer ? RiftTiming.caption(rifts.remaining) : "";
+        if (caption != "" && riftText == null) {
+            var font = findFont(G.field(owner, "gameRoot"), 6);
+            if (font == null) font = G.staticCall("hxd.res.DefaultFont", "get", []);
+            riftFontScale = 14 / Math.max(1, G.number(G.field(font, "size"), 14));
+            riftShadow = G.create("h2d.Text", [font, panel]);
+            riftText = G.create("h2d.Text", [font, panel]);
+            G.call("h2d.Text", "set_textColor", riftShadow, [0x171b24]);
+            for (text in [riftShadow, riftText]) G.call("h2d.Object", "setScale", text, [riftFontScale]);
+        }
+        if (riftText == null) return;
+        if (caption != riftCaption) {
+            riftCaption = caption;
+            for (text in [riftShadow, riftText]) {
+                G.call("h2d.Text", "set_text", text, [caption]);
+                G.call("h2d.Object", "set_visible", text, [caption != ""]);
+            }
+            if (caption != "") {
+                riftWidth = G.number(G.call("h2d.Text", "get_textWidth", riftText)) * riftFontScale;
+                riftHeight = G.number(G.call("h2d.Text", "get_textHeight", riftText)) * riftFontScale;
+            }
+        }
+        var color = config.riftAlerts && RiftTiming.alert(rifts.remaining) ? 0xff6860 : 0xfff3d6;
+        if (color != riftColor) {
+            riftColor = color;
+            G.call("h2d.Text", "set_textColor", riftText, [color]);
+        }
+        if (caption == "") return;
+        var x = BORDER + (size - riftWidth) / 2;
+        // Seven pixels above the frame, versus four below it for hover text.
+        // Keep the caption on-screen even with a very small viewport.
+        var y = Math.max(2 - panelY, -riftHeight - 7);
+        if (x != riftX || y != riftY) {
+            riftX = x; riftY = y;
+            position(riftShadow, x + 1, y + 1);
+            position(riftText, x, y);
+        }
     }
 
     function findFont(object:Dynamic, depth:Int):Dynamic {
@@ -421,6 +474,8 @@ class MinimapView {
         owner = null; world = null; root = null; loader = null;
         frame = null; mask = null; circleMask = null; squareFilter = null; circleFilter = null;
         pivot = null; terrain = null; tileLayer = null; arrow = null; markers = null; compass = null;
+        rifts = null; riftText = null; riftShadow = null; riftCaption = ""; riftColor = -1;
+        riftX = Math.NaN; riftY = Math.NaN;
         npcPivot = null; npcTerrain = null;
         input = null; hovered = false; hoverText = null; hoverShadow = null; hoverCaption = "";
         transparency = -1;

@@ -51,6 +51,9 @@ class MinimapMarkers {
     var alertTargets:Array<MapPoint> = [];
     var alertArrows:Array<Dynamic> = [];
     var alertPositions:Array<{x:Float, y:Float, point:MapPoint}> = [];
+    var rifts:RiftMarkers;
+    var riftArrow:Dynamic;
+    var riftAlertPosition:Null<{x:Float, y:Float, name:String}>;
     var level:String;
     var layer:Dynamic;
     var lastHero:Dynamic;
@@ -90,7 +93,8 @@ class MinimapMarkers {
         alertLayer = G.create("h2d.Object", [overlay]);
     }
 
-    public function update(hero:Dynamic, config:MinimapSettings, x:Float, y:Float, radius:Float, scale:Float, rotation:Float):Void {
+    public function update(hero:Dynamic, config:MinimapSettings, x:Float, y:Float, radius:Float, scale:Float, rotation:Float, rifts:RiftMarkers):Void {
+        this.rifts = rifts;
         if (mapRotation != rotation) {
             mapRotation = rotation;
             for (marker in mapIconMarkers) if (!marker.directional)
@@ -133,7 +137,8 @@ class MinimapMarkers {
         }
     }
 
-    public function updateAlerts(config:MinimapSettings, x:Float, y:Float, size:Int, scale:Float, rotation:Float):Void {
+    public function updateAlerts(config:MinimapSettings, x:Float, y:Float, size:Int, scale:Float, rotation:Float, rifts:RiftMarkers):Void {
+        updateRiftAlert(config, x, y, size, scale, rotation, rifts);
         var count = config.sparklingCompanionAlerts ? alertTargets.length : 0;
         while (alertArrows.length > count) {
             G.call("h2d.Object", "remove", alertArrows.pop());
@@ -167,6 +172,8 @@ class MinimapMarkers {
     }
 
     public function alertNameAt(x:Float, y:Float):String {
+        if (riftAlertPosition != null && nearCursor(x, y, riftAlertPosition.x, riftAlertPosition.y, 11 * markerScale))
+            return riftAlertPosition.name;
         var i = alertPositions.length;
         while (i > 0) {
             var alert = alertPositions[--i];
@@ -174,6 +181,32 @@ class MinimapMarkers {
                 return markerName(alert.point);
         }
         return "";
+    }
+
+    function updateRiftAlert(config:MinimapSettings, x:Float, y:Float, size:Int, scale:Float, rotation:Float, rifts:RiftMarkers):Void {
+        riftAlertPosition = null;
+        var target = config.riftAlerts && RiftTiming.alert(rifts.remaining) ? rifts.upcoming : null;
+        var visible = false;
+        if (target != null) {
+            var dx = (target.x - x) * scale, dy = (target.y - y) * scale;
+            var c = Math.cos(rotation), s = Math.sin(rotation);
+            var sx = dx * c - dy * s, sy = dx * s + dy * c;
+            visible = MinimapGeometry.showAlert(config.showActivities, sx, sy, size, config.circular,
+                (markerRadius(target.kind) + 1) * markerScale);
+            if (visible) {
+                if (riftArrow == null) {
+                    riftArrow = G.create("h2d.Graphics", [alertLayer]);
+                    drawPlayerArrow(riftArrow, 9, 0xff6860);
+                }
+                var north = config.showNorthIndicator ? MinimapGeometry.north(size, config.circular, rotation, markerScale) : null;
+                var pos = MinimapGeometry.alert(sx, sy, size, config.circular, markerScale, north);
+                G.call("h2d.Object", "setScale", riftArrow, [markerScale]);
+                G.call("h2d.Object", "setPosition", riftArrow, [pos.x, pos.y]);
+                G.call("h2d.Object", "set_rotation", riftArrow, [Math.atan2(sy, sx)]);
+                riftAlertPosition = {x: pos.x, y: pos.y, name: target.kind == "riftPortal" ? "Rift Portal" : "Upcoming Rift"};
+            }
+        }
+        if (riftArrow != null) G.call("h2d.Object", "set_visible", riftArrow, [visible]);
     }
 
     function refreshLandmarks():Void {
@@ -388,6 +421,9 @@ class MinimapMarkers {
                 }
                 points.push(point);
             }
+            for (point in rifts.points) if (near(point.x, point.y, x, y, radius))
+                points.push({kind: point.kind, x: point.x, y: point.y, z: point.z,
+                    name: point.kind == "riftPortal" ? "Rift Portal" : "Upcoming Rift"});
         }
         return points;
     }
@@ -406,6 +442,7 @@ class MinimapMarkers {
             var prefab = G.field(definition, "prefab");
             if (prefab == null) continue;
             var inf = G.field(definition, "inf");
+            if (G.staticCall("HActivity", "isOfType", [inf, "Rift"]) == true) continue;
             var kind = ActivityMarkers.kind(inf);
             var start = kind == "ascension" ? checkpointStart(prefab) : null;
             if (start != null) {
@@ -430,6 +467,7 @@ class MinimapMarkers {
             var definition = G.call("haxe.ds.StringMap", "get", source, [id]);
             if (definition == null) continue;
             var activityInf = G.field(definition, "inf");
+            if (G.staticCall("HActivity", "isOfType", [activityInf, "Rift"]) == true) continue;
             var props = G.field(activityInf, "props");
             if (G.staticCall("Config", "checkStatus", [G.field(props, "releaseStatus")]) != true) continue;
             var matrix = G.call("hrt.prefab.Object3D", "getAbsPos", G.field(orb, "prefab"), [true]);
@@ -560,7 +598,7 @@ class MinimapMarkers {
         case "bank", "demon", "craft", "upgrade", "recycler", "chest", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
         case "obelisk", "dungeon", "soulstone", "secretOrb": 8;
-        case "targetDummy": 9;
+        case "targetDummy", "riftPortal", "upcomingRift": 9;
         default: 3.5;
     };
 
@@ -678,7 +716,7 @@ class MinimapMarkers {
     function draw(points:Array<MapPoint>, scale:Float):Void {
         hitPoints = [];
         // Preserve marker priority, with services above other map content.
-        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
+        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
             for (point in points) if (point.kind == kind) {
                 point.elevation = elevationDirection(point.z, heroHeight);
                 hitPoints.push(point);
@@ -726,7 +764,8 @@ class MinimapMarkers {
 
     function drawIcon(point:MapPoint):Void {
         var kind = point.kind;
-        if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy") {
+        if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy"
+            || kind == "riftPortal" || kind == "upcomingRift") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }

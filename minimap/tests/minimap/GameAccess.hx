@@ -13,8 +13,20 @@ class GameAccess {
     public static var codexRewardIndex:Float = 2;
     public static var dummyGroup:Null<Int> = 42;
     public static var dummyGroupReads:Int = 0;
+    public static var riftEvent:Dynamic;
+    public static var events:Map<String, Dynamic> = [];
+    public static var elements:Map<String, Dynamic> = [];
+    public static var elementList:Array<Dynamic> = [];
+    public static var elementReads:Int = 0;
+    public static var riftReads:Int = 0;
+    public static var riftLookupUnavailable:Bool = false;
+    public static var durationUnavailable:Bool = false;
+    public static var randomSeeds:Array<Int> = [];
+    public static var randomCounts:Array<Int> = [];
+    public static var randomIndex:Int = 0;
 
     public static function create(type:String, args:Array<Dynamic>):Dynamic {
+        if (type == "hxd.Rand") { randomSeeds.push(args[0]); return {}; }
         if (type == "h2d.Graphics") return {parent: args[0], x: 0., y: 0., rotation: 0., scale: 1.};
         throw "Unexpected native constructor: " + type;
     }
@@ -25,8 +37,16 @@ class GameAccess {
     public static function text(value:Dynamic, fallback:String = ""):String
         return value == null ? fallback : Std.string(value);
 
-    public static function array(value:Dynamic):Array<Dynamic>
+    public static function array(value:Dynamic, proxy:Bool = false):Array<Dynamic> {
+        if (proxy) value = field(value, "array");
         return value == null ? [] : cast value;
+    }
+
+    public static function number(value:Dynamic, fallback:Float = 0):Float {
+        if (value == null) return fallback;
+        var n = Std.parseFloat(Std.string(value));
+        return Math.isFinite(n) ? n : fallback;
+    }
 
     public static function integer(value:Dynamic, fallback:Int = 0):Int {
         if (value == null) return fallback;
@@ -40,11 +60,24 @@ class GameAccess {
             return dummyGroup;
         }
         if (type == "Data" && name == "item") return {byId: items};
+        if (type == "Data" && name == "event") return {byId: events};
+        if (type == "HElement" && name == "allElements") return elements;
         if (type == "Const" && name == "Codex") return {FoeXPRewardThresholdIndex: codexRewardIndex};
         throw "Unexpected native static field";
     }
 
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
+        if (type == "st.event.Rift" && name == "getEvent") {
+            riftReads++;
+            if (riftLookupUnavailable) throw "Unavailable Rift lookup";
+            return riftEvent;
+        }
+        if (type == "DateTimeBuilder" && name == "build") return args[0];
+        if (type == "HData" && name == "getDuration") {
+            if (durationUnavailable) throw "Unavailable duration conversion";
+            return field(args[0], "seconds");
+        }
+        if (type == "HElement" && name == "all") { elementReads++; return elementList; }
         if (type == "data.CodexData" && name == "isInCodex") {
             codexMembershipReads++;
             return field(args[0], "inCodex") == true;
@@ -66,6 +99,16 @@ class GameAccess {
     }
 
     public static function call(type:String, name:String, object:Dynamic, ?args:Array<Dynamic>):Dynamic {
+        if (type == "st.GameLayer" && name == "get_time") return object._time._time;
+        if (type == "st.event.WorldEvent") return switch name {
+            case "get_teaseTime": object.countdown;
+            case "isPending": object.state == "pending";
+            case "isOngoing": object.state == "open";
+            case "get_remainingTime": object.openRemaining;
+            default: throw "Unexpected event call: " + name;
+        };
+        if (type == "hxd.Rand" && name == "random") { randomCounts.push(args[0]); return randomIndex; }
+        if (type == "hrt.prefab.Object3D" && name == "getAbsPos") return object;
         if (type == "h2d.Graphics") {
             if (["beginFill", "endFill", "moveTo", "lineTo", "lineStyle"].indexOf(name) < 0)
                 throw "Unexpected drawing call: " + name;
@@ -85,7 +128,7 @@ class GameAccess {
         }
         if (type == "haxe.ds.StringMap" && name == "get") {
             itemReads++;
-            return items[args[0]];
+            return object == null ? null : (cast object:haxe.ds.StringMap<Dynamic>).get(args[0]);
         }
         if (type != "st.player.Progress" || name != "hasActivityCompleted") throw "Unexpected native call";
         completionReads++;

@@ -10,6 +10,59 @@ class LandmarkIcons {
         else if (kind == "soulstone") soulstone(graphics, radius);
         else if (kind == "secretOrb") secretOrb(graphics, radius);
         else if (kind == "targetDummy") targetDummy(graphics, radius);
+        else if (kind == "riftPortal") riftPortal(graphics, radius);
+        else if (kind == "upcomingRift") upcomingRift(graphics, radius);
+    }
+
+    static function riftPortal(g:Dynamic, r:Float):Void {
+        // A jagged pink tear with a dark interior, like the open world portal.
+        var tear = [-0.92, 0.71, -0.35, 0.14, -0.32, -0.36, -0.04, -0.67,
+            0.2, -1., 0.27, -0.45, 0.78, -0.87, 0.54, -0.24,
+            0.84, -0.12, 0.43, 0.12, 0.54, 0.8, 0.12, 0.64, -0.3, 0.82];
+        fill(g, 0x32132e);
+        polygon(g, r + 1, tear);
+        end(g);
+        fill(g, 0xf52e9c);
+        polygon(g, r, tear);
+        end(g);
+        fill(g, 0xffa5df);
+        polygon(g, r * 0.82, tear);
+        end(g);
+        fill(g, 0x25132b);
+        polygon(g, r * 0.66, tear);
+        end(g);
+        fill(g, 0xffb5e5);
+        polygon(g, r, [-0.74, -0.4, -0.58, -0.54, -0.52, -0.27]);
+        polygon(g, r, [0.7, 0.36, 0.94, 0.48, 0.73, 0.61]);
+        end(g);
+    }
+
+    static function upcomingRift(g:Dynamic, r:Float):Void {
+        // Three red horned faces: a compact group of demons at minimap scale.
+        demonHead(g, r, -0.53, -0.12, 0.43);
+        demonHead(g, r, 0.53, -0.12, 0.43);
+        demonHead(g, r, 0, 0.36, 0.53);
+    }
+
+    static function demonHead(g:Dynamic, r:Float, x:Float, y:Float, size:Float):Void {
+        var face = [-0.72, -0.14, -0.94, -0.96, -0.28, -0.52, 0.28, -0.52,
+            0.94, -0.96, 0.72, -0.14, 0.63, 0.5, 0, 0.86, -0.63, 0.5];
+        for (pass in 0...2) {
+            var s = size + (pass == 0 ? 0.1 : 0);
+            var vertices:Array<Float> = [];
+            for (i in 0...Std.int(face.length / 2)) {
+                vertices.push(x + face[i * 2] * s);
+                vertices.push(y + face[i * 2 + 1] * s);
+            }
+            fill(g, pass == 0 ? 0x321b20 : 0xef5350);
+            polygon(g, r, vertices);
+            end(g);
+        }
+        fill(g, 0xffefb3);
+        for (side in [-1, 1])
+            polygon(g, r, [x + side * size * 0.16, y + size * 0.11,
+                x + side * size * 0.55, y - size * 0.12, x + side * size * 0.49, y + size * 0.24]);
+        end(g);
     }
 
     static function targetDummy(g:Dynamic, r:Float):Void {
