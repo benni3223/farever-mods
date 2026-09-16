@@ -14,12 +14,16 @@ class LandmarkIcons {
         else if (kind == "targetDummy") targetDummy(graphics, radius);
         else if (kind == "riftPortal") riftPortal(graphics, radius);
         else if (kind == "upcomingRift") upcomingRift(graphics, radius);
+        else if (kind == "nextRift") inactiveRift(graphics, radius, true);
         else if (kind == "inactiveRift") inactiveRift(graphics, radius);
     }
 
-    static function inactiveRift(g:Dynamic, r:Float):Void {
-        // A sealed grey fissure with five branching fractures. Broad, tapered
-        // shapes keep the cracks readable at the default minimap scale.
+    static function inactiveRift(g:Dynamic, r:Float, next:Bool = false):Void {
+        // Next Rift reuses the closed fissure, with the energy ball's palette.
+        var outline = next ? 0x32103f : 0x29272c;
+        var body = next ? 0x9620ad : 0x929295;
+        var highlight = next ? 0xcf169b : 0xc7c7ca;
+        // Broad, tapered cracks remain readable at the default minimap scale.
         var branches:Array<Array<Float>> = [
             [-0.08, -0.3, -0.38, -0.43, -0.46, -0.65, -0.78, -0.59,
                 -0.55, -0.46, -0.49, -0.25, -0.17, -0.12],
@@ -32,13 +36,13 @@ class LandmarkIcons {
             [0.12, 0.42, 0.34, 0.49, 0.38, 0.71, 0.65, 0.67,
                 0.49, 0.55, 0.5, 0.35, 0.28, 0.27]
         ];
-        fill(g, 0x29272c);
+        fill(g, outline);
         for (branch in branches) polygon(g, r + 1, branch);
         end(g);
-        fill(g, 0x929295);
+        fill(g, body);
         for (branch in branches) polygon(g, r, branch);
         end(g);
-        fill(g, 0xc7c7ca);
+        fill(g, highlight);
         polygon(g, r, [-0.16, -0.24, -0.43, -0.34, -0.49, -0.55,
             -0.64, -0.58, -0.44, -0.61, -0.36, -0.41]);
         polygon(g, r, [0.2, -0.19, 0.51, -0.32, 0.53, -0.56,
@@ -50,17 +54,17 @@ class LandmarkIcons {
             0.15, 0.23, 0.43, 0.14, 0.2, 0.5, -0.04, 1., -0.24, 0.45,
             -0.14, 0.15, -0.31, -0.03, -0.16, -0.33, -0.39, -0.55,
             -0.1, -0.41, -0.06, -0.73];
-        fill(g, 0x29272c);
+        fill(g, outline);
         polygon(g, r + 1, seam);
         end(g);
-        fill(g, 0x929295);
+        fill(g, body);
         polygon(g, r, seam);
         end(g);
-        fill(g, 0xc7c7ca);
+        fill(g, highlight);
         polygon(g, r, [0.07, -0.8, 0.15, -0.51, -0.02, -0.13, 0.09, 0.12,
             -0.06, 0.45, -0.04, 0.79, -0.14, 0.44, -0.01, 0.13, -0.12, -0.13, 0.07, -0.53]);
         end(g);
-        fill(g, 0x29272c);
+        fill(g, outline);
         polygon(g, r, [0.15, -0.51, 0.0, -0.13, 0.12, 0.12, -0.02, 0.45,
             -0.04, 0.79, -0.06, 0.45, 0.04, 0.13, -0.07, -0.13, 0.1, -0.52]);
         end(g);

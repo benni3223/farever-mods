@@ -39,6 +39,8 @@ class MinimapView {
     var rifts:RiftMarkers;
     var riftText:Dynamic;
     var riftShadow:Dynamic;
+    var riftFontSource:Dynamic;
+    var riftFont:Dynamic;
     var riftCaption:String = "";
     var riftColor:Int = -1;
     var riftFontScale:Float = 1;
@@ -296,17 +298,37 @@ class MinimapView {
 
     function updateRiftTimer(config:MinimapSettings):Void {
         var caption = config.showRiftTimer ? RiftTiming.caption(rifts.remaining) : "";
+        if (caption != "" && riftFontSource == null) {
+            var dom = G.field(G.field(owner, "gameRoot"), "dom");
+            if (dom == null) return;
+            // Ask the game's stylesheet for a specific bold face. Picking the
+            // first HUD font depended on loading order and could stay on a fallback.
+            var style = G.staticCall("domkit.Properties", "createNew",
+                ["text", dom, [""], {id: "minimapRiftFont", "class": "bold-16"}]);
+            riftFontSource = G.field(style, "obj");
+            if (riftFontSource == null) return;
+            G.call("h2d.Object", "set_visible", riftFontSource, [false]);
+        }
+        var font = G.field(riftFontSource, "font");
         if (caption != "" && riftText == null) {
-            var font = findFont(G.field(owner, "gameRoot"), 6);
-            if (font == null) font = G.staticCall("hxd.res.DefaultFont", "get", []);
-            riftFontScale = 14 / Math.max(1, G.number(G.field(font, "size"), 14));
+            if (font == null) return;
             riftShadow = G.create("h2d.Text", [font, panel]);
             riftText = G.create("h2d.Text", [font, panel]);
             G.call("h2d.Text", "set_textColor", riftShadow, [0x171b24]);
-            for (text in [riftShadow, riftText]) G.call("h2d.Object", "setScale", text, [riftFontScale]);
         }
         if (riftText == null) return;
-        if (caption != riftCaption) {
+        // Native styles can settle a frame later or change with the UI locale.
+        // Refresh the font and metrics only when the actual font changes.
+        var fontChanged = font != null && font != riftFont;
+        if (fontChanged) {
+            riftFont = font;
+            riftFontScale = 16 / Math.max(1, G.number(G.field(font, "size"), 16));
+            for (text in [riftShadow, riftText]) {
+                G.call("h2d.Text", "set_font", text, [font]);
+                G.call("h2d.Object", "setScale", text, [riftFontScale]);
+            }
+        }
+        if (caption != riftCaption || fontChanged) {
             riftCaption = caption;
             for (text in [riftShadow, riftText]) {
                 G.call("h2d.Text", "set_text", text, [caption]);
@@ -323,10 +345,10 @@ class MinimapView {
             G.call("h2d.Text", "set_textColor", riftText, [color]);
         }
         if (caption == "") return;
-        var x = BORDER + (size - riftWidth) / 2;
+        var x = Math.round(BORDER + (size - riftWidth) / 2);
         // Seven pixels above the frame, versus four below it for hover text.
         // Keep the caption on-screen even with a very small viewport.
-        var y = Math.max(2 - panelY, -riftHeight - 7);
+        var y = Math.ceil(Math.max(2 - panelY, -riftHeight - 7));
         if (x != riftX || y != riftY) {
             riftX = x; riftY = y;
             position(riftShadow, x + 1, y + 1);
@@ -466,6 +488,8 @@ class MinimapView {
     }
 
     public function dispose():Void {
+        // The hidden font source belongs to gameRoot's DOM, outside our panel.
+        if (riftFontSource != null) G.call("h2d.Object", "remove", riftFontSource);
         if (panel != null) {
             var old = panel;
             panel = null;
@@ -475,6 +499,7 @@ class MinimapView {
         frame = null; mask = null; circleMask = null; squareFilter = null; circleFilter = null;
         pivot = null; terrain = null; tileLayer = null; arrow = null; markers = null; compass = null;
         rifts = null; riftText = null; riftShadow = null; riftCaption = ""; riftColor = -1;
+        riftFontSource = null; riftFont = null;
         riftX = Math.NaN; riftY = Math.NaN;
         npcPivot = null; npcTerrain = null;
         input = null; hovered = false; hoverText = null; hoverShadow = null; hoverCaption = "";

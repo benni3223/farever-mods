@@ -17,6 +17,10 @@ class RiftMarkersTest {
     }
 
     static function main():Void {
+        eq(RiftMarkers.name("inactiveRift"), "Inactive Rift", "unchosen location label");
+        eq(RiftMarkers.name("nextRift"), "Next Rift", "future location label");
+        eq(RiftMarkers.name("upcomingRift"), "Active Rift", "forming energy label");
+        eq(RiftMarkers.name("riftPortal"), "Rift Portal", "open portal label");
         eq(RiftTiming.caption(494), "08:14", "requested timer format");
         eq(RiftTiming.caption(0), "00:00", "zero is not negative");
         eq(RiftTiming.caption(-1), "00:00", "late samples clamp at zero");
@@ -46,7 +50,7 @@ class RiftMarkersTest {
         eq(rifts.alertActive(), false, "no alert colour outside the alert window without an open portal");
         eq(rifts.alertTarget(), null, "no arrow outside the alert window without an open portal");
         eq(rifts.upcoming.id, "First", "upcoming location uses native selection order");
-        eq(rifts.upcoming.kind, "upcomingRift", "unopened portal uses forming portal marker");
+        eq(rifts.upcoming.kind, "nextRift", "more than 15 minutes uses coloured closed fissure");
         eq(G.randomSeeds[0], 5400, "next expected event time seeds an isolated native RNG");
         eq(G.randomCounts[0], 3, "other maps count; duplicates and non-portals do not");
         eq(rifts.points.length, 1, "only chosen upcoming portal is visible");
@@ -63,6 +67,22 @@ class RiftMarkersTest {
         eq(G.randomSeeds.length, 1, "same cycle reuses selection");
         eq(G.elementReads, 1, "portal definitions cached between refreshes");
 
+        clock.serverNow = 899.9;
+        rifts.update(layer, 1.21);
+        eq(rifts.points[0].kind, "nextRift", "just above 15 minutes stays Next Rift");
+        eq(rifts.alertTarget(), null, "Next Rift does not create an early alert arrow");
+        clock.serverNow = 900.;
+        rifts.update(layer, 1.43);
+        eq(rifts.points[0].kind, "upcomingRift", "exactly 15 minutes becomes Active Rift");
+        eq(rifts.points[0].id, "First", "phase transition preserves predicted location");
+        eq(rifts.alertTarget().kind, "upcomingRift", "alert and visible marker change phase together");
+        eq(rifts.displayPoints(true)[0].kind, "upcomingRift", "inactive filter preserves Active Rift");
+        clock.serverNow = 901.;
+        rifts.update(layer, 1.65);
+        eq(rifts.points[0].kind, "upcomingRift", "below 15 minutes stays Active Rift");
+        eq(G.randomSeeds.length, 1, "phase transition reuses cached location prediction");
+        eq(G.elementReads, 1, "phase transition does not rescan portal definitions");
+
         G.riftEvent = {inf: inf, activeRift: "Second", state: "pending", countdown: 494., openRemaining: 0.};
         rifts.update(layer, 2);
         eq(rifts.remaining, 494., "replicated native event timer overrides derived timing");
@@ -73,6 +93,14 @@ class RiftMarkersTest {
         shown = rifts.displayPoints(false);
         eq(shown.length, 2, "announced location replaces its inactive marker");
         eq(shown[1].id, "First", "previous prediction becomes inactive when announcement differs");
+
+        G.riftEvent.countdown = 901.;
+        rifts.update(layer, 2.25);
+        eq(rifts.points[0].kind, "nextRift", "replicated countdown above 15 minutes also uses Next Rift");
+        eq(rifts.displayPoints(true)[0].kind, "nextRift", "inactive filter preserves Next Rift");
+        G.riftEvent.countdown = 900.;
+        rifts.update(layer, 2.5);
+        eq(rifts.points[0].kind, "upcomingRift", "replicated countdown uses the same inclusive boundary");
 
         G.riftEvent.state = "open";
         G.riftEvent.countdown = 1750.;
@@ -91,12 +119,12 @@ class RiftMarkersTest {
         eq(rifts.displayPoints(true)[0].kind, "riftPortal", "inactive filter preserves open portals");
         G.riftEvent.openRemaining = 0.;
         rifts.update(layer, 4);
-        eq(rifts.points[0].kind, "upcomingRift", "expired open state cannot leave a stale portal marker");
+        eq(rifts.points[0].kind, "nextRift", "expired open portal returns to next-cycle fissure at same location");
         eq(rifts.alertActive(), false, "expired portal clears alert colour before closed state arrives");
         eq(rifts.alertTarget(), null, "expired portal clears its alert arrow");
         G.riftEvent.state = "closed";
         rifts.update(layer, 5);
-        eq(rifts.points[0].kind, "upcomingRift", "closed event cannot draw a portal");
+        eq(rifts.points[0].kind, "nextRift", "closed event cannot draw a portal");
 
         // A reloaded native definition table invalidates both selection and position caches.
         G.elements = G.elements.copy();
@@ -107,6 +135,7 @@ class RiftMarkersTest {
         eq(rifts.points.length, 2, "different current and upcoming locations both appear");
         eq(rifts.points[0].id, "Second", "open marker stays at current event");
         eq(rifts.points[1].id, "First", "next marker appears at future event");
+        eq(rifts.points[1].kind, "nextRift", "open portal and next-cycle fissure coexist at different locations");
         eq(rifts.alertTarget().id, "Second", "open portal takes priority over a different future destination");
         eq(rifts.alertTarget().kind, "riftPortal", "open portal alert keeps its portal hover label");
         eq(G.elementReads, 2, "definition reload rebuilds the candidate cache");
@@ -173,6 +202,8 @@ class RiftMarkersTest {
             eq(MinimapGeometry.showAlert(true, 130, 0, 250, circular, 10), false, "partly visible Rift hides arrow");
             eq(MinimapGeometry.showAlert(true, 150, 0, 250, circular, 10), true, "offscreen Rift shows arrow");
             eq(MinimapGeometry.showAlert(false, 30, 0, 250, circular, 10), true, "hidden activity markers do not suppress alert");
+            eq(MinimapGeometry.showAlert(true, 136, 0, 250, circular, 12), false, "larger portal hides arrow when partly visible");
+            eq(MinimapGeometry.showAlert(true, 139, 0, 250, circular, 12), true, "larger portal shows arrow when fully offscreen");
         }
         Sys.println('Rift marker tests passed ($checks checks)');
     }

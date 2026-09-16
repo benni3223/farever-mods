@@ -117,7 +117,7 @@ class MinimapMarkers {
         heroHeight = G.number(G.field(hero, "posz"), Math.NaN);
         try {
             refreshLandmarks();
-            var points = collect(hero, config, x, y, radius + 11 * markerScale / scale);
+            var points = collect(hero, config, x, y, radius + 12 * markerScale / scale);
             draw(points, scale);
         } catch (error:Dynamic) {
             hitPoints = [];
@@ -598,8 +598,9 @@ class MinimapMarkers {
         case "bank", "demon", "craft", "upgrade", "recycler", "chest", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
         case "obelisk", "dungeon", "soulstone", "secretOrb": 8;
-        case "targetDummy", "riftPortal", "upcomingRift": 9;
-        case "inactiveRift": 10;
+        case "targetDummy", "upcomingRift": 9;
+        case "riftPortal": 11;
+        case "inactiveRift", "nextRift": 10;
         default: 3.5;
     };
 
@@ -717,7 +718,7 @@ class MinimapMarkers {
     function draw(points:Array<MapPoint>, scale:Float):Void {
         hitPoints = [];
         // All Rift states draw above enemies; services retain top priority.
-        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
+        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
             for (point in points) if (point.kind == kind) {
                 point.elevation = elevationDirection(point.z, heroHeight);
                 hitPoints.push(point);
@@ -766,7 +767,7 @@ class MinimapMarkers {
     function drawIcon(point:MapPoint):Void {
         var kind = point.kind;
         if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy"
-            || kind == "riftPortal" || kind == "upcomingRift" || kind == "inactiveRift") {
+            || kind == "riftPortal" || kind == "upcomingRift" || kind == "inactiveRift" || kind == "nextRift") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }

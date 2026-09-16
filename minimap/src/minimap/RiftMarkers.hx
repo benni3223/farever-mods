@@ -36,7 +36,8 @@ class RiftMarkers {
 
     public static function name(kind:String):String return switch kind {
         case "riftPortal": "Rift Portal";
-        case "upcomingRift": "Upcoming Rift";
+        case "upcomingRift": "Active Rift";
+        case "nextRift": "Next Rift";
         default: "Inactive Rift";
     };
 
@@ -71,6 +72,10 @@ class RiftMarkers {
         // Only use the authorized wall-clock fallback if native timing is unavailable.
         // Never infer a portal location from fallback time.
         if (!Math.isFinite(remaining)) remaining = RiftTiming.untilNext(Date.now().getTime() / 1000, 3600);
+        // Classify our own point after timing is resolved (including fallback).
+        // The open portal wins when the current and next event share a location.
+        if (upcoming != null && upcoming.kind != "riftPortal")
+            upcoming.kind = RiftTiming.alert(remaining) ? "upcomingRift" : "nextRift";
     }
 
     function sample():Void {
@@ -111,7 +116,7 @@ class RiftMarkers {
         }
         if (pending) {
             // Replicated event data always wins over a prediction.
-            upcoming = locate(activeId, "upcomingRift");
+            upcoming = locate(activeId, "nextRift");
         } else if (Math.isFinite(serverTime) && Math.isFinite(remaining) && Math.isFinite(period) && period > 0 && candidates.length > 0) {
             // Rift.postInit seeds its own hxd.Rand from get_expectedTime, then
             // chooses from HElement.all() in its original order. Use an isolated
@@ -124,7 +129,7 @@ class RiftMarkers {
                 predictedId = index >= 0 && index < candidates.length ? candidates[index] : "";
                 predictedSeed = seed;
             }
-            upcoming = locate(predictedId, "upcomingRift");
+            upcoming = locate(predictedId, "nextRift");
         }
         if (upcoming != null) {
             // The current and next event may pick the same portal. Keep one
