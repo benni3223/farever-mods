@@ -4,7 +4,7 @@ import minimap.GameAccess as G;
 
 /** Local pixel geometry, retained by the marker pool across refreshes. */
 class LandmarkIcons {
-    public static inline var RIFT_ALERT_COLOR:Int = 0xff66df;
+    public static inline var RIFT_ALERT_COLOR:Int = 0xc94a9f;
 
     public static function draw(graphics:Dynamic, kind:String, radius:Float):Void {
         if (kind == "obelisk") obelisk(graphics, radius);
@@ -90,40 +90,64 @@ class LandmarkIcons {
     }
 
     static function upcomingRift(g:Dynamic, r:Float):Void {
-        // Broken violet ribbons spiral into a bright pink spark, like the
-        // forming world portal. Leave gaps instead of an open portal's centre.
-        var ribbons:Array<Array<Float>> = [
-            [-0.84, -0.58, -0.42, -0.85, 0.14, -0.96, 0.63, -0.76,
-                0.86, -0.51, 0.35, -0.66, -0.22, -0.68],
-            [-0.58, -0.49, -0.12, -0.34, 0.4, -0.02, 0.56, 0.27,
-                0.21, 0.02, -0.23, -0.19],
-            [-0.67, -0.1, -0.25, 0.18, -0.06, 0.33, 0.08, 0.58,
-                -0.18, 0.45, -0.37, 0.22],
-            [-0.05, 0.36, -0.32, 0.38, -0.62, 0.63, -0.74, 0.94,
-                -0.43, 0.72, -0.19, 0.59, 0.06, 0.51],
-            [0.04, 0.43, 0.29, 0.55, 0.44, 0.78, 0.75, 0.92,
-                0.4, 0.88, 0.19, 0.68, -0.03, 0.58]
-        ];
-        for (pass in 0...2) {
-            for (i in 0...ribbons.length) {
-                fill(g, pass == 0 ? 0x32133e : (i < 2 ? 0x8c36bc : 0xf624bf));
-                polygon(g, pass == 0 ? r + 1 : r, ribbons[i]);
-                end(g);
-            }
+        // A filled magenta-purple energy ball, not an open portal. Curved
+        // wisps, a subdued swirling core and four sparks match the reference.
+        // This geometry is built only when a pooled icon changes appearance.
+        for (i in 0...3) {
+            var angle = -2.9 + i * Math.PI * 2 / 3;
+            var wisp = riftRibbon(0.95, 0.72, 0.16, angle, 1.65);
+            fill(g, 0x32103f);
+            polygon(g, r + 1, wisp);
+            end(g);
+            fill(g, 0xcf169b);
+            polygon(g, r, wisp);
+            end(g);
+            fill(g, 0x90209f);
+            polygon(g, r, riftRibbon(0.9, 0.7, 0.07, angle + 0.14, 1.5));
+            end(g);
         }
-        fill(g, 0xc574ed);
-        polygon(g, r, [-0.65, -0.66, -0.25, -0.82, 0.18, -0.84,
-            0.54, -0.7, 0.14, -0.73, -0.23, -0.74]);
+        fill(g, 0x32103f);
+        circle(g, 0, 0, r * 0.67);
         end(g);
-        fill(g, RIFT_ALERT_COLOR);
-        polygon(g, r, [0.44, -0.17, 0.68, -0.08, 0.8, 0.13, 0.73, 0.38,
-            0.69, 0.13, 0.6, 0.03]);
-        polygon(g, r, [-0.05, 0.22, 0.08, 0.36, 0.3, 0.41, 0.11, 0.51,
-            0.03, 0.7, -0.1, 0.55, -0.34, 0.51, -0.17, 0.39]);
+        fill(g, 0x9620ad);
+        circle(g, 0, 0, r * 0.59);
         end(g);
-        fill(g, 0xffcef5);
-        polygon(g, r, [-0.03, 0.32, 0.07, 0.44, -0.02, 0.57, -0.13, 0.45]);
+        fill(g, 0xb52eb6);
+        circle(g, 0, 0, r * 0.46);
         end(g);
+        for (i in 0...3) {
+            var angle = -2.3 + i * Math.PI * 2 / 3;
+            fill(g, 0x702091);
+            polygon(g, r, riftRibbon(0.59, 0.16, 0.13, angle, 1.8));
+            end(g);
+        }
+        fill(g, 0xb663ca);
+        polygon(g, r, riftRibbon(0.54, 0.39, 0.04, -1.7, 0.85));
+        end(g);
+        for (i in 0...4) {
+            var angle = -2.05 + i * Math.PI / 2;
+            var x = Math.cos(angle) * 0.96, y = Math.sin(angle) * 0.96;
+            fill(g, 0x32103f);
+            polygon(g, r, [x, y - 0.16, x + 0.12, y, x, y + 0.16, x - 0.12, y]);
+            end(g);
+            fill(g, 0xcf169b);
+            polygon(g, r, [x, y - 0.1, x + 0.07, y, x, y + 0.1, x - 0.07, y]);
+            end(g);
+        }
+    }
+
+    static function riftRibbon(start:Float, finish:Float, width:Float, angle:Float, sweep:Float):Array<Float> {
+        var vertices:Array<Float> = [];
+        // Follow both edges of a curved, tapered ribbon without a hole.
+        // Do not repeat the shared tip vertices when returning along the inner edge.
+        for (side in [1, -1]) for (i in 0...(side == 1 ? 13 : 11)) {
+            var t = (side == 1 ? i : 11 - i) / 12;
+            var a = angle + sweep * t;
+            var radius = start + (finish - start) * t + side * width * Math.sin(Math.PI * t);
+            vertices.push(Math.cos(a) * radius);
+            vertices.push(Math.sin(a) * radius);
+        }
+        return vertices;
     }
 
     static function targetDummy(g:Dynamic, r:Float):Void {

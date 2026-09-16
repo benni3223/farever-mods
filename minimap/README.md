@@ -24,7 +24,7 @@ A compact overworld minimap with a centered player arrow.
 - Fixed orientation, character-following rotation, or camera-following rotation.
 - An outlined N and compass needle track north along the minimap edge.
 - A server-synchronized Rift countdown above the map, with inactive, upcoming, and open portal markers.
-- Pink-purple Rift alerts during the final 15 minutes and while the portal is open, including an arrow when the destination is off-screen.
+- Red-purple Rift alerts during the final 15 minutes and while the portal is open, including an arrow when the destination is off-screen.
 - Adjustable zoom, size, and transparency.
 - Marker scale slider resizes icons and all arrows together.
 - Left or right corner placement (right by default) with X/Y offsets from 0–100% in 1% steps.
@@ -57,7 +57,7 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Ascensions | Gold device with a bright cyan core |
 | Dungeons | Stone doorway with a purple and cyan portal |
 | Inactive Rift | Grey closed fissure with branching cracks |
-| Upcoming Rift | Forming portal with violet ribbons and a bright pink spark |
+| Upcoming Rift | Round magenta-purple energy ball with swirling wisps and sparks |
 | Open Rift Portal | Jagged pink tear with a dark interior |
 | Respawn points | White cross |
 | Obelisks | Broad grey stone idol with a split crown and gold inlays |
@@ -83,7 +83,7 @@ Rift locations follow the replicated event's selected portal. Before the event i
 
 Other known Rift locations appear as grey closed fissures with branching cracks, with the hover label **Inactive Rift**. Each location has just one marker: inactive markers change to the upcoming or open design as appropriate. **Hide inactive Rift locations**, in **Activities**, defaults to off and hides only the inactive markers. Static locations are cached and never generate Rift alert arrows.
 
-With **Rift alerts** enabled, the countdown turns pink-purple at **15:00** or less and stays that colour for as long as the portal is open. A matching pink-purple arrow without a ring or height indicator points to the upcoming Rift, then continues pointing to that portal until it closes, even though the countdown already shows the next Rift. The arrow disappears whenever its target marker enters view, including partial visibility. This follows zoom, rotation, and both minimap shapes. Alerts work independently of timer visibility and can still guide you when activity markers are disabled. Definitions, selected locations, and icon geometry are cached; native event state is sampled five times per second and text changes only when its displayed second or colour changes. These features only read game state and do not send server commands.
+With **Rift alerts** enabled, the countdown turns red-purple at **15:00** or less and stays that colour for as long as the portal is open. A matching red-purple arrow without a ring or height indicator points to the upcoming Rift, then continues pointing to that portal until it closes, even though the countdown already shows the next Rift. The arrow disappears whenever its target marker enters view, including partial visibility. This follows zoom, rotation, and both minimap shapes. Alerts work independently of timer visibility and can still guide you when activity markers are disabled. Definitions, selected locations, and icon geometry are cached; native event state is sampled five times per second and text changes only when its displayed second or colour changes. These features only read game state and do not send server commands.
 
 **Show soulstone summoning circles** is on by default in **Markers**. These landmarks use the world's element definitions and identify interactions that consume an item of type **Soulstone**. They remain visible without a soulstone in your inventory and are independent of activity-completion filters. Locations and elevation come from the native world prefab; definitions and icon geometry are cached.
 
