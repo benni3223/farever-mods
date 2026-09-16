@@ -196,7 +196,7 @@ class MinimapMarkers {
             if (visible) {
                 if (riftArrow == null) {
                     riftArrow = G.create("h2d.Graphics", [alertLayer]);
-                    drawPlayerArrow(riftArrow, 9, LandmarkIcons.RIFT_ALERT_COLOR);
+                    LandmarkIcons.alertTriangle(riftArrow, 9, LandmarkIcons.RIFT_ALERT_COLOR);
                 }
                 var north = config.showNorthIndicator ? MinimapGeometry.north(size, config.circular, rotation, markerScale) : null;
                 var pos = MinimapGeometry.alert(sx, sy, size, config.circular, markerScale, north);
@@ -914,7 +914,7 @@ class MinimapMarkers {
 
     static function drawAlertArrow(graphics:Dynamic):Void {
         LandmarkIcons.sparklingRing(graphics, 12);
-        drawPlayerArrow(graphics, 7, 0xffdc42);
+        LandmarkIcons.alertTriangle(graphics, 7, 0xffdc42);
     }
 
     static function arrowShape(graphics:Dynamic, x:Float, y:Float, radius:Float, heading:Float):Void {

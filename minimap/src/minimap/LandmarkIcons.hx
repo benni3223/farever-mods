@@ -223,6 +223,18 @@ class LandmarkIcons {
         end(g);
     }
 
+    public static function alertTriangle(g:Dynamic, radius:Float, color:Int):Void {
+        // A solid triangle distinguishes offscreen alerts from player arrows.
+        // Point along +X so the existing destination rotation still applies.
+        var vertices = [1., 0., -0.5, 0.8660254, -0.5, -0.8660254];
+        fill(g, 0x201b1b);
+        polygon(g, radius + 1, vertices);
+        end(g);
+        fill(g, color);
+        polygon(g, radius, vertices);
+        end(g);
+    }
+
     public static function sparklingRing(g:Dynamic, radius:Float):Void {
         // Stroke the ring instead of filling disks: its centre stays transparent.
         // Retain thin dark edges for contrast, then reset stroke state for icons.
