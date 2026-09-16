@@ -172,7 +172,7 @@ class MinimapMarkers {
     }
 
     public function alertNameAt(x:Float, y:Float):String {
-        if (riftAlertPosition != null && nearCursor(x, y, riftAlertPosition.x, riftAlertPosition.y, 11 * markerScale))
+        if (riftAlertPosition != null && nearCursor(x, y, riftAlertPosition.x, riftAlertPosition.y, 12 * markerScale))
             return riftAlertPosition.name;
         var i = alertPositions.length;
         while (i > 0) {
@@ -196,7 +196,7 @@ class MinimapMarkers {
             if (visible) {
                 if (riftArrow == null) {
                     riftArrow = G.create("h2d.Graphics", [alertLayer]);
-                    LandmarkIcons.alertArrow(riftArrow, 10, LandmarkIcons.RIFT_ALERT_COLOR);
+                    LandmarkIcons.alertArrow(riftArrow, 11, LandmarkIcons.RIFT_ALERT_COLOR);
                 }
                 var north = config.showNorthIndicator ? MinimapGeometry.north(size, config.circular, rotation, markerScale) : null;
                 var pos = MinimapGeometry.alert(sx, sy, size, config.circular, markerScale, north);
@@ -914,7 +914,7 @@ class MinimapMarkers {
 
     static function drawAlertArrow(graphics:Dynamic):Void {
         LandmarkIcons.sparklingRing(graphics, 12);
-        LandmarkIcons.alertArrow(graphics, 7, 0xffdc42);
+        LandmarkIcons.alertArrow(graphics, 7.7, 0xffdc42);
     }
 
     static function arrowShape(graphics:Dynamic, x:Float, y:Float, radius:Float, heading:Float):Void {
