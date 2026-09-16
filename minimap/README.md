@@ -56,7 +56,7 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Activities | Purple square with a white four-point star |
 | Ascensions | Gold device with a bright cyan core |
 | Dungeons | Stone doorway with a purple and cyan portal |
-| Inactive Rift | Smaller grey closed fissure |
+| Inactive Rift | Grey closed fissure with branching cracks |
 | Upcoming Rift | Five red horned demons |
 | Open Rift Portal | Jagged pink tear with a dark interior |
 | Respawn points | White cross |
@@ -81,7 +81,7 @@ Secret orb tooltips always read **Secret Orb**. Sparkling companion alerts disap
 
 Rift locations follow the replicated event's selected portal. Before the event is announced, the upcoming marker uses the same candidate order, event-time seed, and isolated native random generator as the game's own Rift selection. Open portals use the live event state and disappear when the portal closes. If consecutive Rifts choose the same location, the open icon takes precedence over the upcoming icon. Rift markers follow **Show activities**, but completion filters never hide them.
 
-Other known Rift locations appear as smaller grey closed fissures, with the hover label **Inactive Rift**. Each location has just one marker: inactive markers change to the upcoming or open design as appropriate. **Hide inactive Rift locations**, in **Activities**, defaults to off and hides only the inactive markers. Static locations are cached and never generate Rift alert arrows.
+Other known Rift locations appear as grey closed fissures with branching cracks, with the hover label **Inactive Rift**. Each location has just one marker: inactive markers change to the upcoming or open design as appropriate. **Hide inactive Rift locations**, in **Activities**, defaults to off and hides only the inactive markers. Static locations are cached and never generate Rift alert arrows.
 
 With **Rift alerts** enabled, the countdown turns red at **15:00** or less and stays red for as long as the portal is open. A red arrow without a ring or height indicator points to the upcoming Rift, then continues pointing to that portal until it closes, even though the countdown already shows the next Rift. The arrow disappears whenever its target marker enters view, including partial visibility. This follows zoom, rotation, and both minimap shapes. Alerts work independently of timer visibility and can still guide you when activity markers are disabled. Definitions, selected locations, and icon geometry are cached; native event state is sampled five times per second and text changes only when its displayed second or colour changes. These features only read game state and do not send server commands.
 

@@ -117,7 +117,7 @@ class MinimapMarkers {
         heroHeight = G.number(G.field(hero, "posz"), Math.NaN);
         try {
             refreshLandmarks();
-            var points = collect(hero, config, x, y, radius + 10 * markerScale / scale);
+            var points = collect(hero, config, x, y, radius + 11 * markerScale / scale);
             draw(points, scale);
         } catch (error:Dynamic) {
             hitPoints = [];
@@ -599,7 +599,7 @@ class MinimapMarkers {
         case "plant", "ore", "boss": 5;
         case "obelisk", "dungeon", "soulstone", "secretOrb": 8;
         case "targetDummy", "riftPortal", "upcomingRift": 9;
-        case "inactiveRift": 7;
+        case "inactiveRift": 10;
         default: 3.5;
     };
 
