@@ -196,7 +196,7 @@ class MinimapMarkers {
             if (visible) {
                 if (riftArrow == null) {
                     riftArrow = G.create("h2d.Graphics", [alertLayer]);
-                    LandmarkIcons.alertTriangle(riftArrow, 9, LandmarkIcons.RIFT_ALERT_COLOR);
+                    LandmarkIcons.alertTriangle(riftArrow, 10, LandmarkIcons.RIFT_ALERT_COLOR);
                 }
                 var north = config.showNorthIndicator ? MinimapGeometry.north(size, config.circular, rotation, markerScale) : null;
                 var pos = MinimapGeometry.alert(sx, sy, size, config.circular, markerScale, north);

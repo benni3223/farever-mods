@@ -225,9 +225,9 @@ class LandmarkIcons {
 
     public static function alertTriangle(g:Dynamic, radius:Float, color:Int):Void {
         // A solid triangle distinguishes offscreen alerts from player arrows.
-        // A narrow base and extended tail give a clear direction at HUD size.
+        // Keep enough width to read at HUD size while retaining a pointed profile.
         // Point along +X so the existing destination rotation still applies.
-        var vertices = [1., 0., -0.8, 0.4, -0.8, -0.4];
+        var vertices = [1., 0., -0.75, 0.55, -0.75, -0.55];
         fill(g, 0x201b1b);
         polygon(g, radius + 1, vertices);
         end(g);
