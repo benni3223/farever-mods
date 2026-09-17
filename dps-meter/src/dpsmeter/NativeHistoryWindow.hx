@@ -195,14 +195,33 @@ class NativeHistoryWindow {
     function copySnapshot():Void {
         if (pending || copying || fight == null || selectedEntry == null) return;
         copying = true;
+        var scroll = chart.snapshotScroll();
+        var message = "Snapshot copied to clipboard.";
+        var failed = false;
         try {
-            NativeFightSnapshot.copy(fight, selectedEntry, group, G.field(detail, "font"), headingFont, chart.snapshotPlayer(fight));
-            status("Snapshot copied to clipboard.");
+            show(actionStatus, false);
+            layout(true);
+            refreshSnapshotChart();
+            chart.restoreScroll(0);
+            NativeFightSnapshot.copyWindow(window, width, height);
         } catch (error:Dynamic) {
-            status(Std.string(error), true);
+            message = Std.string(error); failed = true;
             trace("[DPS Meter] Snapshot: " + Std.string(error));
         }
+        try {
+            layout(); refreshSnapshotChart(); chart.restoreScroll(scroll);
+        } catch (error:Dynamic) {
+            message = Std.string(error); failed = true;
+            trace("[DPS Meter] Restore history after snapshot: " + message);
+        }
         copying = false;
+        status(message, failed);
+    }
+    function refreshSnapshotChart():Void {
+        NativeFightSnapshot.reflow(window);
+        chart.update(fight, haxe.Timer.stamp());
+        NativeFightSnapshot.reflow(window);
+        alignLabels();
     }
     function status(message:String, error:Bool = false):Void {
         if (actionStatus == null) return;
@@ -329,12 +348,16 @@ class NativeHistoryWindow {
         if (tint != null) for (channel in ["x", "y", "z"]) G.set(tint, channel, 1.0);
         G.call("h2d.HtmlText", "set_textColor", row.player, [value]);
     }
-    function layout():Void {
+    function layout(snapshot:Bool = false):Void {
         var scene = G.field(owner, "s2d");
         var top = localPoint(0, 0);
         var bottom = localPoint(G.number(G.field(scene, "width"), 1920), G.number(G.field(scene, "height"), 1080));
         var w = Std.int(Math.max(300, Math.min(900, bottom.x - top.x - 40)));
         var h = Std.int(Math.max(320, Math.min(820, bottom.y - top.y - 60)));
+        if (snapshot) {
+            h = SnapshotLayout.historyHeight(chart.snapshotHeight(), h);
+            SnapshotLayout.imageSize(w, h);
+        }
         if (w != width || h != height) {
             width = w; height = h;
             size(window, w, h); if (frame != null) { size(frame, w, h); position(frame, 0, 0); }

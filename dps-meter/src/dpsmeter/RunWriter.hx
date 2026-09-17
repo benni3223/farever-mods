@@ -21,9 +21,11 @@ class RunWriter {
     }
 
     public function archive(fight:Fight):Void {
-        if (stopped) return;
+        if (stopped || fight.category == HistoryCatalog.HistoryCategory.OTHER) return;
+        var record = FightHistory.encode(fight, "fight_" + historySession + "_" + (++historySequence));
+        if (!HistoryCatalog.HistoryCategory.canArchive(record)) return;
         prepare();
-        uploader.archive(FightHistory.encode(fight, "fight_" + historySession + "_" + (++historySequence)));
+        uploader.archive(record);
     }
     public function requestHistory(request:HistoryRequest):Void { prepare(); uploader.requestHistory(request); }
     public function receiveHistory():Null<HistoryResponse> return uploader == null ? null : uploader.receiveHistory();

@@ -37,8 +37,13 @@ class NativeDamageChart {
         for (row in rows) sizeRow(row);
         lastRefresh = -1;
     }
-    public function snapshotPlayer(fight:Fight):String
-        return fight == displayed && fight.players.exists(selectedPlayer) ? selectedPlayer : "";
+    public function snapshotHeight():Int {
+        var list = G.field(rowsRoot, "obj");
+        NativeFightSnapshot.reflow(list);
+        return Std.int(Math.ceil(Math.max(30, G.number(G.field(list, "contentHeight")))));
+    }
+    public function snapshotScroll():Float return G.number(G.field(G.field(rowsRoot, "obj"), "scrollPosY"));
+    public function restoreScroll(value:Float):Void flow(rowsRoot, "set_scrollPosY", value);
     function resetScroll():Void {
         // Reflow positions the new list at its beginning, including an empty list.
         G.set(G.field(rowsRoot, "obj"), "scrollPosY", 0.0);

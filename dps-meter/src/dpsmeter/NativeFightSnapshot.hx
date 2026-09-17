@@ -1,175 +1,86 @@
 package dpsmeter;
 
-import dpsmeter.CombatModel.Fight;
-import dpsmeter.FightHistory.HistoryEntry;
-import dpsmeter.FightSnapshot.SnapshotPlan;
-import dpsmeter.RiftTracker.RiftRecap;
 import dpsmeter.GameAccess as G;
 import dpsmeter.NativeUi.*;
 
-/** Offscreen chart or skill table: native fonts and class colours, without viewport cropping. */
+/** Render the actual native window, including its skin, fonts and gauges. */
 class NativeFightSnapshot {
-    public static function copy(fight:Fight, entry:HistoryEntry, encounter:String, bodyFont:Dynamic, titleFont:Dynamic, playerId:String = ""):Void {
-        if (bodyFont == null || titleFont == null) throw "The chart fonts are not ready. Try again.";
-        var plan = FightSnapshot.plan(fight, playerId);
-        render(plan.width, plan.height, (root, graphic) -> {
-            rect(graphic, 0, 0, plan.width, plan.height, 0xcfbbb0);
-            rect(graphic, 0, 0, plan.width, 64, 0xecd5ca);
-            text(root, titleFont, encounter, 24, 14, plan.width - 48, 28, 0x815c43);
-            text(root, bodyFont, FightHistory.chartDetail(entry), 24, 78, plan.width - 48, 18, 0x5b4334);
-            drawChart(root, graphic, plan, bodyFont, titleFont);
-        });
-    }
-    public static function copyRecap(result:RiftRecap, bodyFont:Dynamic, titleFont:Dynamic,
-        gatePlayer:String = "", bossPlayer:String = ""):Void {
-        if (bodyFont == null || titleFont == null) throw "The chart fonts are not ready. Try again.";
-        var plan = FightSnapshot.recap(result, gatePlayer, bossPlayer);
-        render(plan.width, plan.height, (root, graphic) -> {
-            rect(graphic, 0, 0, plan.width, plan.height, 0xcfbbb0);
-            rect(graphic, 0, 0, plan.width, 64, 0xecd5ca);
-            text(root, titleFont, "Rift Recap", 24, 14, plan.width - 48, 28, 0x815c43);
-            for (section in plan.sections) {
-                var panel = G.create("h2d.Object", [root]);
-                position(panel, section.x, section.y);
-                text(panel, titleFont, section.caption, 24, 14, section.chart.width - 192, 26, 0x815c43);
-                text(panel, bodyFont, section.seconds == null ? "" : duration(section.seconds),
-                    section.chart.width - 152, 18, 128, 20, 0x5b4334, true);
-                var chart = G.create("h2d.Object", [panel]);
-                position(chart, 0, -FightSnapshot.RECAP_CHART_OFFSET);
-                var bars = G.create("h2d.Graphics", [chart]);
-                drawChart(chart, bars, section.chart, bodyFont, titleFont);
-            }
-        }, FightSnapshot.RECAP_SCALE);
-    }
-    static function render(width:Int, height:Int, draw:(Dynamic, Dynamic)->Void, scale:Int = 1):Void {
-        var size = FightSnapshot.imageSize(width, height, scale);
-        width = size.width; height = size.height;
-        var scene = G.create("h2d.Scene", []);
-        var root:Dynamic = null;
-        var texture:Dynamic = null;
-        var pixels:Dynamic = null;
+    public static function copyWindow(window:Dynamic, width:Int, height:Int):Void {
+        var size = SnapshotLayout.imageSize(width, height);
+        var parent = G.field(window, "parent");
+        if (parent == null) throw "The window is not ready. Try again.";
+        var x = G.number(G.field(window, "x")), y = G.number(G.field(window, "y"));
+        var scaleX = G.number(G.field(window, "scaleX"), 1), scaleY = G.number(G.field(window, "scaleY"), 1);
+        var origin = localPoint(parent, 0, 0);
+        var unit = localPoint(parent, SnapshotLayout.SCALE, SnapshotLayout.SCALE);
+        var texture:Dynamic = null, pixels:Dynamic = null;
         try {
-            root = G.create("h2d.Object", [scene]);
-            // Rasterize fonts and geometry at the final resolution; never
-            // enlarge the already-rendered clipboard pixels.
-            G.call("h2d.Object", "setScale", root, [scale * 1.0]);
-            var graphic = G.create("h2d.Graphics", [root]);
-            draw(root, graphic);
-            var output = haxe.io.Bytes.alloc(width * height * 4);
-            // The constructor allocates immediately. Supply a native ArrayObj
-            // containing Target before allocation, never an ArrayDyn or a late flag.
+            // Cancel the game's UI scaling so the output has a consistent
+            // resolution. Keep the window attached: removing it triggers native
+            // UI disposal and loses its DOM styling and input registration.
+            G.call("h2d.Object", "set_scaleX", window, [unit.x - origin.x]);
+            G.call("h2d.Object", "set_scaleY", window, [unit.y - origin.y]);
+            var output = haxe.io.Bytes.alloc(size.width * size.height * 4);
             var windows = G.field(G.current("ui.BaseUI", "current"), "windows");
             var flags = G.call("hl.types.ArrayObj", "slice", windows, [0, 0]);
             var target = G.enumeration("h3d.mat.TextureFlags", "Target");
             if (flags == null || target == null) throw "The renderer's target texture flags are unavailable.";
             G.call("hl.types.ArrayObj", "pushDyn", flags, [target]);
-            // Render in strips so a tall rift ranking is not limited by the
-            // GPU's maximum texture height. The final clipboard image is whole.
-            var y = 0;
-            while (y < height) {
-                var stripHeight = Std.int(Math.min(2048, height - y));
-                texture = SnapshotTexture.create(width, stripHeight, flags);
-                position(root, 0, -y);
-                G.call("h2d.Object", "drawTo", root, [texture]);
+            var rowBytes = size.width * 4;
+            var top = 0;
+            while (top < size.height) {
+                var stripHeight = Std.int(Math.min(2048, size.height - top));
+                texture = SnapshotTexture.create(size.width, stripHeight, flags);
+                // CF_DIB has no alpha channel. Use an opaque neutral backdrop
+                // so rounded corners and translucent native details composite
+                // correctly instead of becoming black premultiplied pixels.
+                G.call("h3d.mat.Texture", "clear", texture, [0x261f1a, null, null]);
+                var point = localPoint(parent, SnapshotLayout.MARGIN * SnapshotLayout.SCALE,
+                    SnapshotLayout.MARGIN * SnapshotLayout.SCALE - top);
+                position(window, point.x, point.y);
+                G.call("h2d.Object", "drawTo", window, [texture]);
                 pixels = SnapshotTexture.readBgra(texture);
                 var bytes = G.field(pixels, "bytes");
                 var offset = G.integer(G.field(pixels, "offset"));
                 var stride = G.integer(G.field(pixels, "stride"));
                 var length = G.integer(G.field(bytes, "length"));
-                var rowBytes = width * 4;
                 if (offset < 0 || stride < rowBytes || length < offset + (stripHeight - 1) * stride + rowBytes)
-                    throw "The renderer returned an incomplete chart image.";
+                    throw "The renderer returned an incomplete window image.";
                 var raw:hl.Bytes = cast HlxRuntime.unboxPointer(G.field(bytes, "b"));
-                if (raw == null) throw "The chart pixel buffer is unavailable.";
+                if (raw == null) throw "The window pixel buffer is unavailable.";
                 var source = raw.toBytes(length);
-                for (row in 0...stripHeight) output.blit((y + row) * rowBytes, source, offset + row * stride, rowBytes);
+                for (row in 0...stripHeight) output.blit((top + row) * rowBytes, source, offset + row * stride, rowBytes);
                 G.call("hxd.Pixels", "dispose", pixels); pixels = null;
                 G.call("h3d.mat.Texture", "dispose", texture); texture = null;
-                y += stripHeight;
+                top += stripHeight;
             }
-            DesktopActions.copyImage(output, width, height);
+            DesktopActions.copyImage(output, size.width, size.height);
         } catch (error:Dynamic) {
-            cleanup(scene, root, texture, pixels);
+            cleanup(texture, pixels);
+            restore(window, x, y, scaleX, scaleY);
             throw error;
         }
-        cleanup(scene, root, texture, pixels);
+        restore(window, x, y, scaleX, scaleY);
     }
-    static function drawChart(root:Dynamic, graphic:Dynamic, plan:SnapshotPlan, bodyFont:Dynamic, titleFont:Dynamic):Void {
-        if (plan.breakdown) { drawBreakdown(root, graphic, plan, bodyFont, titleFont); return; }
-        text(root, titleFont, "Player", 24, 112, 440, 17);
-        text(root, titleFont, "Damage", 468, 112, 140, 17, 0x5b4334, true);
-        text(root, titleFont, "DPS", 620, 112, 120, 17, 0x5b4334, true);
-        text(root, titleFont, "Damage (%)", 752, 112, 124, 17, 0x5b4334, true);
-        for (i in 0...plan.rows.length) {
-            var row = plan.rows[i]; var y = 140 + i * plan.rowHeight;
-            text(root, bodyFont, row.name, 24, y, 440, 18);
-            text(root, bodyFont, compact(row.damage), 468, y, 140, 18, 0x5b4334, true);
-            text(root, bodyFont, compact(row.dps), 620, y, 120, 18, 0x5b4334, true);
-            text(root, bodyFont, Std.string(dpsmeter.CombatModel.SkillStats.rounded(row.percent, 1)) + "%", 752, y, 124, 18, 0x5b4334, true);
-            rect(graphic, 24, y + 28, 852, 8, 0xb29a8c);
-            rect(graphic, 24, y + 28, 852 * row.percent / 100, 8, classColor(row.className));
-        }
-        if (plan.rows.length == 0) text(root, bodyFont, "No damage recorded", 24, 140, 852, 18);
+    static function restore(window:Dynamic, x:Float, y:Float, scaleX:Float, scaleY:Float):Void {
+        G.call("h2d.Object", "set_scaleX", window, [scaleX]);
+        G.call("h2d.Object", "set_scaleY", window, [scaleY]);
+        position(window, x, y);
     }
-    static function drawBreakdown(root:Dynamic, graphic:Dynamic, plan:SnapshotPlan, bodyFont:Dynamic, titleFont:Dynamic):Void {
-        var inner = plan.width - 48;
-        text(root, titleFont, plan.playerName + " · Ability breakdown", 24, 110, inner, 22, classColor(plan.playerClass));
-        var columns = SkillBreakdown.columns(inner);
-        for (column in columns) {
-            var x = 24 + column.x; var width = column.width - 10;
-            if (column.key == "damage") {
-                text(root, titleFont, "Damage (%)", x, 150, width - 80, 16);
-                text(root, titleFont, "Damage", x + width - 74, 150, 74, 16, 0x5b4334, true);
-            } else text(root, titleFont, column.title, x, 150, width, 16, 0x5b4334, column.key != "ability");
-        }
-        for (i in 0...plan.skills.length) {
-            var row = plan.skills[i]; var v = row.values; var y = 180 + i * plan.rowHeight;
-            if (i % 2 == 0) rect(graphic, 24, y, inner, plan.rowHeight, 0xc4afa3);
-            var values = ["damage" => compact(v.damage), "casts" => Std.string(v.casts), "avgCast" => compact(v.avgCast),
-                "hits" => Std.string(v.hits), "avgHit" => compact(v.avgHit),
-                "crit" => Std.string(dpsmeter.CombatModel.SkillStats.rounded(v.crit, 1)) + "%", "dps" => compact(v.dps)];
-            for (column in columns) {
-                var x = 24 + column.x; var width = column.width - 10;
-                if (column.key == "ability") {
-                    var tile = NativeCombatMetadata.skillIcon(row.id);
-                    if (tile != null) {
-                        var icon = G.create("h2d.Bitmap", [tile, root]);
-                        G.call("h2d.Object", "setScale", icon, [26 / Math.max(1, Math.max(G.number(G.field(tile, "width")), G.number(G.field(tile, "height"))))]);
-                        position(icon, x + 3, y + 7);
-                    }
-                    text(root, titleFont, NativeCombatMetadata.skillName(row.id), x + 34, y + 11, width - 34, 17);
-                } else if (column.key == "damage") {
-                    text(root, bodyFont, Std.string(dpsmeter.CombatModel.SkillStats.rounded(v.percent, 1)) + "%", x, y + 11, 51, 17, 0x5b4334, true);
-                    var barX = x + 58; var barWidth = width - 58 - 74 - 6;
-                    rect(graphic, barX, y + 16, barWidth, 8, 0xb29a8c);
-                    rect(graphic, barX, y + 16, barWidth * Math.max(0, Math.min(1, v.percent / 100)), 8, classColor(plan.playerClass));
-                    text(root, bodyFont, values[column.key], x + width - 74, y + 11, 74, 17, 0x5b4334, true);
-                } else text(root, column.key == "dps" ? titleFont : bodyFont, values[column.key], x, y + 11, width, 17, 0x5b4334, true);
-            }
-        }
-        if (plan.skills.length == 0) text(root, bodyFont, "No ability damage recorded", 24, 180, inner, 18);
-    }
-    static function cleanup(scene:Dynamic, root:Dynamic, texture:Dynamic, pixels:Dynamic):Void {
+    static function cleanup(texture:Dynamic, pixels:Dynamic):Void {
         if (pixels != null) try G.call("hxd.Pixels", "dispose", pixels) catch (_:Dynamic) {}
         if (texture != null) try G.call("h3d.mat.Texture", "dispose", texture) catch (_:Dynamic) {}
-        if (root != null) try G.call("h2d.Object", "removeChildren", root) catch (_:Dynamic) {}
-        if (scene != null) try G.call("h2d.Scene", "dispose", scene) catch (_:Dynamic) {}
     }
-    static function text(parent:Dynamic, font:Dynamic, value:String, x:Float, y:Float, width:Float, height:Float,
-        color:Int = 0x5b4334, right:Bool = false):Void {
-        var object = G.create("h2d.Text", [font, parent]);
-        G.call("h2d.Text", "set_text", object, [value]);
-        G.call("h2d.Text", "set_lineBreak", object, [false]);
-        G.call("h2d.Text", "set_textColor", object, [color]);
-        var w = G.number(G.call("h2d.Text", "get_textWidth", object));
-        var h = G.number(G.call("h2d.Text", "get_textHeight", object));
-        var scale = Math.min(height / Math.max(1, h), width / Math.max(1, w));
-        G.call("h2d.Object", "setScale", object, [scale]);
-        position(object, right ? x + width - w * scale : x, y);
+    static function localPoint(parent:Dynamic, x:Float, y:Float):{x:Float, y:Float} {
+        var point = HlxRuntime.allocInstance(HlxRuntime.resolveType("h2d.col.PointImpl"));
+        G.set(point, "x", x); G.set(point, "y", y);
+        G.call("h2d.Object", "globalToLocal", parent, [point]);
+        return {x: G.number(G.field(point, "x")), y: G.number(G.field(point, "y"))};
     }
-    static function rect(graphic:Dynamic, x:Float, y:Float, width:Float, height:Float, color:Int):Void {
-        G.call("h2d.Graphics", "beginFill", graphic, [color, 1.0]);
-        G.call("h2d.Graphics", "drawRect", graphic, [x, y, width, height]);
-        G.call("h2d.Graphics", "endFill", graphic);
+    public static function reflow(object:Dynamic):Void {
+        // Existing DOM styles are already applied. Reflow descendants after
+        // expanding the chart, then rebuild the native frame at its new size.
+        for (child in children(object)) reflow(child);
+        if (G.field(object, "needReflow") != null) G.call("h2d.Flow", "reflow", object);
     }
 }

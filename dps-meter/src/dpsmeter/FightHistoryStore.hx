@@ -69,6 +69,7 @@ class FightHistoryStore {
     }
     public function save(record:Dynamic):Void {
         var summary = FightHistory.entry(record);
+        if (!HistoryCategory.canArchive(summary, catalog)) return;
         var path = recordPath(summary.id);
         FileSystem.createDirectory(folder);
         if (!FileSystem.exists(path)) {

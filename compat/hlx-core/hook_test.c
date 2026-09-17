@@ -15,6 +15,9 @@ typedef int (*TestFn)(int);
 static TestFn original;
 static int calls;
 static int hook(int input) { calls++; return original(input) + 100; }
+typedef double (*FloatFn)(void *, double);
+static FloatFn floatOriginal;
+static double floatHook(void *owner, double dt) { return floatOriginal(owner, dt) + 100.0; }
 static void require(int ok, const char *message) {
     if (!ok) { fprintf(stderr, "FAIL: %s\n", message); ExitProcess(1); }
 }
@@ -59,6 +62,28 @@ int main(void) {
     require(!PatchFunctionPrologue(tiny, hook, &trampoline, "short function boundary"), "refuse crossing a neighbor");
     require(memcmp(tiny, bytes, sizeof(bytes)) == 0, "failed hook leaves both functions intact");
     VirtualFree(tiny, 0, MEM_RELEASE);
+    unsigned char *floating = VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    const unsigned char xmm[] = {0xf2,0x0f,0x10,0xc1,0xc3}; // movsd xmm0,xmm1; ret
+    memcpy(floating, xmm, sizeof(xmm));
+    bounds[0] = floating; bounds[1] = floating + sizeof(xmm);
+    g_sortedFunctionStarts = bounds;
+    FlushInstructionCache(GetCurrentProcess(), floating, sizeof(xmm));
+    require(PatchFunctionPrologue(floating, floatHook, &trampoline, "object and floating-point arguments"), "install floating-point hook");
+    floatOriginal = (FloatFn)trampoline;
+    require(((FloatFn)floating)(floating, 4.5) == 104.5 && floatOriginal(floating, 4.5) == 4.5,
+        "preserve mixed pointer and floating-point arguments and return");
+    require(MH_DisableHook(floating) == MH_OK && MH_RemoveHook(floating) == MH_OK, "remove floating-point hook");
+    require(memcmp(floating, xmm, sizeof(xmm)) == 0, "restore SSE prologue");
+    VirtualFree(floating, 0, MEM_RELEASE);
+    unsigned char *hotpatch = VirtualAlloc(NULL, 4096, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
+    memset(hotpatch, 0x90, 64);
+    hotpatch[32] = 0xc3; hotpatch[34] = hotpatch[35] = hotpatch[36] = 0x50;
+    unsigned char before[64]; memcpy(before, hotpatch, sizeof(before));
+    bounds[0] = hotpatch + 32; bounds[1] = hotpatch + 48;
+    g_sortedFunctionStarts = bounds;
+    require(!PatchFunctionPrologue(hotpatch + 32, hook, &trampoline, "hotpatch above JIT entry"), "disable MinHook hotpatch-above fallback");
+    require(memcmp(hotpatch, before, sizeof(before)) == 0, "refusal leaves bytes before and inside the function untouched");
+    VirtualFree(hotpatch, 0, MEM_RELEASE);
     MH_Uninitialize();
     puts("HLX executable hook regression tests passed.");
     return 0;

@@ -129,19 +129,35 @@ class NativeRiftRecapWindow {
         if (copying || displayedRecap == null || sections.length != 2) return;
         copying = true;
         var message = "Snapshot copied to clipboard.";
+        var scrolls = [for (section in sections) (cast section.chart:NativeDamageChart).snapshotScroll()];
         try {
-            var gateChart:NativeDamageChart = sections[0].chart;
-            var bossChart:NativeDamageChart = sections[1].chart;
-            NativeFightSnapshot.copyRecap(displayedRecap, G.field(sections[0].time, "font"), G.field(title, "font"),
-                displayedRecap.gate == null ? "" : gateChart.snapshotPlayer(displayedRecap.gate),
-                bossChart.snapshotPlayer(displayedRecap.boss));
+            setText(title, "Rift Recap");
+            layout(true);
+            refreshSnapshotCharts();
+            for (section in sections) (cast section.chart:NativeDamageChart).restoreScroll(0);
+            NativeFightSnapshot.copyWindow(window, width, height);
         } catch (error:Dynamic) {
             message = Std.string(error);
             trace("[DPS Meter] Rift recap snapshot: " + message);
         }
+        // Restore the live window even when image allocation/readback fails.
+        try {
+            layout(); refreshSnapshotCharts();
+            for (i in 0...sections.length) (cast sections[i].chart:NativeDamageChart).restoreScroll(scrolls[i]);
+        } catch (error:Dynamic) {
+            message = Std.string(error);
+            trace("[DPS Meter] Restore recap after snapshot: " + message);
+        }
         copying = false;
         setText(title, message);
         statusUntil = haxe.Timer.stamp() + 5;
+    }
+
+    function refreshSnapshotCharts():Void {
+        NativeFightSnapshot.reflow(window);
+        for (section in sections) (cast section.chart:NativeDamageChart).update(section.fight, haxe.Timer.stamp());
+        NativeFightSnapshot.reflow(window);
+        alignLabels();
     }
 
     function addSection(parent:Dynamic, caption:String, fight:Null<Fight>, id:String):Void {
@@ -171,13 +187,18 @@ class NativeRiftRecapWindow {
             chart: chart, fight: fight, width: 0});
     }
 
-    function layout():Void {
+    function layout(snapshot:Bool = false):Void {
         var scene = G.field(owner, "s2d");
         var top = localPoint(0, 0);
         var bottom = localPoint(G.number(G.field(scene, "width"), 1920), G.number(G.field(scene, "height"), 1080));
         var w = Std.int(Math.min(980, bottom.x - top.x - 40));
         var columns = w >= 840;
         var h = Std.int(Math.min(columns ? 540 : 680, bottom.y - top.y - 80));
+        var chartHeights = snapshot ? [for (section in sections) (cast section.chart:NativeDamageChart).snapshotHeight()] : [];
+        if (snapshot) {
+            h = SnapshotLayout.recapHeight(columns, chartHeights, h);
+            SnapshotLayout.imageSize(w, h);
+        }
         if (width != w || height != h) {
             width = w; height = h;
             size(window, width, height);
@@ -195,17 +216,20 @@ class NativeRiftRecapWindow {
             for (object in wrappers) { size(object, width - 16, bodyHeight); position(object, 0, 0); }
             var panelWidth = columns ? Std.int((width - 72) / 2) : width - 48;
             var panelHeight = columns ? bodyHeight - 24 : Std.int((bodyHeight - 48) / 2);
+            var panelY = 12;
             for (i in 0...sections.length) {
                 var section = sections[i];
                 section.width = panelWidth;
-                size(section.obj, panelWidth, panelHeight);
+                var sectionHeight = snapshot && !columns ? chartHeights[i] + 40 : panelHeight;
+                size(section.obj, panelWidth, sectionHeight);
                 position(section.obj, 16 + (columns ? i * (panelWidth + 24) : 0),
-                    12 + (columns ? 0 : i * (panelHeight + 24)));
+                    columns ? 12 : panelY);
+                panelY += sectionHeight + 24;
                 size(section.heading, panelWidth, 40);
                 G.call("ui.comp.FmtText", "set_maxWidthText", section.name,
                     [Std.int(Math.max(1, panelWidth - textWidth(section.time) - 12))]);
                 var chart:NativeDamageChart = section.chart;
-                chart.resize(panelWidth, panelHeight - 40);
+                chart.resize(panelWidth, sectionHeight - 40);
             }
         }
         position(window, top.x + (bottom.x - top.x - width) / 2, top.y + (bottom.y - top.y - height) / 2);

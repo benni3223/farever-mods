@@ -57,7 +57,7 @@ can be removed if no other mod uses it.
 - **Summon tracking:** Minion damage credited to its owner and the skill that summoned it.
 - **Native, customizable window:** Move, resize, lock, and scroll the meter, with optional automatic hiding and a smooth fade.
 - **Rift tracking and recaps:** Separate gate and boss phases covering all players present, with both charts in one post-rift recap.
-- **Fight history:** Browse Boss Dungeons, Classic Dungeons, World Bosses, and Other encounters by difficulty; choose an attempt by date, character, party size, duration, and your DPS, then reopen its player and skill charts.
+- **Fight history:** Save Boss Dungeons, Classic Dungeons, and World Bosses; choose an attempt by date, character, party size, duration, and your DPS, then reopen its player and skill charts. New Other combat is not saved; existing Other history remains available.
 - **Kill notifications:** Optional boss kill totals with the previous fastest kill time. **Show unmastered Codex kills** displays progress through each enemy's final mastery requirement, including the finishing kill. **Show mastered Codex kills** displays subsequent kill totals. The target comes from the game's enemy-specific Codex thresholds, rather than the earlier XP reward milestone. Existing settings are preserved; unmastered notifications default to on and mastered notifications to off.
 - **Automatic log uploads:** Send completed boss encounters to [Farever Logs](https://fareverlogs.fr/) in the background, with no external application.
 - **Better Mod Settings integration:** Customize display options and hotkeys, with settings and window placement saved between sessions.
@@ -125,22 +125,20 @@ full absolute path to the local archive. Click its **folder icon** to open that
 location in Explorer. Encounter lists and charts use the extra vertical space. Section
 headings use the same larger bold style as Better Mod Settings titles.
 
-The **camera/clipboard button** at the top right copies the chart you are viewing.
-The party view includes every recorded player's damage, DPS, and share. While
-viewing a player's breakdown, it instead includes that player's complete ability
-table, with icons, display names, damage, share, casts, averages, hits, critical-hit
-percentage, and DPS. Both include the encounter and fight summary. The image grows
-vertically to include every row, independently of the window's scroll position.
-It uses the game's fonts and class colours;
-the folder path and window controls are excluded. Paste the image into a chat or
-image editor. A short message confirms successful copying.
+The **camera/clipboard button** at the top right copies the actual native chart
+window, including its decorative frame, fonts, class colours, gauges, and selected
+player view. The capture keeps the window's width and grows vertically when
+needed to include every row, independently of scroll position. It renders at
+twice the resolution in each direction on a neutral background. The window and
+scroll position are restored immediately afterward. Paste into a chat or image
+editor; a short message confirms successful copying.
 
 The **Rift Recap** has the same camera/clipboard button at the top left of its
 header, aligned with the close button. It copies both the gates and boss phases
 into one image, with their names, durations, and full charts. Any open player
 ability breakdown is preserved for that phase. Both phases include every row
-regardless of scroll position. Snapshots stack the phases in a single column and
-render at twice the resolution in each direction for clearer text when sharing.
+regardless of scroll position. The snapshot uses the real recap window's styling
+and side-by-side or stacked arrangement, at twice the resolution in each direction.
 The header briefly confirms copying or displays an error.
 
 The red **Delete log** button at the bottom right moves that fight's local chart

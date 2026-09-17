@@ -7,16 +7,18 @@ import dpsmeter.SkillBreakdown;
 import dpsmeter.NativeCombatMetadata;
 import dpsmeter.GameAccess;
 import dpsmeter.HistoryRequests;
-import dpsmeter.FightSnapshot;
+import dpsmeter.SnapshotLayout;
 import dpsmeter.SnapshotTexture;
 import dpsmeter.HistoryOptions;
 import dpsmeter.BossRecords;
 import dpsmeter.LiteralText;
+import dpsmeter.RunWriter;
 import haxe.Json;
 import sys.FileSystem;
 import sys.io.File;
 
 @:access(dpsmeter.LogUploader)
+@:access(dpsmeter.RunWriter)
 class HistoryTest {
     static var checks = 0;
     static function check(condition:Bool, message:String):Void {
@@ -40,7 +42,7 @@ class HistoryTest {
     }
     static function sample():Fight {
         var f = new Fight(10); f.startedAt = Date.fromString("2026-09-14 13:20:30").getTime();
-        f.me = "me"; f.bossName = "The Guardian";
+        f.me = "me"; f.bossName = "The Guardian"; f.category = HistoryCategory.WORLD;
         f.add(hit(10, 100.5), profile());
         var critical = hit(12, 250, true); critical.critical = true;
         f.add(critical, profile()); f.add(hit(14, 500, false, false, "ally"), profile("ally", false));
@@ -49,9 +51,41 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
-        clientSkillCompatibility();
-        lifecycle(); chakram(); outcomes(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); recapSnapshots(); snapshotTextures(); historyOptions(); literalLabels(); bossRecords();
+        clientSkillCompatibility(); archivePolicy();
+        lifecycle(); chakram(); outcomes(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); historyOptions(); literalLabels(); bossRecords();
         Sys.println('Fight history: $checks checks passed');
+    }
+    static function archivePolicy():Void {
+        var root = temp("archive-policy");
+        var store = new FightHistoryStore(root, _ -> {});
+        var other = sample(); other.category = HistoryCategory.OTHER;
+        other.bossKind = "Phrixes"; // A recognized name must not override an explicit Other classification.
+        var record = FightHistory.encode(other, "other");
+        store.save(record);
+        check(!FileSystem.exists(root + "/history/other.json"), "Other fights never produce an archive, even with a known boss name");
+        other.bossName = ""; other.bossKind = "";
+        var ordinary = FightHistory.encode(other, "ordinary");
+        check(ordinary.name == "Other combat", "Ordinary combat fixture has the reported fallback title");
+        store.save(ordinary);
+        check(!FileSystem.exists(root + "/history/ordinary.json"), "Other combat does not write a file");
+        var writer = new RunWriter(); writer.archive(other);
+        check(writer.uploader == null, "Other fights are discarded before creating a worker or queued record");
+        existingHistory(root, ordinary);
+        var reopened = new FightHistoryStore(root, _ -> {});
+        check(reopened.query(request("chart", "", 0, "ordinary")).record.id == "ordinary",
+            "Existing Other history remains available and is not deleted");
+        check(File.getContent(root + "/history/ordinary.json") == Json.stringify(ordinary),
+            "Browsing an old Other fight leaves its saved file unchanged");
+        for (category in [HistoryCategory.BOSS, HistoryCategory.DUNGEON, HistoryCategory.WORLD]) {
+            var fight = sample(); fight.category = category;
+            var id = "allowed_" + category.split(" ").join("_");
+            store.save(FightHistory.encode(fight, id));
+            check(FileSystem.exists(root + "/history/" + id + ".json"), "Recognized encounters still save: " + category);
+        }
+        var legacy = FightHistory.legacy(other.json("20260917-120000", 1), Date.now().getTime(), "legacy_other");
+        store.save(legacy);
+        check(!FileSystem.exists(root + "/history/legacy_other.json"), "Unclassified legacy exports are not imported as new Other archives");
+        remove(root);
     }
     static function clientSkillCompatibility():Void {
         var oldSkill = {kind: "OldStrike"};
@@ -360,7 +394,7 @@ class HistoryTest {
         check(m.history[0].outcome == "Victory" && m.history[0].players["me"].damage == 300,
             "Late lethal damage confirms victory without losing damage or creating a second log");
 
-        var saved = m.history[0].copy(); saved.partySize = 3;
+        var saved = m.history[0].copy(); saved.partySize = 3; saved.category = HistoryCategory.WORLD;
         var record = FightHistory.encode(saved, "outcome_victory");
         var entry = FightHistory.entry(Json.parse(Json.stringify(record)));
         check(FightHistory.decode(record).outcome == "Victory" && record.outcome == "Victory",
@@ -444,6 +478,10 @@ class HistoryTest {
         var root = "build/history-tests/" + name + "_" + Std.random(0x3fffffff);
         FileSystem.createDirectory(root); return root;
     }
+    static function existingHistory(root:String, record:Dynamic):Void {
+        FileSystem.createDirectory(root + "/history");
+        File.saveContent(root + "/history/" + record.id + ".json", Json.stringify(record));
+    }
     static function remove(path:String):Void {
         if (FileSystem.isDirectory(path)) { for (name in FileSystem.readDirectory(path)) remove(path + "/" + name); FileSystem.deleteDirectory(path); }
         else FileSystem.deleteFile(path);
@@ -485,7 +523,7 @@ class HistoryTest {
     static function uploader():Void {
         var root = temp("uploader");
         for (folder in ["logs", "logs/sent", "logs/rejected"]) FileSystem.createDirectory(root + "/" + folder);
-        var old = sample(); old.bossKind = "OldGuardian";
+        var old = sample(); old.bossKind = "OldGuardian"; old.phase = "Rift: OldGuardian";
         var report = old.json("20200101-123456", 1);
         for (folder in ["logs", "logs/sent", "logs/rejected"])
             File.saveContent(root + "/" + folder + "/run_20200101-123456_1.json", Json.stringify(report));
@@ -499,13 +537,13 @@ class HistoryTest {
         var store = new FightHistoryStore(root, _ -> {});
         var all = store.query(request("groups"));
         check(all.groups.length == 2, "Surviving original reports imported alongside local history");
-        check(store.query(request("fights", "OldGuardian")).total == 1, "Legacy encounter name retained and queued/sent/rejected copies deduplicated");
+        check(store.query(request("fights", "Rift: OldGuardian")).total == 1, "Legacy encounter name retained and queued/sent/rejected copies deduplicated");
         check(FileSystem.exists(root + "/logs/sent/run_20200101-123456_1.json"), "Old sent logs preserved even with keep_days=7");
         var second = new LogUploader(root); second.flush();
         second.requestHistory(request("groups")); second.browseHistory();
         var response = second.receiveHistory();
         check(response.id == 17 && response.error == "", "Background browsing replies to the matching request");
-        check(second.history.query(request("fights", "OldGuardian")).total == 1, "Restart does not duplicate legacy migration");
+        check(second.history.query(request("fights", "Rift: OldGuardian")).total == 1, "Restart does not duplicate legacy migration");
         second.archive(FightHistory.encode(sample(), "shutdown")); second.stop();
         check(FileSystem.exists(root + "/history/shutdown.json"), "Normal shutdown persists pending histories");
         remove(root);
@@ -556,6 +594,11 @@ class HistoryTest {
         for (category in HistoryCategory.all()) {
             var req = request("groups"); req.category = category;
             var groups = store.query(req);
+            if (category == HistoryCategory.OTHER) {
+                check(groups.groups.length == 0 && !FileSystem.exists(root + "/history/category_Other.json"),
+                    "Other fights create neither a history file nor an indexed attempt");
+                continue;
+            }
             check(groups.groups.length == 1 && groups.groups[0].count == 1, "Category filters same-named encounters independently: " + category);
             req = request("fights", groups.groups[0].name); req.category = category;
             check(store.query(req).entries[0].category == category, "Attempt list retains the selected category: " + category);
@@ -567,7 +610,7 @@ class HistoryTest {
         // Simulate the first history release's omitted metadata, then restore it
         // using the exact legacy session ID, with no destructive file migration.
         for (field in ["activityId", "bossKind", "phase"]) Reflect.deleteField(legacy, field);
-        store.save(legacy);
+        existingHistory(root, legacy);
         FileSystem.createDirectory(root + "/logs/sent");
         File.saveContent(root + "/logs/sent/run_20260914-132030_6.json", Json.stringify(report));
         var reopened = new FightHistoryStore(root, _ -> {});
@@ -581,7 +624,7 @@ class HistoryTest {
         var oldRecord = FightHistory.encode(sample(), "old");
         oldRecord.category = "Classic Dungeons"; oldRecord.categoryVersion = 0;
         oldRecord.activityId = "NewArena"; oldRecord.bossKind = "NewBoss";
-        store.save(oldRecord);
+        existingHistory(root, oldRecord);
         req = request("groups"); req.category = "Other";
         check(store.query(req).groups[0].count == 1, "Unobserved legacy activity starts unclassified");
         var observed = sample(); observed.category = "Boss Dungeons"; observed.activityId = "NewArena"; observed.bossKind = "NewBoss";
@@ -812,99 +855,27 @@ class HistoryTest {
         check(worker.receiveHistory().id == 101 && FileSystem.exists(root + "/history/keep.json"), "Worker then services navigation; missing native bridge never deletes permanently");
         remove(root);
 
-        var f = sample(); var plan = FightSnapshot.plan(f);
-        check(plan.rows.length == 2 && plan.rows[0].name == "1. Ally" && plan.rows[0].dps == 50, "Snapshot uses the full ranked party and archived fight duration");
-        check(Math.abs(plan.rows[0].percent + plan.rows[1].percent - 100) < .000001, "Snapshot contributions use all players' total damage");
-        var original = Json.stringify(FightHistory.encode(f, "unchanged"));
-        FightSnapshot.plan(f);
-        check(Json.stringify(FightHistory.encode(f, "unchanged")) == original, "Snapshot planning does not mutate the saved chart");
-        for (i in 0...120) { var uid = "player_" + i; f.add(hit(12, i + 1, false, false, uid), profile(uid, false)); }
-        plan = FightSnapshot.plan(f);
-        check(plan.rows.length == 122 && plan.height > 5800 && plan.height >= 140 + 122 * plan.rowHeight,
-            "Large rift snapshots grow tall enough for every row beyond the visible viewport");
-        var instant = new Fight(10); instant.add(hit(10, 7), profile()); instant.closed = 10;
-        check(FightSnapshot.plan(instant).rows[0].dps == 7, "Snapshot DPS uses the same one-second floor for instant fights");
-        plan = FightSnapshot.plan(new Fight(1));
-        check(plan.rows.length == 0 && plan.height > 140, "Empty snapshots reserve readable empty-state space");
-
-        f = sample(); plan = FightSnapshot.plan(f, "me");
-        check(plan.breakdown && plan.rows.length == 0 && plan.skills.length == 1 && plan.playerName == "Shawn"
-            && plan.playerClass == "warrior", "Selected-player snapshots contain that player's ability table, not the party chart");
-        check(plan.skills[0].id == "Strike" && plan.skills[0].values.damage == 350.5 && plan.skills[0].values.percent == 100
-            && plan.skills[0].values.dps == 35.05, "Breakdown snapshot totals, percentage and DPS use the selected player and full fight duration");
-        check(FightSnapshot.plan(f, "ally").skills[0].values.damage == 500, "Selecting another player snapshots that player's damage");
-        for (i in 0...80) {
-            var e = hit(12, i + 1); e.skill = "Ability_" + i;
-            f.players["me"].add(e, profile());
-        }
-        plan = FightSnapshot.plan(f, "me");
-        var percent = 0.0; for (skill in plan.skills) percent += skill.values.percent;
-        check(plan.skills.length == 81 && plan.height >= 180 + 81 * 40 && plan.width == 1200,
-            "Breakdown snapshots expand vertically for every skill, with width for all detailed columns");
-        check(plan.skills[0].id == "Strike" && plan.skills[1].id == "Ability_79" && Math.abs(percent - 100) < .000001,
-            "Snapshot skills sort by damage and share the player's total, rather than filling the top skill's bar");
-        check(!FightSnapshot.plan(f).breakdown && FightSnapshot.plan(f).rows.length == 2,
-            "Returning to the party view restores a complete party snapshot");
-        failed = false;
-        try FightSnapshot.plan(f, "missing") catch (_:Dynamic) failed = true;
-        check(failed, "A missing selected player reports an error instead of copying a different view");
-        var empty = new Fight(1); empty.players["me"] = new PlayerStats(profile());
-        plan = FightSnapshot.plan(empty, "me");
-        check(plan.breakdown && plan.skills.length == 0 && plan.height > 180, "Empty ability tables retain their selected-player heading and empty state");
-        check(FightSnapshot.plan(instant, "me").skills[0].values.dps == 7, "Breakdown snapshots share the live chart's one-second minimum duration");
     }
-    static function recapSnapshots():Void {
-        var gate = sample(); gate.phase = "Rift: Gates";
-        var boss = sample(); boss.phase = "Rift: The Guardian"; boss.last = 30; boss.closed = 30;
-        var result = {gate: gate, boss: boss};
-        var before = Json.stringify([FightHistory.encode(gate, "gate"), FightHistory.encode(boss, "boss")]);
-        var plan = FightSnapshot.recap(result);
-        check(plan.sections.length == 2 && plan.sections[0].caption == "Rift: Gates"
-            && plan.sections[1].caption == boss.phase, "Recap snapshot retains both phase headings");
-        check(plan.sections[0].seconds == 10 && plan.sections[1].seconds == 20
-            && plan.sections[0].chart.rows[0].dps == 50 && plan.sections[1].chart.rows[0].dps == 25,
-            "Each phase keeps its own finalized duration and DPS");
-        check(plan.sections[0].x == 0 && plan.sections[1].x == 0 && plan.width == 900
-            && plan.sections[1].y == plan.sections[0].y + plan.sections[0].chart.height - FightSnapshot.RECAP_CHART_OFFSET,
-            "Recaps stack both complete phases in one readable column without overlap");
-        var pixels = FightSnapshot.imageSize(plan.width, plan.height, FightSnapshot.RECAP_SCALE);
-        check(pixels.width == 1800 && pixels.height == plan.height * 2,
-            "Recap output doubles both dimensions for four times the rendered detail");
-        check(pixels.width / pixels.height == plan.width / plan.height,
-            "Higher resolution preserves compact recap proportions");
-        plan = FightSnapshot.recap(result, "me", "ally");
-        check(plan.width == 1200 && plan.sections[0].chart.playerName == "Shawn"
-            && plan.sections[1].chart.playerName == "Ally", "Recap snapshots preserve each chart's selected player independently");
-        check(plan.sections[0].chart.skills[0].values.dps == 35.05 && plan.sections[1].chart.skills[0].values.dps == 25,
-            "Selected ability tables use their own phase's duration");
-        plan = FightSnapshot.recap(result, "", "me");
-        check(plan.width == 1200 && !plan.sections[0].chart.breakdown && plan.sections[1].chart.breakdown,
-            "Recap snapshots support a party chart above an ability breakdown");
-        check(Json.stringify([FightHistory.encode(gate, "gate"), FightHistory.encode(boss, "boss")]) == before,
-            "Snapshot planning leaves finalized recap fights unchanged");
-        plan = FightSnapshot.recap({gate: null, boss: boss});
-        check(plan.sections[0].chart.rows.length == 0 && plan.sections[0].seconds == null
-            && plan.sections[1].chart.rows.length == 2, "Joining at the boss retains an empty gates section and the full boss chart");
-        for (i in 0...120) { var uid = "rift_player_" + i; gate.add(hit(12, i + 1, false, false, uid), profile(uid, false)); }
-        plan = FightSnapshot.recap(result);
-        check(plan.sections[0].chart.rows.length == 122 && plan.sections[1].chart.rows.length == 2
-            && plan.height >= plan.sections[0].y + plan.sections[0].chart.height - FightSnapshot.RECAP_CHART_OFFSET,
-            "Unequal phase sizes retain every row beyond the visible window and GPU strip height");
-        var stacked = FightSnapshot.recap(result, "", "me");
-        check(stacked.height >= stacked.sections[1].y + stacked.sections[1].chart.height - FightSnapshot.RECAP_CHART_OFFSET,
-            "The stacked snapshot includes the last ability row after a tall gates ranking");
-        // Each phase fits at 1x; the actual high-resolution allocation must be checked.
-        for (i in 120...500) { var uid = "rift_player_" + i; gate.players[uid] = gate.players["ally"]; }
-        check(FightSnapshot.plan(gate).height * 900.0 * 4 < 128 * 1024 * 1024,
-            "Large phase remains below the individual snapshot allocation limit");
-        var failed = false;
-        try FightSnapshot.recap(result) catch (_:Dynamic) failed = true;
-        check(failed, "High-resolution recap memory is checked before allocating or touching the clipboard");
-        var unchanged = FightSnapshot.imageSize(900, 260);
-        check(unchanged.width == 900 && unchanged.height == 260, "Fight history retains its original snapshot resolution");
-        failed = false;
-        try FightSnapshot.imageSize(0x40000000, 4, 2) catch (_:Dynamic) failed = true;
-        check(failed, "Scaled dimensions cannot overflow past the image allocation guard");
+    static function snapshotLayouts():Void {
+        check(SnapshotLayout.historyHeight(600) == 844, "Native history export leaves room for its header, summary, footer and every row");
+        check(SnapshotLayout.historyHeight(30) == 320, "Empty charts retain the native window's minimum height");
+        check(SnapshotLayout.historyHeight(30, 820) == 820
+            && SnapshotLayout.recapHeight(true, [30, 30], 540) == 540,
+            "Short charts preserve the actual window proportions rather than flattening the snapshot");
+        var columns = SnapshotLayout.recapHeight(true, [600, 80]);
+        var stacked = SnapshotLayout.recapHeight(false, [600, 80]);
+        check(columns == 732, "Side-by-side recap grows to fit its taller phase");
+        check(stacked == 876, "Stacked recap fits both complete charts, headings and spacing");
+        var image = SnapshotLayout.imageSize(980, columns);
+        check(image.width == 2024 && image.height == 1528, "Capture includes native decorations at twice the UI resolution");
+        var tall = SnapshotLayout.imageSize(980, SnapshotLayout.recapHeight(true, [6000, 30]));
+        check(tall.height > 2048 && tall.width * 1.0 * tall.height * 4 < 128 * 1024 * 1024,
+            "Long rankings remain available across GPU strips");
+        for (dimensions in [[0, 10], [100, -1], [980, 100000], [0x40000000, 4]]) {
+            var failed = false;
+            try SnapshotLayout.imageSize(dimensions[0], dimensions[1]) catch (_:Dynamic) failed = true;
+            check(failed, "Invalid or oversized captures fail before allocation or clipboard changes");
+        }
     }
     static function snapshotTextures():Void {
         GameAccess.globals["hxd.PixelFormat.RGBA"] = "RGBA";

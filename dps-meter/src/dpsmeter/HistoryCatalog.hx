@@ -16,6 +16,11 @@ class HistoryCategory {
     public static inline var OTHER = "Other";
     public static function all():Array<String> return [BOSS, DUNGEON, WORLD, OTHER];
     public static inline var VERSION = 2;
+    /** New files require a recognized encounter; existing files remain browsable. */
+    public static function canArchive(record:Dynamic, catalog:Null<HistoryCatalog> = null):Bool {
+        if (record.categoryVersion == VERSION && FightHistory.text(record.category) == OTHER) return false;
+        return resolve(record, catalog) != OTHER;
+    }
     /** The server adds the clearing objective only when dungeon foes exist.
         A populated KillBoss target is required before interpreting its absence. */
     public static function fromObjectives(rift:Bool, dungeon:Bool, bossReady:Bool, clearFoes:Bool):String
