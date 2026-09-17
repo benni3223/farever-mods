@@ -76,6 +76,12 @@ Locked items are marked with a small lock icon and are protected from:
 
 Locks follow items as they move between inventory and equipment. They are persisted separately for each character using Farever's unique character ID, with item identity and location tracking to avoid transferring a lock to the wrong identical item.
 
+The same build supports the live and new/PTR clients (PTR requires HLX Core
+0.0.8 or newer). Item identity includes the new infusion and infusion bonus stat.
+Existing saved locks and presets remain readable. A legacy save without infusion
+details will not guess between different infusion variants; select the intended
+item and re-save the preset or re-lock it if its identity is ambiguous.
+
 At login, locks are restored after the character finishes loading. An item with
 a unique matching identity can regain its lock even if its inventory or equipment
 slot changed. Ambiguous or temporarily missing locks remain saved for later

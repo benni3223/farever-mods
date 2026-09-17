@@ -32,3 +32,8 @@
 -cp tests
 -main RiftMarkersTest
 --interp
+--next
+-cp src
+-cp tests
+-main WorldEventAccessTest
+--interp

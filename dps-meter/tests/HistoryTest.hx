@@ -49,8 +49,28 @@ class HistoryTest {
     static function request(action:String, group:String = "", page:Int = 0, fightId:String = ""):HistoryRequest
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
+        clientSkillCompatibility();
         lifecycle(); chakram(); outcomes(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); recapSnapshots(); snapshotTextures(); historyOptions(); literalLabels(); bossRecords();
         Sys.println('Fight history: $checks checks passed');
+    }
+    static function clientSkillCompatibility():Void {
+        var oldSkill = {kind: "OldStrike"};
+        var newSkill = {kind: "NewStrike"};
+        var reader = GameAccess.field;
+        check(gamecompat.HitSkill.read({baseSkill: oldSkill}, reader) == oldSkill, "live hit keeps its skill");
+        check(gamecompat.HitSkill.read({skill: newSkill}, reader) == newSkill, "PTR hit keeps its skill");
+        check(gamecompat.HitSkill.read({skill: newSkill, baseSkill: oldSkill}, reader) == newSkill, "prefer the new skill field");
+        check(gamecompat.HitSkill.read({skill: null, baseSkill: oldSkill}, reader) == oldSkill, "null field can fall back");
+        check(gamecompat.HitSkill.read(null, reader) == null, "missing hit is safe");
+        var fight = new Fight(1);
+        for (data in ([{baseSkill: oldSkill}, {skill: newSkill}]:Array<Dynamic>)) {
+            var event = hit(1, 25);
+            event.skill = GameAccess.text(GameAccess.field(gamecompat.HitSkill.read(data, reader), "kind"));
+            fight.add(event, profile());
+        }
+        var player = fight.players["me"];
+        check(player.damage == 50 && player.skills["OldStrike"].damage == 25
+            && player.skills["NewStrike"].damage == 25, "both client shapes retain totals and breakdown damage");
     }
     static function literalLabels():Void {
         var record = FightHistory.encode(sample(), "instant"); record.duration = .001;

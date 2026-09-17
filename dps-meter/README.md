@@ -5,6 +5,10 @@
 An HLX combat meter with a movable, resizable native Farever window and boss-kill
 uploads to [Farever Logs](https://fareverlogs.fr/).
 
+The same download supports the current live and new/PTR clients, including
+skill attribution, history, and Rift Recap snapshots. Use HLX Core 0.0.8 or newer
+with the new client.
+
 ## Installation
 
 ### Easy Installation

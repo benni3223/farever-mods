@@ -65,6 +65,7 @@ class MinimapMarkers {
     var gatherKinds:Map<String, String> = [];
     var gatherFilters:Map<String, String> = [];
     var enemies = new EnemyMarkers();
+    var worldEvents = new WorldEventAccess();
     var npcKinds:Map<String, String> = [];
     var landmarks:Map<String, MapPoint> = [];
     var stationSource:Dynamic;
@@ -226,7 +227,7 @@ class MinimapMarkers {
                     stationDefinitions.push(definition);
                 var inf = G.field(definition, "inf");
                 if (SoulstoneMarkers.isCircle(inf)
-                    && G.staticCall("Config", "checkStatus", [G.field(G.field(inf, "props"), "releaseStatus")]) == true)
+                    && worldEvents.checkStatus(G.field(G.field(inf, "props"), "releaseStatus")))
                     soulstoneDefinitions.push(definition);
             }
             secretOrbs = [];
@@ -416,7 +417,7 @@ class MinimapMarkers {
                 if (!near(point.x, point.y, x, y, radius)) continue;
                 if (ActivityMarkers.hidden(point.kind, point.inf, progress, config)) continue;
                 if (point.eventElement != null && events != null) {
-                    var event = G.call("st.event.WorldEvents", "getEventStatus", events, [point.eventElement]);
+                    var event = worldEvents.elementStatus(events, point.eventElement);
                     if (G.text(G.field(event, "status")) == "Disabled") continue;
                 }
                 points.push(point);
@@ -469,7 +470,7 @@ class MinimapMarkers {
             var activityInf = G.field(definition, "inf");
             if (G.staticCall("HActivity", "isOfType", [activityInf, "Rift"]) == true) continue;
             var props = G.field(activityInf, "props");
-            if (G.staticCall("Config", "checkStatus", [G.field(props, "releaseStatus")]) != true) continue;
+            if (!worldEvents.checkStatus(G.field(props, "releaseStatus"))) continue;
             var matrix = G.call("hrt.prefab.Object3D", "getAbsPos", G.field(orb, "prefab"), [true]);
             activities.push({kind: ActivityMarkers.kind(activityInf), inf: activityInf,
                 x: G.number(G.field(matrix, "_41")), y: G.number(G.field(matrix, "_42")),

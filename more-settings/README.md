@@ -19,6 +19,12 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 
+The same build supports the live and new/PTR clients (use HLX Core 0.0.8 or newer
+on PTR). Hit/heal effect attribution accepts both client skill-field layouts.
+When **Adjust unfocused volume** is enabled, its level takes precedence over the
+new client's native unfocused mute without changing that saved game preference.
+Disabling the adjustment restores native audio behavior.
+
 **Hide UI hotkey** rebinds the game's existing UI visibility shortcut. Choose a key under **General**; the default is **F2**. The selected key replaces the original keyboard binding and retains the game's normal hide/show behavior and input restrictions. Typing in chat or another text field does not hide the UI. Update Better Mod Settings too: its key-capture guard prevents assigning a shortcut from hiding the settings window. Bindings use one key; Escape cancels capture.
 
 The unfocused setting temporarily limits Farever's master volume and restores it on focus, including any master-volume change made in the game's options. It never raises a quieter master setting.

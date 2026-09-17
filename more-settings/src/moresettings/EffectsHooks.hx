@@ -61,19 +61,19 @@ class EffectsHooks {
 
     @:hlx.prefix(ent.Unit.playHitDmgFX)
     static function damageBefore(instance:Dynamic, source:Dynamic, hitData:Dynamic):HlxPrefixResult<Dynamic> {
-        AllyEffects.pushSkill(G.field(hitData, "baseSkill")); return Continue;
+        AllyEffects.pushSkill(gamecompat.HitSkill.read(hitData, G.field)); return Continue;
     }
     @:hlx.postfix(ent.Unit.playHitDmgFX)
     static function damageAfter(instance:Dynamic, source:Dynamic, hitData:Dynamic, result:Dynamic):Dynamic {
-        AllyEffects.bindSkill(G.field(hitData, "baseSkill"), result); AllyEffects.pop(); return result;
+        AllyEffects.bindSkill(gamecompat.HitSkill.read(hitData, G.field), result); AllyEffects.pop(); return result;
     }
     @:hlx.prefix(ent.Unit.playHitHealFX)
     static function healBefore(instance:Dynamic, hitData:Dynamic):HlxPrefixResult<Dynamic> {
-        AllyEffects.pushSkill(G.field(hitData, "baseSkill")); return Continue;
+        AllyEffects.pushSkill(gamecompat.HitSkill.read(hitData, G.field)); return Continue;
     }
     @:hlx.postfix(ent.Unit.playHitHealFX)
     static function healAfter(instance:Dynamic, hitData:Dynamic, result:Dynamic):Dynamic {
-        AllyEffects.bindSkill(G.field(hitData, "baseSkill"), result); AllyEffects.pop(); return result;
+        AllyEffects.bindSkill(gamecompat.HitSkill.read(hitData, G.field), result); AllyEffects.pop(); return result;
     }
 
     @:hlx.prefix(ent.Unit.playBlock)

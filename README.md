@@ -20,7 +20,9 @@ the Farever game directory. Each archive contains just that mod under
 `hlx/mods/`. Installation requirements and Nexus Mods links are in each project's
 README. Installed mod folders are unchanged.
 
-All mods require HLX Core. Only Item Utilities also requires the
+All mods require [HLX Core 0.0.8 or newer](https://github.com/hlx-framework/hlx-core/releases/tag/0.0.8)
+for the new/PTR client. The same mod downloads also support the current live client;
+game API differences are detected at runtime. Only Item Utilities also requires the
 [Farever ImGui plugin](https://www.nexusmods.com/farever/mods/4), which draws its
 deposit buttons, equipment presets, and item-lock controls and icons.
 DPS Meter handles log uploads inside the HLX mod and uses native game UI.

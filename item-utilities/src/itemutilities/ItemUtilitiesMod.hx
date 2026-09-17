@@ -1807,15 +1807,13 @@ class ItemUtilitiesMod {
             if (targetIndex < 0)
                 continue;
 
-            var equipped = itemAt(presetEquipment, targetIndex);
-            if (presetItemMatches(equipped, saved)) {
-                presetEquippedIndexes.push(targetIndex);
-                continue;
-            }
-
             var source = findPresetItem(saved);
             if (source == null)
                 continue;
+            if (source.inventory == presetEquipment && source.index == targetIndex) {
+                presetEquippedIndexes.push(targetIndex);
+                continue;
+            }
             if (!resolveMembers()) {
                 cancelPresetTransfer();
                 return;
@@ -1851,7 +1849,8 @@ class ItemUtilitiesMod {
     static function findPresetItem(saved:Dynamic):{ inventory:Dynamic, index:Int } {
         var wantedUid = recordString(saved, "uid");
         var wantedFingerprint = recordString(saved, "fingerprint");
-        var fingerprintMatch:{ inventory:Dynamic, index:Int } = null;
+        var sources:Array<{inventory:Dynamic, index:Int}> = [];
+        var candidates:Array<{uid:String, fingerprint:String}> = [];
         for (inventory in [presetInventory, presetEquipment]) {
             var content = getContent(inventory);
             for (index in 0...arrayLength(content)) {
@@ -1862,21 +1861,12 @@ class ItemUtilitiesMod {
                 var item = itemAt(inventory, index);
                 if (item == null)
                     continue;
-                if (itemUid(item) == wantedUid)
-                    return { inventory: inventory, index: index };
-                if (fingerprintMatch == null && itemMatchesFingerprint(item, wantedFingerprint))
-                    fingerprintMatch = { inventory: inventory, index: index };
+                sources.push({inventory: inventory, index: index});
+                candidates.push({uid: itemUid(item), fingerprint: itemFingerprint(item)});
             }
         }
-        return fingerprintMatch;
-    }
-
-    static function presetItemMatches(item:Dynamic, saved:Dynamic):Bool {
-        if (item == null || saved == null)
-            return false;
-        var wantedUid = recordString(saved, "uid");
-        return itemUid(item) == wantedUid
-            || itemMatchesFingerprint(item, recordString(saved, "fingerprint"));
+        var selected = EquipmentPresetMatch.choose(wantedUid, wantedFingerprint, candidates);
+        return selected < 0 ? null : sources[selected];
     }
 
     static function cancelPresetTransfer():Void {
@@ -3227,8 +3217,16 @@ class ItemUtilitiesMod {
             fingerprintValue(fieldOrNull(item, "level")),
             fingerprintValue(fieldOrNull(item, "upgradeLevel")),
             fingerprintValue(fieldOrNull(item, "rarity")),
-            fingerprintValue(fieldOrNull(definition, "rarity"))
+            fingerprintValue(fieldOrNull(definition, "rarity")),
+            // Absent on the live client; normalize null and empty to the
+            // same identity as uninfused PTR gear.
+            infusionIdentity(fieldOrNull(item, "infusion")),
+            infusionIdentity(fieldOrNull(item, "infusionBonusStat"))
         ];
+    }
+
+    static function infusionIdentity(value:Dynamic):String {
+        return value == null ? "" : Std.string(value);
     }
 
     static function fingerprintValue(value:Dynamic):String {

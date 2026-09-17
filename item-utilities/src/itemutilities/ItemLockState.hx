@@ -4,7 +4,7 @@ import haxe.Json;
 
 /** Lock identity and session state, independent of the game/UI bindings. */
 class ItemLockState {
-    public static inline var FINGERPRINT_VERSION = "v4|";
+    public static inline var FINGERPRINT_VERSION = "v5|";
 
     public var hero(default, null):Dynamic;
     public var characterId(default, null):String;
@@ -64,7 +64,7 @@ class ItemLockState {
         var unique:Dynamic = null;
         for (record in records) {
             if (record.characterId != tracked.characterId || record.location == "bank"
-                || record.fingerprint != tracked.fingerprint || isConfirmed(record, current))
+                || !fingerprintMatches(record.fingerprint, tracked.fingerprint) || isConfirmed(record, current))
                 continue;
             var matches = candidates(record, current, claimed);
             if (matches.indexOf(tracked) < 0) continue;
@@ -135,7 +135,7 @@ class ItemLockState {
                 // The oldest fingerprints only contain the item kind. They
                 // are safe to migrate only when the whole match is unique.
                 if (isSavedSlot(record, candidate)
-                    && (isDetailed(record.fingerprint) || matches.length == 1)) {
+                    && canRestoreBySlot(record.fingerprint, matches)) {
                     replacement = candidate;
                     break;
                 }
@@ -220,8 +220,19 @@ class ItemLockState {
 
     static function isDetailed(fingerprint:String):Bool {
         return fingerprint != null && (StringTools.startsWith(fingerprint, FINGERPRINT_VERSION)
+            || StringTools.startsWith(fingerprint, "v4|")
             || StringTools.startsWith(fingerprint, "v2|")
             || StringTools.startsWith(fingerprint, "v3|"));
+    }
+
+    static function canRestoreBySlot(fingerprint:String, matches:Array<Dynamic>):Bool {
+        if (matches.length == 1) return true;
+        if (!isDetailed(fingerprint)) return false;
+        // Legacy saves know nothing about infusions. A saved slot cannot
+        // disambiguate otherwise matching gear with different new identities.
+        for (candidate in matches)
+            if (candidate.fingerprint != matches[0].fingerprint) return false;
+        return true;
     }
 
     public static function fingerprintMatches(saved:String, current:String):Bool {
@@ -234,9 +245,17 @@ class ItemLockState {
     public static function legacyFingerprintMatchesEncoded(saved:String, encoded:String):Bool {
         if (saved == null || encoded == null) return false;
         try {
-            if (!StringTools.startsWith(encoded, FINGERPRINT_VERSION)) return false;
-            var currentParts:Array<Dynamic> = cast Json.parse(encoded.substr(FINGERPRINT_VERSION.length));
+            if (!StringTools.startsWith(encoded, FINGERPRINT_VERSION)
+                && !StringTools.startsWith(encoded, "v4|")) return false;
+            var currentParts:Array<Dynamic> = cast Json.parse(encoded.substr(3));
             if (currentParts == null || currentParts.length < 7) return false;
+            if (StringTools.startsWith(saved, "v4|")) {
+                var savedParts:Array<Dynamic> = cast Json.parse(saved.substr(3));
+                if (savedParts == null || savedParts.length != 7) return false;
+                for (index in 0...7)
+                    if (Std.string(savedParts[index]) != Std.string(currentParts[index])) return false;
+                return true;
+            }
             if (StringTools.startsWith(saved, "v2|") || StringTools.startsWith(saved, "v3|")) {
                 var savedParts:Array<Dynamic> = cast Json.parse(saved.substr(3));
                 if (savedParts == null || savedParts.length < 7) return false;

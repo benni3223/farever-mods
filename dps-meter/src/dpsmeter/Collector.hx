@@ -135,7 +135,7 @@ class Collector {
         var blocker = G.text(G.field(damage, "blocker"));
         if (blocker == "InvulnerableHit" || blocker == "DamageDodge") return;
         var source:Dynamic = G.call("st.skill.DamageResult", "get_source", damage);
-        var skill = G.field(damage, "baseSkill");
+        var skill = gamecompat.HitSkill.read(damage, G.field);
         var uid = G.text(G.field(damage, "weakSource"));
         if (uid == "" || uid == "0") uid = G.uid(source);
         var summoner = G.field(source, "summonOwner");

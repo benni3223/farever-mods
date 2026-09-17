@@ -9,8 +9,8 @@ class ItemLockStateTest {
         if (!value) throw message;
     }
 
-    static function fingerprint(kind:String = "sword"):String {
-        return "v4|" + Json.stringify([kind, "0", "[]", "rare", "20", "0", "{}"]);
+    static function fingerprint(kind:String = "sword", infusion:String = "", bonus:String = ""):String {
+        return "v5|" + Json.stringify([kind, "0", "[]", "rare", "20", "0", "{}", infusion, bonus]);
     }
 
     static function saved(uid:String = "old", index:Int = 0,
@@ -182,7 +182,41 @@ class ItemLockStateTest {
         check(persisted.restored && persisted.uid == "next-login" && persisted.index == 30,
             "A saved/restored lock survives another login without runtime fields");
         testManualLocking();
+        testInfusions();
         Sys.println('Item locks: $assertions assertions passed.');
+    }
+
+    static function testInfusions():Void {
+        var old = 'v4|["sword","0","[]","rare","20","0","{}"]';
+        var bee = fingerprint("sword", "Bee", "Power");
+        var kobold = fingerprint("sword", "Kobold", "Power");
+        check(ItemLockState.fingerprintMatches(old, fingerprint()), "old live fingerprint migrates to uninfused identity");
+        check(ItemLockState.fingerprintMatches(old, bee), "old fingerprint can migrate to a unique infused item");
+        check(!ItemLockState.fingerprintMatches(bee, kobold), "new fingerprints distinguish infusion families");
+        check(!ItemLockState.fingerprintMatches(bee, fingerprint("sword", "Bee", "Health")), "new fingerprints distinguish bonus stats");
+        check(!ItemLockState.fingerprintMatches("v4|bad-json", bee), "malformed old fingerprint cannot migrate");
+        var record = saved("old", 0, "inventory", "db:A", old);
+        var a = item("a", 0, "inventory", "db:A", bee);
+        var b = item("b", 1, "inventory", "db:A", kobold);
+        scan([record], [a, b]);
+        check(!record.restored && record.fingerprint == old, "legacy saved slot does not guess between new infusion variants");
+        scan([record], [b]);
+        check(record.restored && record.fingerprint == kobold, "legacy lock migrates when its item becomes unique");
+        record = saved("old", 0, "inventory", "db:A", bee);
+        scan([record], [b, a]);
+        check(record.restored && record.item == a.item, "infusion-aware lock chooses the right variant regardless of ordering");
+        var legacy = saved("old", 0, "inventory", "db:A", old);
+        var records:Array<Dynamic> = [legacy];
+        ItemLockState.setLocked(records, [a.uid => a, b.uid => b], a, true);
+        check(records.length == 1 && legacy.fingerprint == bee, "explicit re-locking migrates the old record without duplication");
+        var candidates = [{uid: "a", fingerprint: bee}, {uid: "b", fingerprint: kobold}];
+        check(itemutilities.EquipmentPresetMatch.choose("missing", bee, candidates) == 0, "preset finds saved infusion after UID changes");
+        check(itemutilities.EquipmentPresetMatch.choose("missing", kobold, candidates) == 1, "preset selects the other infusion when requested");
+        check(itemutilities.EquipmentPresetMatch.choose("missing", old, candidates) == -1, "legacy preset does not guess among infused variants");
+        check(itemutilities.EquipmentPresetMatch.choose("b", old, candidates) == 1, "exact saved UID retains existing preset behavior");
+        check(itemutilities.EquipmentPresetMatch.choose("missing", old, [candidates[0]]) == 0, "unique legacy preset remains usable");
+        check(itemutilities.EquipmentPresetMatch.choose("missing", old,
+            [candidates[0], {uid: "equivalent", fingerprint: bee}]) == 0, "equivalent duplicate gear retains existing preset behavior");
     }
 
     static function testManualLocking():Void {

@@ -19,8 +19,38 @@ class SettingsTest {
         eq(Math.abs(actual - expected) < 0.000001, true, message);
 
     static function main():Void {
-        hideUiBinding(); volume(); policy(); classification(); presentation();
+        hideUiBinding(); volume(); nativeFocusAudio(); policy(); classification(); presentation();
         Sys.println('More Settings: $checks checks passed.');
+    }
+
+    static function nativeFocusAudio():Void {
+        var config = SettingsData.defaults(); config.backgroundVolume = 20;
+        // PTR native applyAudio has already muted the VCA on focus loss.
+        G.data = {audioRequireFocus: true, audioMaster: 80,
+            option: {byId: {AudioMaster: {props: {maxVal: 100}}}}};
+        G.master = 0; G.focused = false;
+        var audio = new AudioControl(config);
+        audio.update(null);
+        close(G.master, 0.2, "PTR background override recovers the configured master from a native mute");
+        G.data.audioMaster = 10; G.master = 0; audio.masterChanged();
+        close(G.master, 0.1, "background override never boosts a quieter native master");
+        G.data.audioMaster = 70; G.master = 0; audio.masterChanged();
+        close(G.master, 0.2, "native options changes retain our background limit");
+        config.adjustUnfocusedVolume = false; audio.configure(config);
+        close(G.master, 0, "disabling the mod restores native unfocused muting");
+        eq(G.data.audioRequireFocus, true, "native audio preference is never changed");
+        config.adjustUnfocusedVolume = true; audio.configure(config);
+        close(G.master, 0.2, "reenabling while unfocused recovers from zero");
+        G.focused = true; G.master = 0.7; audio.masterChanged();
+        close(G.master, 0.7, "native focus return before update restores master immediately");
+        G.focused = false; G.master = 0; audio.masterChanged();
+        close(G.master, 0.2, "native focus loss before update immediately applies the override");
+        audio.dispose(); close(G.master, 0, "disposing hands control back to native mute");
+        G.data.audioRequireFocus = false; G.master = 0.7;
+        audio = new AudioControl(config); audio.update(null);
+        close(G.master, 0.2, "native audio-on-unfocus also works");
+        audio.dispose(); close(G.master, 0.7, "native audio-on-unfocus restores configured volume");
+        G.data = null; G.focused = true;
     }
 
     static function hideUiBinding():Void {

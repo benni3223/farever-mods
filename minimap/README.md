@@ -4,6 +4,10 @@
 
 A compact overworld minimap with a centered player arrow.
 
+The same download supports the current live and new/PTR clients by detecting
+release-status and activity-event APIs at runtime. Use HLX Core 0.0.8 or newer
+with the new client.
+
 ## Installation
 
 ### Easy Installation

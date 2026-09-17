@@ -96,6 +96,7 @@ jobs:
           fi
           printf '%s\n' \
             "$REQUIREMENTS" \
+            'Supports the current live and new/PTR clients. The new/PTR client requires HLX Core 0.0.8 or newer.' \
             'Install with Vortex, or extract the archive into the Farever game folder.' \
             > "$destination/README.txt"
 
