@@ -1,0 +1,54 @@
+name: HLX Core PTR Compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['compat/hlx-core/**', '.github/workflows/build-hlx-compat.yml']
+  pull_request:
+    paths: ['compat/hlx-core/**', '.github/workflows/build-hlx-compat.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: hlx-framework/hlx-core
+          ref: 4fc70d92ce82bf2589ef25aeae2898a96c9a3b4e
+          path: upstream/hlx-core
+      - uses: actions/checkout@v4
+        with:
+          repository: TsudaKageyu/minhook
+          ref: c3fcafdc10146beb5919319d0683e44e3c30d537
+          path: upstream/hlx-core/hlx-boot/vendor/minhook
+      - name: Apply compatibility patch
+        run: python compat/hlx-core/apply.py upstream/hlx-core
+      - name: Build core and executable hook tests
+        shell: pwsh
+        run: |
+          $test = (Resolve-Path compat/hlx-core/hook_test.c).Path
+          cmake -S upstream/hlx-core/hlx-boot -B build/hlx-compat -A x64 "-DHLX_COMPAT_TEST=$test"
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          cmake --build build/hlx-compat --config Release
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          ctest --test-dir build/hlx-compat -C Release --output-on-failure
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - name: Package replacement core DLL
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force package/hlx-compat | Out-Null
+          Copy-Item build/hlx-compat/Release/libhl64.dll package/hlx-compat/
+          Copy-Item compat/hlx-core/README.md package/hlx-compat/README.md
+          Copy-Item upstream/hlx-core/LICENSE package/hlx-compat/HLX-LICENSE
+          Copy-Item upstream/hlx-core/hlx-boot/vendor/minhook/LICENSE.txt package/hlx-compat/MINHOOK-LICENSE.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hlx-core-ptr-compat
+          path: package/hlx-compat/
+          if-no-files-found: error
