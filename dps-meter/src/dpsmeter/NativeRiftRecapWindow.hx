@@ -199,7 +199,9 @@ class NativeRiftRecapWindow {
             h = SnapshotLayout.recapHeight(columns, chartHeights, h);
             SnapshotLayout.imageSize(w, h);
         }
-        if (width != w || height != h) {
+        // Unequal stacked phases may fit inside the existing outer size.
+        // Still relayout their individual panels for capture and restoration.
+        if (copying || width != w || height != h) {
             width = w; height = h;
             size(window, width, height);
             if (frameBackground != null) { size(frameBackground, width, height); position(frameBackground, 0, 0); }

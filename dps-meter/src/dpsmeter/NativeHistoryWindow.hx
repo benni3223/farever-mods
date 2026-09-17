@@ -358,7 +358,7 @@ class NativeHistoryWindow {
             h = SnapshotLayout.historyHeight(chart.snapshotHeight(), h);
             SnapshotLayout.imageSize(w, h);
         }
-        if (w != width || h != height) {
+        if (copying || w != width || h != height) {
             width = w; height = h;
             size(window, w, h); if (frame != null) { size(frame, w, h); position(frame, 0, 0); }
             size(header, w - 2, 60); position(header, 0, 0);
