@@ -34,11 +34,17 @@ class AudioControl {
     public function startTravel(hero:Dynamic):Void travelMusic.update(hero, config);
 
     public function masterChanged():Void {
+        // Options.applyAudio also runs before FMOD starts. Its setters guard
+        // initialization, but getVcaVolume dereferences the system immediately.
+        if (!audioReady()) return;
         refreshFocus();
+        if (!state.active && VolumeState.target(config, focused) == null) return;
         var current:Float = G.staticCall("fmod.Api", "getVcaVolume", [MASTER]);
         state.masterChanged(nativeMuted() ? configuredMaster(current) : current);
         apply(true);
     }
+
+    function audioReady():Bool return G.current("fmod.Api", "initialized") == true;
 
     function nativeMuted():Bool {
         // Missing on the live client. Reading the option never changes or
@@ -59,6 +65,7 @@ class AudioControl {
     function apply(force:Bool = false):Void {
         var target = VolumeState.target(config, focused);
         if (!force && lastTarget == target) return;
+        if (!audioReady()) return;
         var current:Float = G.staticCall("fmod.Api", "getVcaVolume", [MASTER]);
         var muted = nativeMuted();
         var baseline = muted ? configuredMaster(current) : current;
@@ -73,6 +80,11 @@ class AudioControl {
     public function dispose():Void {
         travelMusic.dispose();
         if (!state.active) return;
+        if (!audioReady()) {
+            state = new VolumeState();
+            lastTarget = null;
+            return;
+        }
         refreshFocus();
         var current:Float = G.staticCall("fmod.Api", "getVcaVolume", [MASTER]);
         var restored = state.apply(current, null);

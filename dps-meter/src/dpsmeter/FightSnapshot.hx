@@ -12,19 +12,22 @@ typedef RecapSnapshotPlan = {width:Int, height:Int, sections:Array<RecapSnapshot
 
 class FightSnapshot {
     public static inline var RECAP_CHART_OFFSET:Int = 48;
+    public static inline var RECAP_SCALE:Int = 2;
 
     /** Keep both phases and their selected views in one uncropped image. */
-    public static function recap(result:RiftRecap, gatePlayer:String = "", bossPlayer:String = "", columns:Bool = true):RecapSnapshotPlan {
+    public static function recap(result:RiftRecap, gatePlayer:String = "", bossPlayer:String = ""):RecapSnapshotPlan {
         var gate = plan(result.gate == null ? new Fight(0) : result.gate, result.gate == null ? "" : gatePlayer);
         var boss = plan(result.boss, bossPlayer);
         var gateHeight = gate.height - RECAP_CHART_OFFSET, bossHeight = boss.height - RECAP_CHART_OFFSET;
-        var width = columns ? gate.width + boss.width : Std.int(Math.max(gate.width, boss.width));
-        var height = 64 + (columns ? Std.int(Math.max(gateHeight, bossHeight)) : gateHeight + bossHeight);
-        checkImageSize(width, height);
+        // A shared column keeps text readable when the image is pasted into
+        // chat, regardless of the recap window's on-screen arrangement.
+        var width = Std.int(Math.max(gate.width, boss.width));
+        var height = 64 + gateHeight + bossHeight;
+        imageSize(width, height, RECAP_SCALE);
         return {width: width, height: height, sections: [
             {x: 0, y: 64, caption: RiftTracker.GATES_PHASE,
                 seconds: result.gate == null ? null : result.gate.duration(), chart: gate},
-            {x: columns ? gate.width : 0, y: columns ? 64 : 64 + gateHeight,
+            {x: 0, y: 64 + gateHeight,
                 caption: result.boss.phase, seconds: result.boss.duration(), chart: boss}
         ]};
     }
@@ -63,7 +66,13 @@ class FightSnapshot {
         checkImageSize(width, height);
         return Std.int(height);
     }
-    static function checkImageSize(width:Int, height:Float):Void {
+    /** Validate the actual clipboard allocation before creating GPU resources. */
+    public static function imageSize(width:Int, height:Int, scale:Int = 1):{width:Int, height:Int} {
+        if (width <= 0 || height <= 0 || scale <= 0) throw "Invalid snapshot dimensions.";
+        checkImageSize(width * 1.0 * scale, height * 1.0 * scale);
+        return {width: width * scale, height: height * scale};
+    }
+    static function checkImageSize(width:Float, height:Float):Void {
         if (height * width * 4 > 128 * 1024 * 1024) throw "This fight is too large to copy as one image.";
     }
 }

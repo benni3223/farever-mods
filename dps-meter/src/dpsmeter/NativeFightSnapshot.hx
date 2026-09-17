@@ -21,9 +21,9 @@ class NativeFightSnapshot {
         });
     }
     public static function copyRecap(result:RiftRecap, bodyFont:Dynamic, titleFont:Dynamic,
-        gatePlayer:String = "", bossPlayer:String = "", columns:Bool = true):Void {
+        gatePlayer:String = "", bossPlayer:String = ""):Void {
         if (bodyFont == null || titleFont == null) throw "The chart fonts are not ready. Try again.";
-        var plan = FightSnapshot.recap(result, gatePlayer, bossPlayer, columns);
+        var plan = FightSnapshot.recap(result, gatePlayer, bossPlayer);
         render(plan.width, plan.height, (root, graphic) -> {
             rect(graphic, 0, 0, plan.width, plan.height, 0xcfbbb0);
             rect(graphic, 0, 0, plan.width, 64, 0xecd5ca);
@@ -39,15 +39,20 @@ class NativeFightSnapshot {
                 var bars = G.create("h2d.Graphics", [chart]);
                 drawChart(chart, bars, section.chart, bodyFont, titleFont);
             }
-        });
+        }, FightSnapshot.RECAP_SCALE);
     }
-    static function render(width:Int, height:Int, draw:(Dynamic, Dynamic)->Void):Void {
+    static function render(width:Int, height:Int, draw:(Dynamic, Dynamic)->Void, scale:Int = 1):Void {
+        var size = FightSnapshot.imageSize(width, height, scale);
+        width = size.width; height = size.height;
         var scene = G.create("h2d.Scene", []);
         var root:Dynamic = null;
         var texture:Dynamic = null;
         var pixels:Dynamic = null;
         try {
             root = G.create("h2d.Object", [scene]);
+            // Rasterize fonts and geometry at the final resolution; never
+            // enlarge the already-rendered clipboard pixels.
+            G.call("h2d.Object", "setScale", root, [scale * 1.0]);
             var graphic = G.create("h2d.Graphics", [root]);
             draw(root, graphic);
             var output = haxe.io.Bytes.alloc(width * height * 4);

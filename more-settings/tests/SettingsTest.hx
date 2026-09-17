@@ -19,8 +19,38 @@ class SettingsTest {
         eq(Math.abs(actual - expected) < 0.000001, true, message);
 
     static function main():Void {
-        hideUiBinding(); volume(); nativeFocusAudio(); policy(); classification(); presentation();
+        hideUiBinding(); volume(); audioLifecycle(); nativeFocusAudio(); policy(); classification(); presentation();
         Sys.println('More Settings: $checks checks passed.');
+    }
+
+    static function audioLifecycle():Void {
+        var config = SettingsData.defaults(); config.backgroundVolume = 20;
+        G.data = null; G.focused = true; G.audioReady = false;
+        G.master = 0.8; G.reads = 0; G.writes = 0;
+        var audio = new AudioControl(config);
+        audio.masterChanged(); audio.configure(config); audio.update(null);
+        G.focused = false;
+        audio.masterChanged(); audio.configure(config); audio.update(null);
+        eq(G.reads, 0, "startup never reads an uninitialized FMOD system, even when unfocused");
+        eq(G.writes, 0, "startup leaves native audio untouched");
+        G.audioReady = true; audio.update(null);
+        close(G.master, 0.2, "deferred background adjustment starts once FMOD initializes");
+        G.focused = true; audio.update(null);
+        close(G.master, 0.8, "startup deferral preserves the original master");
+        var reads = G.reads;
+        audio.masterChanged();
+        eq(G.reads, reads, "focused settings callbacks skip inactive volume overrides");
+        config.adjustUnfocusedVolume = false; G.focused = false;
+        audio.masterChanged();
+        eq(G.reads, reads, "disabled overrides do not read native master volume");
+        config.adjustUnfocusedVolume = true; audio.update(null);
+        G.audioReady = false; reads = G.reads; audio.dispose();
+        eq(G.reads, reads, "disposal does not read a stopped FMOD system");
+        G.audioReady = true; G.master = 0.6; audio.update(null);
+        close(G.master, 0.2, "a restarted audio system receives the background limit");
+        G.focused = true; audio.update(null);
+        close(G.master, 0.6, "a restarted audio system retains its own master baseline");
+        audio.dispose();
     }
 
     static function nativeFocusAudio():Void {

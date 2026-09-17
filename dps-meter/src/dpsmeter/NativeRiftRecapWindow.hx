@@ -134,7 +134,7 @@ class NativeRiftRecapWindow {
             var bossChart:NativeDamageChart = sections[1].chart;
             NativeFightSnapshot.copyRecap(displayedRecap, G.field(sections[0].time, "font"), G.field(title, "font"),
                 displayedRecap.gate == null ? "" : gateChart.snapshotPlayer(displayedRecap.gate),
-                bossChart.snapshotPlayer(displayedRecap.boss), width >= 840);
+                bossChart.snapshotPlayer(displayedRecap.boss));
         } catch (error:Dynamic) {
             message = Std.string(error);
             trace("[DPS Meter] Rift recap snapshot: " + message);
@@ -187,8 +187,8 @@ class NativeRiftRecapWindow {
             size(close, 36, 36);
             position(close, width - 52, 12);
             size(snapshotButton, 50, 36);
-            position(snapshotButton, 16, 12);
-            G.call("ui.comp.FmtText", "set_maxWidthText", title, [width - 164]);
+            position(snapshotButton, 32, 12);
+            G.call("ui.comp.FmtText", "set_maxWidthText", title, [width - 188]);
             var bodyHeight = height - 68;
             size(windowContent, width - 16, bodyHeight);
             position(windowContent, 8, 60);

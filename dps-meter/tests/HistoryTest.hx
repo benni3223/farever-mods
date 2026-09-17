@@ -864,21 +864,22 @@ class HistoryTest {
         check(plan.sections[0].seconds == 10 && plan.sections[1].seconds == 20
             && plan.sections[0].chart.rows[0].dps == 50 && plan.sections[1].chart.rows[0].dps == 25,
             "Each phase keeps its own finalized duration and DPS");
-        check(plan.sections[0].x == 0 && plan.sections[1].x == plan.sections[0].chart.width
-            && plan.sections[0].y == plan.sections[1].y && plan.width == 1800,
-            "Wide recaps place the complete phases side by side without overlap");
-        var stacked = FightSnapshot.recap(result, "", "", false);
-        check(stacked.width == 900 && stacked.sections[1].x == 0
-            && stacked.sections[1].y == stacked.sections[0].y + stacked.sections[0].chart.height - FightSnapshot.RECAP_CHART_OFFSET,
-            "Narrow recaps stack both complete phases below the recap header");
+        check(plan.sections[0].x == 0 && plan.sections[1].x == 0 && plan.width == 900
+            && plan.sections[1].y == plan.sections[0].y + plan.sections[0].chart.height - FightSnapshot.RECAP_CHART_OFFSET,
+            "Recaps stack both complete phases in one readable column without overlap");
+        var pixels = FightSnapshot.imageSize(plan.width, plan.height, FightSnapshot.RECAP_SCALE);
+        check(pixels.width == 1800 && pixels.height == plan.height * 2,
+            "Recap output doubles both dimensions for four times the rendered detail");
+        check(pixels.width / pixels.height == plan.width / plan.height,
+            "Higher resolution preserves compact recap proportions");
         plan = FightSnapshot.recap(result, "me", "ally");
-        check(plan.width == 2400 && plan.sections[0].chart.playerName == "Shawn"
+        check(plan.width == 1200 && plan.sections[0].chart.playerName == "Shawn"
             && plan.sections[1].chart.playerName == "Ally", "Recap snapshots preserve each chart's selected player independently");
         check(plan.sections[0].chart.skills[0].values.dps == 35.05 && plan.sections[1].chart.skills[0].values.dps == 25,
             "Selected ability tables use their own phase's duration");
         plan = FightSnapshot.recap(result, "", "me");
-        check(plan.width == 2100 && !plan.sections[0].chart.breakdown && plan.sections[1].chart.breakdown,
-            "Recap snapshots support a party chart beside an ability breakdown");
+        check(plan.width == 1200 && !plan.sections[0].chart.breakdown && plan.sections[1].chart.breakdown,
+            "Recap snapshots support a party chart above an ability breakdown");
         check(Json.stringify([FightHistory.encode(gate, "gate"), FightHistory.encode(boss, "boss")]) == before,
             "Snapshot planning leaves finalized recap fights unchanged");
         plan = FightSnapshot.recap({gate: null, boss: boss});
@@ -889,16 +890,21 @@ class HistoryTest {
         check(plan.sections[0].chart.rows.length == 122 && plan.sections[1].chart.rows.length == 2
             && plan.height >= plan.sections[0].y + plan.sections[0].chart.height - FightSnapshot.RECAP_CHART_OFFSET,
             "Unequal phase sizes retain every row beyond the visible window and GPU strip height");
-        stacked = FightSnapshot.recap(result, "", "me", false);
+        var stacked = FightSnapshot.recap(result, "", "me");
         check(stacked.height >= stacked.sections[1].y + stacked.sections[1].chart.height - FightSnapshot.RECAP_CHART_OFFSET,
             "The stacked snapshot includes the last ability row after a tall gates ranking");
-        // Each phase fits on its own; their combined image must still respect the limit.
+        // Each phase fits at 1x; the actual high-resolution allocation must be checked.
         for (i in 120...500) { var uid = "rift_player_" + i; gate.players[uid] = gate.players["ally"]; }
         check(FightSnapshot.plan(gate).height * 900.0 * 4 < 128 * 1024 * 1024,
             "Large phase remains below the individual snapshot allocation limit");
         var failed = false;
         try FightSnapshot.recap(result) catch (_:Dynamic) failed = true;
-        check(failed, "Combined recap memory is checked before allocating or touching the clipboard");
+        check(failed, "High-resolution recap memory is checked before allocating or touching the clipboard");
+        var unchanged = FightSnapshot.imageSize(900, 260);
+        check(unchanged.width == 900 && unchanged.height == 260, "Fight history retains its original snapshot resolution");
+        failed = false;
+        try FightSnapshot.imageSize(0x40000000, 4, 2) catch (_:Dynamic) failed = true;
+        check(failed, "Scaled dimensions cannot overflow past the image allocation guard");
     }
     static function snapshotTextures():Void {
         GameAccess.globals["hxd.PixelFormat.RGBA"] = "RGBA";

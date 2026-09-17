@@ -5,6 +5,8 @@ class GameAccess {
     public static var master:Float = 1;
     public static var focused:Bool = true;
     public static var writes:Int = 0;
+    public static var audioReady:Bool = true;
+    public static var reads:Int = 0;
     public static var data:Dynamic;
     public static var inputArrayCalls:Int = 0;
     public static function field(o:Dynamic, name:String):Dynamic return o == null ? null : Reflect.field(o, name);
@@ -22,7 +24,8 @@ class GameAccess {
         var types:Array<String> = field(o, "types"); return types != null && types.indexOf(name) >= 0;
     }
     public static function callInstance(o:Dynamic, name:String):Dynamic return call("", name, o);
-    public static function current(type:String, name:String):Dynamic return field(data, name);
+    public static function current(type:String, name:String):Dynamic
+        return type == "fmod.Api" && name == "initialized" ? audioReady : field(data, name);
     public static function call(type:String, name:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic return switch name {
         case "getDyn": inputArrayCalls++; o.items[args[0]];
         case "setDyn": inputArrayCalls++; o.items[args[0]] = args[1]; null;
@@ -41,6 +44,8 @@ class GameAccess {
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic return switch name {
         case "getInstance": {};
         case "getVcaVolume":
+            if (!audioReady) throw "Access violation: FMOD has not initialized";
+            reads++;
             if (args[0] != "vca:/MASTER") throw "Unexpected VCA read: " + args[0];
             master;
         case "setVcaVolume":

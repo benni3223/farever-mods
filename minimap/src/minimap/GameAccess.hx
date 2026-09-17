@@ -39,8 +39,9 @@ class GameAccess {
         return HlxRuntime.callResolved(member(type, name, true), args);
     }
     public static function hasStaticMethod(type:String, name:String):Bool {
-        var t = HlxRuntime.resolveType(type);
-        return t != null && HlxRuntime.resolveStaticMember(t, name) != null;
+        // Optional methods are ordinary closure fields on the companion. A
+        // missing field is null; the member resolver instead logs an error.
+        return Reflect.isFunction(current(type, name));
     }
     public static function argumentCount(object:Dynamic, name:String):Int {
         var method = field(object, name);

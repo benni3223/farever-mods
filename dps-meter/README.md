@@ -139,8 +139,9 @@ The **Rift Recap** has the same camera/clipboard button at the top left of its
 header, aligned with the close button. It copies both the gates and boss phases
 into one image, with their names, durations, and full charts. Any open player
 ability breakdown is preserved for that phase. Both phases include every row
-regardless of scroll position, and follow the recap's side-by-side or stacked
-layout. The header briefly confirms copying or displays an error.
+regardless of scroll position. Snapshots stack the phases in a single column and
+render at twice the resolution in each direction for clearer text when sharing.
+The header briefly confirms copying or displays an error.
 
 The red **Delete log** button at the bottom right moves that fight's local chart
 to the Windows Recycle Bin, then returns to the attempt list. If recycling is
