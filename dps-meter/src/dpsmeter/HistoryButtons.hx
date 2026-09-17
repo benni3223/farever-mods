@@ -16,8 +16,8 @@ class HistoryButtons {
         G.call("h2d.Graphics", "endFill", g);
         return button;
     }
-    public static function snapshot(parent:Dynamic, click:Void->Void):Dynamic {
-        var button = NativeUi.button(parent, "", "dpsHistorySnapshot", click);
+    public static function snapshot(parent:Dynamic, click:Void->Void, id:String = "dpsHistorySnapshot"):Dynamic {
+        var button = NativeUi.button(parent, "", id, click);
         padding(button, 0); size(button, 50, 34);
         var g = G.create("h2d.Graphics", [button]); absolute(button, g); position(g, 6, 5);
         G.call("h2d.Graphics", "lineStyle", g, [1.5, 0x5b4334, 1.0]);

@@ -16,6 +16,9 @@ class NativeRiftRecapWindow {
     var header:Dynamic;
     var title:Dynamic;
     var close:Dynamic;
+    var snapshotButton:Dynamic;
+    var copying:Bool = false;
+    var statusUntil:Float = 0;
     var body:Dynamic;
     var container:Dynamic;
     var displayedRecap:Null<RiftRecap>;
@@ -52,6 +55,10 @@ class NativeRiftRecapWindow {
             }
         }
         if (window == null) return;
+        if (statusUntil > 0 && now >= statusUntil) {
+            setText(title, "Rift Recap");
+            statusUntil = 0;
+        }
         layout();
         for (section in sections) {
             var chart:NativeDamageChart = section.chart;
@@ -93,6 +100,8 @@ class NativeRiftRecapWindow {
         absolute(header, close);
         // This HUD is outside BaseUI.windows; remove it directly with the native X.
         G.call("ui.UIElement", "set_onClick", close, [() -> dispose()]);
+        snapshotButton = HistoryButtons.snapshot(G.field(header, "dom"), copySnapshot, "dpsRiftRecapSnapshot");
+        absolute(header, snapshotButton);
 
         body = node("options-content", dom, [0], "dpsRiftRecapBody");
         var bodyObject = G.field(body, "obj");
@@ -114,6 +123,25 @@ class NativeRiftRecapWindow {
         addSection(container, RiftTracker.GATES_PHASE, result.gate, "dpsRiftGate");
         addSection(container, result.boss.phase, result.boss, "dpsRiftBoss");
         layout();
+    }
+
+    function copySnapshot():Void {
+        if (copying || displayedRecap == null || sections.length != 2) return;
+        copying = true;
+        var message = "Snapshot copied to clipboard.";
+        try {
+            var gateChart:NativeDamageChart = sections[0].chart;
+            var bossChart:NativeDamageChart = sections[1].chart;
+            NativeFightSnapshot.copyRecap(displayedRecap, G.field(sections[0].time, "font"), G.field(title, "font"),
+                displayedRecap.gate == null ? "" : gateChart.snapshotPlayer(displayedRecap.gate),
+                bossChart.snapshotPlayer(displayedRecap.boss), width >= 840);
+        } catch (error:Dynamic) {
+            message = Std.string(error);
+            trace("[DPS Meter] Rift recap snapshot: " + message);
+        }
+        copying = false;
+        setText(title, message);
+        statusUntil = haxe.Timer.stamp() + 5;
     }
 
     function addSection(parent:Dynamic, caption:String, fight:Null<Fight>, id:String):Void {
@@ -158,7 +186,9 @@ class NativeRiftRecapWindow {
             position(header, 0, 0);
             size(close, 36, 36);
             position(close, width - 52, 12);
-            G.call("ui.comp.FmtText", "set_maxWidthText", title, [width - 112]);
+            size(snapshotButton, 50, 36);
+            position(snapshotButton, 16, 12);
+            G.call("ui.comp.FmtText", "set_maxWidthText", title, [width - 164]);
             var bodyHeight = height - 68;
             size(windowContent, width - 16, bodyHeight);
             position(windowContent, 8, 60);
@@ -202,6 +232,7 @@ class NativeRiftRecapWindow {
         if (window != null) { var old = window; window = null; G.call("h2d.Object", "remove", old); }
         owner = null; sections = []; wrappers = []; frameBackground = null;
         body = null; container = null; displayedRecap = null;
+        snapshotButton = null; copying = false; statusUntil = 0;
         width = 0; height = 0;
     }
 }

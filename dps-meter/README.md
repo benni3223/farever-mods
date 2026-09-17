@@ -131,6 +131,13 @@ It uses the game's fonts and class colours;
 the folder path and window controls are excluded. Paste the image into a chat or
 image editor. A short message confirms successful copying.
 
+The **Rift Recap** has the same camera/clipboard button at the top left of its
+header, aligned with the close button. It copies both the gates and boss phases
+into one image, with their names, durations, and full charts. Any open player
+ability breakdown is preserved for that phase. Both phases include every row
+regardless of scroll position, and follow the recap's side-by-side or stacked
+layout. The header briefly confirms copying or displays an error.
+
 The red **Delete log** button at the bottom right moves that fight's local chart
 to the Windows Recycle Bin, then returns to the attempt list. If recycling is
 unavailable, the action reports an error and retains the log. There is no
