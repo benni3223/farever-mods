@@ -4,6 +4,7 @@ import dpsmeter.GameAccess as G;
 import dpsmeter.NativeUi.*;
 
 class HistoryButtons {
+    public static inline var SNAPSHOT_SIZE:Int = 36;
     static var styledData:Dynamic;
     public static function folder(parent:Dynamic, click:Void->Void):Dynamic {
         var button = NativeUi.button(parent, "", "dpsHistoryFolder", click);
@@ -18,14 +19,14 @@ class HistoryButtons {
     }
     public static function snapshot(parent:Dynamic, click:Void->Void, id:String = "dpsHistorySnapshot"):Dynamic {
         var button = NativeUi.button(parent, "", id, click);
-        padding(button, 0); size(button, 50, 34);
-        var g = G.create("h2d.Graphics", [button]); absolute(button, g); position(g, 6, 5);
+        padding(button, 0); size(button, SNAPSHOT_SIZE, SNAPSHOT_SIZE);
+        var g = G.create("h2d.Graphics", [button]); absolute(button, g); position(g, 3, 6);
         G.call("h2d.Graphics", "lineStyle", g, [1.5, 0x5b4334, 1.0]);
         G.call("h2d.Graphics", "beginFill", g, [0xf4e4cf, 1.0]);
-        G.call("h2d.Graphics", "drawRect", g, [19., 3., 19., 20.]);
+        G.call("h2d.Graphics", "drawRect", g, [10., 3., 19., 20.]);
         G.call("h2d.Graphics", "endFill", g);
         G.call("h2d.Graphics", "beginFill", g, [0xb99a70, 1.0]);
-        G.call("h2d.Graphics", "drawRect", g, [24., 1., 9., 4.]);
+        G.call("h2d.Graphics", "drawRect", g, [15., 1., 9., 4.]);
         G.call("h2d.Graphics", "endFill", g);
         G.call("h2d.Graphics", "beginFill", g, [0xf3dfbc, 1.0]);
         path(g, [[1., 12.], [5., 12.], [7., 9.], [14., 9.], [16., 12.], [21., 12.], [21., 23.], [1., 23.], [1., 12.]]);

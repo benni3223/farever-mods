@@ -201,9 +201,10 @@ class NativeHistoryWindow {
         try {
             show(actionStatus, false);
             layout(true);
-            refreshSnapshotChart();
+            refreshSnapshotChart(true);
             chart.restoreScroll(0);
-            NativeFightSnapshot.copyWindow(window, width, height);
+            NativeFightSnapshot.copyBody(window, width, height,
+                [header, back, snapshotButton, deleteButton, folderButton, previous, next, pageLabel, actionStatus]);
         } catch (error:Dynamic) {
             message = Std.string(error); failed = true;
             trace("[DPS Meter] Snapshot: " + Std.string(error));
@@ -217,11 +218,11 @@ class NativeHistoryWindow {
         copying = false;
         status(message, failed);
     }
-    function refreshSnapshotChart():Void {
+    function refreshSnapshotChart(snapshot:Bool = false):Void {
         NativeFightSnapshot.reflow(window);
         chart.update(fight, haxe.Timer.stamp());
         NativeFightSnapshot.reflow(window);
-        alignLabels();
+        alignLabels(snapshot);
     }
     function status(message:String, error:Bool = false):Void {
         if (actionStatus == null) return;
@@ -363,12 +364,15 @@ class NativeHistoryWindow {
             size(window, w, h); if (frame != null) { size(frame, w, h); position(frame, 0, 0); }
             size(header, w - 2, 60); position(header, 0, 0);
             size(close, 36, 36); position(close, w - 52, 12);
-            var inner = w - 48; var bodyHeight = h - 76;
-            size(content, w - 16, h - 68); position(content, 8, 60);
-            for (object in wrappers) { size(object, w - 16, h - 68); position(object, 0, 0); }
+            var contentTop = snapshot ? 8 : 60;
+            var contentHeight = h - contentTop - 8;
+            var inner = w - 48; var bodyHeight = contentHeight - 8;
+            size(content, w - 16, contentHeight); position(content, 8, contentTop);
+            for (object in wrappers) { size(object, w - 16, contentHeight); position(object, 0, 0); }
             size(G.field(panel, "obj"), inner, bodyHeight); position(G.field(panel, "obj"), 16, 8);
             size(back, 84, 34); position(back, 0, 8);
-            size(snapshotButton, 50, 34); position(snapshotButton, inner - 50, 8);
+            size(snapshotButton, HistoryButtons.SNAPSHOT_SIZE, HistoryButtons.SNAPSHOT_SIZE);
+            position(snapshotButton, inner - HistoryButtons.SNAPSHOT_SIZE, 7);
             size(deleteButton, 138, 34); position(deleteButton, inner - 138, bodyHeight - 50);
             G.call("h2d.Text", "set_text", heading, [headingText()]);
             position(heading, mode == "categories" ? 0 : 100, 0);
@@ -379,7 +383,7 @@ class NativeHistoryWindow {
             G.call("ui.comp.FmtText", "set_maxWidthText", empty, [inner]); position(empty, 0, topInset);
             // Only the category page reserves a folder row. Other pages need
             // room for their existing Delete or pagination controls alone.
-            var footerSpace = mode == "chart" ? 68 : mode == "categories" ? 96 : 88;
+            var footerSpace = snapshot ? 0 : mode == "chart" ? 68 : mode == "categories" ? 96 : 88;
             var chartHeight = Std.int(Math.max(30, bodyHeight - topInset - footerSpace));
             for (object in [G.field(list, "obj"), G.field(chartPanel, "obj")]) { size(object, inner, chartHeight); position(object, 0, topInset); }
             chart.resize(inner, chartHeight);
@@ -391,13 +395,15 @@ class NativeHistoryWindow {
         }
         position(window, top.x + (bottom.x - top.x - width) / 2, top.y + (bottom.y - top.y - height) / 2);
     }
-    function alignLabels():Void {
+    function alignLabels(snapshot:Bool = false):Void {
         G.call("ui.comp.FmtText", "updateScale", headingStyle);
         var font = G.field(headingStyle, "font");
         if (font != null && font != headingFont) { headingFont = font; G.call("h2d.Text", "set_font", heading, [font]); }
         headingBaseScale = G.number(G.field(headingStyle, "scaleX"), 1);
-        fitLiteral(heading, width - 48 - (mode == "categories" ? 0 : 100) - (mode == "chart" ? 62 : 0), headingBaseScale * 1.75);
-        position(heading, mode == "categories" ? 0 : 100, 8 + (34 - textHeight(heading)) / 2);
+        var headingLeft = snapshot || mode == "categories" ? 0 : 100;
+        var headingRight = !snapshot && mode == "chart" ? HistoryButtons.SNAPSHOT_SIZE + 12 : 0;
+        fitLiteral(heading, width - 48 - headingLeft - headingRight, headingBaseScale * 1.75);
+        position(heading, headingLeft, 8 + (34 - textHeight(heading)) / 2);
         G.call("ui.comp.FmtText", "updateScale", detail);
         var bodyFont = G.field(detail, "font");
         for (text in [footer, chartInfo, actionStatus]) if (bodyFont != null && G.field(text, "font") != bodyFont)

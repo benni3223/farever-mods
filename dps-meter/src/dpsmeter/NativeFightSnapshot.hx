@@ -3,9 +3,9 @@ package dpsmeter;
 import dpsmeter.GameAccess as G;
 import dpsmeter.NativeUi.*;
 
-/** Render the actual native window, including its skin, fonts and gauges. */
+/** Render the native body with its skin, fonts and gauges, hiding UI controls. */
 class NativeFightSnapshot {
-    public static function copyWindow(window:Dynamic, width:Int, height:Int):Void {
+    public static function copyBody(window:Dynamic, width:Int, height:Int, controls:Array<Dynamic>):Void {
         var size = SnapshotLayout.imageSize(width, height);
         var parent = G.field(window, "parent");
         if (parent == null) throw "The window is not ready. Try again.";
@@ -13,8 +13,10 @@ class NativeFightSnapshot {
         var scaleX = G.number(G.field(window, "scaleX"), 1), scaleY = G.number(G.field(window, "scaleY"), 1);
         var origin = localPoint(parent, 0, 0);
         var unit = localPoint(parent, SnapshotLayout.SCALE, SnapshotLayout.SCALE);
+        var visibility = [for (object in controls) {object: object, visible: G.field(object, "visible") == true}];
         var texture:Dynamic = null, pixels:Dynamic = null;
         try {
+            for (state in visibility) show(state.object, false);
             // Cancel the game's UI scaling so the output has a consistent
             // resolution. Keep the window attached: removing it triggers native
             // UI disposal and loses its DOM styling and input registration.
@@ -57,12 +59,14 @@ class NativeFightSnapshot {
             DesktopActions.copyImage(output, size.width, size.height);
         } catch (error:Dynamic) {
             cleanup(texture, pixels);
-            restore(window, x, y, scaleX, scaleY);
+            restore(window, x, y, scaleX, scaleY, visibility);
             throw error;
         }
-        restore(window, x, y, scaleX, scaleY);
+        restore(window, x, y, scaleX, scaleY, visibility);
     }
-    static function restore(window:Dynamic, x:Float, y:Float, scaleX:Float, scaleY:Float):Void {
+    static function restore(window:Dynamic, x:Float, y:Float, scaleX:Float, scaleY:Float,
+        visibility:Array<{object:Dynamic, visible:Bool}>):Void {
+        for (state in visibility) show(state.object, state.visible);
         G.call("h2d.Object", "set_scaleX", window, [scaleX]);
         G.call("h2d.Object", "set_scaleY", window, [scaleY]);
         position(window, x, y);

@@ -135,7 +135,7 @@ class NativeRiftRecapWindow {
             layout(true);
             refreshSnapshotCharts();
             for (section in sections) (cast section.chart:NativeDamageChart).restoreScroll(0);
-            NativeFightSnapshot.copyWindow(window, width, height);
+            NativeFightSnapshot.copyBody(window, width, height, [header]);
         } catch (error:Dynamic) {
             message = Std.string(error);
             trace("[DPS Meter] Rift recap snapshot: " + message);
@@ -209,12 +209,13 @@ class NativeRiftRecapWindow {
             position(header, 0, 0);
             size(close, 36, 36);
             position(close, width - 52, 12);
-            size(snapshotButton, 50, 36);
+            size(snapshotButton, HistoryButtons.SNAPSHOT_SIZE, HistoryButtons.SNAPSHOT_SIZE);
             position(snapshotButton, 32, 12);
             G.call("ui.comp.FmtText", "set_maxWidthText", title, [width - 188]);
-            var bodyHeight = height - 68;
+            var contentTop = snapshot ? 8 : 60;
+            var bodyHeight = height - contentTop - 8;
             size(windowContent, width - 16, bodyHeight);
-            position(windowContent, 8, 60);
+            position(windowContent, 8, contentTop);
             for (object in wrappers) { size(object, width - 16, bodyHeight); position(object, 0, 0); }
             var panelWidth = columns ? Std.int((width - 72) / 2) : width - 48;
             var panelHeight = columns ? bodyHeight - 24 : Std.int((bodyHeight - 48) / 2);

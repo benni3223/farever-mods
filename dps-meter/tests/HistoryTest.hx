@@ -857,17 +857,17 @@ class HistoryTest {
 
     }
     static function snapshotLayouts():Void {
-        check(SnapshotLayout.historyHeight(600) == 844, "Native history export leaves room for its header, summary, footer and every row");
-        check(SnapshotLayout.historyHeight(30) == 320, "Empty charts retain the native window's minimum height");
-        check(SnapshotLayout.historyHeight(30, 820) == 820
-            && SnapshotLayout.recapHeight(true, [30, 30], 540) == 540,
-            "Short charts preserve the actual window proportions rather than flattening the snapshot");
+        check(SnapshotLayout.historyHeight(600) == 724, "History body fits the encounter summary and every row without the window header or action footer");
+        check(SnapshotLayout.historyHeight(30) == 200, "Empty charts retain the live body height without the controls' space");
+        check(SnapshotLayout.historyHeight(30, 820) == 700
+            && SnapshotLayout.recapHeight(true, [30, 30], 540) == 488,
+            "Short charts preserve the actual body proportions after removing window controls");
         var columns = SnapshotLayout.recapHeight(true, [600, 80]);
         var stacked = SnapshotLayout.recapHeight(false, [600, 80]);
-        check(columns == 732, "Side-by-side recap grows to fit its taller phase");
-        check(stacked == 876, "Stacked recap fits both complete charts, headings and spacing");
+        check(columns == 680, "Side-by-side recap body grows to fit its taller phase without the window header");
+        check(stacked == 824, "Stacked recap body fits both complete charts, phase headings and spacing");
         var image = SnapshotLayout.imageSize(980, columns);
-        check(image.width == 2024 && image.height == 1528, "Capture includes native decorations at twice the UI resolution");
+        check(image.width == 2024 && image.height == 1424, "Body capture includes native decorations at twice the UI resolution");
         var tall = SnapshotLayout.imageSize(980, SnapshotLayout.recapHeight(true, [6000, 30]));
         check(tall.height > 2048 && tall.width * 1.0 * tall.height * 4 < 128 * 1024 * 1024,
             "Long rankings remain available across GPU strips");

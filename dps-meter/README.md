@@ -125,20 +125,22 @@ full absolute path to the local archive. Click its **folder icon** to open that
 location in Explorer. Encounter lists and charts use the extra vertical space. Section
 headings use the same larger bold style as Better Mod Settings titles.
 
-The **camera/clipboard button** at the top right copies the actual native chart
-window, including its decorative frame, fonts, class colours, gauges, and selected
-player view. The capture keeps the window's width and grows vertically when
-needed to include every row, independently of scroll position. It renders at
-twice the resolution in each direction on a neutral background. The window and
+The square **camera/clipboard button** at the top right copies the native window
+body, including the encounter details, decorative frame, fonts, class colours,
+gauges, and selected player view. Window headers and action buttons are omitted,
+along with the space reserved for them. The capture keeps the window's width and
+grows vertically when needed to include every row, independently of scroll
+position. It renders at twice the resolution in each direction on a neutral background. The window and
 scroll position are restored immediately afterward. Paste into a chat or image
 editor; a short message confirms successful copying.
 
-The **Rift Recap** has the same camera/clipboard button at the top left of its
+The **Rift Recap** has the same square camera/clipboard button at the top left of its
 header, aligned with the close button. It copies both the gates and boss phases
 into one image, with their names, durations, and full charts. Any open player
 ability breakdown is preserved for that phase. Both phases include every row
 regardless of scroll position. The snapshot uses the real recap window's styling
 and side-by-side or stacked arrangement, at twice the resolution in each direction.
+Only the body is captured; the window header and its buttons are omitted.
 The header briefly confirms copying or displays an error.
 
 The red **Delete log** button at the bottom right moves that fight's local chart
