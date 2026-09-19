@@ -867,11 +867,14 @@ class HistoryTest {
         check(columns == 680, "Side-by-side recap body grows to fit its taller phase without the window header");
         check(stacked == 824, "Stacked recap body fits both complete charts, phase headings and spacing");
         var image = SnapshotLayout.imageSize(980, columns);
-        check(image.width == 2024 && image.height == 1424, "Body capture includes native decorations at twice the UI resolution");
+        check(image.width == 1928 && image.height == 1328, "Capture crops to the native body at twice the UI resolution without an outer border");
+        var historyImage = SnapshotLayout.imageSize(900, 700);
+        check(historyImage.width == 1768 && historyImage.height == 1368,
+            "The 884-unit native history body fills the image instead of sitting inside a 48-pixel surround");
         var tall = SnapshotLayout.imageSize(980, SnapshotLayout.recapHeight(true, [6000, 30]));
         check(tall.height > 2048 && tall.width * 1.0 * tall.height * 4 < 128 * 1024 * 1024,
             "Long rankings remain available across GPU strips");
-        for (dimensions in [[0, 10], [100, -1], [980, 100000], [0x40000000, 4]]) {
+        for (dimensions in [[0, 10], [100, -1], [16, 100], [100, 16], [980, 100000], [0x40000000, 40]]) {
             var failed = false;
             try SnapshotLayout.imageSize(dimensions[0], dimensions[1]) catch (_:Dynamic) failed = true;
             check(failed, "Invalid or oversized captures fail before allocation or clipboard changes");

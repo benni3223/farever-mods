@@ -126,13 +126,14 @@ location in Explorer. Encounter lists and charts use the extra vertical space. S
 headings use the same larger bold style as Better Mod Settings titles.
 
 The square **camera/clipboard button** at the top right copies the native window
-body, including the encounter details, decorative frame, fonts, class colours,
+body, including the encounter details, fonts, class colours,
 gauges, and selected player view. Window headers and action buttons are omitted,
 along with the space reserved for them. The capture keeps the window's width and
 grows vertically when needed to include every row, independently of scroll
-position. It renders at twice the resolution in each direction with a background
-matching the native body colour. The window and scroll position are restored
-immediately afterward. Paste into a chat or image
+position. It renders at twice the resolution in each direction, cropped to the
+native body with no added border or surround. The body's rendered colours are
+preserved. The window and scroll position are restored immediately afterward.
+Paste into a chat or image
 editor; a short message confirms successful copying.
 
 The **Rift Recap** has the same square camera/clipboard button at the top left of its

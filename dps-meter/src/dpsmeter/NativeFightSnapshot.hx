@@ -33,11 +33,11 @@ class NativeFightSnapshot {
             while (top < size.height) {
                 var stripHeight = Std.int(Math.min(2048, size.height - top));
                 texture = SnapshotTexture.create(size.width, stripHeight, flags);
-                // CF_DIB has no alpha channel. Match the native body's colour
-                // so the opaque surround and translucent edges blend with it.
+                // CF_DIB needs an opaque target. The native body covers it;
+                // do not add a separately coloured surround to the capture.
                 G.call("h3d.mat.Texture", "clear", texture, [0xd0bbb2, null, null]);
-                var point = localPoint(parent, SnapshotLayout.MARGIN * SnapshotLayout.SCALE,
-                    SnapshotLayout.MARGIN * SnapshotLayout.SCALE - top);
+                var point = localPoint(parent, -SnapshotLayout.BODY_INSET * SnapshotLayout.SCALE,
+                    -SnapshotLayout.BODY_INSET * SnapshotLayout.SCALE - top);
                 position(window, point.x, point.y);
                 G.call("h2d.Object", "drawTo", window, [texture]);
                 pixels = SnapshotTexture.readBgra(texture);
