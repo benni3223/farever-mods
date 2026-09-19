@@ -34,6 +34,7 @@ class MoreSettingsMod {
             config.disableProfanityFilter = previousProfanityPreference();
         }
         SettingsData.normalize(config);
+        BossHealth.enabled = config.showBossHealth;
         hideUi.configure(config.hideUiKey);
         config.save();
         audio = new AudioControl(config);
@@ -41,6 +42,7 @@ class MoreSettingsMod {
         Bus.subscribe("better-mod-settings/config-changed/" + HlxRuntime.moduleName(), (_:Dynamic) -> {
             config = ModConfig.load(HlxRuntime.moduleName(), config);
             SettingsData.normalize(config);
+            BossHealth.enabled = config.showBossHealth;
             hideUi.configure(config.hideUiKey);
             AllyEffects.configure(config);
             try audio.configure(config) catch (e:Dynamic) audioError(e);
@@ -51,6 +53,11 @@ class MoreSettingsMod {
     @:hlx.prefix(HText.cleanPlayerText)
     static function cleanPlayerText(text:String):HlxPrefixResult<String> {
         return config.disableProfanityFilter ? SkipWith(StringTools.htmlEscape(text)) : Continue;
+    }
+
+    @:hlx.postfix(ui.comp.HealthBar.init)
+    static function afterHealthBarInit(instance:Dynamic, result:Void):Void {
+        try BossHealth.attach(instance) catch (e:Dynamic) BossHealth.reportError(e);
     }
 
     @:hlx.postfix(lib.Input.getBindings)

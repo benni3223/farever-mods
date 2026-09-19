@@ -12,6 +12,11 @@
       "label": "Disable profanity filter"
     },
     {
+      "key": "showBossHealth",
+      "type": "checkbox",
+      "label": "Show boss health"
+    },
+    {
       "key": "hideUiKey",
       "type": "keybinding",
       "label": "Hide UI hotkey"

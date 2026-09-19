@@ -2,7 +2,7 @@
 
 [Builds](https://github.com/xWink/farever-mods/actions/workflows/build-more-settings.yml) · [Releases](https://github.com/xWink/farever-mods/releases?q=more-settings%2Fv&expanded=true)
 
-Client settings for **Farever**: chat filtering, temporary audio levels, and separate ally presentation controls for rifts, dungeons, and the overworld. Previously called **More Audio Settings**.
+Client settings for **Farever**: chat filtering, boss health numbers, temporary audio levels, and separate ally presentation controls for rifts, dungeons, and the overworld. Previously called **More Audio Settings**.
 
 ## Settings
 
@@ -10,7 +10,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 | Category | Controls | Defaults |
 | --- | --- | --- |
-| General | Disable profanity filter; Hide UI hotkey | Profanity option on (imports previous preference); Hide UI defaults to F2 |
+| General | Disable profanity filter; Show boss health; Hide UI hotkey | Profanity option on (imports previous preference); boss health off; Hide UI defaults to F2 |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
@@ -18,6 +18,8 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Overworld Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
+
+**Show boss health** adds the boss's current HP before its percentage in the top-of-screen boss bar: `123456 (100%)`. It uses the actual Health attribute, rounded down to a whole number like the game's numeric health display, and updates throughout the fight. The native percentage and shield information are preserved. Toggle it at any time under **General**; disabling it restores the native label. If the new/PTR client's resource-display option already shows numeric HP, that label stays unchanged.
 
 The same build supports the live and new/PTR clients (use HLX Core 0.0.8 or newer
 on PTR). Hit/heal effect attribution accepts both client skill-field layouts.
@@ -70,6 +72,6 @@ build/event-volume-test
 
 The plugin output is `build/native/more_settings_audio.hdll`; install it in `hlx/plugins/more-settings/`. It resolves the public FMOD event-volume API from the game's loaded `fmodstudio.dll`; no game or FMOD binaries are bundled. If the plugin is missing or unavailable, an audio error is logged and the mod never falls back to changing a global volume for travel.
 
-Regression tests exercise the production UI binding adapter, volume controller, region/ability policy, classifier, and presentation tracker with a simulated native adapter. CI requires those tests plus native bridge tests before compiling and packaging both binaries. Native API and bytecode inspection supplements these tests; actual rendering/audio still require in-game multiplayer testing after game updates.
+Regression tests exercise the production UI binding adapter, boss health formatting and update callbacks, volume controller, region/ability policy, classifier, and presentation tracker with a simulated native adapter. CI requires those tests plus native bridge tests before compiling and packaging both binaries. Native API and bytecode inspection supplements these tests; actual rendering/audio still require in-game multiplayer testing after game updates.
 
 The mod avoids repeating FMOD writes on unchanged frames. Model membership and adoption of existing effects refresh at most five times per second. Native member lookup and skill classification are cached; disabled filters avoid entity scans. Rendering hooks never skip skill execution or character animation updates.

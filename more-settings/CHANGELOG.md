@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Added **Show boss health** under General (off by default), displaying current boss HP before the native percentage and retaining shield information. Supports live toggling and both clients.
 - Renamed More Audio Settings to More Settings across source, configuration display name, build output, workflow, artifact, and release ZIP.
 - Imported previous More Audio Settings/Mute Unfocused preferences without deleting backups.
 - Added Disable profanity filter, retaining HTML escaping and the standalone saved preference when available.

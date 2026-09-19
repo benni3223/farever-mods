@@ -3,6 +3,7 @@ import moresettings.VolumeState;
 import moresettings.AudioControl;
 import moresettings.EventVolume;
 import moresettings.HideUiBinding;
+import moresettings.BossHealth;
 import moresettings.EffectPolicy;
 import moresettings.SkillClassifier;
 import moresettings.NativeSkillFacts;
@@ -19,8 +20,58 @@ class SettingsTest {
         eq(Math.abs(actual - expected) < 0.000001, true, message);
 
     static function main():Void {
-        hideUiBinding(); volume(); audioLifecycle(); nativeFocusAudio(); policy(); classification(); presentation();
+        bossHealth(); hideUiBinding(); volume(); audioLifecycle(); nativeFocusAudio(); policy(); classification(); presentation();
         Sys.println('More Settings: $checks checks passed.');
+    }
+
+    static function bossHealth():Void {
+        eq(SettingsData.defaults().showBossHealth, false, "boss health is opt-in");
+        eq(BossHealth.format("100%", 123456), "123456 (100%)", "requested full-health format");
+        eq(BossHealth.format("50%", 61728.9), "61728 (50%)", "uses raw HP with native whole-number rounding");
+        eq(BossHealth.format("1%", 0.4), "0 (1%)", "retains native minimum percentage");
+        eq(BossHealth.format("0%", -10), "0 (0%)", "negative HP displays zero");
+        eq(BossHealth.format("100%", 3000000000.0), "3000000000 (100%)", "large HP avoids Int overflow");
+        eq(BossHealth.format("50% (+ 20%)", 500), "500 (50%) (+ 20%)", "shield stays outside health percentage");
+        eq(BossHealth.format("50,5 %", 505), "505 (50,5 %)", "preserves localized percentage text");
+        eq(BossHealth.format("123456 (100%)", 123456), "123456 (100%)", "does not decorate twice");
+        eq(BossHealth.format("500 / 1000 (+ 200)", 500), "500 / 1000 (+ 200)", "PTR numeric resource labels stay native");
+        eq(BossHealth.format("100%", Math.NaN), "100%", "missing HP does not invent zero");
+        eq(BossHealth.format("100%", Math.POSITIVE_INFINITY), "100%", "invalid HP is ignored");
+
+        // Simulate the audited native callback order: HealthBar writes first,
+        // then our callback decorates it. The bar owns both callbacks.
+        var gauge = {usePercents: true, value: 123456.0};
+        var label = {visible: true, text: "100%"};
+        var nativeText = "100%";
+        var callbacks:Array<Float->Void> = [(_:Float) -> { if (label.visible) label.text = nativeText; }];
+        var bar:Dynamic = {parent: {parent: {types: ["ui.hud.BossInfo"]}}, txt: label, healthGauge: gauge, callbacks: callbacks};
+        BossHealth.enabled = false;
+        BossHealth.attach(bar);
+        eq(callbacks.length, 2, "registers on an existing boss bar while disabled");
+        eq(label.text, "100%", "disabled option keeps native label");
+        BossHealth.enabled = true;
+        for (callback in callbacks) callback(0.016);
+        eq(label.text, "123456 (100%)", "enabling takes effect on the next UI update");
+        gauge.value = 61728.9; nativeText = "50% (+ 20%)";
+        for (callback in callbacks) callback(0.016);
+        eq(label.text, "61728 (50%) (+ 20%)", "damage and shields update live");
+        for (callback in callbacks) callback(0.016);
+        eq(label.text, "61728 (50%) (+ 20%)", "consecutive frames never accumulate HP prefixes");
+        BossHealth.enabled = false;
+        for (callback in callbacks) callback(0.016);
+        eq(label.text, "50% (+ 20%)", "disabling restores native text without reopening HUD");
+        BossHealth.enabled = true; label.visible = false; gauge.value = 50000;
+        for (callback in callbacks) callback(0.016);
+        eq(label.text, "50% (+ 20%)", "hidden labels are left untouched");
+        label.visible = true; gauge.usePercents = false; nativeText = "50000 / 123456";
+        for (callback in callbacks) callback(0.016);
+        eq(label.text, nativeText, "numeric bars remain native");
+        for (parent in [null, {types: ["ui.hud.UnitWidget"]}, {types: ["ui.hud.HeroInfo"]}]) {
+            var other:Dynamic = {parent: parent, callbacks: []};
+            BossHealth.attach(other);
+            eq(other.callbacks.length, 0, "only boss HUD bars get a callback");
+        }
+        BossHealth.enabled = false;
     }
 
     static function audioLifecycle():Void {

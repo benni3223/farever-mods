@@ -27,6 +27,11 @@ class GameAccess {
     public static function current(type:String, name:String):Dynamic
         return type == "fmod.Api" && name == "initialized" ? audioReady : field(data, name);
     public static function call(type:String, name:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic return switch name {
+        case "bindUpdate":
+            var callbacks:Array<Float->Void> = field(o, "callbacks");
+            var callback:Float->Void = args[0];
+            callbacks.push(callback); callback(0); null;
+        case "set_text": set(o, "text", args[0]); args[0];
         case "getDyn": inputArrayCalls++; o.items[args[0]];
         case "setDyn": inputArrayCalls++; o.items[args[0]] = args[1]; null;
         case "getFocusedTextInput": field(o, "textInput");
