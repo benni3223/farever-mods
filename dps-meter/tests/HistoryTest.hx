@@ -52,7 +52,7 @@ class HistoryTest {
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
         clientSkillCompatibility(); archivePolicy();
-        lifecycle(); chakram(); outcomes(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); historyOptions(); literalLabels(); bossRecords();
+        lifecycle(); chakram(); outcomes(); recapSummary(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); historyOptions(); literalLabels(); bossRecords();
         Sys.println('Fight history: $checks checks passed');
     }
     static function archivePolicy():Void {
@@ -856,18 +856,43 @@ class HistoryTest {
         remove(root);
 
     }
+    static function recapSummary():Void {
+        var gates = sample(); gates.phase = dpsmeter.RiftTracker.GATES_PHASE; gates.outcome = "Victory";
+        var boss = sample(); boss.startedAt += 120000; boss.outcome = "Victory";
+        var recap:dpsmeter.RiftTracker.RiftRecap = {gate: gates, boss: boss};
+        check(FightHistory.recapDetail(recap) == "Sep 14, 2026 at 13:20:30  ·  Shawn  ·  Victory",
+            "Recap summary uses the gates start, recorded local player, and boss result in history's date format");
+        boss.outcome = "Defeat";
+        check(StringTools.endsWith(FightHistory.recapDetail(recap), "  ·  Defeat"),
+            "A gates victory does not override a defeated boss phase");
+        boss.outcome = "";
+        check(StringTools.endsWith(FightHistory.recapDetail(recap), "  ·  Outcome unknown"),
+            "Missing outcome is not invented as a victory or defeat");
+        boss.outcome = "Victory"; recap.gate = null;
+        check(FightHistory.recapDetail(recap) == "Sep 14, 2026 at 13:22:30  ·  Shawn  ·  Victory",
+            "Boss-only recap uses its recorded boss start time");
+        boss.players.remove("me"); boss.meName = "Wink <Mage> & friends";
+        check(FightHistory.recapDetail(recap).indexOf("  ·  Wink <Mage> & friends  ·  ") >= 0,
+            "A local player without damage retains their recorded name as literal text");
+        boss.meName = ""; recap.gate = gates;
+        check(FightHistory.recapDetail(recap).indexOf("  ·  Shawn  ·  ") >= 0,
+            "The gates phase supplies the local name when the boss recording lacks it");
+        recap.gate = null;
+        check(FightHistory.recapDetail(recap) == "Sep 14, 2026 at 13:22:30  ·  Victory",
+            "Missing local identity never substitutes an ally's name");
+    }
     static function snapshotLayouts():Void {
         check(SnapshotLayout.historyHeight(600) == 724, "History body fits the encounter summary and every row without the window header or action footer");
         check(SnapshotLayout.historyHeight(30) == 200, "Empty charts retain the live body height without the controls' space");
         check(SnapshotLayout.historyHeight(30, 820) == 700
-            && SnapshotLayout.recapHeight(true, [30, 30], 540) == 488,
-            "Short charts preserve the actual body proportions after removing window controls");
+            && SnapshotLayout.recapHeight(true, [30, 30], 580) == 588,
+            "Snapshots retain visible chart space while reserving the recap title and summary");
         var columns = SnapshotLayout.recapHeight(true, [600, 80]);
         var stacked = SnapshotLayout.recapHeight(false, [600, 80]);
-        check(columns == 680, "Side-by-side recap body grows to fit its taller phase without the window header");
-        check(stacked == 824, "Stacked recap body fits both complete charts, phase headings and spacing");
+        check(columns == 780, "Side-by-side recap fits its title, summary and taller complete phase");
+        check(stacked == 924, "Stacked recap fits its title, summary, both complete charts and phase headings");
         var image = SnapshotLayout.imageSize(980, columns);
-        check(image.width == 1928 && image.height == 1328, "Capture crops to the native body at twice the UI resolution without an outer border");
+        check(image.width == 1928 && image.height == 1528, "Capture crops to the native body at twice the UI resolution without an outer border");
         var historyImage = SnapshotLayout.imageSize(900, 700);
         check(historyImage.width == 1768 && historyImage.height == 1368,
             "The 884-unit native history body fills the image instead of sitting inside a 48-pixel surround");

@@ -21,6 +21,11 @@ class NativeRiftRecapWindow {
     var statusUntil:Float = 0;
     var body:Dynamic;
     var container:Dynamic;
+    var recapHeading:Dynamic;
+    var recapInfo:Dynamic;
+    var headingStyle:Dynamic;
+    var summaryStyle:Dynamic;
+    var snapshotLayout:Bool = false;
     var displayedRecap:Null<RiftRecap>;
     var wrappers:Array<Dynamic> = [];
     var sections:Array<Dynamic> = [];
@@ -120,9 +125,30 @@ class NativeRiftRecapWindow {
         absolute(windowContent, bodyObject);
         absolute(bodyObject, options);
         absolute(options, container);
+        buildSummary(result);
         addSection(container, RiftTracker.GATES_PHASE, result.gate, "dpsRiftGate");
         addSection(container, result.boss.phase, result.boss, "dpsRiftBoss");
         layout();
+    }
+
+    function buildSummary(result:RiftRecap):Void {
+        var dom = G.field(container, "dom");
+        // Match history's native body font and enlarged bold heading. Literal
+        // text keeps player names from being interpreted as game formatting.
+        summaryStyle = label(dom, "");
+        headingStyle = label(dom, "");
+        G.call("domkit.Properties", "addClass", G.field(headingStyle, "dom"), ["bold-14"]);
+        show(summaryStyle, false); show(headingStyle, false);
+        recapHeading = G.create("h2d.Text", [G.field(summaryStyle, "font"), container]);
+        recapInfo = G.create("h2d.Text", [G.field(summaryStyle, "font"), container]);
+        G.call("h2d.Text", "set_text", recapHeading, ["Rift Recap"]);
+        G.call("h2d.Text", "set_text", recapInfo, [FightHistory.recapDetail(result)]);
+        G.call("h2d.Text", "set_textColor", recapHeading, [0x8a5f46]);
+        G.call("h2d.Text", "set_textColor", recapInfo, [0x5b4334]);
+        for (text in [recapHeading, recapInfo]) {
+            G.call("h2d.Text", "set_lineBreak", text, [false]);
+            absolute(container, text);
+        }
     }
 
     function copySnapshot():Void {
@@ -193,7 +219,7 @@ class NativeRiftRecapWindow {
         var bottom = localPoint(G.number(G.field(scene, "width"), 1920), G.number(G.field(scene, "height"), 1080));
         var w = Std.int(Math.min(980, bottom.x - top.x - 40));
         var columns = w >= 840;
-        var h = Std.int(Math.min(columns ? 540 : 680, bottom.y - top.y - 80));
+        var h = Std.int(Math.min((columns ? 540 : 680) + SnapshotLayout.RECAP_SUMMARY_HEIGHT, bottom.y - top.y - 80));
         var chartHeights = snapshot ? [for (section in sections) (cast section.chart:NativeDamageChart).snapshotHeight()] : [];
         if (snapshot) {
             h = SnapshotLayout.recapHeight(columns, chartHeights, h);
@@ -202,6 +228,7 @@ class NativeRiftRecapWindow {
         // Unequal stacked phases may fit inside the existing outer size.
         // Still relayout their individual panels for capture and restoration.
         if (copying || width != w || height != h) {
+            snapshotLayout = snapshot;
             width = w; height = h;
             size(window, width, height);
             if (frameBackground != null) { size(frameBackground, width, height); position(frameBackground, 0, 0); }
@@ -217,16 +244,21 @@ class NativeRiftRecapWindow {
             size(windowContent, width - 16, bodyHeight);
             position(windowContent, 8, contentTop);
             for (object in wrappers) { size(object, width - 16, bodyHeight); position(object, 0, 0); }
+            // The live window already has its title in the native header.
+            // Put a title in the body only while that header is omitted from capture.
+            show(recapHeading, snapshot);
+            var summaryHeight = snapshot ? SnapshotLayout.RECAP_SNAPSHOT_SUMMARY_HEIGHT : SnapshotLayout.RECAP_SUMMARY_HEIGHT;
+            var chartsHeight = bodyHeight - summaryHeight;
             var panelWidth = columns ? Std.int((width - 72) / 2) : width - 48;
-            var panelHeight = columns ? bodyHeight - 24 : Std.int((bodyHeight - 48) / 2);
-            var panelY = 12;
+            var panelHeight = columns ? chartsHeight - 24 : Std.int((chartsHeight - 48) / 2);
+            var panelY = summaryHeight + 12;
             for (i in 0...sections.length) {
                 var section = sections[i];
                 section.width = panelWidth;
                 var sectionHeight = snapshot && !columns ? chartHeights[i] + 40 : panelHeight;
                 size(section.obj, panelWidth, sectionHeight);
                 position(section.obj, 16 + (columns ? i * (panelWidth + 24) : 0),
-                    columns ? 12 : panelY);
+                    columns ? summaryHeight + 12 : panelY);
                 panelY += sectionHeight + 24;
                 size(section.heading, panelWidth, 40);
                 G.call("ui.comp.FmtText", "set_maxWidthText", section.name,
@@ -241,11 +273,23 @@ class NativeRiftRecapWindow {
     function alignLabels():Void {
         G.call("ui.comp.FmtText", "updateScale", title);
         position(title, (width - textWidth(title)) / 2, (60 - textHeight(title)) / 2);
+        fitSummary(recapHeading, headingStyle, 1.75);
+        fitSummary(recapInfo, summaryStyle, 1);
+        position(recapHeading, 16, 16 + (34 - textHeight(recapHeading)) / 2);
+        position(recapInfo, 16, snapshotLayout ? 68 : 12);
         for (section in sections) {
             G.call("ui.comp.FmtText", "updateScale", section.name);
             position(section.name, 0, 4);
             position(section.time, section.width - textWidth(section.time), 4);
         }
+    }
+    function fitSummary(text:Dynamic, reference:Dynamic, factor:Float):Void {
+        G.call("ui.comp.FmtText", "updateScale", reference);
+        var font = G.field(reference, "font");
+        if (font != null && font != G.field(text, "font")) G.call("h2d.Text", "set_font", text, [font]);
+        var natural = G.number(G.call("h2d.Text", "get_textWidth", text));
+        var desired = G.number(G.field(reference, "scaleX"), 1) * factor;
+        G.call("h2d.Object", "setScale", text, [natural <= 0 ? desired : Math.min(desired, Math.max(1, width - 48) / natural)]);
     }
     function textWidth(text:Dynamic):Float return G.number(G.call("h2d.Text", "get_textWidth", text)) * G.number(G.field(text, "scaleX"), 1);
     function textHeight(text:Dynamic):Float return G.number(G.call("h2d.Text", "get_textHeight", text)) * G.number(G.field(text, "scaleY"), 1);
@@ -259,6 +303,7 @@ class NativeRiftRecapWindow {
         if (window != null) { var old = window; window = null; G.call("h2d.Object", "remove", old); }
         owner = null; sections = []; wrappers = []; frameBackground = null;
         body = null; container = null; displayedRecap = null;
+        recapHeading = null; recapInfo = null; headingStyle = null; summaryStyle = null; snapshotLayout = false;
         snapshotButton = null; copying = false; statusUntil = 0;
         width = 0; height = 0;
     }

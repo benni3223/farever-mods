@@ -142,6 +142,10 @@ into one image, with their names, durations, and full charts. Any open player
 ability breakdown is preserved for that phase. Both phases include every row
 regardless of scroll position. The snapshot uses the real recap window's styling
 and side-by-side or stacked arrangement, at twice the resolution in each direction.
+The recap shows the recorded rift start date/time, your character's name, and the
+boss phase's Victory/Defeat result. Its snapshot includes a **Rift Recap** title
+above that summary, styled like regular fight snapshots. The start time comes
+from the gates phase when recorded, or the boss phase for a boss-only recording.
 Only the body is captured; the window header and its buttons are omitted.
 The header briefly confirms copying or displays an error.
 

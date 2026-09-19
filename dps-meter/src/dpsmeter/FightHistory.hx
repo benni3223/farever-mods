@@ -145,6 +145,24 @@ class FightHistory {
     public static function attemptDetail(entry:HistoryEntry):String return durationLabel(entry.duration) + "  ·  " + dpsLabel(entry.personalDps);
     public static function chartDetail(entry:Null<HistoryEntry>):String return entry == null ? "" : dateAndPlayer(entry)
         + "  ·  " + dpsLabel(entry.personalDps) + "  ·  " + durationLabel(entry.duration) + "  ·  " + outcomeLabel(entry);
+    public static function recapDetail(recap:dpsmeter.RiftTracker.RiftRecap):String {
+        // Use the beginning of the recorded rift, not the later boss phase or
+        // the time the recap is copied. Boss-only recordings use their own start.
+        var first = recap.gate != null ? recap.gate : recap.boss;
+        var player = recordedPlayerName(recap.boss);
+        if (player == "") player = recordedPlayerName(recap.gate);
+        // Clearing the gates alone cannot make the overall rift a victory.
+        var result = outcome(recap.boss.outcome);
+        return dateLabel(first.startedAt) + (player == "" ? "" : "  ·  " + player)
+            + "  ·  " + (result == "" ? "Outcome unknown" : result);
+    }
+    static function recordedPlayerName(fight:Null<Fight>):String {
+        if (fight == null) return "";
+        var player = fight.players[fight.me];
+        if (player != null && player.info.name != "") return player.info.name;
+        for (p in fight.players) if (p.info.isMe && p.info.name != "") return p.info.name;
+        return fight.meName;
+    }
     public static function dateLabel(timestamp:Float):String {
         var date = Date.fromTime(timestamp);
         var months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
