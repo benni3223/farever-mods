@@ -33,10 +33,9 @@ class NativeFightSnapshot {
             while (top < size.height) {
                 var stripHeight = Std.int(Math.min(2048, size.height - top));
                 texture = SnapshotTexture.create(size.width, stripHeight, flags);
-                // CF_DIB has no alpha channel. Use an opaque neutral backdrop
-                // so rounded corners and translucent native details composite
-                // correctly instead of becoming black premultiplied pixels.
-                G.call("h3d.mat.Texture", "clear", texture, [0x261f1a, null, null]);
+                // CF_DIB has no alpha channel. Match the native body's colour
+                // so the opaque surround and translucent edges blend with it.
+                G.call("h3d.mat.Texture", "clear", texture, [0xd0bbb2, null, null]);
                 var point = localPoint(parent, SnapshotLayout.MARGIN * SnapshotLayout.SCALE,
                     SnapshotLayout.MARGIN * SnapshotLayout.SCALE - top);
                 position(window, point.x, point.y);

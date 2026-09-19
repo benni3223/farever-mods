@@ -130,8 +130,9 @@ body, including the encounter details, decorative frame, fonts, class colours,
 gauges, and selected player view. Window headers and action buttons are omitted,
 along with the space reserved for them. The capture keeps the window's width and
 grows vertically when needed to include every row, independently of scroll
-position. It renders at twice the resolution in each direction on a neutral background. The window and
-scroll position are restored immediately afterward. Paste into a chat or image
+position. It renders at twice the resolution in each direction with a background
+matching the native body colour. The window and scroll position are restored
+immediately afterward. Paste into a chat or image
 editor; a short message confirms successful copying.
 
 The **Rift Recap** has the same square camera/clipboard button at the top left of its
