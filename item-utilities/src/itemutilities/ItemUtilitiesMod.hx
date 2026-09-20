@@ -305,8 +305,14 @@ class ItemUtilitiesMod {
 
         // The context was consumed before any nested input/interaction calls.
         // A real press remains untouched, including presses on NPCs and chests.
-        if (result || !enabled.get() || !config.holdInteractToQuickLoot)
+        if (!enabled.get() || !config.holdInteractToQuickLoot) {
+            quickLootState.release(controller);
             return result;
+        }
+        if (result) {
+            quickLootState.recordPress(controller, haxe.Timer.stamp());
+            return result;
+        }
 
         try {
             if (quickLootInputDownMember == null) {
@@ -317,11 +323,16 @@ class ItemUtilitiesMod {
             // The action name retains keyboard/gamepad bindings, input modes,
             // and focus checks. Never synthesize a raw F-key press.
             if (quickLootInputDownMember == null
-                || HlxRuntime.callResolved(quickLootInputDownMember, [key]) != true)
+                || HlxRuntime.callResolved(quickLootInputDownMember, [key]) != true) {
+                quickLootState.release(controller);
                 return result;
+            }
 
-            // Do not search nearby entities here. Native tryInteract first
-            // checks its hold delay, then selects exactly one current target.
+            // Pulse the gameplay Interact query like repeated taps. False frames
+            // reset the native hold delay; the timer caps repeats at 20/second.
+            if (!quickLootState.allowRepeat(controller, haxe.Timer.stamp()))
+                return result;
+            // Native tryInteract still selects and validates the one target.
             quickLootState.repeat(controller);
             return true;
         } catch (e:Dynamic) {

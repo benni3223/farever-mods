@@ -33,7 +33,11 @@ Enable **Hold interact to quick-loot** under **General** in Better Mod Settings,
 then hold your interact button while looking at dropped items to pick them up
 without repeatedly pressing the button. It uses your configured keyboard or
 controller binding and the game's normal item targeting, pickup range, checks,
-and repeat delay. Releasing the button stops quick-looting.
+and pickup requests. Holding sends brief presses up to **20 times per second**
+(50 ms apart), with a release frame between them, so it avoids the slower native
+hold-repeat delay just like manual tapping. Low frame rates can reduce that rate;
+lag does not cause queued presses to fire in a burst. Releasing the button stops
+quick-looting.
 
 The mod filters the game's selected target only during a held-button pickup;
 it does not add a nearby-entity scan or change the server's pickup logic.

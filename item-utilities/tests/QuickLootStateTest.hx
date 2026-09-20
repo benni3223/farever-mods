@@ -50,14 +50,17 @@ class QuickLootStateTest {
         state.finish(other);
         check(!state.filtersTarget(null), "Null controller must never match");
 
+        pulseTiming();
         // Model the verified native update/tryInteract order, not the server.
-        // Searches happen only after native cooldown; hooks add no searches.
+        // Each pulse goes through native targeting once; idle frames do no search.
         var low = simulate(60, "loot", true, false, true);
         var high = simulate(240, "loot", true, false, true);
-        check(low.pickups > 1, "Holding must repeat pickups");
+        check(low.pickups >= 39 && low.pickups <= 40, "Holding must produce about 20 pickups per second");
         check(Math.abs(low.pickups - high.pickups) <= 1, "Repeat rate must not scale with FPS");
-        check(high.searches <= 17, "Do not scan every held frame");
+        check(high.searches <= 40, "Target searches stay capped at 20 per second");
         check(high.searches == high.pickups, "Do not perform a second targeting search");
+        check(simulate(20, "loot", true, false, true).pickups == 20,
+            "Low FPS must still release between pulses rather than hit the slower hold delay");
         check(simulate(60, "npc", true, false, true).pickups == 1,
             "Holding on an NPC must only perform the original tap");
         check(simulate(60, "loot", false, false, true).pickups == 1,
@@ -69,6 +72,31 @@ class QuickLootStateTest {
         check(simulate(60, null, true, false, true).pickups == 0,
             "No selected item must produce no request");
         Sys.println('Quick-loot: $assertions assertions passed.');
+    }
+
+    static function pulseTiming():Void {
+        var state = new QuickLootState();
+        var player:Dynamic = {};
+        var other:Dynamic = {};
+        state.recordPress(player, 10);
+        check(!state.allowRepeat(player, 10.01), "Real presses must be followed by a release frame");
+        check(!state.allowRepeat(player, 10.049), "Do not repeat before 50 ms");
+        check(state.allowRepeat(player, 10.05), "Repeat at 50 ms instead of the native 125 ms hold interval");
+        check(!state.allowRepeat(player, 12), "Even a long hitch must not skip the release frame");
+        check(state.allowRepeat(player, 12.01), "Resume with one pulse after a hitch");
+        check(!state.allowRepeat(player, 12.02), "Hitch recovery still releases");
+        check(!state.allowRepeat(player, 12.03), "Do not burst to catch up missed pulses");
+        state.recordPress(player, 12.04);
+        check(!state.allowRepeat(player, 12.05), "A new manual press takes priority and starts a fresh release");
+        check(!state.allowRepeat(player, 12.08), "Do not add a held repeat immediately after a manual press");
+        check(state.allowRepeat(player, 12.09), "Resume repeats after the manual press interval");
+        state.release(player);
+        check(state.allowRepeat(player, 12.10), "Releasing clears the previous hold's timer");
+        state.prepare(other, true);
+        check(state.allowRepeat(other, 12.11), "A new controller must not inherit the old repeat timer");
+        state.prepare(other, false);
+        state.prepare(other, true);
+        check(state.allowRepeat(other, 12.12), "Disabling clears timing state for the next hold");
     }
 
     static function simulate(fps:Int, target:String, held:Bool, blocked:Bool,
@@ -85,9 +113,13 @@ class QuickLootStateTest {
                 state.prepare(player, true);
                 var pressed = frame == 0;
                 var context = state.takeInput("Interact");
-                if (!pressed && context != null && held) {
-                    state.repeat(context);
-                    pressed = true;
+                if (context != null) {
+                    if (pressed) state.recordPress(context, now);
+                    else if (!held) state.release(context);
+                    else if (state.allowRepeat(context, now)) {
+                        state.repeat(context);
+                        pressed = true;
+                    }
                 }
                 if (pressed) {
                     state.beginInteraction(player);
