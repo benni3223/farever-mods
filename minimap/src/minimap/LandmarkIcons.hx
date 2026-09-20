@@ -24,23 +24,33 @@ class LandmarkIcons {
     }
 
     static function recycling(g:Dynamic, r:Float):Void {
-        // Three broad chasing arrows form the familiar recycling triangle.
-        // Keep gaps at the tips and a transparent centre so it reads at 18 px.
-        var arrow = [0.02, -0.98, 0.55, -0.06, 0.75, -0.18, 0.74, 0.46,
-            0.16, 0.14, 0.37, 0.02, -0.2, -0.86];
-        G.call("h2d.Graphics", "lineStyle", g, [1.2, 0x203b34, 1.]);
+        // Folded ribbons with rounded returns, like the classic recycling loop.
+        // Sample the curves into retained geometry; leave the centre transparent.
+        var arrow = [-0.64, -0.43, -0.24, -0.2, 0.025, -0.66,
+            0.19, -0.47, 0.04, -0.38, 0.47, -0.38, 0.75, -0.82,
+            0.56, -0.7, 0.43, -0.91, 0.39, -0.97, 0.34, -1.01,
+            0.28, -1.04, 0.22, -1.055, 0.16, -1.06, -0.22, -1.06,
+            -0.28, -1.05, -0.34, -1.025, -0.395, -0.985,
+            -0.445, -0.925, -0.48, -0.86];
+        var fold = [-0.64, -0.43, -0.24, -0.2, 0.025, -0.66,
+            -0.015, -0.735, -0.055, -0.8, -0.095, -0.85,
+            -0.14, -0.89, -0.19, -0.915, -0.24, -0.92,
+            -0.29, -0.91, -0.34, -0.885, -0.38, -0.845];
+        G.call("h2d.Graphics", "lineStyle", g, [0.8, 0x203b34, 1.]);
         for (i in 0...3) {
             var angle = i * Math.PI * 2 / 3;
             var c = Math.cos(angle), s = Math.sin(angle);
-            var coords:Array<Float> = [];
-            for (j in 0...Std.int(arrow.length / 2)) {
-                var x = arrow[j * 2], y = arrow[j * 2 + 1];
-                coords.push(x * c - y * s);
-                coords.push(x * s + y * c);
+            for (part in [arrow, fold]) {
+                var coords:Array<Float> = [];
+                for (j in 0...Std.int(part.length / 2)) {
+                    var x = part[j * 2], y = part[j * 2 + 1];
+                    coords.push(x * c - y * s);
+                    coords.push(x * s + y * c);
+                }
+                fill(g, part == arrow ? 0x86eed4 : 0x58bfa8);
+                polygon(g, r * 0.92, coords);
+                end(g);
             }
-            fill(g, 0x86eed4);
-            polygon(g, r, coords);
-            end(g);
         }
         G.call("h2d.Graphics", "lineStyle", g, [0., 0, 0.]);
     }

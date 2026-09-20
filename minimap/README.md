@@ -72,7 +72,7 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Guild Merchants | Yellow $ |
 | Glory Merchants | Tilted copper-gold Glory Token with an embossed rune |
 | Demon Huntresses | Purple horned face |
-| Spark Recycler | Three broad mint arrows forming a recycling triangle, with a dark outline and transparent centre |
+| Spark Recycler | Three curved, folded teal arrows forming the classic recycling loop, with a dark outline and transparent centre |
 | Weapon Upgrade | Grey stone forge with gold studs and a bright multicoloured flame |
 | Crafting Station | Boat-shaped wooden workbench with cyan bottles, a scroll, and a hanging rune sign |
 | Infusion Crucible | Stone basin with turquoise liquid, a copper rim, and a floating pink orb |
