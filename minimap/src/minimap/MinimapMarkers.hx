@@ -69,6 +69,7 @@ class MinimapMarkers {
     var enemies = new EnemyMarkers();
     var worldEvents = new WorldEventAccess();
     var npcKinds:Map<String, String> = [];
+    var npcDefinitions:Map<String, Dynamic> = [];
     var landmarks:Map<String, MapPoint> = [];
     var stationSource:Dynamic;
     var stationDefinitions:Array<Dynamic> = [];
@@ -509,9 +510,12 @@ class MinimapMarkers {
 
     function npcKind(inf:Dynamic):String {
         var id = G.text(G.field(inf, "id"));
-        if (npcKinds.exists(id)) return npcKinds[id];
+        // The live instance may have a richer definition than the map entry.
+        // Do not let a cached generic icon mask its resolved service title.
+        if (npcKinds.exists(id) && npcDefinitions[id] == inf) return npcKinds[id];
         var kind = NpcMarkers.kind(inf);
         npcKinds[id] = kind;
+        npcDefinitions[id] = inf;
         return kind;
     }
 
@@ -590,12 +594,12 @@ class MinimapMarkers {
         return Math.abs(px - x) <= radius && Math.abs(py - y) <= radius;
 
     static function markerRadius(kind:String):Float return switch kind {
-        case "bank", "demon", "craft", "upgrade", "recycler", "chest", "player", "activity", "ascension", "companion": 7;
+        case "bank", "demon", "recycler", "chest", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
         case "obelisk", "dungeon", "soulstone", "secretOrb", "glory": 8;
-        case "targetDummy", "upcomingRift", "infusion": 9;
+        case "targetDummy", "upcomingRift", "infusion", "craft": 9;
         case "riftPortal": 11;
-        case "inactiveRift", "nextRift": 10;
+        case "inactiveRift", "nextRift", "upgrade": 10;
         default: 3.5;
     };
 
@@ -768,7 +772,7 @@ class MinimapMarkers {
         var kind = point.kind;
         if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy"
             || kind == "riftPortal" || kind == "upcomingRift" || kind == "inactiveRift" || kind == "nextRift"
-            || kind == "glory" || kind == "infusion") {
+            || kind == "glory" || kind == "infusion" || kind == "craft" || kind == "upgrade") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }
@@ -784,8 +788,6 @@ class MinimapMarkers {
             case "bank": 0xffdc42;
             case "demon": 0xe8a1ff;
             case "recycler": 0x86eed4;
-            case "upgrade": 0xb4dcff;
-            case "craft": 0xffc68a;
             default: 0x70d8ff;
         };
         var sparkling = point.sparkling == true;
@@ -881,19 +883,6 @@ class MinimapMarkers {
                     0.45, -1.2, 1, -0.65, 0.45, -0.1, 0.45, -0.4, -0.45, -0.4, -0.45, 0.05]);
                 polygon(point, r, [0.95, -0.05, 0.95, 0.55, 0.5, 0.95, -0.45, 0.95,
                     -0.45, 1.2, -1, 0.65, -0.45, 0.1, -0.45, 0.4, 0.45, 0.4, 0.45, -0.05]);
-            case "upgrade":
-                // Upright sword and an upward upgrade arrow.
-                polygon(point, r, [-0.45, -1, -0.15, -0.65, -0.15, 0.2, 0.15, 0.2,
-                    0.15, 0.45, -0.3, 0.45, -0.3, 1, -0.6, 1, -0.6, 0.45,
-                    -1, 0.45, -1, 0.2, -0.75, 0.2, -0.75, -0.65]);
-                polygon(point, r, [0.6, -0.85, 1.15, -0.25, 0.8, -0.25, 0.8, 0.6,
-                    0.4, 0.6, 0.4, -0.25, 0.05, -0.25]);
-            case "craft":
-                // Hammer above a workbench.
-                polygon(point, r, [-0.15, -0.85, 0.15, -0.85, 0.15, 0.35, -0.15, 0.35]);
-                polygon(point, r, [-0.65, -1, 0.65, -1, 0.65, -0.45, -0.65, -0.45]);
-                polygon(point, r, [-1, 0.25, 1, 0.25, 1, 0.55, 0.7, 0.55, 0.7, 1,
-                    0.4, 1, 0.4, 0.55, -0.4, 0.55, -0.4, 1, -0.7, 1, -0.7, 0.55, -1, 0.55]);
             case "respawn":
                 G.call("h2d.Graphics", "drawRect", graphics, [x - r / 3, y - r, r * 2 / 3, r * 2]);
                 G.call("h2d.Graphics", "drawRect", graphics, [x - r, y - r / 3, r * 2, r * 2 / 3]);

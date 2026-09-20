@@ -16,6 +16,7 @@ class GameAccess {
     public static var items:Map<String, Dynamic> = [];
     public static var itemReads:Int = 0;
     public static var graphicsCalls:Int = 0;
+    public static var created:Array<Dynamic> = [];
     public static var transformCalls:Int = 0;
     public static var codexMembershipReads:Int = 0;
     public static var codexThresholdReads:Int = 0;
@@ -36,7 +37,13 @@ class GameAccess {
 
     public static function create(type:String, args:Array<Dynamic>):Dynamic {
         if (type == "hxd.Rand") { randomSeeds.push(args[0]); return {}; }
-        if (type == "h2d.Graphics") return {parent: args[0], x: 0., y: 0., rotation: 0., scale: 1.};
+        if (type == "h2d.Graphics" || type == "h2d.Object" || type == "h2d.Text") {
+            var object:Dynamic = {nativeType: type, parent: args[type == "h2d.Text" ? 1 : 0],
+                x: 0., y: 0., rotation: 0., scale: 1., visible: true};
+            if (type == "h2d.Text") { object.font = args[0]; object.text = ""; }
+            created.push(object);
+            return object;
+        }
         throw "Unexpected native constructor: " + type;
     }
 
@@ -132,8 +139,15 @@ class GameAccess {
         };
         if (type == "hxd.Rand" && name == "random") { randomCounts.push(args[0]); return randomIndex; }
         if (type == "hrt.prefab.Object3D" && name == "getAbsPos") return object;
+        if (type == "h2d.Text") return switch name {
+            case "set_text": object.text = args[0]; null;
+            case "set_textColor": object.color = args[0]; null;
+            case "get_textWidth": object.text.length * object.font.size / 2;
+            case "get_textHeight": object.font.size;
+            default: throw "Unexpected text call: " + name;
+        };
         if (type == "h2d.Graphics") {
-            if (["beginFill", "endFill", "moveTo", "lineTo", "lineStyle"].indexOf(name) < 0)
+            if (["beginFill", "endFill", "moveTo", "lineTo", "lineStyle", "clear", "drawCircle"].indexOf(name) < 0)
                 throw "Unexpected drawing call: " + name;
             if (name == "lineStyle" && args.length != 3) throw "Native lineStyle requires three optional argument slots";
             graphicsCalls++;
@@ -144,6 +158,7 @@ class GameAccess {
                 case "setPosition": object.x = args[0]; object.y = args[1];
                 case "set_rotation": object.rotation = args[0];
                 case "setScale": object.scale = args[0];
+                case "set_visible": object.visible = args[0];
                 default: throw "Unexpected native transform: " + name;
             }
             transformCalls++;

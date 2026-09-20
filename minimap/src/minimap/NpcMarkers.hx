@@ -23,6 +23,13 @@ class NpcMarkers {
         var station = stationKind(G.integer(G.field(inf, "type")));
         if (station != "") return station;
         var props = G.field(inf, "props");
+        var npc = G.field(props, "npc");
+        var texts = G.field(inf, "texts");
+        // Some world NPCs expose their service in npcTitle / the popup's
+        // texts.type without exposing Glory-priced offers in props.shop.
+        // Only match the complete service label; personal names, templates,
+        // dialogue and incidental mentions of glory are not a role.
+        if (gloryTitle(G.field(npc, "npcTitle")) || gloryTitle(G.field(texts, "type"))) return "glory";
         // Element.getShopItems copies props.shop[].cost[].kind as the price
         // currency. Match the currency, not an NPC's translated name, model,
         // or the items it sells. shopList entries use the ordinary gold price.
@@ -32,10 +39,13 @@ class NpcMarkers {
 
         // Match Npc.get_uinf: the resolved instance's unit is authoritative.
         // Ancestor templates and inherited dialogue do not identify its role.
-        return switch G.text(G.field(G.field(props, "npc"), "unit")) {
+        return switch G.text(G.field(npc, "unit")) {
             case "TODO_WanderingMerchant": "bank";
             case "DemonHunterMira", "DemonHunterZoey", "DemonHunterRumi": "demon";
             default: "npc";
         };
     }
+
+    static function gloryTitle(value:Dynamic):Bool
+        return StringTools.trim(G.text(value)).toLowerCase() == "glory merchant";
 }

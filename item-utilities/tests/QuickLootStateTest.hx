@@ -51,6 +51,7 @@ class QuickLootStateTest {
         check(!state.filtersTarget(null), "Null controller must never match");
 
         pulseTiming();
+        bufferedPress();
         // Model the verified native update/tryInteract order, not the server.
         // Each pulse goes through native targeting once; idle frames do no search.
         var low = simulate(60, "loot", true, false, true);
@@ -91,16 +92,34 @@ class QuickLootStateTest {
         check(!state.allowRepeat(player, 12.08), "Do not add a held repeat immediately after a manual press");
         check(state.allowRepeat(player, 12.09), "Resume repeats after the manual press interval");
         state.release(player);
-        check(state.allowRepeat(player, 12.10), "Releasing clears the previous hold's timer");
+        check(!state.allowRepeat(player, 12.10), "Releasing requires another genuine press");
         state.prepare(other, true);
-        check(state.allowRepeat(other, 12.11), "A new controller must not inherit the old repeat timer");
+        check(!state.allowRepeat(other, 12.11), "A new controller must wait for its own genuine press");
         state.prepare(other, false);
         state.prepare(other, true);
-        check(state.allowRepeat(other, 12.12), "Disabling clears timing state for the next hold");
+        check(!state.allowRepeat(other, 12.12), "Enabling mid-hold must not invent a press");
+        state.recordPress(other, 12.13);
+        state.finish(other);
+        state.finish(other); // Next native update skips updateInputs while a UI is open.
+        state.prepare(other, true);
+        check(!state.allowRepeat(other, 13), "Closing a blocking UI must not resume an old hold");
+    }
+
+    static function bufferedPress():Void {
+        // PTR's isPressed buffers the initial key-down, then returns true on
+        // the next frame. An early synthetic pulse used to set lastInteract
+        // while filtering out the NPC, blocking the subsequent real press.
+        for (fps in [20, 60, 240]) for (target in ["npc", "station", "loot"]) {
+            var result = simulate(fps, target, true, false, true, 1);
+            check(target == "loot" ? result.pickups > 1 : result.pickups == 1,
+                'Buffered $target interaction must work at $fps FPS');
+        }
+        check(simulate(60, "npc", false, false, true, 1).pickups == 1,
+            "A buffered tap still opens an NPC even if the key has been released");
     }
 
     static function simulate(fps:Int, target:String, held:Bool, blocked:Bool,
-        eligible:Bool):{pickups:Int, searches:Int} {
+        eligible:Bool, pressFrame:Int = 0):{pickups:Int, searches:Int} {
         var state = new QuickLootState();
         var player:Dynamic = {};
         var pickups = 0;
@@ -111,7 +130,7 @@ class QuickLootStateTest {
             var now = 1.0 + frame / fps;
             if (!blocked) {
                 state.prepare(player, true);
-                var pressed = frame == 0;
+                var pressed = frame == pressFrame;
                 var context = state.takeInput("Interact");
                 if (context != null) {
                     if (pressed) state.recordPress(context, now);

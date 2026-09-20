@@ -18,6 +18,109 @@ class LandmarkIcons {
         else if (kind == "inactiveRift") inactiveRift(graphics, radius);
         else if (kind == "glory") gloryToken(graphics, radius);
         else if (kind == "infusion") infusionCrucible(graphics, radius);
+        else if (kind == "craft") craftingStation(graphics, radius);
+        else if (kind == "upgrade") upgradeStation(graphics, radius);
+    }
+
+    static function craftingStation(g:Dynamic, r:Float):Void {
+        // Boat-shaped workbench, hanging rune sign, scroll and cyan bottles.
+        fill(g, 0x302524);
+        polygon(g, r, [-0.96, 0.22, -0.65, 0.03, 0.69, 0.02, 0.99, 0.21,
+            0.75, 0.67, 0.37, 0.84, -0.41, 0.84, -0.82, 0.65]);
+        polygon(g, r, [0.25, -1, 0.44, -1, 0.61, 0.24, 0.38, 0.28]);
+        polygon(g, r, [-0.94, -0.98, 0.53, -0.92, 0.53, -0.75, -0.94, -0.82]);
+        polygon(g, r, [-0.76, -0.74, -0.04, -0.7, -0.06, -0.27, -0.38, -0.09, -0.73, -0.28]);
+        polygon(g, r, [-0.65, 0.61, -0.48, 0.66, -0.56, 1, -0.72, 1]);
+        polygon(g, r, [0.52, 0.6, 0.7, 0.58, 0.74, 0.98, 0.58, 0.98]);
+        end(g);
+        fill(g, 0x876047);
+        polygon(g, r, [-0.85, -0.93, 0.48, -0.87, 0.48, -0.81, -0.85, -0.86]);
+        polygon(g, r, [0.3, -0.94, 0.39, -0.94, 0.55, 0.27, 0.44, 0.29]);
+        end(g);
+        fill(g, 0xb57d3b);
+        polygon(g, r, [-0.7, -0.67, -0.1, -0.63, -0.11, -0.31, -0.38, -0.17, -0.66, -0.31]);
+        end(g);
+        fill(g, 0xd1c3ef);
+        polygon(g, r, [-0.42, -0.62, -0.24, -0.49, -0.48, -0.28, -0.57, -0.38,
+            -0.33, -0.49, -0.45, -0.55, -0.52, -0.46, -0.6, -0.49]);
+        end(g);
+        fill(g, 0xb88244);
+        polygon(g, r, [-0.92, 0.26, -0.66, 0.1, 0.66, 0.09, 0.93, 0.24,
+            0.65, 0.49, -0.55, 0.6, -0.8, 0.49]);
+        end(g);
+        fill(g, 0x684435);
+        polygon(g, r, [-0.77, 0.49, -0.5, 0.59, 0.66, 0.46, 0.86, 0.34,
+            0.67, 0.62, 0.34, 0.75, -0.4, 0.75, -0.76, 0.59]);
+        end(g);
+        fill(g, 0x54352c);
+        ellipse(g, r, -0.05, 0.28, 0.68, 0.16);
+        end(g);
+        fill(g, 0xbccab5);
+        polygon(g, r, [0.4, -0.25, 0.52, -0.26, 0.56, -0.04, 0.43, -0.01]);
+        end(g);
+        fill(g, 0x62d7e8);
+        circle(g, -0.17 * r, 0.08 * r, 0.17 * r);
+        circle(g, 0.34 * r, 0.27 * r, 0.13 * r);
+        polygon(g, r, [-0.22, -0.15, -0.11, -0.15, -0.11, 0.03, -0.22, 0.03]);
+        polygon(g, r, [0.29, 0.06, 0.38, 0.06, 0.38, 0.22, 0.29, 0.22]);
+        end(g);
+        fill(g, 0xd5f9ef);
+        circle(g, -0.22 * r, 0.02 * r, 0.07 * r);
+        end(g);
+        fill(g, 0xdfd2b6);
+        polygon(g, r, [-0.58, 0.34, 0.06, 0.43, 0.03, 0.57, -0.62, 0.48]);
+        end(g);
+    }
+
+    static function upgradeStation(g:Dynamic, r:Float):Void {
+        // Grey arched forge with gold studs and a bright multicoloured plume.
+        fill(g, 0x302b32);
+        ellipse(g, r, 0, 0.8, 0.99, 0.22);
+        var body = [-0.56, -0.37, 0.56, -0.37, 0.76, -0.06, 0.57, 0.35,
+            0.51, 0.79, 0.25, 0.88, -0.43, 0.84, -0.57, 0.34, -0.76, -0.06];
+        polygon(g, r + 1, body);
+        polygon(g, r, [-0.23, -0.33, -0.26, -0.8, -0.09, -1.02, 0.04, -0.84,
+            0.19, -1.05, 0.23, -0.73, 0.15, -0.33]);
+        end(g);
+        fill(g, 0xc08a46);
+        ellipse(g, r, 0, 0.8, 0.93, 0.16);
+        end(g);
+        fill(g, 0x71828a);
+        polygon(g, r, body);
+        end(g);
+        fill(g, 0x98a9aa);
+        polygon(g, r, [-0.54, -0.29, -0.18, -0.32, -0.31, 0.03, -0.39, 0.7,
+            -0.23, 0.8, -0.46, 0.75, -0.5, 0.28, -0.68, -0.04]);
+        end(g);
+        fill(g, 0x4f646f);
+        polygon(g, r, [0.36, -0.26, 0.56, -0.31, 0.68, -0.04, 0.5, 0.3,
+            0.45, 0.75, 0.22, 0.8, 0.32, 0.24]);
+        end(g);
+        fill(g, 0x27353c);
+        ellipse(g, r, 0, -0.31, 0.48, 0.11);
+        ellipse(g, r, 0, 0.25, 0.3, 0.41);
+        end(g);
+        fill(g, 0xf424ee);
+        polygon(g, r, [-0.18, -0.34, -0.22, -0.76, -0.08, -0.95, 0.02, -0.76,
+            0.14, -0.99, 0.17, -0.73, 0.11, -0.34]);
+        ellipse(g, r, 0, 0.22, 0.24, 0.32);
+        end(g);
+        fill(g, 0x28fff2);
+        polygon(g, r, [0.03, -0.34, 0.01, -0.63, 0.14, -0.99, 0.17, -0.73, 0.11, -0.34]);
+        polygon(g, r, [0.12, -0.02, 0.24, 0.19, 0.14, 0.48, -0.04, 0.54,
+            -0.17, 0.36, 0.05, 0.36, 0.15, 0.18]);
+        end(g);
+        fill(g, 0xffffc3);
+        polygon(g, r, [-0.08, -0.34, -0.12, -0.69, -0.04, -0.88, 0.04, -0.71, 0.02, -0.34]);
+        ellipse(g, r, -0.04, 0.14, 0.13, 0.2);
+        end(g);
+        fill(g, 0xbf7633);
+        for (side in [-1, 1]) circle(g, side * 0.44 * r, -0.18 * r, 0.11 * r);
+        polygon(g, r, [-0.23, 0.55, 0.24, 0.55, 0.24, 0.71, -0.23, 0.71]);
+        end(g);
+        fill(g, 0xffce71);
+        for (side in [-1, 1]) circle(g, (side * 0.44 - 0.02) * r, -0.22 * r, 0.05 * r);
+        end(g);
     }
 
     static function gloryToken(g:Dynamic, r:Float):Void {

@@ -2,6 +2,7 @@ package minimap;
 
 typedef MarkerPosition = {x:Float, y:Float, z:Float};
 typedef MarkerHover = {name:String, x:Float, y:Float, z:Float};
+typedef MarkerMeasurement = {direction:String, metres:Int};
 
 /** World-space hover measurements and the shared vertical visibility rule. */
 class MarkerDetails {
@@ -20,20 +21,16 @@ class MarkerDetails {
     public static function hover(name:String, point:MarkerPosition):MarkerHover
         return {name: name, x: point.x, y: point.y, z: point.z};
 
-    public static function caption(point:MarkerPosition, hero:MarkerPosition, arrows:Bool = true):String {
-        var parts:Array<String> = [];
+    public static function measurements(point:MarkerPosition, hero:MarkerPosition):Array<MarkerMeasurement> {
+        var parts:Array<MarkerMeasurement> = [];
         var dx = point.x - hero.x, dy = point.y - hero.y;
         var distance = Math.sqrt(dx * dx + dy * dy);
-        if (Math.isFinite(distance)) parts.push(Math.round(distance) + " m away");
+        if (Math.isFinite(distance)) parts.push({direction: "horizontal", metres: Math.round(distance)});
         var height = point.z - hero.z;
         if (Math.isFinite(height)) {
-            if (Math.abs(height) <= 2) parts.push("Same height");
-            else {
-                var metres = Math.round(Math.abs(height)) + " m";
-                parts.push(arrows ? (height > 0 ? "↑ " : "↓ ") + metres
-                    : metres + (height > 0 ? " above" : " below"));
-            }
+            var metres = Math.round(Math.abs(height));
+            parts.push({direction: metres == 0 ? "vertical" : height > 0 ? "up" : "down", metres: metres});
         }
-        return parts.join(" · ");
+        return parts;
     }
 }

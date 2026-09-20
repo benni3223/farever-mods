@@ -36,7 +36,12 @@ class NpcMarkersTest {
         expect(NpcMarkers.kind({type: 22, props: {shop: [{item: "BadgeOfGlory", cost: [{kind: "Gold", amount: 1}]}]}}),
             "npc", "Selling tokens does not identify a Glory merchant");
         expect(NpcMarkers.kind({type: 22, props: {npc: {npcTitle: "Glory Merchant"}, shop: [{item: "Reward"}]}}),
-            "npc", "Display text does not determine currency");
+            "glory", "Service title works when the NPC does not expose Glory-priced offers");
+        expect(NpcMarkers.kind({type: 22, texts: {type: "Glory Merchant"}}), "glory", "Native popup service label");
+        expect(NpcMarkers.kind({type: 22, props: {npc: {npcTitle: " Glory Merchant ", unit: "TODO_WanderingMerchant"}}}),
+            "glory", "Service title takes precedence over a reused merchant model");
+        expect(NpcMarkers.kind({type: 22, texts: {name: "Glory Merchant", desc: "Glory Merchant"},
+            props: {npc: {npcTitle: "Merchant of Glory Stories"}}}), "npc", "Incidental words and personal names are not a service title");
         expect(NpcMarkers.kind({type: 22, props: {shopList: [{lootTable: "BadgeOfGlory"}]}}),
             "npc", "Shop lists do not set a custom price");
         expect(NpcMarkers.isNpc("glory"), true, "Glory uses NPC visibility and priority");

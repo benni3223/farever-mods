@@ -55,12 +55,10 @@ class MinimapView {
     var mouseY:Float = 0;
     var hoverText:Dynamic;
     var hoverShadow:Dynamic;
-    var hoverDetailsText:Dynamic;
-    var hoverDetailsShadow:Dynamic;
+    var hoverMeasurements:HoverMeasurements;
     var hoverCaption:String = "";
     var hoverDetails:String = "";
     var hoverFontScale:Float = 1;
-    var hoverUsesArrows:Bool = true;
     var nextHoverRefresh:Float = 0;
     var hoverMouseX:Float = Math.NaN;
     var hoverMouseY:Float = Math.NaN;
@@ -277,8 +275,8 @@ class MinimapView {
         // at the same 5 Hz as markers, rather than changing numbers every frame.
         if (target.name == hoverCaption && mouseX == hoverMouseX && mouseY == hoverMouseY && now < nextHoverRefresh) return;
         ensureHoverText();
-        var details = MarkerDetails.caption(target,
-            {x: x, y: y, z: G.number(G.field(hero, "posz"), Math.NaN)}, hoverUsesArrows);
+        var details = MarkerDetails.measurements(target,
+            {x: x, y: y, z: G.number(G.field(hero, "posz"), Math.NaN)});
         setHoverCaption(target.name, details);
         hoverMouseX = mouseX; hoverMouseY = mouseY;
         nextHoverRefresh = now + 0.2;
@@ -290,32 +288,27 @@ class MinimapView {
         var font = findFont(G.field(owner, "gameRoot"), 6);
         if (font == null) font = G.staticCall("hxd.res.DefaultFont", "get", []);
         hoverFontScale = 14 / Math.max(1, G.number(G.field(font, "size"), 14));
-        hoverUsesArrows = G.call("h2d.Font", "hasChar", font, [0x2191]) == true
-            && G.call("h2d.Font", "hasChar", font, [0x2193]) == true;
         hoverShadow = G.create("h2d.Text", [font, panel]);
         hoverText = G.create("h2d.Text", [font, panel]);
-        hoverDetailsShadow = G.create("h2d.Text", [font, panel]);
-        hoverDetailsText = G.create("h2d.Text", [font, panel]);
-        for (text in [hoverShadow, hoverDetailsShadow]) G.call("h2d.Text", "set_textColor", text, [0x171b24]);
+        hoverMeasurements = new HoverMeasurements(panel, font);
+        G.call("h2d.Text", "set_textColor", hoverShadow, [0x171b24]);
         G.call("h2d.Text", "set_textColor", hoverText, [0xfff3d6]);
-        G.call("h2d.Text", "set_textColor", hoverDetailsText, [0xd0ccc2]);
     }
 
-    function setHoverCaption(value:String, details:String = ""):Void {
-        if (value == "") { details = ""; nextHoverRefresh = 0; }
-        if (value == hoverCaption && details == hoverDetails) return;
+    function setHoverCaption(value:String, ?details:Array<minimap.MarkerDetails.MarkerMeasurement>):Void {
+        if (value == "") { details = null; nextHoverRefresh = 0; }
+        if (details == null) details = [];
+        var detailKey = [for (part in details) part.direction + ":" + part.metres].join("|");
+        if (value == hoverCaption && detailKey == hoverDetails) return;
         hoverCaption = value;
-        hoverDetails = details;
+        hoverDetails = detailKey;
         if (value != "") ensureHoverText();
         if (hoverText == null) return;
         for (text in [hoverShadow, hoverText]) {
             G.call("h2d.Text", "set_text", text, [value]);
             G.call("h2d.Object", "set_visible", text, [value != ""]);
         }
-        for (text in [hoverDetailsShadow, hoverDetailsText]) {
-            G.call("h2d.Text", "set_text", text, [details]);
-            G.call("h2d.Object", "set_visible", text, [details != ""]);
-        }
+        hoverMeasurements.setValues(details);
         placeHoverText();
     }
 
@@ -323,7 +316,7 @@ class MinimapView {
         if (hoverText == null || hoverCaption == "") return;
         // A footer outside the clipping mask stays whole in circular mode too.
         var bottom = placeHoverLine(hoverText, hoverShadow, hoverFontScale, BORDER + size + 4);
-        if (hoverDetails != "") placeHoverLine(hoverDetailsText, hoverDetailsShadow, hoverFontScale * 12 / 14, bottom + 2);
+        hoverMeasurements.place(BORDER + size / 2, bottom + 2, size - 12);
     }
 
     function placeHoverLine(text:Dynamic, shadow:Dynamic, desiredScale:Float, y:Float):Float {
@@ -544,7 +537,7 @@ class MinimapView {
         riftX = Math.NaN; riftY = Math.NaN;
         npcPivot = null; npcTerrain = null;
         input = null; hovered = false; hoverText = null; hoverShadow = null; hoverCaption = "";
-        hoverDetailsText = null; hoverDetailsShadow = null; hoverDetails = "";
+        hoverMeasurements = null; hoverDetails = "";
         nextHoverRefresh = 0; hoverMouseX = Math.NaN; hoverMouseY = Math.NaN;
         transparency = -1;
         markerScale = 0;

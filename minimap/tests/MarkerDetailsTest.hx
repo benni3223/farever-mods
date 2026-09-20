@@ -8,25 +8,29 @@ class MarkerDetailsTest {
         if (actual != expected) throw message + ': expected $expected, got $actual';
     }
 
+    static function measurements(point:minimap.MarkerDetails.MarkerPosition, hero:minimap.MarkerDetails.MarkerPosition):String
+        return [for (part in MarkerDetails.measurements(point, hero)) part.direction + ":" + part.metres].join("|");
+
     static function main():Void {
         var hero = {x: 10., y: 20., z: 100.};
         var above = {x: 13., y: 24., z: 112.};
-        eq(MarkerDetails.caption(above, hero), "5 m away · ↑ 12 m", "horizontal distance is separate from height");
-        eq(MarkerDetails.caption({x: 10., y: 20., z: 91.}, hero), "0 m away · ↓ 9 m", "directly below still has height");
-        eq(MarkerDetails.caption(hero, hero), "0 m away · Same height", "same position");
-        for (z in [98., 100., 102.])
-            eq(MarkerDetails.caption({x: 13., y: 24., z: z}, hero), "5 m away · Same height", "two metre height tolerance");
-        eq(MarkerDetails.caption({x: 13., y: 24., z: 102.6}, hero), "5 m away · ↑ 3 m", "rounds heights to whole metres");
-        eq(MarkerDetails.caption({x: 13., y: 24., z: 97.4}, hero), "5 m away · ↓ 3 m", "rounds downward heights symmetrically");
-        eq(MarkerDetails.caption({x: 10., y: 25.6, z: 100.}, hero), "6 m away · Same height", "rounds distance to whole metres");
-        eq(MarkerDetails.caption({x: 13., y: 24., z: Math.NaN}, hero), "5 m away", "unknown target height is omitted");
-        eq(MarkerDetails.caption(above, {x: 10., y: 20., z: Math.NaN}), "5 m away", "unknown player height is omitted");
-        eq(MarkerDetails.caption({x: Math.NaN, y: 24., z: Math.NaN}, hero), "", "unavailable measurements are never invented");
-        eq(MarkerDetails.caption(above, hero, false), "5 m away · 12 m above", "fonts without arrow glyphs remain readable");
-        eq(MarkerDetails.caption({x: 13., y: 24., z: 88.}, hero, false), "5 m away · 12 m below", "downward glyph fallback");
+        eq(measurements(above, hero), "horizontal:5|up:12", "horizontal distance is separate from height");
+        eq(measurements({x: 10., y: 20., z: 91.}, hero), "horizontal:0|down:9", "directly below still has height");
+        eq(measurements(hero, hero), "horizontal:0|vertical:0", "zero height uses a neutral double arrow");
+        for (z in [99.6, 100., 100.4])
+            eq(measurements({x: 13., y: 24., z: z}, hero), "horizontal:5|vertical:0", "rounded zero has no false direction");
+        eq(measurements({x: 13., y: 24., z: 102.6}, hero), "horizontal:5|up:3", "rounds heights to whole metres");
+        eq(measurements({x: 13., y: 24., z: 97.4}, hero), "horizontal:5|down:3", "rounds downward heights symmetrically");
+        eq(measurements({x: 10., y: 25.6, z: 100.}, hero), "horizontal:6|vertical:0", "rounds distance to whole metres");
+        eq(measurements({x: 13., y: 24., z: Math.NaN}, hero), "horizontal:5", "unknown target height is omitted");
+        eq(measurements(above, {x: 10., y: 20., z: Math.NaN}), "horizontal:5", "unknown player height is omitted");
+        eq(measurements({x: Math.NaN, y: 24., z: Math.NaN}, hero), "", "unavailable measurements are never invented");
+        eq(measurements({x: 13., y: 24., z: 100.5}, hero), "horizontal:5|up:1", "half metre rounds up");
+        eq(measurements({x: 13., y: 24., z: 99.5}, hero), "horizontal:5|down:1", "negative half metre uses the same rounding");
+        eq(measurements({x: Math.NaN, y: 24., z: 112.}, hero), "up:12", "height remains available without horizontal data");
         var hover = MarkerDetails.hover("Active Rift", above);
         eq(hover.name, "Active Rift", "retains marker name separately from details");
-        eq(MarkerDetails.caption(hover, hero), "5 m away · ↑ 12 m", "hover uses destination coordinates, including on edge arrows");
+        eq(measurements(hover, hero), "horizontal:5|up:12", "hover uses destination coordinates, including on edge arrows");
 
         eq(MarkerDetails.threshold(0), 15., "minimum threshold");
         eq(MarkerDetails.threshold(101), 100., "maximum threshold");

@@ -5,6 +5,7 @@ package itemutilities;
 class QuickLootState {
     public static inline var REPEAT_INTERVAL:Float = 0.05;
     var inputController:Dynamic;
+    var frameController:Dynamic;
     var repeatController:Dynamic;
     var targetController:Dynamic;
     var pulseController:Dynamic;
@@ -16,6 +17,7 @@ class QuickLootState {
     public function prepare(controller:Dynamic, enabled:Bool):Void {
         if (!enabled || controller != pulseController) release(pulseController);
         inputController = enabled ? controller : null;
+        frameController = inputController;
         repeatController = null;
         targetController = null;
     }
@@ -39,7 +41,10 @@ class QuickLootState {
 
     public function allowRepeat(controller:Dynamic, now:Float):Bool {
         if (controller == null || !Math.isFinite(now)) return false;
-        if (controller != pulseController) release(pulseController);
+        // PTR buffers the real press until the following frame. A held key
+        // alone must not synthesize an earlier pulse: that sets lastInteract
+        // and makes native tryInteract reject the genuine press as too soon.
+        if (controller != pulseController) return false;
         // Native update resets lastInteract on a frame without a press. Give
         // every pulse that release frame, even at low FPS or after a hitch.
         if (releaseRequired) {
@@ -74,6 +79,10 @@ class QuickLootState {
     }
 
     public function finish(controller:Dynamic):Void {
+        // No updateInputs means gameplay is blocked (for example by an NPC
+        // window). Require a fresh native press after gameplay resumes.
+        if (frameController != controller) release(controller);
+        if (frameController == controller) frameController = null;
         if (inputController == controller) inputController = null;
         if (repeatController == controller) repeatController = null;
         endInteraction(controller);

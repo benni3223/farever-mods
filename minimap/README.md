@@ -73,17 +73,17 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Glory Merchants | Tilted copper-gold Glory Token with an embossed rune |
 | Demon Huntresses | Purple horned face |
 | Spark Recycler | Mint recycling arrows |
-| Weapon Upgrade | Light-blue sword and upward arrow |
-| Crafting Station | Orange hammer and workbench |
+| Weapon Upgrade | Grey stone forge with gold studs and a bright multicoloured flame |
+| Crafting Station | Boat-shaped wooden workbench with cyan bottles, a scroll, and a hanging rune sign |
 | Infusion Crucible | Stone basin with turquoise liquid, a copper rim, and a floating pink orb |
 | Chests | Orange rectangular treasure chest |
 | Undiscovered secret orbs | Gold orb with an ivory centre and broken purple rings |
 
 **Show NPCs** also controls the Guild Merchant, Glory Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
 
-Glory Merchants are identified by shop prices paid in Glory Tokens; Infusion Crucibles use the new client's native station type. Both appear automatically wherever those services exist, with the same hover distances, height indicators, and vertical filtering as other NPC markers. Their definitions and icon geometry are cached, and the same build continues to support the current client.
+Glory Merchants are identified by their explicit service title or shop prices paid in Glory Tokens; Infusion Crucibles use the new client's native station type. Both appear automatically wherever those services exist, with the same hover distances, height indicators, and vertical filtering as other NPC markers. A live NPC's resolved definition can replace a generic map definition. Their definitions and icon geometry are cached, and the same build continues to support the current client.
 
-Hover details are always enabled. The marker name stays on the first line, with a smaller, dimmer second line such as **42 m away · ↑ 18 m**. Distance is horizontal; the arrow shows height above or below your character. Measurements round to whole metres and refresh five times per second. Within two metres vertically, the label reads **Same height**; unknown elevation is omitted. Rift and sparkling companion guidance arrows show measurements to their destination, not to the edge of the minimap.
+Hover details are always enabled. The marker name stays on the first line, with a smaller, dimmer second line such as **↔ 42 m · ↑ 18 m**. The double horizontal arrow marks horizontal distance; the up/down arrow shows height above or below your character. Measurements round to whole metres and refresh five times per second. A height that rounds to zero reads **↕ 0 m**; unknown elevation is omitted. All arrows are drawn geometry, so no font glyph support or language fallback is needed. Arrows and numbers fit the available width together, independently of the name. Rift and sparkling companion guidance arrows show measurements to their destination, not to the edge of the minimap.
 
 **Hide vertically distant markers** is off by default at the bottom of **Markers**. The **Vertically distant threshold** slider below it ranges from **15 to 100 metres**, in one-metre steps, defaulting to **15**. When enabled, it hides map markers more than that distance above or below you; markers exactly at the threshold remain visible. It applies across all marker categories, including resources, enemies, players, landmarks, and activities. Unknown elevations stay visible. **Rift and sparkling companion guidance arrows remain available**, including when their destination's map marker is hidden by this filter.
 

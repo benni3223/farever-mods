@@ -47,3 +47,8 @@
 -cp tests
 -main NpcMarkersTest
 --interp
+--next
+-cp src
+-cp tests
+-main HoverMeasurementsTest
+--interp

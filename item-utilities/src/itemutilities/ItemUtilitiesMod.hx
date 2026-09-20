@@ -328,8 +328,9 @@ class ItemUtilitiesMod {
                 return result;
             }
 
-            // Pulse the gameplay Interact query like repeated taps. False frames
-            // reset the native hold delay; the timer caps repeats at 20/second.
+            // Wait for a genuine native press before repeating. PTR may buffer
+            // it for one frame even while isDown already reports the key held.
+            // False frames reset the hold delay; repeats stay capped at 20/sec.
             if (!quickLootState.allowRepeat(controller, haxe.Timer.stamp()))
                 return result;
             // Native tryInteract still selects and validates the one target.

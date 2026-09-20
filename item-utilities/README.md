@@ -39,6 +39,11 @@ hold-repeat delay just like manual tapping. Low frame rates can reduce that rate
 lag does not cause queued presses to fire in a burst. Releasing the button stops
 quick-looting.
 
+Repeats start only after the game delivers the original Interact press. This
+preserves the PTR client's buffered presses, so enabling quick-loot does not
+block NPC or station interactions. Opening a window that blocks gameplay input
+also clears the held-repeat state.
+
 The mod filters the game's selected target only during a held-button pickup;
 it does not add a nearby-entity scan or change the server's pickup logic.
 
