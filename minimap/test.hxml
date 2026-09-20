@@ -42,3 +42,8 @@
 -cp tests
 -main MarkerDetailsTest
 --interp
+--next
+-cp src
+-cp tests
+-main NpcMarkersTest
+--interp

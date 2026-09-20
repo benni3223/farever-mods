@@ -33,7 +33,7 @@ with the new client.
 - Marker scale slider resizes icons and all arrows together.
 - Left or right corner placement (right by default) with X/Y offsets from 0–100% in 1% steps.
 - Directional player arrows and markers for enemies, resources, NPCs, obelisks, and respawn points.
-- Distinct icons for Guild Merchants, Demon Huntresses, and crafting, upgrade, and recycling stations.
+- Distinct icons for Guild Merchants, Glory Merchants, Demon Huntresses, and crafting, upgrade, recycling, and infusion stations.
 - Soulstone summoning circles with rune-ring and crystal markers.
 - Unopened treasure chest, undiscovered secret orb, and activity markers.
 - Hide completed activities while keeping ascensions and dungeons visible, with separate options to hide either.
@@ -70,14 +70,18 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Soulstone summoning circles | Purple rune ring surrounding a pink faceted soulstone |
 | NPCs | Yellow circle |
 | Guild Merchants | Yellow $ |
+| Glory Merchants | Tilted copper-gold Glory Token with an embossed rune |
 | Demon Huntresses | Purple horned face |
 | Spark Recycler | Mint recycling arrows |
 | Weapon Upgrade | Light-blue sword and upward arrow |
 | Crafting Station | Orange hammer and workbench |
+| Infusion Crucible | Stone basin with turquoise liquid, a copper rim, and a floating pink orb |
 | Chests | Orange rectangular treasure chest |
 | Undiscovered secret orbs | Gold orb with an ivory centre and broken purple rings |
 
-**Show NPCs** also controls the Guild Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
+**Show NPCs** also controls the Guild Merchant, Glory Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
+
+Glory Merchants are identified by shop prices paid in Glory Tokens; Infusion Crucibles use the new client's native station type. Both appear automatically wherever those services exist, with the same hover distances, height indicators, and vertical filtering as other NPC markers. Their definitions and icon geometry are cached, and the same build continues to support the current client.
 
 Hover details are always enabled. The marker name stays on the first line, with a smaller, dimmer second line such as **42 m away · ↑ 18 m**. Distance is horizontal; the arrow shows height above or below your character. Measurements round to whole metres and refresh five times per second. Within two metres vertically, the label reads **Same height**; unknown elevation is omitted. Rift and sparkling companion guidance arrows show measurements to their destination, not to the edge of the minimap.
 

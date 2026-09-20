@@ -503,32 +503,14 @@ class MinimapMarkers {
         return null;
     }
 
-    static function stationKind(type:Int):String return switch type {
-        // Data.Element_type: CraftStation, GearUpgradeStation, ScrapStation.
-        case 23: "craft";
-        case 24: "upgrade";
-        case 31: "recycler";
-        default: "";
-    };
+    static function stationKind(type:Int):String return NpcMarkers.stationKind(type);
 
-    static function isNpc(kind:String):Bool return switch kind {
-        case "npc", "bank", "demon", "craft", "upgrade", "recycler": true;
-        default: false;
-    };
+    static function isNpc(kind:String):Bool return NpcMarkers.isNpc(kind);
 
     function npcKind(inf:Dynamic):String {
         var id = G.text(G.field(inf, "id"));
         if (npcKinds.exists(id)) return npcKinds[id];
-        var kind = stationKind(G.integer(G.field(inf, "type")));
-        if (kind != "") { npcKinds[id] = kind; return kind; }
-        // Match Npc.get_uinf: the resolved instance's unit is authoritative.
-        // Ancestor templates and inherited dialogue do not identify its role.
-        var unit = G.text(G.field(G.field(G.field(inf, "props"), "npc"), "unit"));
-        kind = switch unit {
-            case "TODO_WanderingMerchant": "bank";
-            case "DemonHunterMira", "DemonHunterZoey", "DemonHunterRumi": "demon";
-            default: "npc";
-        };
+        var kind = NpcMarkers.kind(inf);
         npcKinds[id] = kind;
         return kind;
     }
@@ -593,7 +575,8 @@ class MinimapMarkers {
                 case "ent.interactible.Gatherable": "gatherable";
                 case "ent.interactible.Chest": "chest";
                 case "ent.interactible.Npc", "ent.interactible.CraftStation",
-                    "ent.interactible.GearUpgradeStation", "ent.interactible.ScrapStation": "npc";
+                    "ent.interactible.GearUpgradeStation", "ent.interactible.ScrapStation",
+                    "ent.interactible.InfusionStation": "npc";
                 default: "";
             };
             if (kind != "") break;
@@ -609,8 +592,8 @@ class MinimapMarkers {
     static function markerRadius(kind:String):Float return switch kind {
         case "bank", "demon", "craft", "upgrade", "recycler", "chest", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
-        case "obelisk", "dungeon", "soulstone", "secretOrb": 8;
-        case "targetDummy", "upcomingRift": 9;
+        case "obelisk", "dungeon", "soulstone", "secretOrb", "glory": 8;
+        case "targetDummy", "upcomingRift", "infusion": 9;
         case "riftPortal": 11;
         case "inactiveRift", "nextRift": 10;
         default: 3.5;
@@ -714,6 +697,8 @@ class MinimapMarkers {
             case "recycler": "Spark Recycler";
             case "upgrade": "Weapon Upgrade";
             case "craft": "Crafting Station";
+            case "glory": "Glory Merchant";
+            case "infusion": "Infusion Crucible";
             case "activity": "Activity";
             case "ascension": "Ascension";
             case "dungeon": "Dungeon";
@@ -733,7 +718,7 @@ class MinimapMarkers {
     function draw(points:Array<MapPoint>, scale:Float):Void {
         hitPoints = [];
         // All Rift states draw above enemies; services retain top priority.
-        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft"]) {
+        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft", "glory", "infusion"]) {
             for (point in points) if (point.kind == kind) {
                 point.elevation = elevationDirection(point.z, heroHeight);
                 hitPoints.push(point);
@@ -782,7 +767,8 @@ class MinimapMarkers {
     function drawIcon(point:MapPoint):Void {
         var kind = point.kind;
         if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy"
-            || kind == "riftPortal" || kind == "upcomingRift" || kind == "inactiveRift" || kind == "nextRift") {
+            || kind == "riftPortal" || kind == "upcomingRift" || kind == "inactiveRift" || kind == "nextRift"
+            || kind == "glory" || kind == "infusion") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }
