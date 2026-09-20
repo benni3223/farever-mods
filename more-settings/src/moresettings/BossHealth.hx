@@ -41,6 +41,11 @@ class BossHealth {
         if (!Math.isFinite(health) || !percentage.match(original)) return original;
         // Match native whole-HP rounding without overflowing a signed 32-bit Int.
         var hp = Std.string(Math.ffloor(Math.max(0, health)));
+        var end = hp.length;
+        while (end > 3) {
+            end -= 3;
+            hp = hp.substr(0, end) + "," + hp.substr(end);
+        }
         return hp + " (" + percentage.matched(1) + ")" + percentage.matched(2);
     }
 

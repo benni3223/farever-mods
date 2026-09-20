@@ -3,7 +3,7 @@
 ## Boss health
 
 - Added **Show boss health** under **General**, off by default.
-- Displays current boss HP as `123456 (100%)`, updating during the fight.
+- Displays current boss HP as `123,456 (100%)`, updating during the fight.
 - Preserves native percentage formatting and shield information; disabling restores the original label.
 - Supports both current and new/PTR clients. Existing numeric HP labels from the PTR resource-display option remain unchanged.
 

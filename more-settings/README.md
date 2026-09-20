@@ -19,7 +19,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 
-**Show boss health** adds the boss's current HP before its percentage in the top-of-screen boss bar: `123456 (100%)`. It uses the actual Health attribute, rounded down to a whole number like the game's numeric health display, and updates throughout the fight. The native percentage and shield information are preserved. Toggle it at any time under **General**; disabling it restores the native label. If the new/PTR client's resource-display option already shows numeric HP, that label stays unchanged.
+**Show boss health** adds the boss's current HP before its percentage in the top-of-screen boss bar: `123,456 (100%)`. It uses the actual Health attribute, rounded down to a whole number like the game's numeric health display, and updates throughout the fight. The native percentage and shield information are preserved. Toggle it at any time under **General**; disabling it restores the native label. If the new/PTR client's resource-display option already shows numeric HP, that label stays unchanged.
 
 The same build supports the live and new/PTR clients (use HLX Core 0.0.8 or newer
 on PTR). Hit/heal effect attribution accepts both client skill-field layouts.
