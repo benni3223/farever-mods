@@ -13,6 +13,12 @@ class NpcMarkersTest {
         expect(NpcMarkers.kind(null), "npc", "Missing definition");
         expect(NpcMarkers.kind({type: 22, props: {}}), "npc", "Ordinary NPC");
         expect(NpcMarkers.kind({type: 22, props: {npc: {unit: "TODO_WanderingMerchant"}}}), "bank", "Guild merchant");
+        expect(NpcMarkers.kind({id: "World_NPC_17", type: 22, props: {npc: {unit: "TODO_MOG_Merchant"}}}),
+            "glory", "PTR Glory merchant is identified without shop or title fields");
+        expect(NpcMarkers.kind({type: 22, props: {npc: {unit: "TODO_MOG_Merchant", npcTitle: "localized service"}},
+            texts: {name: "localized name", type: "localized type"}}), "glory", "Native identity is language-independent");
+        expect(NpcMarkers.kind({type: 22, inherit: "TODO_MOG_Merchant", props: {npc: {unit: "Other"}}}),
+            "npc", "Borrowing an ancestor does not turn an unrelated NPC into a Glory merchant");
         for (unit in ["DemonHunterMira", "DemonHunterZoey", "DemonHunterRumi"])
             expect(NpcMarkers.kind({type: 22, props: {npc: {unit: unit}}}), "demon", "Demon huntress " + unit);
         expect(NpcMarkers.kind({type: 22, inherit: "DemonHunterMira", props: {npc: {unit: "Other"}}}),

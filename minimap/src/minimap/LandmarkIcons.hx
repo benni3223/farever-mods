@@ -20,6 +20,29 @@ class LandmarkIcons {
         else if (kind == "infusion") infusionCrucible(graphics, radius);
         else if (kind == "craft") craftingStation(graphics, radius);
         else if (kind == "upgrade") upgradeStation(graphics, radius);
+        else if (kind == "recycler") recycling(graphics, radius);
+    }
+
+    static function recycling(g:Dynamic, r:Float):Void {
+        // Three broad chasing arrows form the familiar recycling triangle.
+        // Keep gaps at the tips and a transparent centre so it reads at 18 px.
+        var arrow = [0.02, -0.98, 0.55, -0.06, 0.75, -0.18, 0.74, 0.46,
+            0.16, 0.14, 0.37, 0.02, -0.2, -0.86];
+        G.call("h2d.Graphics", "lineStyle", g, [1.2, 0x203b34, 1.]);
+        for (i in 0...3) {
+            var angle = i * Math.PI * 2 / 3;
+            var c = Math.cos(angle), s = Math.sin(angle);
+            var coords:Array<Float> = [];
+            for (j in 0...Std.int(arrow.length / 2)) {
+                var x = arrow[j * 2], y = arrow[j * 2 + 1];
+                coords.push(x * c - y * s);
+                coords.push(x * s + y * c);
+            }
+            fill(g, 0x86eed4);
+            polygon(g, r, coords);
+            end(g);
+        }
+        G.call("h2d.Graphics", "lineStyle", g, [0., 0, 0.]);
     }
 
     static function craftingStation(g:Dynamic, r:Float):Void {

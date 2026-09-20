@@ -24,6 +24,11 @@ class NpcMarkers {
         if (station != "") return station;
         var props = G.field(inf, "props");
         var npc = G.field(props, "npc");
+        var unit = G.text(G.field(npc, "unit"));
+        // The PTR adds this distinct UnitKind alongside TODO_WanderingMerchant.
+        // Match the resolved instance's unit, as Npc.get_uinf does: its shop
+        // prices and localized service title need not be present here.
+        if (unit == "TODO_MOG_Merchant") return "glory";
         var texts = G.field(inf, "texts");
         // Some world NPCs expose their service in npcTitle / the popup's
         // texts.type without exposing Glory-priced offers in props.shop.
@@ -39,7 +44,7 @@ class NpcMarkers {
 
         // Match Npc.get_uinf: the resolved instance's unit is authoritative.
         // Ancestor templates and inherited dialogue do not identify its role.
-        return switch G.text(G.field(npc, "unit")) {
+        return switch unit {
             case "TODO_WanderingMerchant": "bank";
             case "DemonHunterMira", "DemonHunterZoey", "DemonHunterRumi": "demon";
             default: "npc";

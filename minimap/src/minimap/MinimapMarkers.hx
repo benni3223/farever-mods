@@ -594,10 +594,10 @@ class MinimapMarkers {
         return Math.abs(px - x) <= radius && Math.abs(py - y) <= radius;
 
     static function markerRadius(kind:String):Float return switch kind {
-        case "bank", "demon", "recycler", "chest", "player", "activity", "ascension", "companion": 7;
+        case "bank", "demon", "chest", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
         case "obelisk", "dungeon", "soulstone", "secretOrb", "glory": 8;
-        case "targetDummy", "upcomingRift", "infusion", "craft": 9;
+        case "targetDummy", "upcomingRift", "infusion", "craft", "recycler": 9;
         case "riftPortal": 11;
         case "inactiveRift", "nextRift", "upgrade": 10;
         default: 3.5;
@@ -772,7 +772,7 @@ class MinimapMarkers {
         var kind = point.kind;
         if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy"
             || kind == "riftPortal" || kind == "upcomingRift" || kind == "inactiveRift" || kind == "nextRift"
-            || kind == "glory" || kind == "infusion" || kind == "craft" || kind == "upgrade") {
+            || kind == "glory" || kind == "infusion" || kind == "craft" || kind == "upgrade" || kind == "recycler") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }
@@ -787,7 +787,6 @@ class MinimapMarkers {
             case "npc": 0xffdf78;
             case "bank": 0xffdc42;
             case "demon": 0xe8a1ff;
-            case "recycler": 0x86eed4;
             default: 0x70d8ff;
         };
         var sparkling = point.sparkling == true;
@@ -877,12 +876,6 @@ class MinimapMarkers {
                     0.45, 0.75, 0, 1, -0.45, 0.75, -0.8, 0.25]);
                 polygon(point, r, [-0.9, -1, -0.2, -0.3, -0.8, 0.05]);
                 polygon(point, r, [0.9, -1, 0.8, 0.05, 0.2, -0.3]);
-            case "recycler":
-                // Two chasing arrows.
-                polygon(point, r, [-0.95, 0.05, -0.95, -0.55, -0.5, -0.95, 0.45, -0.95,
-                    0.45, -1.2, 1, -0.65, 0.45, -0.1, 0.45, -0.4, -0.45, -0.4, -0.45, 0.05]);
-                polygon(point, r, [0.95, -0.05, 0.95, 0.55, 0.5, 0.95, -0.45, 0.95,
-                    -0.45, 1.2, -1, 0.65, -0.45, 0.1, -0.45, 0.4, 0.45, 0.4, 0.45, -0.05]);
             case "respawn":
                 G.call("h2d.Graphics", "drawRect", graphics, [x - r / 3, y - r, r * 2 / 3, r * 2]);
                 G.call("h2d.Graphics", "drawRect", graphics, [x - r, y - r / 3, r * 2, r * 2 / 3]);
