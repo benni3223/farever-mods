@@ -37,3 +37,8 @@
 -cp tests
 -main WorldEventAccessTest
 --interp
+--next
+-cp src
+-cp tests
+-main MarkerDetailsTest
+--interp

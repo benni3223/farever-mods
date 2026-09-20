@@ -2,6 +2,8 @@ package minimap;
 
 import minimap.GameAccess as G;
 import minimap.MinimapMod.MinimapSettings;
+import minimap.MarkerDetails.MarkerHover;
+import minimap.RiftMarkers.RiftPoint;
 
 private typedef MapPoint = {
     var x:Float;
@@ -53,7 +55,7 @@ class MinimapMarkers {
     var alertPositions:Array<{x:Float, y:Float, point:MapPoint}> = [];
     var rifts:RiftMarkers;
     var riftArrow:Dynamic;
-    var riftAlertPosition:Null<{x:Float, y:Float, name:String}>;
+    var riftAlertPosition:Null<{x:Float, y:Float, point:RiftPoint}>;
     var level:String;
     var layer:Dynamic;
     var lastHero:Dynamic;
@@ -159,7 +161,10 @@ class MinimapMarkers {
             var point = alertTargets[i];
             var dx = (point.x - x) * scale, dy = (point.y - y) * scale;
             var sx = dx * c - dy * s, sy = dx * s + dy * c;
-            var visible = G.field(point.entity, "removed") != true && MinimapGeometry.showAlert(point.hasMarker == true,
+            // Height filtering affects the map icon, never its guidance arrow.
+            var hasMarker = point.hasMarker == true && !MarkerDetails.hidden(point.z, heroHeight,
+                config.hideVerticallyDistantMarkers, config.verticallyDistantThreshold);
+            var visible = G.field(point.entity, "removed") != true && MinimapGeometry.showAlert(hasMarker,
                 sx, sy, size, config.circular, (markerRadius("companion") + 3.5) * markerScale);
             var arrow = alertArrows[i];
             G.call("h2d.Object", "setScale", arrow, [markerScale]);
@@ -172,16 +177,16 @@ class MinimapMarkers {
         }
     }
 
-    public function alertNameAt(x:Float, y:Float):String {
+    public function alertHoverAt(x:Float, y:Float):Null<MarkerHover> {
         if (riftAlertPosition != null && nearCursor(x, y, riftAlertPosition.x, riftAlertPosition.y, 12 * markerScale))
-            return riftAlertPosition.name;
+            return MarkerDetails.hover(RiftMarkers.name(riftAlertPosition.point.kind), riftAlertPosition.point);
         var i = alertPositions.length;
         while (i > 0) {
             var alert = alertPositions[--i];
             if (nearCursor(x, y, alert.x, alert.y, 12 * markerScale) && G.field(alert.point.entity, "removed") != true)
-                return markerName(alert.point);
+                return MarkerDetails.hover(markerName(alert.point), alert.point);
         }
-        return "";
+        return null;
     }
 
     function updateRiftAlert(config:MinimapSettings, x:Float, y:Float, size:Int, scale:Float, rotation:Float, rifts:RiftMarkers):Void {
@@ -192,7 +197,9 @@ class MinimapMarkers {
             var dx = (target.x - x) * scale, dy = (target.y - y) * scale;
             var c = Math.cos(rotation), s = Math.sin(rotation);
             var sx = dx * c - dy * s, sy = dx * s + dy * c;
-            visible = MinimapGeometry.showAlert(config.showActivities, sx, sy, size, config.circular,
+            var hasMarker = config.showActivities && !MarkerDetails.hidden(target.z, heroHeight,
+                config.hideVerticallyDistantMarkers, config.verticallyDistantThreshold);
+            visible = MinimapGeometry.showAlert(hasMarker, sx, sy, size, config.circular,
                 (markerRadius(target.kind) + 1) * markerScale);
             if (visible) {
                 if (riftArrow == null) {
@@ -204,7 +211,7 @@ class MinimapMarkers {
                 G.call("h2d.Object", "setScale", riftArrow, [markerScale]);
                 G.call("h2d.Object", "setPosition", riftArrow, [pos.x, pos.y]);
                 G.call("h2d.Object", "set_rotation", riftArrow, [Math.atan2(sy, sx)]);
-                riftAlertPosition = {x: pos.x, y: pos.y, name: RiftMarkers.name(target.kind)};
+                riftAlertPosition = {x: pos.x, y: pos.y, point: target};
             }
         }
         if (riftArrow != null) G.call("h2d.Object", "set_visible", riftArrow, [visible]);
@@ -426,7 +433,11 @@ class MinimapMarkers {
                 points.push({kind: point.kind, x: point.x, y: point.y, z: point.z,
                     name: RiftMarkers.name(point.kind)});
         }
-        return points;
+        // Apply one height rule after collecting every category. Hidden points
+        // never reach icon drawing or hover hit-testing. Keep alert targets:
+        // the vertical filter must not hide the arrows that guide to them.
+        return MarkerDetails.filter(points, heroHeight,
+            config.hideVerticallyDistantMarkers, config.verticallyDistantThreshold);
     }
 
     function refreshActivities():Void {
@@ -637,7 +648,7 @@ class MinimapMarkers {
         while (pool.length > count) G.call("h2d.Object", "remove", pool.pop().root);
     }
 
-    public function nameAt(x:Float, y:Float, scale:Float, heroX:Float, heroY:Float, hero:Dynamic):String {
+    public function hoverAt(x:Float, y:Float, scale:Float, heroX:Float, heroY:Float, hero:Dynamic):Null<MarkerHover> {
         var checkHero = true;
         var i = hitPoints.length;
         // Reverse draw order: other markers, then our cursor, then other players.
@@ -645,7 +656,7 @@ class MinimapMarkers {
             var point = hitPoints[--i];
             if (checkHero && point.kind == "player") {
                 checkHero = false;
-                if (nearCursor(x, y, heroX, heroY, 11 * markerScale / scale)) return G.text(G.field(hero, "name"));
+                if (nearCursor(x, y, heroX, heroY, 11 * markerScale / scale)) return heroHover(hero, heroX, heroY);
             }
             var r = (markerRadius(point.kind) + (point.sparkling == true ? 2.5 : 0) + 2) * markerScale / scale;
             var hit = nearCursor(x, y, point.x, point.y, r);
@@ -656,10 +667,13 @@ class MinimapMarkers {
             }
             if (!hit) continue;
             if (point.entity != null && G.field(point.entity, "removed") == true) continue;
-            return markerName(point);
+            return MarkerDetails.hover(markerName(point), point);
         }
-        return checkHero && nearCursor(x, y, heroX, heroY, 11 * markerScale / scale) ? G.text(G.field(hero, "name")) : "";
+        return checkHero && nearCursor(x, y, heroX, heroY, 11 * markerScale / scale) ? heroHover(hero, heroX, heroY) : null;
     }
+
+    function heroHover(hero:Dynamic, x:Float, y:Float):MarkerHover
+        return {name: G.text(G.field(hero, "name")), x: x, y: y, z: G.number(G.field(hero, "posz"), Math.NaN)};
 
     static function nearCursor(x:Float, y:Float, px:Float, py:Float, radius:Float):Bool {
         var dx = x - px, dy = y - py;

@@ -25,6 +25,8 @@
     { "key": "showNpcs", "type": "checkbox", "label": "Show NPCs" },
     { "key": "showChests", "type": "checkbox", "label": "Show chests" },
     { "key": "showSecretOrbs", "type": "checkbox", "label": "Show secret orbs" },
+    { "key": "hideVerticallyDistantMarkers", "type": "checkbox", "label": "Hide vertically distant markers" },
+    { "key": "verticallyDistantThreshold", "type": "slider", "label": "Vertically distant threshold", "min": 15, "max": 100, "step": 1 },
     { "type": "title", "label": "Activities" },
     { "key": "showActivities", "type": "checkbox", "label": "Show activities" },
     { "key": "hideCompletedActivities", "type": "checkbox", "label": "Hide completed activities" },

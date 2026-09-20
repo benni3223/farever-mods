@@ -42,7 +42,8 @@ with the new client.
 - Yellow-ringed edge arrows guide you toward uncollected sparkling companions when their markers are out of view.
 - Yellow rings highlight sparkling enemies and bosses.
 - Individual plant and ore type filters.
-- Hover over markers to see their names below the map
+- Hover over markers or guidance arrows to see their name, horizontal distance, and relative height below the map.
+- Optional vertical-distance filter hides map markers above or below a chosen threshold while keeping guidance arrows available.
 - Hover the mouse over the map and scroll to zoom.
 - Up/down arrows show markers more than 15 metres above or below you.
 
@@ -77,6 +78,10 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Undiscovered secret orbs | Gold orb with an ivory centre and broken purple rings |
 
 **Show NPCs** also controls the Guild Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
+
+Hover details are always enabled. The marker name stays on the first line, with a smaller, dimmer second line such as **42 m away · ↑ 18 m**. Distance is horizontal; the arrow shows height above or below your character. Measurements round to whole metres and refresh five times per second. Within two metres vertically, the label reads **Same height**; unknown elevation is omitted. Rift and sparkling companion guidance arrows show measurements to their destination, not to the edge of the minimap.
+
+**Hide vertically distant markers** is off by default at the bottom of **Markers**. The **Vertically distant threshold** slider below it ranges from **15 to 100 metres**, in one-metre steps, defaulting to **15**. When enabled, it hides map markers more than that distance above or below you; markers exactly at the threshold remain visible. It applies across all marker categories, including resources, enemies, players, landmarks, and activities. Unknown elevations stay visible. **Rift and sparkling companion guidance arrows remain available**, including when their destination's map marker is hidden by this filter.
 
 Secret orb tooltips always read **Secret Orb**. Sparkling companion alerts disappear whenever any part of the companion marker is visible, and reappear when it leaves the map. This follows zoom and rotation for both map shapes. Alerts still work when normal companion markers are disabled. Their alert arrows are solid yellow triangles, distinct from player arrows. Both sparkling companion markers and their alert arrows have yellow rings with transparent centres, letting the map show through around the pawprint or triangle. Their alert rings have no height arrows; ordinary markers retain their height indicators.
 
@@ -114,6 +119,6 @@ cd minimap
 haxe compile.hxml
 ```
 
-Run the marker classification, activity visibility, Rift schedule/state, Codex milestone, percentage-position, clipping, and compass regression tests with `haxe test.hxml` (no game or HLX runtime required).
+Run the marker classification, activity visibility, hover measurements, vertical filtering, Rift schedule/state, Codex milestone, percentage-position, clipping, and compass regression tests with `haxe test.hxml` (no game or HLX runtime required).
 
 Output: `build/minimap/minimap.hl`. The independent workflow packages this project and publishes releases for `minimap/v*` tags.

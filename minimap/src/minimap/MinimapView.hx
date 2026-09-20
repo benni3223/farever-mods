@@ -55,8 +55,15 @@ class MinimapView {
     var mouseY:Float = 0;
     var hoverText:Dynamic;
     var hoverShadow:Dynamic;
+    var hoverDetailsText:Dynamic;
+    var hoverDetailsShadow:Dynamic;
     var hoverCaption:String = "";
+    var hoverDetails:String = "";
     var hoverFontScale:Float = 1;
+    var hoverUsesArrows:Bool = true;
+    var nextHoverRefresh:Float = 0;
+    var hoverMouseX:Float = Math.NaN;
+    var hoverMouseY:Float = Math.NaN;
     var transparency:Int = -1;
     var markerScale:Float = 0;
     var loader:Dynamic;
@@ -259,41 +266,75 @@ class MinimapView {
         // Undo the displayed map rotation and zoom before picking a marker.
         var px = x + (dx * c + dy * s) / scale;
         var py = y + (dy * c - dx * s) / scale;
-        var alertName = markers.alertNameAt(mouseX, mouseY);
-        setHoverCaption(alertName != "" ? alertName : markers.nameAt(px, py, scale, x, y, hero));
+        var target = markers.alertHoverAt(mouseX, mouseY);
+        if (target == null) target = markers.hoverAt(px, py, scale, x, y, hero);
+        if (target == null) {
+            setHoverCaption("");
+            return;
+        }
+        var now = haxe.Timer.stamp();
+        // Mouse selection is immediate; stationary hover measurements update
+        // at the same 5 Hz as markers, rather than changing numbers every frame.
+        if (target.name == hoverCaption && mouseX == hoverMouseX && mouseY == hoverMouseY && now < nextHoverRefresh) return;
+        ensureHoverText();
+        var details = MarkerDetails.caption(target,
+            {x: x, y: y, z: G.number(G.field(hero, "posz"), Math.NaN)}, hoverUsesArrows);
+        setHoverCaption(target.name, details);
+        hoverMouseX = mouseX; hoverMouseY = mouseY;
+        nextHoverRefresh = now + 0.2;
     }
 
-    function setHoverCaption(value:String):Void {
-        if (value == hoverCaption) return;
+    function ensureHoverText():Void {
+        if (hoverText != null) return;
+        // Reuse a native HUD font after its UI has finished loading.
+        var font = findFont(G.field(owner, "gameRoot"), 6);
+        if (font == null) font = G.staticCall("hxd.res.DefaultFont", "get", []);
+        hoverFontScale = 14 / Math.max(1, G.number(G.field(font, "size"), 14));
+        hoverUsesArrows = G.call("h2d.Font", "hasChar", font, [0x2191]) == true
+            && G.call("h2d.Font", "hasChar", font, [0x2193]) == true;
+        hoverShadow = G.create("h2d.Text", [font, panel]);
+        hoverText = G.create("h2d.Text", [font, panel]);
+        hoverDetailsShadow = G.create("h2d.Text", [font, panel]);
+        hoverDetailsText = G.create("h2d.Text", [font, panel]);
+        for (text in [hoverShadow, hoverDetailsShadow]) G.call("h2d.Text", "set_textColor", text, [0x171b24]);
+        G.call("h2d.Text", "set_textColor", hoverText, [0xfff3d6]);
+        G.call("h2d.Text", "set_textColor", hoverDetailsText, [0xd0ccc2]);
+    }
+
+    function setHoverCaption(value:String, details:String = ""):Void {
+        if (value == "") { details = ""; nextHoverRefresh = 0; }
+        if (value == hoverCaption && details == hoverDetails) return;
         hoverCaption = value;
-        if (value != "" && hoverText == null) {
-            // Reuse a native HUD font after its UI has finished loading.
-            var font = findFont(G.field(owner, "gameRoot"), 6);
-            if (font == null) font = G.staticCall("hxd.res.DefaultFont", "get", []);
-            hoverFontScale = 14 / Math.max(1, G.number(G.field(font, "size"), 14));
-            hoverShadow = G.create("h2d.Text", [font, panel]);
-            hoverText = G.create("h2d.Text", [font, panel]);
-            G.call("h2d.Text", "set_textColor", hoverShadow, [0x171b24]);
-            G.call("h2d.Text", "set_textColor", hoverText, [0xfff3d6]);
-        }
+        hoverDetails = details;
+        if (value != "") ensureHoverText();
         if (hoverText == null) return;
         for (text in [hoverShadow, hoverText]) {
             G.call("h2d.Text", "set_text", text, [value]);
             G.call("h2d.Object", "set_visible", text, [value != ""]);
+        }
+        for (text in [hoverDetailsShadow, hoverDetailsText]) {
+            G.call("h2d.Text", "set_text", text, [details]);
+            G.call("h2d.Object", "set_visible", text, [details != ""]);
         }
         placeHoverText();
     }
 
     function placeHoverText():Void {
         if (hoverText == null || hoverCaption == "") return;
-        var width = G.number(G.call("h2d.Text", "get_textWidth", hoverText));
-        var textScale = Math.min(hoverFontScale, (size - 12) / Math.max(1, width));
-        for (text in [hoverShadow, hoverText]) G.call("h2d.Object", "setScale", text, [textScale]);
-        var x = BORDER + (size - width * textScale) / 2;
-        var y = BORDER + size + 4;
         // A footer outside the clipping mask stays whole in circular mode too.
-        position(hoverShadow, x + 1, y + 1);
-        position(hoverText, x, y);
+        var bottom = placeHoverLine(hoverText, hoverShadow, hoverFontScale, BORDER + size + 4);
+        if (hoverDetails != "") placeHoverLine(hoverDetailsText, hoverDetailsShadow, hoverFontScale * 12 / 14, bottom + 2);
+    }
+
+    function placeHoverLine(text:Dynamic, shadow:Dynamic, desiredScale:Float, y:Float):Float {
+        var width = G.number(G.call("h2d.Text", "get_textWidth", text));
+        // Fit lines independently: a long name must not shrink the measurements.
+        var textScale = Math.min(desiredScale, (size - 12) / Math.max(1, width));
+        for (object in [shadow, text]) G.call("h2d.Object", "setScale", object, [textScale]);
+        var x = BORDER + (size - width * textScale) / 2;
+        position(shadow, x + 1, y + 1);
+        position(text, x, y);
+        return y + G.number(G.call("h2d.Text", "get_textHeight", text)) * textScale;
     }
 
     function updateRiftTimer(config:MinimapSettings):Void {
@@ -503,6 +544,8 @@ class MinimapView {
         riftX = Math.NaN; riftY = Math.NaN;
         npcPivot = null; npcTerrain = null;
         input = null; hovered = false; hoverText = null; hoverShadow = null; hoverCaption = "";
+        hoverDetailsText = null; hoverDetailsShadow = null; hoverDetails = "";
+        nextHoverRefresh = 0; hoverMouseX = Math.NaN; hoverMouseY = Math.NaN;
         transparency = -1;
         markerScale = 0;
         index = []; sprites = []; wanted = []; cached = [];

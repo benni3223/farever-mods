@@ -35,6 +35,8 @@ typedef MinimapSettings = {
     var showNpcs:Bool;
     var showChests:Bool;
     var showSecretOrbs:Bool;
+    var hideVerticallyDistantMarkers:Bool;
+    var verticallyDistantThreshold:Float;
     var showActivities:Bool;
     var hideCompletedActivities:Bool;
     var hideAscensions:Bool;
@@ -62,6 +64,7 @@ class MinimapMod {
         showCompanions: true, hideCollectedCompanions: true, sparklingCompanionAlerts: true,
         showRespawnPoints: true, showObelisks: true, showSoulstoneCircles: true, showNpcs: true,
         showChests: true, showSecretOrbs: true, showActivities: true,
+        hideVerticallyDistantMarkers: false, verticallyDistantThreshold: 15,
         hideCompletedActivities: true, hideAscensions: false, hideDungeons: false, hideInactiveRifts: false,
         hideCopper: false, hideIron: false, hideTin: false, hideTungstene: false,
         hideMadrigold: false, hideLavendula: false, hideAncientThyme: false, hideZealotus: false
@@ -88,6 +91,7 @@ class MinimapMod {
         config.zoom = Math.isFinite(config.zoom) ? Math.max(10, Math.min(300, config.zoom)) : 30;
         config.size = Std.int(Math.max(160, Math.min(400, config.size)));
         config.markerScale = Math.isFinite(config.markerScale) ? Math.max(50, Math.min(200, config.markerScale)) : 100;
+        config.verticallyDistantThreshold = MarkerDetails.threshold(config.verticallyDistantThreshold);
         config.xOffset = MinimapPosition.percent(config.xOffset);
         config.yOffset = MinimapPosition.percent(config.yOffset);
     }
