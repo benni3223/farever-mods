@@ -21,7 +21,7 @@ import sys.io.File;
 @:access(dpsmeter.RunWriter)
 class HistoryTest {
     static var checks = 0;
-    static final UNKNOWN_SPLIT = "  ·  Physical: 0%  ·  Magical: 0%  ·  Unclassified: 100%";
+    static final UNKNOWN_SPLIT = "  ·  Physical: 0%  ·  Magical: 0%  ·  Raw: 0%";
     static function check(condition:Bool, message:String):Void {
         checks++;
         if (!condition) throw message;

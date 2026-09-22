@@ -106,11 +106,13 @@ popup without extending its lifetime.
 
 Selecting an attempt replaces the list with that fight's damage chart. Its summary
 shows date and time, character name, your DPS, duration, and outcome together in that order,
-followed by **Physical: X% · Magical: Y%** for that character's total damage. These
+followed by **Physical: X% · Magical: Y% · Raw: Z%** for that character's total damage. These
 percentages also appear in snapshots. New recordings classify each hit using the
-game's physical/magic flags; healing is excluded. Unsupported damage stays in the
-total and appears as **Unclassified**, rather than inflating the known percentages.
-Older logs without this information keep their existing summary. Click a
+game's physical/magic flags and explicit Raw affinity; healing is excluded.
+Chaos remains magical. Unclassified damage is logged and stays in the total used
+for percentages, but is omitted from the display. Earlier breakdowns that recorded
+the Raw affinity under unclassified recover its share when opened. Older logs without
+damage-type information keep their existing summary. Click a
 player to see their skills; click a skill row to return to the player chart.
 Each ability occupies one row with its game icon, display name, total damage,
 share of your damage, and DPS. A full-width history view also has casts,
@@ -153,15 +155,15 @@ above that summary, styled like regular fight snapshots. The start time comes
 from the gates phase when recorded, or the boss phase for a boss-only recording.
 Only the body is captured; the window header and its buttons are omitted.
 The header briefly confirms copying or displays an error.
-The recap summary also shows your physical/magical shares across the recorded
+The recap summary also shows your physical/magical/Raw shares across the recorded
 gates and boss phases combined, weighted by damage dealt.
 
 New local history files include `damageBreakdown` for every player and ability;
-uploader JSON reports use `damage_breakdown`. Each has `physical`, `magical`, and
+uploader JSON reports use `damage_breakdown`. Each has `physical`, `magical`, `raw`, and
 `unclassified` buckets containing damage, percentage of that player/ability's total,
 hit count, critical-hit count, and damage dealt by critical hits. The `affinities`
 array records the same details for each raw game affinity and damage type. A skill
-can contribute to both physical and magical totals. Unknown skill IDs still count
+can contribute to multiple damage types. Unknown skill IDs still count
 toward the player's split, and summons retain their actual damage type when credited
 to their owner. Existing overall damage/DPS values use the same calculation as before.
 
