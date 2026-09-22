@@ -188,9 +188,15 @@ class Collector {
             try bossName = G.text(G.call("ent.Unit", "getName", target)) catch (_:Dynamic) {}
             if (bossName == "") bossName = kind;
         }
+        var damageType = "unclassified";
+        var effect = G.integer(G.field(damage, "effect"));
+        if (effect != 1) try {
+            damageType = DamageBreakdown.classify(G.call("st.skill.DamageResult", "get_isPhysical", damage),
+                G.call("st.skill.DamageResult", "get_isMagic", damage));
+        } catch (_:Dynamic) {} // Keep counting the hit if classification is unavailable.
         model.record({time: now, source: uid, amount: G.number(G.field(damage, "_amount")),
             critical: G.field(damage, "_critical") == true, kill: G.field(damage, "_kill") == true,
-            effect: G.integer(G.field(damage, "effect")), skill: skillId,
+            effect: effect, skill: skillId, damageType: damageType, affinity: G.text(G.field(damage, "affinity")),
             target: G.uid(target), bossKind: kind, bossName: bossName, bossFlags: bossFlags,
             summoned: G.field(target, "summonOwner") != null,
             bossLevel: G.integer(G.field(target, "_level")), bossFoeId: G.integer(G.field(target, "foeId"))});

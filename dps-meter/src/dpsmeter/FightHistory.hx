@@ -5,7 +5,8 @@ import dpsmeter.CombatModel;
 typedef HistoryEntry = {
     id:String, name:String, startedAt:Float, duration:Float, personalDps:Null<Float>, playerName:String,
     category:String, categoryVersion:Int, activityId:String, bossKind:String, phase:String,
-    difficulty:Int, partySize:Int, recordedPlayers:Int, playerClass:String, outcome:String
+    difficulty:Int, partySize:Int, recordedPlayers:Int, playerClass:String, outcome:String,
+    ?damageTypeSummary:String
 };
 typedef HistoryGroup = {name:String, count:Int};
 typedef HistoryHeading = {before:String, player:String, after:String};
@@ -23,12 +24,12 @@ class FightHistory {
     public static function encode(fight:Fight, id:String):Dynamic {
         var players:Array<Dynamic> = [for (p in fight.ranked()) {
             var skills:Array<Dynamic> = [for (id => s in p.skills) {id: id, damage: s.damage, hits: s.hits,
-                crits: s.crits, kills: s.kills, casts: s.casts}];
+                crits: s.crits, kills: s.kills, casts: s.casts, damageBreakdown: s.damageBreakdown.json(s.damage)}];
             {
                 uid: p.info.uid, name: p.info.name, isMe: p.info.isMe || p.info.uid == fight.me,
                 className: p.info.className, damage: p.damage, heal: p.heal,
                 hits: p.hits, crits: p.crits, kills: p.kills,
-                skills: skills
+                skills: skills, damageBreakdown: p.damageBreakdown.json(p.damage)
             }
         }];
         return {version: 1, id: id, name: name(fight), startedAt: fight.startedAt, duration: fight.duration(),
@@ -45,15 +46,17 @@ class FightHistory {
         var damage:Null<Float> = text(record.me) == "" ? null : 0;
         var playerName = text(record.meName);
         var playerClass = "";
+        var damageTypeSummary = "";
         for (p in array(record.players)) if (p.isMe == true || (text(record.me) != "" && text(p.uid) == text(record.me))) {
-            damage = number(p.damage); playerName = text(p.name); playerClass = text(p.className).toLowerCase(); break;
+            damage = number(p.damage); playerName = text(p.name); playerClass = text(p.className).toLowerCase();
+            damageTypeSummary = DamageBreakdown.read(p.damageBreakdown).summary(damage); break;
         }
         return {id: record.id, name: record.name, startedAt: record.startedAt, duration: record.duration,
             personalDps: damage == null ? null : damage / Math.max(1, number(record.duration)), playerName: playerName, playerClass: playerClass,
             category: text(record.category), categoryVersion: Std.int(number(record.categoryVersion)),
             activityId: text(record.activityId), bossKind: text(record.bossKind), phase: text(record.phase),
             difficulty: difficulty(record.difficulty), partySize: Std.int(number(record.partySize)), recordedPlayers: recordedPlayers(record),
-            outcome: outcome(record.outcome)};
+            outcome: outcome(record.outcome), damageTypeSummary: damageTypeSummary};
     }
     public static function decode(record:Dynamic):Fight {
         validate(record);
@@ -74,10 +77,12 @@ class FightHistory {
             var stats = new PlayerStats({uid: uid, name: text(p.name), isMe: p.isMe == true,
                 className: text(p.className), weapon: null, classSkills: [], weaponSkills: []});
             stats.damage = number(p.damage); stats.heal = number(p.heal);
+            stats.damageBreakdown = DamageBreakdown.read(p.damageBreakdown);
             stats.hits = Std.int(number(p.hits)); stats.crits = Std.int(number(p.crits)); stats.kills = Std.int(number(p.kills));
             for (s in array(p.skills)) {
                 var skill = new SkillStats();
                 skill.damage = number(s.damage); skill.hits = Std.int(number(s.hits));
+                skill.damageBreakdown = DamageBreakdown.read(s.damageBreakdown);
                 skill.crits = Std.int(number(s.crits)); skill.kills = Std.int(number(s.kills)); skill.casts = Std.int(number(s.casts));
                 stats.skills[text(s.id)] = skill;
             }
@@ -102,12 +107,12 @@ class FightHistory {
         var duration = number(report.duration_sec);
         var players:Array<Dynamic> = [for (p in array(report.players)) {
             var skills:Array<Dynamic> = [for (s in array(p.skills)) {id: text(s.id), damage: number(s.damage), hits: number(s.hits),
-                crits: number(s.crits), kills: number(s.kills), casts: number(s.casts)}];
+                crits: number(s.crits), kills: number(s.kills), casts: number(s.casts), damageBreakdown: s.damage_breakdown}];
             {
                 uid: text(p.uid), name: text(p.name), isMe: p.is_me == true,
                 className: text(Reflect.field(p, "class")), damage: number(p.total_damage), heal: number(p.heal),
                 hits: number(p.hits), crits: number(p.crits), kills: number(p.kills),
-                skills: skills
+                skills: skills, damageBreakdown: p.damage_breakdown
             }
         }];
         return {version: 1, id: id, name: name, startedAt: timestamp - duration * 1000, duration: duration, players: players,
@@ -144,7 +149,8 @@ class FightHistory {
     }
     public static function attemptDetail(entry:HistoryEntry):String return durationLabel(entry.duration) + "  ·  " + dpsLabel(entry.personalDps);
     public static function chartDetail(entry:Null<HistoryEntry>):String return entry == null ? "" : dateAndPlayer(entry)
-        + "  ·  " + dpsLabel(entry.personalDps) + "  ·  " + durationLabel(entry.duration) + "  ·  " + outcomeLabel(entry);
+        + "  ·  " + dpsLabel(entry.personalDps) + "  ·  " + durationLabel(entry.duration) + "  ·  " + outcomeLabel(entry)
+        + (entry.damageTypeSummary == null || entry.damageTypeSummary == "" ? "" : "  ·  " + entry.damageTypeSummary);
     public static function recapDetail(recap:dpsmeter.RiftTracker.RiftRecap):String {
         // Use the beginning of the recorded rift, not the later boss phase or
         // the time the recap is copied. Boss-only recordings use their own start.
@@ -153,8 +159,16 @@ class FightHistory {
         if (player == "") player = recordedPlayerName(recap.gate);
         // Clearing the gates alone cannot make the overall rift a victory.
         var result = outcome(recap.boss.outcome);
+        var breakdown = new DamageBreakdown();
+        var total = 0.0;
+        for (fight in [recap.gate, recap.boss]) if (fight != null) {
+            var stats = fight.players[fight.me];
+            if (stats == null) for (p in fight.players) if (p.info.isMe) { stats = p; break; }
+            if (stats != null) { total += stats.damage; breakdown.merge(stats.damageBreakdown); }
+        }
+        var split = breakdown.summary(total);
         return dateLabel(first.startedAt) + (player == "" ? "" : "  ·  " + player)
-            + "  ·  " + (result == "" ? "Outcome unknown" : result);
+            + "  ·  " + (result == "" ? "Outcome unknown" : result) + (split == "" ? "" : "  ·  " + split);
     }
     static function recordedPlayerName(fight:Null<Fight>):String {
         if (fight == null) return "";
