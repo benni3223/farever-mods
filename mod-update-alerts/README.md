@@ -113,7 +113,8 @@ haxe compile.hxml
 
 Tests cover numeric/prerelease ordering, reminders and rename migration, current
 Vortex records overriding stale backups/folder names, staged-versus-deployed
-contents, and manual metadata hashes. The synthetic database fixture was generated
+contents, manual metadata hashes, and popup dismissal releasing its owner's modal
+registration without closing other windows. The synthetic database fixture was generated
 by real LevelDB (via `plyvel-ci`) and exercises Snappy tables, multi-block write
 logs, deletions, obsolete tables, and checksum failures. Regenerate it with
 `python tests/generate_vortex_fixture.py` after installing `plyvel-ci`.

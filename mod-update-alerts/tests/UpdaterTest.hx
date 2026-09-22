@@ -15,6 +15,7 @@ class UpdaterTest {
     static function u(id:Int,a:String,b:String):AvailableUpdate
         return {name:"Mod "+id,domain:"farever",modId:id,current:a,latest:b};
     static function main():Void {
+        checks+=PopupLifecycleTest.run();
         for(p in [["1.10.0","1.9.0"],["2","1.99.99"],["1.0.0","1.0.0-rc.1"],["1.0.0-rc.10","1.0.0-rc.2"]]) {
             eq(UpdateModel.compare(p[0],p[1]),1);eq(UpdateModel.compare(p[1],p[0]),-1);
         }

@@ -13,6 +13,8 @@ class UpdatePopup {
     var root:Dynamic;
     var body:Dynamic;
     var container:Dynamic;
+    var title:Dynamic;
+    var headingStyle:Dynamic;
     var updates:Array<AvailableUpdate>;
     var onDismiss:Bool->Void;
     var ignore=false;
@@ -60,9 +62,8 @@ class UpdatePopup {
         var header=G.field(window,"header");
         padding(window,0); padding(header,0); padding(content,0);
         absolute(window,header); size(header,758,60); position(header,0,0);
-        var title=G.field(header,"headerTitle");
-        G.set(header,"headText","Mod updates available"); setText(title,"Mod updates available");
-        absolute(header,title); position(title,190,16);
+        G.set(header,"headText","Mod updates available");
+        show(G.field(header,"headerTitle"),false);
         var close=G.field(header,"closeBtn");
         show(close,true); absolute(header,close); size(close,36,36); position(close,708,12);
         G.call("ui.UIElement","set_onClick",close,[dismiss]);
@@ -82,13 +83,23 @@ class UpdatePopup {
         absolute(bodyObject,options); position(options,0,0);
         absolute(options,container); position(container,0,0);
         var parent=G.field(container,"dom");
+        // Use Fight History's bold native font and enlarged heading, retaining
+        // a style reference because DOM fonts may settle after the first frame.
+        headingStyle=label(parent,"");
+        G.call("domkit.Properties","addClass",G.field(headingStyle,"dom"),["bold-14"]);
+        show(headingStyle,false);
+        title=G.create("h2d.Text",[G.field(headingStyle,"font"),header]);
+        absolute(header,title);
+        G.call("h2d.Text","set_text",title,["Mod updates available"]);
+        G.call("h2d.Text","set_textColor",title,[0x8A5F46]);
+        G.call("h2d.Text","set_textAlign",title,[G.enumeration("h2d.Align","Left")]);
+        G.call("h2d.Text","set_lineBreak",title,[false]);
         text(parent,"Close the game and open Vortex to update these mods.",16,8,712);
-        text(parent,"Then check for updates, install them, and deploy before playing.",16,35,712);
-        text(parent,"Mod",16,80,370);
-        text(parent,"Installed",398,80,142);
-        text(parent,"Available",556,80,172);
+        for (item in [text(parent,"Mod",16,56,370),text(parent,"Installed",398,56,142),
+            text(parent,"Available",556,56,172)])
+            G.call("domkit.Properties","addClass",G.field(item,"dom"),["bold-14"]);
         for (i in 0...PAGE_SIZE)
-            rows.push([text(parent,"",16,112+i*31,370),text(parent,"",398,112+i*31,142),text(parent,"",556,112+i*31,172)]);
+            rows.push([text(parent,"",16,88+i*31,370),text(parent,"",398,88+i*31,142),text(parent,"",556,88+i*31,172)]);
         previous=button(parent,"Previous","modUpdaterPrevious",()->{ if(page>0){page--;refresh();} });
         next=button(parent,"Next","modUpdaterNext",()->{ if((page+1)*PAGE_SIZE<updates.length){page++;refresh();} });
         for (item in [previous,next]) { absolute(container,item); size(item,110,32); }
@@ -130,8 +141,19 @@ class UpdatePopup {
         scale=Math.max(0.25,scale);
         G.call("h2d.Object","setScale",window,[scale]);
         position(window,top.x+(bottom.x-top.x-760*scale)/2,top.y+(bottom.y-top.y-490*scale)/2);
+        alignTitle();
         stage="updating window";
         return true;
+    }
+    function alignTitle():Void {
+        G.call("ui.comp.FmtText","updateScale",headingStyle);
+        var font=G.field(headingStyle,"font");
+        if(font!=null && font!=G.field(title,"font")) G.call("h2d.Text","set_font",title,[font]);
+        var width=G.number(G.call("h2d.Text","get_textWidth",title));
+        var scale=Math.min(G.number(G.field(headingStyle,"scaleX"),1)*1.75,668/Math.max(1,width));
+        G.call("h2d.Object","setScale",title,[scale]);
+        var height=G.number(G.call("h2d.Text","get_textHeight",title))*scale;
+        position(title,24,(60-height)/2);
     }
     function local(x:Float,y:Float):{x:Float,y:Float} {
         var point=HlxRuntime.allocInstance(HlxRuntime.resolveType("h2d.col.PointImpl"));
@@ -145,7 +167,13 @@ class UpdatePopup {
         if(callback!=null)callback(selected);
     }
     public function dispose():Void {
-        if(window!=null) {var old=window;window=null;G.call("h2d.Object","remove",old);}
-        owner=null;body=null;container=null;rows=[];onDismiss=null;ignore=false;page=0;
+        if(window!=null) {
+            var old=window;window=null;
+            // Removing only the display object leaves a modal window registered
+            // and blocks game controls. Unregister from the actual owning UI.
+            if(owner!=null) G.call("ui.BaseUI","removeWindow",owner,[old]);
+            else G.call("h2d.Object","remove",old);
+        }
+        owner=null;body=null;container=null;title=null;headingStyle=null;rows=[];onDismiss=null;ignore=false;page=0;
     }
 }
