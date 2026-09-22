@@ -53,6 +53,10 @@ class MinimapMarkers {
     var alertTargets:Array<MapPoint> = [];
     var alertArrows:Array<Dynamic> = [];
     var alertPositions:Array<{x:Float, y:Float, point:MapPoint}> = [];
+    var players = new PlayerMarkers();
+    var partyTargets:Array<MapPoint> = [];
+    var partyArrows:Array<Dynamic> = [];
+    var partyPositions:Array<{x:Float, y:Float, point:MapPoint}> = [];
     var rifts:RiftMarkers;
     var riftArrow:Dynamic;
     var riftAlertPosition:Null<{x:Float, y:Float, point:RiftPoint}>;
@@ -126,6 +130,7 @@ class MinimapMarkers {
         } catch (error:Dynamic) {
             hitPoints = [];
             alertTargets = [];
+            partyTargets = [];
             // An optional marker source must not take down the working map.
             trimIcons(playerIconMarkers, 0);
             trimElevations(playerElevationMarkers, 0);
@@ -143,6 +148,7 @@ class MinimapMarkers {
 
     public function updateAlerts(config:MinimapSettings, x:Float, y:Float, size:Int, scale:Float, rotation:Float, rifts:RiftMarkers):Void {
         updateRiftAlert(config, x, y, size, scale, rotation, rifts);
+        updatePartyAlerts(config, x, y, size, scale, rotation);
         var count = config.sparklingCompanionAlerts ? alertTargets.length : 0;
         while (alertArrows.length > count) {
             G.call("h2d.Object", "remove", alertArrows.pop());
@@ -181,6 +187,12 @@ class MinimapMarkers {
     public function alertHoverAt(x:Float, y:Float):Null<MarkerHover> {
         if (riftAlertPosition != null && nearCursor(x, y, riftAlertPosition.x, riftAlertPosition.y, 12 * markerScale))
             return MarkerDetails.hover(RiftMarkers.name(riftAlertPosition.point.kind), riftAlertPosition.point);
+        var party = partyPositions.length;
+        while (party > 0) {
+            var member = partyPositions[--party];
+            if (nearCursor(x, y, member.x, member.y, 12 * markerScale) && G.field(member.point.entity, "removed") != true)
+                return MarkerDetails.hover(markerName(member.point), member.point);
+        }
         var i = alertPositions.length;
         while (i > 0) {
             var alert = alertPositions[--i];
@@ -216,6 +228,37 @@ class MinimapMarkers {
             }
         }
         if (riftArrow != null) G.call("h2d.Object", "set_visible", riftArrow, [visible]);
+    }
+
+    function updatePartyAlerts(config:MinimapSettings, x:Float, y:Float, size:Int, scale:Float, rotation:Float):Void {
+        var count = config.partyDirectionArrows ? partyTargets.length : 0;
+        while (partyArrows.length > count) G.call("h2d.Object", "remove", partyArrows.pop());
+        while (partyArrows.length < count) {
+            var arrow = G.create("h2d.Graphics", [alertLayer]);
+            LandmarkIcons.alertArrow(arrow, 11, PlayerMarkers.COLOR);
+            partyArrows.push(arrow);
+        }
+        partyPositions = [];
+        if (count == 0) return;
+        var c = Math.cos(rotation), s = Math.sin(rotation);
+        var north = config.showNorthIndicator ? MinimapGeometry.north(size, config.circular, rotation, markerScale) : null;
+        for (i in 0...count) {
+            var point = partyTargets[i];
+            var dx = (point.x - x) * scale, dy = (point.y - y) * scale;
+            var sx = dx * c - dy * s, sy = dx * s + dy * c;
+            // Pass a marker so the arrow exists only while this member is off the map,
+            // including when their on-map icon is hidden.
+            var visible = G.field(point.entity, "removed") != true && MinimapGeometry.showAlert(true,
+                sx, sy, size, config.circular, (markerRadius("party") + 1) * markerScale);
+            var arrow = partyArrows[i];
+            G.call("h2d.Object", "setScale", arrow, [markerScale]);
+            G.call("h2d.Object", "set_visible", arrow, [visible]);
+            if (!visible) continue;
+            var pos = MinimapGeometry.alert(sx, sy, size, config.circular, markerScale, north);
+            G.call("h2d.Object", "setPosition", arrow, [pos.x, pos.y]);
+            G.call("h2d.Object", "set_rotation", arrow, [Math.atan2(sy, sx)]);
+            partyPositions.push({x: pos.x, y: pos.y, point: point});
+        }
     }
 
     function refreshLandmarks():Void {
@@ -297,6 +340,7 @@ class MinimapMarkers {
     function collect(hero:Dynamic, config:MinimapSettings, x:Float, y:Float, radius:Float):Array<MapPoint> {
         var points:Array<MapPoint> = [];
         alertTargets = [];
+        partyTargets = [];
         var liveNpcs:Map<String, MapPoint> = [];
         var player = G.field(hero, "player");
         var progress = G.field(player, "progress");
@@ -304,15 +348,21 @@ class MinimapMarkers {
         var collection = G.field(G.field(player, "accountProgress"), "collection");
         var enemyKinds:Map<String, String> = [];
         var collected:Map<String, Bool> = [];
-        if (config.showPlayers || config.showEnemies || config.showCompanions || config.sparklingCompanionAlerts)
+        var roster = players.roster(player, hero);
+        var seen:Array<Dynamic> = [];
+        if (config.showPlayers || config.partyDirectionArrows || config.showEnemies || config.showCompanions || config.sparklingCompanionAlerts)
         for (unit in G.array(G.field(layer, "units"))) {
             if (unit == hero || G.field(unit, "removed") == true) continue;
             var kind = family(unit);
             if (kind != "player" && kind != "enemy") continue;
-            if (kind == "player" ? !config.showPlayers : !config.showEnemies && !config.showCompanions && !config.sparklingCompanionAlerts) continue;
+            if (kind == "player") {
+                trackPlayer(unit, config, x, y, radius, roster, seen, points);
+                continue;
+            }
+            if (!config.showEnemies && !config.showCompanions && !config.sparklingCompanionAlerts) continue;
             var px = G.number(G.field(unit, "posx")), py = G.number(G.field(unit, "posy"));
             var nearby = near(px, py, x, y, radius);
-            if (!nearby && (kind == "player" || !config.sparklingCompanionAlerts)) continue;
+            if (!nearby && !config.sparklingCompanionAlerts) continue;
             var inf = kind == "enemy" ? G.field(unit, "inf") : null;
             var flags = G.integer(G.field(inf, "flags"));
             var sparkling = (flags & (1 << 22)) != 0;
@@ -367,6 +417,11 @@ class MinimapMarkers {
             // hide normal companion markers while leaving alerts enabled.
             point.hasMarker = true;
             points.push(point);
+        }
+        // Group heroes can outlive the replicated unit list. Point at those too.
+        if (config.partyDirectionArrows) for (member in players.directions(roster)) {
+            if (players.inParty(member, seen) || dead(member)) continue;
+            partyTargets.push(partyPoint(member, false));
         }
 
         if (config.showPlants || config.showOre || config.showNpcs || config.showChests) for (element in G.array(G.field(layer, "interactibles"))) {
@@ -553,6 +608,46 @@ class MinimapMarkers {
         return kind;
     }
 
+    function trackPlayer(unit:Dynamic, config:MinimapSettings, x:Float, y:Float, radius:Float,
+            roster:Array<Dynamic>, seen:Array<Dynamic>, points:Array<MapPoint>):Void {
+        var member = players.inParty(unit, roster);
+        if (!member && !config.showPlayers) return;
+        if (dead(unit)) {
+            if (member) seen.push(unit);
+            return;
+        }
+        var px = G.number(G.field(unit, "posx")), py = G.number(G.field(unit, "posy"));
+        var show = near(px, py, x, y, radius) && PlayerMarkers.visible(config.showPlayers, config.hideNonPartyPlayers, member);
+        if (member) {
+            seen.push(unit);
+            if (config.partyDirectionArrows) partyTargets.push(partyPoint(unit, show));
+        }
+        if (!show) return;
+        var point = partyPoint(unit, true);
+        point.kind = PlayerMarkers.kind(member);
+        points.push(point);
+    }
+
+    function partyPoint(unit:Dynamic, hasMarker:Bool):MapPoint {
+        return {kind: "party", x: G.number(G.field(unit, "posx")), y: G.number(G.field(unit, "posy")),
+            z: G.number(G.field(unit, "posz"), Math.NaN), entity: unit, heading: G.number(G.field(unit, "rotationZ")),
+            hasMarker: hasMarker};
+    }
+
+    function dead(unit:Dynamic):Bool {
+        if (unit == null || G.field(unit, "dying") == true) return true;
+        // A group hero without a live body still has a position. Do not let that
+        // lookup failure clear the rest of the map.
+        try {
+            return G.call("ent.GameObject", "isDead", unit) == true;
+        } catch (_:Dynamic) {
+            return false;
+        }
+    }
+
+    static function isPlayer(kind:String):Bool
+        return kind == "player" || kind == "party";
+
     static function hiddenResource(resource:String, config:MinimapSettings):Bool return switch resource {
         case "Copper": config.hideCopper;
         case "Iron": config.hideIron;
@@ -594,6 +689,7 @@ class MinimapMarkers {
         return Math.abs(px - x) <= radius && Math.abs(py - y) <= radius;
 
     static function markerRadius(kind:String):Float return switch kind {
+        case "party": 10;
         case "bank", "demon", "chest", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
         case "obelisk", "dungeon", "soulstone", "secretOrb", "glory": 8;
@@ -641,7 +737,7 @@ class MinimapMarkers {
         // Reverse draw order: other markers, then our cursor, then other players.
         while (i > 0) {
             var point = hitPoints[--i];
-            if (checkHero && point.kind == "player") {
+            if (checkHero && isPlayer(point.kind)) {
                 checkHero = false;
                 if (nearCursor(x, y, heroX, heroY, 11 * markerScale / scale)) return heroHover(hero, heroX, heroY);
             }
@@ -674,7 +770,7 @@ class MinimapMarkers {
         try {
             if (point.entity != null) {
                 var type = switch point.kind {
-                    case "player": "ent.Hero";
+                    case "player", "party": "ent.Hero";
                     case "enemy", "boss", "companion", "targetDummy": "ent.Unit";
                     case "plant", "ore": "ent.interactible.Gatherable";
                     default: "ent.Element";
@@ -709,6 +805,7 @@ class MinimapMarkers {
             case "plant": "Plant";
             case "ore": "Ore";
             case "player": "Player";
+            case "party": "Party member";
             case "companion": "Companion";
             case "enemy", "boss": "Enemy";
             case "targetDummy": "Target dummy";
@@ -722,14 +819,14 @@ class MinimapMarkers {
     function draw(points:Array<MapPoint>, scale:Float):Void {
         hitPoints = [];
         // All Rift states draw above enemies; services retain top priority.
-        for (kind in ["player", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft", "glory", "infusion"]) {
+        for (kind in ["player", "party", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft", "glory", "infusion"]) {
             for (point in points) if (point.kind == kind) {
                 point.elevation = elevationDirection(point.z, heroHeight);
                 hitPoints.push(point);
             }
         }
-        var playerPoints = [for (point in hitPoints) if (point.kind == "player") point];
-        var mapPoints = [for (point in hitPoints) if (point.kind != "player" && !isNpc(point.kind)) point];
+        var playerPoints = [for (point in hitPoints) if (isPlayer(point.kind)) point];
+        var mapPoints = [for (point in hitPoints) if (!isPlayer(point.kind) && !isNpc(point.kind)) point];
         var npcPoints = [for (point in hitPoints) if (isNpc(point.kind)) point];
         updateIcons(playerPoints, playerIconMarkers, playerIcons, scale);
         updateIcons(mapPoints, mapIconMarkers, mapIcons, scale);
@@ -757,7 +854,7 @@ class MinimapMarkers {
                 drawIcon({kind: point.kind, sparkling: point.sparkling, heading: 0, x: 0, y: 0, z: 0});
                 marker.key = key;
             }
-            marker.directional = point.kind == "player";
+            marker.directional = isPlayer(point.kind);
             G.call("h2d.Object", "setPosition", marker.icon, [point.x, point.y]);
             G.call("h2d.Object", "setScale", marker.icon, [markerScale / scale]);
             G.call("h2d.Object", "set_rotation", marker.icon, [marker.directional ? point.heading : -mapRotation]);
@@ -787,6 +884,7 @@ class MinimapMarkers {
             case "npc": 0xffdf78;
             case "bank": 0xffdc42;
             case "demon": 0xe8a1ff;
+            case "party": PlayerMarkers.COLOR;
             default: 0x70d8ff;
         };
         var sparkling = point.sparkling == true;
@@ -833,7 +931,7 @@ class MinimapMarkers {
     function shape(point:MapPoint, r:Float):Void {
         var x = point.x, y = point.y;
         switch point.kind {
-            case "player":
+            case "player", "party":
                 arrowShape(graphics, point.x, point.y, r, point.heading);
             case "plant":
                 // A pointed leaf with a short stem, readable at minimap scale.

@@ -20,6 +20,8 @@ typedef MinimapSettings = {
     var xOffset:Float;
     var yOffset:Float;
     var showPlayers:Bool;
+    var hideNonPartyPlayers:Bool;
+    var partyDirectionArrows:Bool;
     var showPlants:Bool;
     var showOre:Bool;
     var showEnemies:Bool;
@@ -59,7 +61,8 @@ class MinimapMod {
         enabled: true, transparency: 0, zoom: 30, size: 250, markerScale: 100, rotateMap: true, followCamera: true,
         circular: true, leftCorner: false, showNorthIndicator: true, xOffset: 0, yOffset: 0,
         showRiftTimer: true, riftAlerts: true,
-        showPlayers: true, showPlants: true, showOre: true, showEnemies: true,
+        showPlayers: true, hideNonPartyPlayers: false, partyDirectionArrows: true,
+        showPlants: true, showOre: true, showEnemies: true,
         hideCompletedCodexEnemies: false, hideMasteredCodexEnemies: false, hideTargetDummies: false,
         showCompanions: true, hideCollectedCompanions: true, sparklingCompanionAlerts: true,
         showRespawnPoints: true, showObelisks: true, showSoulstoneCircles: true, showNpcs: true,

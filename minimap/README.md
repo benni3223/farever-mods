@@ -33,6 +33,8 @@ with the new client.
 - Marker scale slider resizes icons and all arrows together.
 - Left or right corner placement (right by default) with X/Y offsets from 0–100% in 1% steps.
 - Directional player arrows and markers for enemies, resources, NPCs, obelisks, and respawn points.
+- Party members are larger gold arrows. An option hides everyone outside your party.
+- Gold edge arrows point toward party members who are off the map, in the same style as Rift alerts.
 - Distinct icons for Guild Merchants, Glory Merchants, Demon Huntresses, and crafting, upgrade, recycling, and infusion stations.
 - Soulstone summoning circles with rune-ring and crystal markers.
 - Unopened treasure chest, undiscovered secret orb, and activity markers.
@@ -52,7 +54,9 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Marker | Appearance |
 | --- | --- |
 | Your character | Flat ivory arrow |
-| Other players | Larger light-blue arrow showing facing direction |
+| Other players | Light-blue arrow showing facing direction |
+| Party members | Larger gold arrow showing facing direction |
+| Off-screen party members | Gold edge arrow pointing toward them |
 | Plants | Green leaf |
 | Ore | Gray stone |
 | Enemies | Red circle; larger for bosses; thick yellow ring for sparkling variants |
@@ -79,13 +83,17 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Chests | Orange rectangular treasure chest |
 | Undiscovered secret orbs | Gold orb with an ivory centre and broken purple rings |
 
-**Show NPCs** also controls the Guild Merchant, Glory Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
+**Show NPCs** also controls the Guild Merchant, Glory Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. Party markers draw above other players and still behind the map. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
+
+**Hide players outside your party** is off by default, directly under **Show other players**. When it is on, only heroes in your group are drawn. Solo play, or a missing group, hides every other player. **Show other players** still hides every on-map hero when it is off, including party members.
+
+**Party direction arrows** is on by default. Each living party member the client has a position for gets one gold guidance arrow on the minimap edge while they are outside the view. The arrow uses the Rift alert shape, points toward that member, and disappears once their marker is on the map, including when **Show other players** is off. Several members produce several arrows. Hover shows that member's name, distance, and height. There is no arrow when the client has no coordinates for them, or when they are removed or dead.
 
 Glory Merchants are identified by the PTR's dedicated merchant unit (`TODO_MOG_Merchant`), with service-title and Glory-price checks as fallbacks; Infusion Crucibles use the new client's native station type. Both appear automatically wherever those services exist, with the same hover distances, height indicators, and vertical filtering as other NPC markers. A live NPC's resolved definition can replace a generic map definition. Their definitions and icon geometry are cached, and the same build continues to support the current client.
 
-Hover details are always enabled. The marker name stays on the first line, with a smaller, dimmer second line such as **↔ 42 m · ↑ 18 m**. The double horizontal arrow marks horizontal distance; the up/down arrow shows height above or below your character. Measurements round to whole metres and refresh five times per second. A height that rounds to zero reads **↕ 0 m**; unknown elevation is omitted. All arrows are drawn geometry, so no font glyph support or language fallback is needed. Arrows and numbers fit the available width together, independently of the name. Rift and sparkling companion guidance arrows show measurements to their destination, not to the edge of the minimap.
+Hover details are always enabled. The marker name stays on the first line, with a smaller, dimmer second line such as **↔ 42 m · ↑ 18 m**. The double horizontal arrow marks horizontal distance; the up/down arrow shows height above or below your character. Measurements round to whole metres and refresh five times per second. A height that rounds to zero reads **↕ 0 m**; unknown elevation is omitted. All arrows are drawn geometry, so no font glyph support or language fallback is needed. Arrows and numbers fit the available width together, independently of the name. Rift, party, and sparkling companion guidance arrows show measurements to their destination, not to the edge of the minimap.
 
-**Hide vertically distant markers** is off by default at the bottom of **Markers**. The **Vertically distant threshold** slider below it ranges from **15 to 100 metres**, in one-metre steps, defaulting to **15**. When enabled, it hides map markers more than that distance above or below you; markers exactly at the threshold remain visible. It applies across all marker categories, including resources, enemies, players, landmarks, and activities. Unknown elevations stay visible. **Rift and sparkling companion guidance arrows remain available**, including when their destination's map marker is hidden by this filter.
+**Hide vertically distant markers** is off by default at the bottom of **Markers**. The **Vertically distant threshold** slider below it ranges from **15 to 100 metres**, in one-metre steps, defaulting to **15**. When enabled, it hides map markers more than that distance above or below you; markers exactly at the threshold remain visible. It applies across all marker categories, including resources, enemies, players, landmarks, and activities. Unknown elevations stay visible. **Rift and sparkling companion guidance arrows remain available**, including when their destination's map marker is hidden by this filter. Party direction arrows stay available for members who are off the map.
 
 Secret orb tooltips always read **Secret Orb**. Sparkling companion alerts disappear whenever any part of the companion marker is visible, and reappear when it leaves the map. This follows zoom and rotation for both map shapes. Alerts still work when normal companion markers are disabled. Their alert arrows are solid yellow triangles, distinct from player arrows. Both sparkling companion markers and their alert arrows have yellow rings with transparent centres, letting the map show through around the pawprint or triangle. Their alert rings have no height arrows; ordinary markers retain their height indicators.
 
@@ -123,6 +131,6 @@ cd minimap
 haxe compile.hxml
 ```
 
-Run the marker classification, activity visibility, hover measurements, vertical filtering, Rift schedule/state, Codex milestone, percentage-position, clipping, and compass regression tests with `haxe test.hxml` (no game or HLX runtime required).
+Run the marker classification, party roster, activity visibility, hover measurements, vertical filtering, Rift schedule/state, Codex milestone, percentage-position, clipping, and compass regression tests with `haxe test.hxml` (no game or HLX runtime required).
 
 Output: `build/minimap/minimap.hl`. The independent workflow packages this project and publishes releases for `minimap/v*` tags.

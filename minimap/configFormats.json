@@ -19,6 +19,8 @@
     { "type": "title", "label": "Markers" },
     { "key": "markerScale", "type": "slider", "label": "Marker scale %", "min": 50, "max": 200, "step": 10 },
     { "key": "showPlayers", "type": "checkbox", "label": "Show other players" },
+    { "key": "hideNonPartyPlayers", "type": "checkbox", "label": "Hide players outside your party" },
+    { "key": "partyDirectionArrows", "type": "checkbox", "label": "Party direction arrows" },
     { "key": "showRespawnPoints", "type": "checkbox", "label": "Show respawn points" },
     { "key": "showObelisks", "type": "checkbox", "label": "Show obelisks" },
     { "key": "showSoulstoneCircles", "type": "checkbox", "label": "Show soulstone summoning circles" },
