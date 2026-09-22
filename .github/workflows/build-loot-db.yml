@@ -1,0 +1,34 @@
+name: Loot Database
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['loot-db/v*']
+    paths:
+      - 'loot-db/**'
+      - 'shared/**'
+      - '.github/workflows/build-loot-db.yml'
+      - '.github/workflows/_build-mod.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'loot-db/**'
+      - 'shared/**'
+      - '.github/workflows/build-loot-db.yml'
+      - '.github/workflows/_build-mod.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  build:
+    uses: ./.github/workflows/_build-mod.yml
+    with:
+      project: loot-db
+      module: loot-db
+      title: Loot Database

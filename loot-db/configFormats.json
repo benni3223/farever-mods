@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "displayName": "Loot Database",
+  "configs": [
+    { "type": "title", "label": "General" },
+    { "key": "enabled", "type": "checkbox", "label": "Enabled" },
+    { "key": "hotkey", "type": "keybinding", "label": "Open or close loot database" },
+    { "type": "title", "label": "Button" },
+    { "key": "anchorRight", "type": "checkbox", "label": "Anchor to the right" },
+    { "key": "buttonX", "type": "slider", "label": "Distance from the anchored edge", "min": 0, "max": 400, "step": 1 },
+    { "key": "buttonY", "type": "slider", "label": "Distance from the top", "min": 0, "max": 400, "step": 1 }
+  ]
+}

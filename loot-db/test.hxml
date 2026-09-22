@@ -1,0 +1,5 @@
+-cp src
+-cp ../shared/src
+-cp tests
+-main CatalogTest
+--interp

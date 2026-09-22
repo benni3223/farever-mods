@@ -1,0 +1,7 @@
+-lib hlx-runtime
+-D hl-ver=1.16.0
+-cp src
+-cp ../shared/src
+-main lootdb.LootDbMod
+-dce full
+-hl build/loot-db/loot-db.hl

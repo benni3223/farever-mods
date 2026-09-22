@@ -94,6 +94,12 @@ jobs:
           if [[ "$PROJECT" != "better-mod-settings" ]]; then
             cp configFormats.json "$destination/"
           fi
+          if [[ -f data/database.json ]]; then
+            cp data/database.json "$destination/"
+            if [[ -f README.md ]]; then
+              cp README.md "$destination/"
+            fi
+          fi
           printf '%s\n' \
             "$REQUIREMENTS" \
             'Supports the current live and new/PTR clients. The new/PTR client requires HLX Core 0.0.8 or newer.' \

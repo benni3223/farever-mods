@@ -12,6 +12,7 @@ Each project has its own source, build, installable ZIP, and versioned releases.
 | Fix Target Lock | [fix-target-lock](fix-target-lock/) | [Build](https://github.com/xWink/farever-mods/actions/workflows/build-fix-target-lock.yml) | [Downloads](https://github.com/xWink/farever-mods/releases?q=fix-target-lock&expanded=true) |
 | DPS Meter | [dps-meter](dps-meter/) | [Build](https://github.com/xWink/farever-mods/actions/workflows/build-dps-meter.yml) | [Downloads](https://github.com/xWink/farever-mods/releases?q=dps-meter%2Fv&expanded=true) |
 | Minimap | [minimap](minimap/) | [Build](https://github.com/xWink/farever-mods/actions/workflows/build-minimap.yml) | [Downloads](https://github.com/xWink/farever-mods/releases?q=minimap%2Fv&expanded=true) |
+| Loot Database | [loot-db](loot-db/) | [Build](https://github.com/xWink/farever-mods/actions/workflows/build-loot-db.yml) | [Downloads](https://github.com/xWink/farever-mods/releases?q=loot-db%2Fv&expanded=true) |
 
 ## Installing
 
@@ -26,6 +27,7 @@ game API differences are detected at runtime. Only Item Utilities also requires 
 [Farever ImGui plugin](https://www.nexusmods.com/farever/mods/4), which draws its
 deposit buttons, equipment presets, and item-lock controls and icons.
 DPS Meter handles log uploads inside the HLX mod and uses native game UI.
+Loot Database also uses native game UI and ships its catalog as `database.json`.
 
 ## Settings
 
