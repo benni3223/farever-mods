@@ -154,7 +154,10 @@ class InstalledMods {
     /** Candidate only. Nexus must match its mod/version/upload-time tuple before using it. */
     public static function archiveCandidate(source:String):Null<{id:Int,archive:String}> {
         var r=~/^.+?-([0-9]+)-.+-[0-9]{10}(?:\.[A-Za-z0-9]+)?$/;
-        if (!r.match(source)) return null;
+        if (!r.match(source)) {
+            r=~/^.+ ([1-9][0-9]*) [^ ]+ [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}Z [A-Za-z0-9]+(?:\.(?:zip|7z|rar))?$/i;
+            if(!r.match(source)) return null;
+        }
         var modId=id(r.matched(1));
         if (modId==0) return null;
         return {id:modId,archive:source};

@@ -6,6 +6,10 @@ Checks Nexus Mods for updates in the background once per game launch. When updat
 are found, a native window lists mod names, installed versions, and available
 versions. Close it with its X or Escape to keep playing. To update, close Farever,
 open Vortex, check for updates, install them, and deploy.
+The popup waits for an initialized UI, registers with the game's window manager,
+and keeps the mouse cursor available. Loading/menu transitions cannot permanently
+exhaust its retries. If native UI creation fails, the log includes the operation
+and actual error; repeated identical errors are suppressed while retries continue.
 
 The checkbox **Don't remind me again about these versions** remembers the listed
 available versions immediately. Unchecking it restores the prior preference.
@@ -36,8 +40,10 @@ its credentials:
 2. The newest valid Vortex full state backup under
    `%APPDATA%/Vortex/temp/state_backups_full/` supplies Nexus IDs, names, and
    installed versions when available. Disabled/staged-only mods are excluded.
-3. Otherwise a standard Nexus archive identifier in the deployment record is
-   checked against Nexus's actual mod ID, version, and upload timestamp. The
+3. Otherwise a Nexus archive identifier in the deployment record is checked
+   against Nexus's actual mod ID, version, and upload timestamp. Both the older
+   hyphenated names and newer space-separated names with a UTC date and file SQID
+   are supported; the latter must also match Nexus's exact file SQID. The
    numeric version is **not guessed from the folder name**.
    Farever mods and tools published under Nexus's Site category are supported.
 4. Manual installs can include the opt-in metadata below.
@@ -47,6 +53,9 @@ Vortex installation, or mod lacking version metadata. Missing/stale deployment
 records, changed binaries, unknown version schemes, and unavailable Nexus
 metadata are logged as `[Mod Updater]` and skipped; they are never reported as
 up to date. Vortex need not be running, but mods must have been deployed.
+These diagnostics do not prevent alerts for other identified mods. In particular,
+replacing a Vortex-deployed mod with a GitHub test build invalidates Vortex's old
+version metadata; the checker cannot label that replacement as the old release.
 
 The public [Nexus GraphQL API](https://api.nexusmods.com/v2/graphql) supplies current
 page versions and file metadata. An alert requires a newer numeric/SemVer version

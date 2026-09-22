@@ -3,6 +3,7 @@ import modupdater.UpdateModel.AvailableUpdate;
 import modupdater.InstalledMods;
 import modupdater.NexusClient;
 import modupdater.ReminderStore;
+import modupdater.PopupRetry;
 import sys.io.File;
 import sys.FileSystem;
 
@@ -46,6 +47,40 @@ class UpdaterTest {
         eq(NexusClient.archiveVersion("Minimap-15-9-9-9-1789696451",15,files),null);
         eq(NexusClient.archiveVersion(source,16,files),null);
         eq(InstalledMods.archiveCandidate("renamed"),null);
+        // Exact modern filename reported by a Vortex user, verified against
+        // Nexus file 104; the preceding file on the same page has another SQID.
+        var modern="game-version-driver 16 0.0.1 2026-09-20T20-28Z FgeIvI3Az";
+        var modernFiles:Array<Dynamic>=[{fileId:103,sqid:"5nZDPD4Hh",version:"0.0.1",date:1789932988,categoryId:7},
+            {fileId:104,sqid:"FgeIvI3Az",version:"0.0.1",date:1789936115,categoryId:1}];
+        eq(InstalledMods.archiveCandidate(modern).id,16);
+        eq(InstalledMods.archiveCandidate(modern+".ZIP").id,16);
+        eq(NexusClient.archiveVersion(modern,16,modernFiles),"0.0.1");
+        eq(NexusClient.archiveVersion(modern+".ZIP",16,modernFiles),"0.0.1");
+        eq(NexusClient.archiveVersion(modern,17,modernFiles),null);
+        eq(NexusClient.archiveVersion(StringTools.replace(modern,"0.0.1","9.9.9"),16,modernFiles),null);
+        eq(NexusClient.archiveVersion(StringTools.replace(modern,"20-28Z","20-29Z"),16,modernFiles),null);
+        eq(NexusClient.archiveVersion(StringTools.replace(modern,"FgeIvI3Az","5nZDPD4Hh"),16,modernFiles),null);
+        eq(NexusClient.archiveVersion(modern,16,[{version:"0.0.1",date:1789936115}]),null);
+        eq(InstalledMods.archiveCandidate("mod 16 0.0.1 2026-09-20T20-28Z"),null);
+
+        var retry=new PopupRetry(), menu:Dynamic={}, game:Dynamic={};
+        eq(retry.ready(menu,0),true);
+        eq(retry.failed(0,"building header: not ready"),true);
+        eq(retry.ready(menu,4),false); eq(retry.ready(menu,5),true);
+        eq(retry.failed(5,"building header: not ready"),false); // No duplicate log spam.
+        eq(retry.ready(menu,14),false); eq(retry.ready(menu,15),true);
+        eq(retry.failed(15,"building header: not ready"),false);
+        eq(retry.ready(menu,34),false); eq(retry.ready(menu,35),true); // The old three-attempt cutoff.
+        retry.failed(35,"building header: not ready");
+        eq(retry.ready(game,36),true); // Menu -> game resets the backoff immediately.
+        eq(retry.failed(36,"building header: not ready"),true);
+        eq(retry.ready(game,40),false); eq(retry.ready(game,41),true);
+        eq(retry.failed(41,"building checkbox: failure"),true); // A different error is reported.
+        retry.succeeded(); eq(retry.ready(game,41),true);
+        for(i in 0...10) {
+            retry.failed(i*100,"temporarily unavailable");
+            eq(retry.ready(game,i*100+60),true); // Delays are bounded, attempts are not.
+        }
         eq(NexusClient.hasDownload({name:"Minimap",version:"1.6.0",files:files}),true);
         eq(NexusClient.hasDownload({name:"Minimap",version:"1.5.1",files:files}),false);
         var root="tests/tmp-"+Std.random(10000000);
@@ -73,6 +108,13 @@ class UpdaterTest {
             manifest.files[0].time=0;
             File.saveContent(root+"/game/vortex.deployment.json",haxe.Json.stringify(manifest));
             scan=new InstalledMods();scan.scan(root+"/game",root+"/vortex");eq(scan.deployed.length,0);
+            // A changed test build must not hide other verified deployed mods.
+            FileSystem.createDirectory(root+"/game/hlx/mods/driver");
+            var driver=root+"/game/hlx/mods/driver/driver.hl";File.saveContent(driver,"driver fixture");
+            manifest.files.push({relPath:"hlx/mods/driver/driver.hl",source:modern,time:FileSystem.stat(driver).mtime.getTime()});
+            File.saveContent(root+"/game/vortex.deployment.json",haxe.Json.stringify(manifest));
+            scan=new InstalledMods();scan.scan(root+"/game",root+"/vortex");
+            eq(scan.deployed.length,1);eq(scan.deployed[0].source,modern);
             var info:Dynamic={name:"Example",modId:15,domain:"farever",version:"1.2.3",binary:"example.hl",sha256:haxe.crypto.Sha256.make(File.getBytes(base+"/example.hl")).toHex()};
             File.saveContent(base+"/update-info.json",haxe.Json.stringify(info));
             scan=new InstalledMods();scan.scan(root+"/game",root+"/empty");eq(scan.manual.length,1);

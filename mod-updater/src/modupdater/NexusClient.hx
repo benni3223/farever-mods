@@ -66,7 +66,7 @@ class NexusClient {
             if (game==null) { cache.set(key,null); return null; }
             games.set(domain,Std.string(Reflect.field(game,"id")));
         }
-        var data=query("query($game:ID!,$mod:ID!){mod(gameId:$game,modId:$mod){name version} modFiles(gameId:$game,modId:$mod){fileId name version date categoryId}}",
+        var data=query("query($game:ID!,$mod:ID!){mod(gameId:$game,modId:$mod){name version} modFiles(gameId:$game,modId:$mod){fileId sqid name version date categoryId}}",
             {game:games.get(domain),mod:Std.string(modId)});
         if (data==null) { cache.set(key,null); return null; }
         var info:Dynamic=Reflect.field(data,"mod");
@@ -90,12 +90,23 @@ class NexusClient {
             if (!~/^[0-9]{10}$/.match(stamp) || version=="") continue;
             var encoded=~/[^a-zA-Z0-9]/g.replace(version,"-");
             var ending="-"+modId+"-"+encoded+"-"+stamp;
-            if (!StringTools.endsWith(stem,ending)) continue;
+            var matches=StringTools.endsWith(stem,ending);
+            var sqid=InstalledMods.text(file,"sqid");
+            if(!matches && ~/^[A-Za-z0-9]+$/.match(sqid)) {
+                // New Nexus filenames use the UTC upload minute and a file SQID.
+                // Verify all fields against Nexus, not just the printed version.
+                var date=Date.fromTime(Std.parseFloat(stamp)*1000);
+                var minute=date.getUTCFullYear()+"-"+pad(date.getUTCMonth()+1)+"-"+pad(date.getUTCDate())
+                    +"T"+pad(date.getUTCHours())+"-"+pad(date.getUTCMinutes())+"Z";
+                matches=StringTools.endsWith(stem," "+modId+" "+version+" "+minute+" "+sqid);
+            }
+            if (!matches) continue;
             if (matched!=null && matched!=version) return null;
             matched=version;
         }
         return matched;
     }
+    static function pad(value:Int):String return StringTools.lpad(Std.string(value),"0",2);
 
     public static function hasDownload(info:NexusMod):Bool {
         for (file in info.files) if ((Reflect.field(file,"categoryId")==1 || Reflect.field(file,"categoryId")==2)

@@ -33,10 +33,12 @@ class GameAccess {
     public static function call(type:String, name:String, object:Dynamic, ?args:Array<Dynamic>):Dynamic {
         var all:Array<Dynamic> = [object];
         if (args != null) for (a in args) all.push(a);
-        return HlxRuntime.callResolved(member(type, name), all);
+        try return HlxRuntime.callResolved(member(type, name), all)
+        catch (error:Dynamic) throw type+"."+name+": "+Std.string(error);
     }
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
-        return HlxRuntime.callResolved(member(type, name, true), args);
+        try return HlxRuntime.callResolved(member(type, name, true), args)
+        catch (error:Dynamic) throw type+"."+name+": "+Std.string(error);
     }
     public static function current(type:String, name:String):Dynamic {
         var t = HlxRuntime.resolveType(type);

@@ -11,8 +11,7 @@ class ModUpdaterMod {
     static var finished=false;
     static var selected=false;
     static var originalDismissed:Map<String,String>;
-    static var retryAt:Float=0;
-    static var attempts=0;
+    static var retry=new PopupRetry();
 
     static function main():Void {
         trace("[Mod Updater] Loaded; checking starts when the game UI is ready.");
@@ -38,9 +37,8 @@ class ModUpdaterMod {
             }
             if(finished || result==null) return;
             if(popup!=null && popup.update(ui)) return;
-            if(haxe.Timer.stamp()<retryAt || attempts>=3) return;
+            if(!retry.ready(ui,haxe.Timer.stamp()) || !UpdatePopup.ready(ui)) return;
             popup=new UpdatePopup();
-            attempts++;
             popup.open(ui,result.updates,function(suppress:Bool):Void {
                 finished=true;
                 popup=null;
@@ -50,12 +48,16 @@ class ModUpdaterMod {
                 if(value) UpdateModel.dismiss(result.updates,result.dismissed);
                 worker.saves.add(result.dismissed.copy());
             }, selected);
-            attempts=0;
-        } catch (_:Dynamic) {
+            retry.succeeded();
+            trace("[Mod Updater] Update popup opened.");
+        } catch (error:Dynamic) {
             UpdatePopup.constructing=false;
+            var stage=popup==null ? "update check" : popup.stage;
             if(popup!=null) try popup.dispose() catch (_:Dynamic) {}
-            popup=null;retryAt=haxe.Timer.stamp()+10;
-            trace("[Mod Updater] Popup not ready; retrying when the UI is available.");
+            popup=null;
+            var message=stage+": "+Std.string(error);
+            if(retry.failed(haxe.Timer.stamp(),message))
+                trace("[Mod Updater] Could not show updates ("+message+"). Will retry when the UI is ready.");
         }
     }
 

@@ -8,6 +8,7 @@ import modupdater.NativeUi.*;
 class UpdatePopup {
     public static var constructing=false;
     public var owner(default,null):Dynamic;
+    public var stage(default,null)="creating window";
     var window:Dynamic;
     var root:Dynamic;
     var body:Dynamic;
@@ -23,19 +24,35 @@ class UpdatePopup {
     static inline var PAGE_SIZE=6;
     public function new() {}
 
+    public static function ready(ui:Dynamic):Bool {
+        var root=G.field(ui,"root"), scene=G.field(ui,"s2d");
+        return root!=null && G.field(root,"parent")!=null && G.field(ui,"style")!=null
+            && G.number(G.field(scene,"width"))>0 && G.number(G.field(scene,"height"))>0
+            && G.field(G.current("Data","icon"),"byId")!=null;
+    }
+
     public function open(ui:Dynamic, updates:Array<AvailableUpdate>, onDismiss:Bool->Void, onPreference:Bool->Void, selected:Bool):Void {
         this.owner=ui; this.updates=updates; this.onDismiss=onDismiss; this.ignore=selected;
         constructing=true;
         try window=G.create("ui.win.TitleWindow",["Options",null])
         catch (e:Dynamic) { constructing=false; throw e; }
         constructing=false;
-        G.call("ui.win.BaseWindow","set_windowFlags",window,[8192]);
+        if(window==null) throw "Native title window was not created";
+        stage="registering window";
+        var freeCursor=G.enumeration("ui.win.WindowFlags","FreeCursor");
+        if(freeCursor==null) throw "FreeCursor flag is unavailable";
+        G.call("ui.win.BaseWindow","set_windowFlags",window,[8192 | (1 << Type.enumIndex(freeCursor))]);
         root=G.field(ui,"root");
         G.call("h2d.Flow","addChildAt",root,[window,G.call("h2d.Object","get_numChildren",root)]);
+        // Attaching alone bypasses the native window manager and cursor handling.
+        // As in Fight History, BaseUIRoot is a Flow, not a displayWindow parent.
+        G.call("ui.BaseUI","displayWindow",ui,[window,null]);
         absolute(root,window);
+        stage="building header";
         var dom=G.field(window,"dom");
         G.set(dom,"component",G.staticCall("domkit.Component","get",["options-window",null]));
         var content=G.field(dom,"contentRoot");
+        if(content==null) throw "Native title window content was not initialized";
         size(window,760,490);
         for (child in children(window)) if (G.field(child,"bgMask")!=null) {
             absolute(window,child); padding(child,0); size(child,760,490); position(child,0,0);
@@ -51,6 +68,7 @@ class UpdatePopup {
         G.call("ui.UIElement","set_onClick",close,[dismiss]);
         absolute(window,content); size(content,744,422); position(content,8,60);
 
+        stage="building update list";
         body=node("options-content",dom,[0],"modUpdaterBody");
         var bodyObject=G.field(body,"obj");
         container=prepareChartBody(body);
@@ -76,11 +94,13 @@ class UpdatePopup {
         for (item in [previous,next]) { absolute(container,item); size(item,110,32); }
         position(previous,16,307); position(next,618,307);
         pageText=text(parent,"",300,313,200);
+        stage="building reminder checkbox";
         var checkbox=G.field(node("check-box",parent,["Don't remind me again about these versions"],"modUpdaterIgnore"),"obj");
         absolute(container,checkbox); size(checkbox,712,38); position(checkbox,16,355);
         G.call("ui.comp.CheckBox","set_selected",checkbox,[selected]);
         G.set(checkbox,"onValueChange",function(value:Bool):Void {ignore=value;onPreference(value);});
-        refresh(); update(ui);
+        refresh();
+        if(!update(ui)) throw "Native popup was removed before it could be displayed";
     }
     function text(parent:Dynamic,value:String,x:Int,y:Int,width:Int):Dynamic {
         var item=label(parent,value);
@@ -100,6 +120,7 @@ class UpdatePopup {
         setText(pageText,"Page "+(page+1)+" / "+Std.int(Math.ceil(updates.length/PAGE_SIZE)));
     }
     public function update(ui:Dynamic):Bool {
+        stage="positioning window";
         if (window==null || owner!=ui || G.field(window,"removed")==true || !chartBodyIntact(body,container)) {
             dispose(); return false;
         }
@@ -109,6 +130,7 @@ class UpdatePopup {
         scale=Math.max(0.25,scale);
         G.call("h2d.Object","setScale",window,[scale]);
         position(window,top.x+(bottom.x-top.x-760*scale)/2,top.y+(bottom.y-top.y-490*scale)/2);
+        stage="updating window";
         return true;
     }
     function local(x:Float,y:Float):{x:Float,y:Float} {
