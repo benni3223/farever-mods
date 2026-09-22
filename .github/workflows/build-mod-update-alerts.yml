@@ -1,19 +1,19 @@
-name: Mod Updater
+name: Mod Update Alerts
 
 on:
   workflow_dispatch:
   push:
     branches: [main]
-    tags: ['mod-updater/v*']
+    tags: ['mod-update-alerts/v*']
     paths:
-      - 'mod-updater/**'
-      - '.github/workflows/build-mod-updater.yml'
+      - 'mod-update-alerts/**'
+      - '.github/workflows/build-mod-update-alerts.yml'
       - '.github/workflows/_build-mod.yml'
   pull_request:
     branches: [main]
     paths:
-      - 'mod-updater/**'
-      - '.github/workflows/build-mod-updater.yml'
+      - 'mod-update-alerts/**'
+      - '.github/workflows/build-mod-update-alerts.yml'
       - '.github/workflows/_build-mod.yml'
 
 permissions:
@@ -32,13 +32,13 @@ jobs:
         with:
           haxe-version: 4.3.7
       - name: Test update detection and reminder persistence
-        working-directory: mod-updater
+        working-directory: mod-update-alerts
         run: haxe test.hxml
 
   build:
     needs: test
     uses: ./.github/workflows/_build-mod.yml
     with:
-      project: mod-updater
-      module: mod-updater
-      title: Mod Updater
+      project: mod-update-alerts
+      module: mod-update-alerts
+      title: Mod Update Alerts

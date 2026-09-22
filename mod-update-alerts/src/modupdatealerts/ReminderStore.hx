@@ -1,9 +1,16 @@
-package modupdater;
+package modupdatealerts;
 
 import sys.io.File;
 import sys.FileSystem;
 
 class ReminderStore {
+    public static function loadForRoot(root:String):Map<String,String> {
+        var path = haxe.io.Path.join([root,"hlx","config","mod-update-alerts","reminders.json"]);
+        if (FileSystem.exists(path) || FileSystem.exists(path+".bak")) return load(path);
+        // Keep existing choices when upgrading the renamed mod. New writes use
+        // the new directory; an intentionally empty new file takes precedence.
+        return load(haxe.io.Path.join([root,"hlx","config","mod-updater","reminders.json"]));
+    }
     public static function load(path:String):Map<String,String> {
         for (candidate in [path,path+".bak"]) try {
             if (!FileSystem.exists(candidate) || FileSystem.stat(candidate).size>262144) continue;

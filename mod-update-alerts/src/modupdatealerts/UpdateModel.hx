@@ -1,11 +1,10 @@
-package modupdater;
+package modupdatealerts;
 
 typedef InstalledMod = {
     var name:String;
     var domain:String;
     var modId:Int;
     var version:String;
-    @:optional var archive:String;
 }
 
 typedef AvailableUpdate = {

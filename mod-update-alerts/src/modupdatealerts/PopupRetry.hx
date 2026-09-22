@@ -1,4 +1,4 @@
-package modupdater;
+package modupdatealerts;
 
 /** Loading screens must not exhaust a permanent popup-attempt limit. */
 class PopupRetry {

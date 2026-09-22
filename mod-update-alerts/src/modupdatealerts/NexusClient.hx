@@ -1,6 +1,6 @@
-package modupdater;
+package modupdatealerts;
 
-import modupdater.UpdateModel.InstalledMod;
+import modupdatealerts.UpdateModel.InstalledMod;
 
 typedef NexusMod = {
     var name:String;
@@ -32,7 +32,7 @@ class NexusClient {
         request.cnxTimeout = 15;
         request.noShutdown = true;
         request.setHeader("Content-Type", "application/json");
-        request.setHeader("User-Agent", "Farever-Mod-Updater/1.0");
+        request.setHeader("User-Agent", "Farever-Mod-Update-Alerts/1.0");
         request.setPostData(haxe.Json.stringify({query:query,variables:variables}));
         var status=0, error="";
         request.onStatus = value -> status=value;
@@ -76,37 +76,6 @@ class NexusClient {
         cache.set(key,result);
         return result;
     }
-
-    /** Verify encoded archive identity against Nexus's actual mod/version/upload time. */
-    public static function archiveVersion(source:String, modId:Int, files:Array<Dynamic>):Null<String> {
-        var stem=source;
-        for (extension in [".zip",".7z",".rar"]) if (StringTools.endsWith(stem.toLowerCase(),extension))
-            stem=stem.substr(0,stem.length-extension.length);
-        var matched:Null<String>=null;
-        for (file in files) {
-            var version=InstalledMods.text(file,"version");
-            // Upload timestamps exceed the bounded mod-ID parser.
-            var stamp=Std.string(Reflect.field(file,"date"));
-            if (!~/^[0-9]{10}$/.match(stamp) || version=="") continue;
-            var encoded=~/[^a-zA-Z0-9]/g.replace(version,"-");
-            var ending="-"+modId+"-"+encoded+"-"+stamp;
-            var matches=StringTools.endsWith(stem,ending);
-            var sqid=InstalledMods.text(file,"sqid");
-            if(!matches && ~/^[A-Za-z0-9]+$/.match(sqid)) {
-                // New Nexus filenames use the UTC upload minute and a file SQID.
-                // Verify all fields against Nexus, not just the printed version.
-                var date=Date.fromTime(Std.parseFloat(stamp)*1000);
-                var minute=date.getUTCFullYear()+"-"+pad(date.getUTCMonth()+1)+"-"+pad(date.getUTCDate())
-                    +"T"+pad(date.getUTCHours())+"-"+pad(date.getUTCMinutes())+"Z";
-                matches=StringTools.endsWith(stem," "+modId+" "+version+" "+minute+" "+sqid);
-            }
-            if (!matches) continue;
-            if (matched!=null && matched!=version) return null;
-            matched=version;
-        }
-        return matched;
-    }
-    static function pad(value:Int):String return StringTools.lpad(Std.string(value),"0",2);
 
     public static function hasDownload(info:NexusMod):Bool {
         for (file in info.files) if ((Reflect.field(file,"categoryId")==1 || Reflect.field(file,"categoryId")==2)

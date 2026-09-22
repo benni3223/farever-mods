@@ -1,4 +1,4 @@
-package modupdater;
+package modupdatealerts;
 
 import haxe.io.Bytes;
 import haxe.io.Error;

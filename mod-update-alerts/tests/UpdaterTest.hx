@@ -1,9 +1,11 @@
-import modupdater.UpdateModel;
-import modupdater.UpdateModel.AvailableUpdate;
-import modupdater.InstalledMods;
-import modupdater.NexusClient;
-import modupdater.ReminderStore;
-import modupdater.PopupRetry;
+import modupdatealerts.UpdateModel;
+import modupdatealerts.UpdateModel.AvailableUpdate;
+import modupdatealerts.InstalledMods;
+import modupdatealerts.NexusClient;
+import modupdatealerts.ReminderStore;
+import modupdatealerts.PopupRetry;
+import modupdatealerts.LevelDbSnapshot;
+import modupdatealerts.VortexState;
 import sys.io.File;
 import sys.FileSystem;
 
@@ -41,27 +43,7 @@ class UpdaterTest {
         record.attributes.source="other";eq(InstalledMods.fromVortex(record),null);
         var files:Array<Dynamic>=[{version:"1.5.1",date:1789696451,categoryId:7},{version:"1.6.0",date:1789890908,categoryId:1}];
         var source="Minimap-15-1-5-1-1789696451";
-        eq(InstalledMods.archiveCandidate(source).id,15);
-        eq(NexusClient.archiveVersion(source,15,files),"1.5.1");
-        eq(NexusClient.archiveVersion(source+".zip",15,files),"1.5.1");
-        eq(NexusClient.archiveVersion("Minimap-15-9-9-9-1789696451",15,files),null);
-        eq(NexusClient.archiveVersion(source,16,files),null);
-        eq(InstalledMods.archiveCandidate("renamed"),null);
-        // Exact modern filename reported by a Vortex user, verified against
-        // Nexus file 104; the preceding file on the same page has another SQID.
         var modern="game-version-driver 16 0.0.1 2026-09-20T20-28Z FgeIvI3Az";
-        var modernFiles:Array<Dynamic>=[{fileId:103,sqid:"5nZDPD4Hh",version:"0.0.1",date:1789932988,categoryId:7},
-            {fileId:104,sqid:"FgeIvI3Az",version:"0.0.1",date:1789936115,categoryId:1}];
-        eq(InstalledMods.archiveCandidate(modern).id,16);
-        eq(InstalledMods.archiveCandidate(modern+".ZIP").id,16);
-        eq(NexusClient.archiveVersion(modern,16,modernFiles),"0.0.1");
-        eq(NexusClient.archiveVersion(modern+".ZIP",16,modernFiles),"0.0.1");
-        eq(NexusClient.archiveVersion(modern,17,modernFiles),null);
-        eq(NexusClient.archiveVersion(StringTools.replace(modern,"0.0.1","9.9.9"),16,modernFiles),null);
-        eq(NexusClient.archiveVersion(StringTools.replace(modern,"20-28Z","20-29Z"),16,modernFiles),null);
-        eq(NexusClient.archiveVersion(StringTools.replace(modern,"FgeIvI3Az","5nZDPD4Hh"),16,modernFiles),null);
-        eq(NexusClient.archiveVersion(modern,16,[{version:"0.0.1",date:1789936115}]),null);
-        eq(InstalledMods.archiveCandidate("mod 16 0.0.1 2026-09-20T20-28Z"),null);
 
         var retry=new PopupRetry(), menu:Dynamic={}, game:Dynamic={};
         eq(retry.ready(menu,0),true);
@@ -94,7 +76,10 @@ class UpdaterTest {
             File.saveContent(state,"broken");eq(ReminderStore.load(state).get("farever/1"),"3");
             FileSystem.deleteFile(state+".bak");
             eq([for(k in ReminderStore.load(state).keys())k].length,0);
-            var manifest:Dynamic={version:1,gameId:"farever",files:[
+            var staging=FileSystem.absolutePath(root+"/staging");
+            FileSystem.createDirectory(staging+"/"+source+"/hlx/mods/example");
+            File.saveContent(staging+"/"+source+"/hlx/mods/example/example.hl","fixture");
+            var manifest:Dynamic={version:1,gameId:"farever",stagingPath:staging,files:[
                 {relPath:"hlx/mods/example/example.hl",source:source,time:FileSystem.stat(base+"/example.hl").mtime.getTime()},
                 {relPath:"removed.hl",source:"removed",time:0}]};
             File.saveContent(root+"/game/vortex.deployment.json",haxe.Json.stringify(manifest));
@@ -104,24 +89,94 @@ class UpdaterTest {
             record.attributes.source="nexus";record.attributes.downloadGame="farever";
             var mods:Dynamic={};Reflect.setField(mods,source,record);
             File.saveContent(backup+"/hourly.json",haxe.Json.stringify({persistent:{mods:{farever:mods}}}));
-            scan=new InstalledMods();scan.scan(root+"/game",root+"/vortex");eq(scan.deployed[0].metadata.version,"1.5.0");
+            // A backup is never authoritative, even if newer than deployment.
+            scan=new InstalledMods();scan.scan(root+"/game",root+"/vortex");eq(scan.deployed[0].metadata,null);
+            installFixture(root+"/vortex/state.v2");
+            databaseTests(root+"/vortex");
+            scan=new InstalledMods();scan.scan(root+"/game",root+"/vortex");
+            eq(scan.deployed.length,1);eq(scan.deployed[0].metadata.version,"1.6.0");
+            eq(UpdateModel.compare("1.6.0",scan.deployed[0].metadata.version),0);
+            eq(UpdateModel.compare("1.7.0",scan.deployed[0].metadata.version),1);
+            eq(scan.deployed[0].metadata.modId,15);
+            // Same size and timestamps do not prove that staging was deployed.
+            File.saveContent(staging+"/"+source+"/hlx/mods/example/example.hl","changed");
+            scan=new InstalledMods();scan.scan(root+"/game",root+"/vortex");eq(scan.deployed.length,0);
+            File.saveContent(staging+"/"+source+"/hlx/mods/example/example.hl","fixture");
             manifest.files[0].time=0;
             File.saveContent(root+"/game/vortex.deployment.json",haxe.Json.stringify(manifest));
             scan=new InstalledMods();scan.scan(root+"/game",root+"/vortex");eq(scan.deployed.length,0);
             // A changed test build must not hide other verified deployed mods.
             FileSystem.createDirectory(root+"/game/hlx/mods/driver");
             var driver=root+"/game/hlx/mods/driver/driver.hl";File.saveContent(driver,"driver fixture");
+            FileSystem.createDirectory(staging+"/"+modern+"/hlx/mods/driver");
+            File.saveContent(staging+"/"+modern+"/hlx/mods/driver/driver.hl","driver fixture");
             manifest.files.push({relPath:"hlx/mods/driver/driver.hl",source:modern,time:FileSystem.stat(driver).mtime.getTime()});
             File.saveContent(root+"/game/vortex.deployment.json",haxe.Json.stringify(manifest));
             scan=new InstalledMods();scan.scan(root+"/game",root+"/vortex");
-            eq(scan.deployed.length,1);eq(scan.deployed[0].source,modern);
+            eq(scan.deployed.length,1);eq(scan.deployed[0].source,modern);eq(scan.deployed[0].metadata.version,"0.0.1");
+            // Broken current state must never fall back to old backup versions.
+            File.saveContent(root+"/vortex/state.v2/CURRENT","bad manifest");
+            scan=new InstalledMods();scan.scan(root+"/game",root+"/vortex");eq(scan.deployed[0].metadata,null);
+            eq(scan.diagnostics.join(" ").indexOf("backup snapshots")>=0,true);
+            ReminderStore.save(root+"/game/hlx/config/mod-updater/reminders.json",ignored);
+            eq(ReminderStore.loadForRoot(root+"/game").get("farever/1"),"4");
+            ReminderStore.save(root+"/game/hlx/config/mod-update-alerts/reminders.json",[]);
+            eq(ReminderStore.loadForRoot(root+"/game").get("farever/1"),null);
             var info:Dynamic={name:"Example",modId:15,domain:"farever",version:"1.2.3",binary:"example.hl",sha256:haxe.crypto.Sha256.make(File.getBytes(base+"/example.hl")).toHex()};
             File.saveContent(base+"/update-info.json",haxe.Json.stringify(info));
             scan=new InstalledMods();scan.scan(root+"/game",root+"/empty");eq(scan.manual.length,1);
             File.saveContent(base+"/example.hl","replaced");
             scan=new InstalledMods();scan.scan(root+"/game",root+"/empty");eq(scan.manual.length,0);
         }catch(e:Dynamic){remove(root);throw e;}
-        remove(root);Sys.println('Mod Updater: $checks checks passed.');
+        remove(root);Sys.println('Mod Update Alerts: $checks checks passed.');
+    }
+    static function installFixture(path:String):Void {
+        FileSystem.createDirectory(path);
+        var files:Dynamic=haxe.Json.parse(File.getContent("tests/fixtures/vortex-state.json"));
+        for(name in Reflect.fields(files)) File.saveBytes(path+"/"+name,
+            haxe.zip.Uncompress.run(haxe.crypto.Base64.decode(Reflect.field(files,name))));
+    }
+    static function fails(fn:Void->Void):Void {
+        var failed=false;try fn() catch(_:Dynamic) failed=true;eq(failed,true);
+    }
+    static function databaseTests(root:String):Void {
+        var path=root+"/state.v2",prefix="persistent###mods###farever";
+        var values=new LevelDbSnapshot(path,prefix,function() {}).read();
+        eq(values.get(prefix+"###current-minimap###attributes###version"),'"1.6.0"');
+        eq(values.get(prefix+"###current-minimap###attributes###obsolete"),null);
+        eq(values.get("confidential###synthetic-test-only"),null);
+        eq(values.get(prefix+"###removed-mod###state"),null);
+        eq(haxe.Json.parse(values.get(prefix+"###padding-wal###description")).length,72000);
+        var records=VortexState.read(root,function() {});
+        eq(records.get("Minimap-15-1-5-1-1789696451").attributes.version,"1.6.0");
+        eq(records.exists("removed"),false);eq(records.exists("not-deployed"),true);
+        eq(records.exists("current-minimap"),false);
+        eq(records.exists("ambiguous"),false);
+        eq(values.get("persistent###mods###farever-other###unrelated"),null);
+        // CURRENT can switch during compaction. The reader must discard that
+        // first view and read the replacement generation from the beginning.
+        var baseline=0;
+        new LevelDbSnapshot(path,prefix,function() baseline++).read();
+        var current=File.getContent(path+"/CURRENT"),calls=0;
+        File.saveBytes(path+"/MANIFEST-999998",File.getBytes(path+"/"+StringTools.trim(current)));
+        values=new LevelDbSnapshot(path,prefix,function() {
+            calls++;
+            if(calls==2) File.saveContent(path+"/CURRENT","MANIFEST-999998\n");
+        }).read();
+        eq(calls>baseline,true);
+        eq(values.get(prefix+"###current-minimap###attributes###version"),'"1.6.0"');
+        File.saveContent(path+"/CURRENT",current);FileSystem.deleteFile(path+"/MANIFEST-999998");
+        var logs=[for(name in FileSystem.readDirectory(path)) if(StringTools.endsWith(name,".log"))name];
+        var log=path+"/"+logs[0],original=File.getBytes(log),corrupt=original.sub(0,original.length);
+        corrupt.set(corrupt.length-1,corrupt.get(corrupt.length-1)^1);File.saveBytes(log,corrupt);
+        fails(function() new LevelDbSnapshot(path,prefix,function() {}).read());
+        File.saveBytes(log,original.sub(0,original.length-1));
+        fails(function() new LevelDbSnapshot(path,prefix,function() {}).read());
+        File.saveBytes(log,original);
+        eq(LevelDbSnapshot.snappy(haxe.io.Bytes.ofHex("0500610101")).toString(),"aaaaa");
+        eq(LevelDbSnapshot.snappy(haxe.io.Bytes.ofHex("0500610f01000000")).toString(),"aaaaa");
+        fails(function() LevelDbSnapshot.snappy(haxe.io.Bytes.ofHex("0500610102")));
+        fails(function() LevelDbSnapshot.snappy(haxe.io.Bytes.ofHex("ffffff7f")));
     }
     static function remove(p:String):Void {
         if(!FileSystem.exists(p))return;

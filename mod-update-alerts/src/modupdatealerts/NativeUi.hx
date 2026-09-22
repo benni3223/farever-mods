@@ -1,6 +1,6 @@
-package modupdater;
+package modupdatealerts;
 
-import modupdater.GameAccess as G;
+import modupdatealerts.GameAccess as G;
 
 /** Native Options styling and layout helpers for the update popup. */
 class NativeUi {

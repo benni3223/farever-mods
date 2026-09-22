@@ -1,10 +1,10 @@
-package modupdater;
+package modupdatealerts;
 
 import hlx.runtime.HlxPrefixResult;
-import modupdater.UpdateWorker.CheckResult;
+import modupdatealerts.UpdateWorker.CheckResult;
 
 @:build(hlx.runtime.Mod.build())
-class ModUpdaterMod {
+class ModUpdateAlertsMod {
     static var worker:UpdateWorker;
     static var result:CheckResult;
     static var popup:UpdatePopup;
@@ -14,7 +14,7 @@ class ModUpdaterMod {
     static var retry=new PopupRetry();
 
     static function main():Void {
-        trace("[Mod Updater] Loaded; checking starts when the game UI is ready.");
+        trace("[Mod Update Alerts] Loaded; checking starts when the game UI is ready.");
     }
 
     @:hlx.postfix(ui.BaseUI.update)
@@ -30,8 +30,8 @@ class ModUpdaterMod {
                 result=worker.results.pop(false);
                 if(result!=null) {
                     originalDismissed=result.dismissed.copy();
-                    for(note in result.notes) trace("[Mod Updater] "+note);
-                    trace("[Mod Updater] "+result.updates.length+" update(s) available.");
+                    for(note in result.notes) trace("[Mod Update Alerts] "+note);
+                    trace("[Mod Update Alerts] "+result.updates.length+" update(s) available.");
                     if(!UpdateModel.needsReminder(result.updates,result.dismissed)) finished=true;
                 }
             }
@@ -49,7 +49,7 @@ class ModUpdaterMod {
                 worker.saves.add(result.dismissed.copy());
             }, selected);
             retry.succeeded();
-            trace("[Mod Updater] Update popup opened.");
+            trace("[Mod Update Alerts] Update popup opened.");
         } catch (error:Dynamic) {
             UpdatePopup.constructing=false;
             var stage=popup==null ? "update check" : popup.stage;
@@ -57,7 +57,7 @@ class ModUpdaterMod {
             popup=null;
             var message=stage+": "+Std.string(error);
             if(retry.failed(haxe.Timer.stamp(),message))
-                trace("[Mod Updater] Could not show updates ("+message+"). Will retry when the UI is ready.");
+                trace("[Mod Update Alerts] Could not show updates ("+message+"). Will retry when the UI is ready.");
         }
     }
 

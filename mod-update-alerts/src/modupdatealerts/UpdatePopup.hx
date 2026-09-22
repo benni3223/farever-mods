@@ -1,8 +1,8 @@
-package modupdater;
+package modupdatealerts;
 
-import modupdater.UpdateModel.AvailableUpdate;
-import modupdater.GameAccess as G;
-import modupdater.NativeUi.*;
+import modupdatealerts.UpdateModel.AvailableUpdate;
+import modupdatealerts.GameAccess as G;
+import modupdatealerts.NativeUi.*;
 
 /** Native title window with the same X and checkbox controls as the game's Options. */
 class UpdatePopup {

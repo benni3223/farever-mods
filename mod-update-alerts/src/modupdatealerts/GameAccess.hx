@@ -1,4 +1,4 @@
-package modupdater;
+package modupdatealerts;
 
 import hlx.runtime.ResolvedMember;
 

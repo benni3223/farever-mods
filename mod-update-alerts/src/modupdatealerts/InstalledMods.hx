@@ -1,9 +1,9 @@
-package modupdater;
+package modupdatealerts;
 
 import sys.FileSystem;
 import sys.io.File;
 import haxe.io.Path;
-import modupdater.UpdateModel.InstalledMod;
+import modupdatealerts.UpdateModel.InstalledMod;
 
 typedef DeployedMod = {
     var source:String;
@@ -37,34 +37,18 @@ class InstalledMods {
         return haxe.Json.parse(File.getContent(path));
     }
 
-    public function scan(root:String, ?vortexPath:String):Void {
+    public function scan(root:String, ?vortexPath:String, ?progress:Void->Void):Void {
+        if (progress == null) progress = function() {};
+        diagnostics = []; manual = []; deployed = [];
         var records:Map<String,Dynamic> = [];
-        var backups:Array<String> = [];
         if (vortexPath == null || vortexPath == "") {
             var appData = Sys.getEnv("APPDATA");
             if (appData != null) vortexPath = Path.join([appData, "Vortex"]);
         }
         if (vortexPath != null && vortexPath != "") {
-            var folder = Path.join([vortexPath, "temp", "state_backups_full"]);
-            if (FileSystem.exists(folder)) for (file in FileSystem.readDirectory(folder))
-                if (StringTools.endsWith(file, ".json")) backups.push(Path.join([folder,file]));
+            try records = VortexState.read(vortexPath, progress)
+            catch (_:Dynamic) diagnostics.push("Could not read current Vortex mod records; backup snapshots and archive folder versions are not used.");
         }
-        backups.sort((a,b) -> Reflect.compare(FileSystem.stat(b).mtime.getTime(), FileSystem.stat(a).mtime.getTime()));
-        // Only the newest valid full backup; never combine conflicting snapshots.
-        for (path in backups) try {
-            var data = read(path, 32 * 1024 * 1024);
-            var persistent = Reflect.field(data, "persistent");
-            var mods = persistent == null ? null : Reflect.field(persistent, "mods");
-            var farever = mods == null ? null : Reflect.field(mods, "farever");
-            if (farever == null) continue;
-            for (key in Reflect.fields(farever)) {
-                var record=Reflect.field(farever,key);
-                records.set(key,record);
-                var installedPath=text(record,"installationPath");
-                if(installedPath!="") records.set(installedPath,record);
-            }
-            break;
-        } catch (_:Dynamic) {}
 
         var groups:Map<String,DeployedMod> = [];
         var stale:Map<String,Bool> = [];
@@ -79,9 +63,11 @@ class InstalledMods {
                     if (text(manifest,"gameId") != "" && text(manifest,"gameId") != "farever") continue;
                     var files:Dynamic = Reflect.field(manifest,"files");
                     if (!Std.isOfType(files,Array)) continue;
+                    var staging = text(manifest,"stagingPath");
                     for (file in (cast files:Array<Dynamic>)) {
+                        progress();
                         var source = text(file,"source"), rel = text(file,"relPath"), target = text(file,"target");
-                        if (source == "" || !safeRelative(rel) || (target != "" && !safeRelative(target))) continue;
+                        if (!safeRelative(source) || !safeRelative(rel) || (target != "" && !safeRelative(target))) continue;
                         var extension=Path.extension(rel).toLowerCase();
                         if (["hl","dll","hdll","pak"].indexOf(extension)<0) continue;
                         var path = Path.join([folder,target,rel]);
@@ -90,6 +76,10 @@ class InstalledMods {
                         var time:Dynamic = Reflect.field(file,"time");
                         var timestamp = Std.parseFloat(Std.string(time));
                         if (!Math.isFinite(timestamp) || Math.abs(FileSystem.stat(path).mtime.getTime() - timestamp) > 2100) {stale.set(source,true);continue;}
+                        // Vortex can update in place and reuse an old archive's
+                        // folder name. Bind the live record to deployed contents.
+                        if (staging == "" || !Path.isAbsolute(staging)
+                            || !sameContents(path, Path.join([staging,source,rel]))) {stale.set(source,true);continue;}
                         var entry = groups.get(source);
                         if (entry == null) {
                             entry = {source:source,files:[],metadata:fromVortex(records.get(source))};
@@ -101,12 +91,27 @@ class InstalledMods {
             }
         }
         for (entry in groups) if (!stale.exists(entry.source)) deployed.push(entry);
-        for (source in stale.keys()) diagnostics.push("Deployed files changed or missing; cannot verify version: "+source);
+        for (source in stale.keys()) diagnostics.push("Deployed files changed, missing, or do not match current Vortex staging; cannot verify version: "+source);
         deployed.sort((a,b) -> Reflect.compare(a.source,b.source));
+        // Detect installs/uninstalls that raced with binary verification. A
+        // valid old read must not label newer files with the previous version.
+        if (deployed.length > 0 && vortexPath != null && vortexPath != "") {
+            var fresh:Map<String,Dynamic> = [];
+            try fresh = VortexState.read(vortexPath, progress) catch (_:Dynamic) {}
+            for (entry in deployed) {
+                var current = fromVortex(fresh[entry.source]);
+                if (haxe.Json.stringify(entry.metadata) != haxe.Json.stringify(current)) {
+                    entry.metadata = null;
+                    diagnostics.push("Vortex mod record changed during verification; skipping: "+entry.source);
+                }
+            }
+        }
 
         // Manual installs can opt in with metadata bound to an actual binary hash.
         var modRoot = Path.join([root,"hlx","mods"]);
+        var manualPaths:Map<String,Bool> = [];
         if (FileSystem.exists(modRoot)) for (folder in FileSystem.readDirectory(modRoot)) {
+            progress();
             var base = Path.join([modRoot,folder]), path = Path.join([base,"update-info.json"]);
             if (!FileSystem.exists(path)) continue;
             try {
@@ -118,6 +123,7 @@ class InstalledMods {
                 if (!FileSystem.exists(binPath) || FileSystem.stat(binPath).size > 64 * 1024 * 1024) continue;
                 if (haxe.crypto.Sha256.make(File.getBytes(binPath)).toHex() != hash) continue;
                 manual.push(entry);
+                manualPaths[base] = true;
             } catch (_:Dynamic) diagnostics.push("Could not read update metadata for " + folder);
         }
         // Report unidentified HLX modules instead of pretending all were checked.
@@ -126,7 +132,7 @@ class InstalledMods {
             if (!FileSystem.isDirectory(base)) continue;
             var binaries = [for (name in FileSystem.readDirectory(base)) if (StringTools.endsWith(name,".hl")) Path.join([base,name])];
             if (binaries.length == 0) continue;
-            var found = FileSystem.exists(Path.join([base,"update-info.json"]));
+            var found = manualPaths.exists(base);
             for (entry in deployed) for (binary in binaries) if (entry.files.indexOf(binary) >= 0) found = true;
             if (!found) diagnostics.push("No installed-version metadata for " + folder);
         }
@@ -151,15 +157,12 @@ class InstalledMods {
         return {name:name==""?domain+"/"+modId:name,domain:domain,modId:modId,version:version};
     }
 
-    /** Candidate only. Nexus must match its mod/version/upload-time tuple before using it. */
-    public static function archiveCandidate(source:String):Null<{id:Int,archive:String}> {
-        var r=~/^.+?-([0-9]+)-.+-[0-9]{10}(?:\.[A-Za-z0-9]+)?$/;
-        if (!r.match(source)) {
-            r=~/^.+ ([1-9][0-9]*) [^ ]+ [0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}-[0-9]{2}Z [A-Za-z0-9]+(?:\.(?:zip|7z|rar))?$/i;
-            if(!r.match(source)) return null;
-        }
-        var modId=id(r.matched(1));
-        if (modId==0) return null;
-        return {id:modId,archive:source};
+    static function sameContents(a:String, b:String):Bool {
+        try {
+            if (!FileSystem.exists(b) || FileSystem.isDirectory(b)) return false;
+            var size = FileSystem.stat(a).size;
+            if (size > 64 * 1024 * 1024 || size != FileSystem.stat(b).size) return false;
+            return haxe.crypto.Sha256.make(File.getBytes(a)).compare(haxe.crypto.Sha256.make(File.getBytes(b))) == 0;
+        } catch (_:Dynamic) return false;
     }
 }

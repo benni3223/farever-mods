@@ -1,4 +1,4 @@
-package modupdater;
+package modupdatealerts;
 
 /** Text for native FmtText labels, which parse both game markup and XML. */
 class LiteralText {
