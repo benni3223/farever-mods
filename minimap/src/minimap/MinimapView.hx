@@ -2,6 +2,7 @@ package minimap;
 
 import minimap.GameAccess as G;
 import minimap.MinimapMod.MinimapSettings;
+import minimap.PinPlacement.PinClick;
 
 private typedef MapTile = {
     var x:Int;
@@ -17,13 +18,25 @@ class MinimapView {
     static inline var LEVEL = "World/W1_Siagarta";
     static inline var DIRECTORY = "Level/" + LEVEL + ".dat/minimap";
     static inline var BORDER = 3;
-    static inline var CACHE_LIMIT = 24;
+    static inline var WATER = 0x0B1B3C;
+    static inline var WATER_EDGE = 0x061428;
+    /** Parchment frame sampled from the DPS meter window. The map itself stays water blue. */
+    static inline var PARCHMENT = 0xD0BBB2;
+    static inline var PARCHMENT_EDGE = 0x7A512F;
+    static inline var PARCHMENT_LINE = 0xA78474;
+    static inline var INK = 0x5B4334;
+    static inline var HOVER_INK = 0x24160C;
+    static inline var DIALOG_PAD = 18;
+    static inline var DIALOG_HEADER = 36;
+    static inline var DIALOG_FOOTER = 52;
+    static inline var DIALOG_TOGGLE = 46;
 
     var world:Dynamic;
     var owner:Dynamic;
     var root:Dynamic;
     var panel:Dynamic;
     var frame:Dynamic;
+    var ocean:Dynamic;
     var mask:Dynamic;
     var circleMask:Dynamic;
     var squareFilter:Dynamic;
@@ -54,6 +67,35 @@ class MinimapView {
     var hovered:Bool = false;
     var mouseX:Float = 0;
     var mouseY:Float = 0;
+    var heroX:Float = 0;
+    var heroY:Float = 0;
+    var mapScale:Float = 1;
+    var mapRotation:Float = 0;
+    var lastClick:PinClick;
+    var ignoreClicksUntil:Float = 0;
+    var expanded:Bool = false;
+    var panX:Float = 0;
+    var panY:Float = 0;
+    var dragging:Bool = false;
+    var dragMoved:Bool = false;
+    var dragX:Float = 0;
+    var dragY:Float = 0;
+    var mapHeight:Int = 0;
+    var shield:Dynamic;
+    var scrim:Dynamic;
+    var scrimWidth:Float = -1;
+    var scrimHeight:Float = -1;
+    var dialogW:Float = 0;
+    var dialogH:Float = 0;
+    var mapWindow:MapWindow;
+    var usingWindow:Bool = false;
+    var contentX:Float = BORDER;
+    var contentY:Float = BORDER;
+    var stacked:Bool = false;
+    /** Heaps drops Graphics contents when an object leaves the scene. */
+    var graphicsCleared:Bool = false;
+    var viewX:Float = 0;
+    var viewY:Float = 0;
     var hoverText:Dynamic;
     var hoverShadow:Dynamic;
     var hoverMeasurements:HoverMeasurements;
@@ -75,7 +117,7 @@ class MinimapView {
     var index:Map<String, MapTile> = [];
     var sprites:Map<String, Dynamic> = [];
     var wanted:Array<MapTile> = [];
-    var cached:Array<MapTile> = [];
+    var preload:Array<MapTile> = [];
     var generation:Int = 0;
 
     public function new() {}
@@ -87,6 +129,7 @@ class MinimapView {
         var hero = G.field(app, "hero");
         if (!config.enabled || hero == null || G.field(hero, "removed") == true
             || G.text(G.field(nextWorld, "level")) != LEVEL || ui == null) {
+            closeExpanded();
             show(false);
             return;
         }
@@ -107,14 +150,15 @@ class MinimapView {
             create();
         }
 
-        if (size != config.size || circular != config.circular) layout(config.size, config.circular);
         if (markerScale != config.markerScale) {
             markerScale = config.markerScale;
             G.call("h2d.Object", "setScale", arrow, [markerScale / 100]);
         }
         if (transparency != config.transparency) {
             transparency = config.transparency;
-            G.set(panel, "alpha", 1 - transparency / 100);
+            var alpha = 1 - transparency / 100;
+            G.set(panel, "alpha", alpha);
+            if (mapWindow != null) mapWindow.setAlpha(alpha);
             // A fully invisible map must not consume wheel input.
             G.call("h2d.Object", "set_visible", input, [transparency < 100]);
             if (transparency == 100) { hovered = false; setHoverCaption(""); }
@@ -128,54 +172,117 @@ class MinimapView {
         }
         var x = G.number(G.field(hero, "posx"));
         var y = G.number(G.field(hero, "posy"));
+        heroX = x;
+        heroY = y;
+        mapScale = scale;
         var heading = G.number(G.field(hero, "rotationZ"));
         var orientation = config.rotateMap && config.followCamera ? cameraHeading(app, heading) : heading;
         var rotation = config.rotateMap ? -Math.PI / 2 - orientation : 0.0;
+        mapRotation = rotation;
+        var viewCenterX = x + (expanded ? panX : 0);
+        var viewCenterY = y + (expanded ? panY : 0);
+        viewX = viewCenterX;
+        viewY = viewCenterY;
         // Native facing is (cos(heading), sin(heading)); screen-up is -PI/2.
         G.call("h2d.Object", "set_rotation", pivot, [rotation]);
         G.call("h2d.Object", "set_rotation", npcPivot, [rotation]);
-        position(terrain, -x * scale, -y * scale);
-        position(npcTerrain, -x * scale, -y * scale);
-        G.call("h2d.Object", "set_rotation", arrow, [heading + rotation]);
-        var outerSize = size + BORDER * 2;
+        position(terrain, -viewCenterX * scale, -viewCenterY * scale);
+        position(npcTerrain, -viewCenterX * scale, -viewCenterY * scale);
         var screenWidth = G.number(G.call("h2d.Flow", "get_innerWidth", root));
         var screenHeight = G.number(G.call("h2d.Flow", "get_innerHeight", root));
+        var viewW = config.size;
+        var viewH = config.size;
+        var round = config.circular;
+        if (expanded) {
+            var outer = MinimapPosition.overview(screenWidth, screenHeight);
+            dialogW = outer.width;
+            dialogH = outer.height;
+            if (mapWindow == null) mapWindow = new MapWindow();
+            usingWindow = mapWindow.ensure(owner);
+            if (usingWindow) {
+                // Body sits under the native header. The map, hover footer, and toggles share it.
+                var bodyW = dialogW - MapWindow.INSET * 2;
+                var bodyH = dialogH - MapWindow.HEADER - MapWindow.INSET;
+                viewW = Std.int(Math.max(1, bodyW - DIALOG_PAD * 2 - DIALOG_TOGGLE - 8));
+                viewH = Std.int(Math.max(1, bodyH - DIALOG_PAD * 2 - DIALOG_FOOTER));
+            } else {
+                viewW = Std.int(Math.max(1, dialogW - DIALOG_PAD * 2 - DIALOG_TOGGLE - 8));
+                viewH = Std.int(Math.max(1, dialogH - DIALOG_PAD * 2 - DIALOG_HEADER - DIALOG_FOOTER));
+            }
+            round = false;
+        } else usingWindow = false;
+        if (size != viewW || mapHeight != viewH || circular != round) layout(viewW, viewH, round);
+        var heroOnMap = PinPlacement.screen(x, y, viewCenterX, viewCenterY, scale, rotation);
+        position(arrow, size / 2 + heroOnMap.x, mapHeight / 2 + heroOnMap.y);
+        G.call("h2d.Object", "set_rotation", arrow, [heading + rotation]);
+        var outerW = expanded ? dialogW : size + BORDER * 2;
+        var outerH = expanded ? dialogH : mapHeight + BORDER * 2;
         // Keep the category column inside the same screen margin as the card.
-        var buttons = config.showCategoryButtons ? MinimapControls.columnExtra(size, circular) : 0;
-        var nextX = MinimapPosition.axis(screenWidth, outerSize + buttons, config.xOffset, !config.leftCorner);
-        var nextY = MinimapPosition.axis(screenHeight, outerSize, config.yOffset);
+        var buttons = !expanded && config.showCategoryButtons ? MinimapControls.columnExtra(size, circular) : 0;
+        var nextX = expanded ? (screenWidth - outerW) / 2 : MinimapPosition.axis(screenWidth, outerW + buttons, config.xOffset, !config.leftCorner);
+        var nextY = expanded ? (screenHeight - outerH) / 2 : MinimapPosition.axis(screenHeight, outerH, config.yOffset);
         if (panelX != nextX || panelY != nextY) {
             panelX = nextX; panelY = nextY;
             hovered = false;
             setHoverCaption("");
         }
         // A native Flow reflow can move absolute children; reapply after measuring it.
-        position(panel, panelX, panelY);
+        if (usingWindow) {
+            mapWindow.layout(panelX, panelY, dialogW, dialogH);
+            mapWindow.setAlpha(1 - transparency / 100);
+            // The panel covers only the window body, so the native header stays visible.
+            position(panel, panelX + MapWindow.INSET, panelY + MapWindow.HEADER);
+        } else position(panel, panelX, panelY);
+        raiseExpanded(screenWidth, screenHeight);
         // A rotating square needs enough tiles/markers to cover its diagonal.
-        var radius = size / (2 * scale) * (config.rotateMap && !circular ? Math.sqrt(2) : 1);
-        selectTiles(x, y, radius);
-        loadNextTile();
+        var halfW = size / (2 * scale);
+        var halfH = mapHeight / (2 * scale);
+        var radius = expanded || mapHeight != size
+            ? Math.sqrt(halfW * halfW + halfH * halfH)
+            : size / (2 * scale) * (config.rotateMap && !circular ? Math.sqrt(2) : 1);
+        selectTiles(viewCenterX, viewCenterY, radius);
+        pumpTiles();
         rifts.update(G.field(hero, "layer"), haxe.Timer.stamp());
-        markers.update(hero, config, x, y, radius, scale, rotation, rifts);
-        markers.updateAlerts(config, x, y, size, scale, rotation, rifts);
-        compass.update(size, circular, rotation, markerScale / 100, config.showNorthIndicator);
+        markers.update(hero, config, viewCenterX, viewCenterY, radius, scale, rotation, rifts);
+        markers.updateAlerts(config, viewCenterX, viewCenterY, size, scale, rotation, rifts, circular, mapHeight);
+        compass.update(size, circular, rotation, markerScale / 100, config.showNorthIndicator, mapHeight);
         updateRiftTimer(config);
         show(true);
+        var toggleLabel = "";
         if (controls != null) {
-            controls.show(config.showCategoryButtons);
-            if (!config.showCategoryButtons) {
-                updateHover(hero, x, y, rotation);
-                return;
-            }
-            controls.sync(config);
-            controls.place(panelX, panelY, screenWidth, screenHeight);
-            var label = controls.caption();
-            if (label != "") {
-                setHoverCaption(label);
-                return;
+            if (expanded) {
+                controls.show(true);
+                controls.layoutDock(contentX + size + 10, contentY, mapHeight);
+                var dockX = usingWindow ? panelX + MapWindow.INSET : panelX;
+                var dockY = usingWindow ? panelY + MapWindow.HEADER : panelY;
+                controls.place(dockX, dockY, screenWidth, screenHeight);
+                controls.sync(config);
+                raiseExpanded(screenWidth, screenHeight);
+                toggleLabel = controls.caption();
+            } else if (config.showCategoryButtons) {
+                controls.show(true);
+                controls.sync(config);
+                controls.place(panelX, panelY, screenWidth, screenHeight);
+                toggleLabel = controls.caption();
+            } else {
+                controls.show(false);
             }
         }
-        updateHover(hero, x, y, rotation);
+        if (toggleLabel != "") setHoverCaption(toggleLabel);
+        else updateHover(hero, viewCenterX, viewCenterY, x, y, rotation);
+        placeHoverText();
+        // Reparenting the window clears Heaps graphics. Repaint after the last move.
+        if (graphicsCleared) {
+            graphicsCleared = false;
+            paintChrome();
+            paintOcean();
+            repaintPlayerArrow();
+            if (compass != null) compass.repaint();
+            if (markers != null) markers.restoreGraphics();
+            if (controls != null) controls.redrawIcons();
+            scrimWidth = -1;
+            paintScrim(screenWidth, screenHeight);
+        }
     }
 
     function cameraHeading(app:Dynamic, fallback:Float):Float {
@@ -194,7 +301,7 @@ class MinimapView {
             throw "Overworld map images are unavailable";
         var resolutions = G.array(G.field(settings, "MapTileResolutions"));
         var preferred = resolutions.length == 0 ? 512 : G.integer(resolutions[0], 512);
-        // Directory metadata only. Decode images when they reach the viewport.
+        // Directory metadata only. Images are decoded ahead of the viewport.
         for (resource in G.array(G.call("hxd.res.Loader", "dir", loader, [DIRECTORY]))) {
             var name = G.text(G.field(G.field(resource, "entry"), "name"));
             if (!StringTools.endsWith(name, ".png")) continue;
@@ -210,6 +317,7 @@ class MinimapView {
             index[key] = {x: x, y: y, resolution: resolution, path: DIRECTORY + "/" + name, tile: null, lastUsed: 0};
         }
         if (!index.iterator().hasNext()) throw "No overworld map tiles were found";
+        preload = [for (entry in index) entry];
     }
 
     function create():Void {
@@ -230,6 +338,7 @@ class MinimapView {
         position(circleMask, BORDER, BORDER);
         mask = G.create("h2d.Mask", [1, 1, panel]);
         position(mask, BORDER, BORDER);
+        ocean = G.create("h2d.Graphics", [mask]);
         squareFilter = G.create("h2d.filter.Nothing", []);
         circleFilter = G.create("h2d.filter.Mask", [circleMask, false, true]);
         configureFilter(squareFilter, "h2d.filter.Filter");
@@ -250,6 +359,10 @@ class MinimapView {
         position(input, BORDER, BORDER);
         G.call("h2d.Interactive", "set_cursor", input, [G.current("hxd.Cursor", "Default")]);
         G.set(input, "propagateEvents", true);
+        G.set(input, "enableRightButton", true);
+        G.set(input, "onClick", (event:Dynamic) -> onMapClick(event));
+        G.set(input, "onPush", (event:Dynamic) -> onMapPush(event));
+        G.set(input, "onRelease", (_:Dynamic) -> dragging = false);
         G.set(input, "onMove", (event:Dynamic) -> trackMouse(event));
         G.set(input, "onCheck", (event:Dynamic) -> trackMouse(event));
         G.set(input, "onOver", (event:Dynamic) -> trackMouse(event));
@@ -269,6 +382,88 @@ class MinimapView {
     function attachAbsolute(object:Dynamic):Void {
         var layer = G.integer(G.call("h2d.Object", "getChildIndex", root, [G.field(owner, "gameRoot")]));
         G.call("h2d.Flow", "addChildAt", root, [object, layer]);
+        absolute(object);
+    }
+
+    function raiseExpanded(screenWidth:Float, screenHeight:Float):Void {
+        if (panel == null || root == null) return;
+        if (!expanded) {
+            if (shield != null) {
+                G.call("h2d.Object", "set_visible", shield, [false]);
+                G.set(shield, "width", 0);
+                G.set(shield, "height", 0);
+            }
+            if (stacked) {
+                placeWithHud(panel);
+                if (controls != null) placeWithHud(controls.root);
+                if (markers != null) markers.invalidatePin();
+                stacked = false;
+            }
+            if (mapWindow != null) mapWindow.show(false);
+            G.set(input, "propagateEvents", true);
+            return;
+        }
+        if (shield == null) {
+            shield = G.create("h2d.Interactive", [1.0, 1.0, null, null]);
+            scrim = G.create("h2d.Graphics", [shield]);
+            G.set(shield, "propagateEvents", false);
+            G.set(shield, "onPush", (event:Dynamic) -> G.set(event, "propagate", false));
+            G.set(shield, "onClick", (event:Dynamic) -> G.set(event, "propagate", false));
+            G.set(shield, "onWheel", (event:Dynamic) -> G.set(event, "propagate", false));
+        }
+        G.call("h2d.Object", "set_visible", shield, [true]);
+        G.set(shield, "width", screenWidth);
+        G.set(shield, "height", screenHeight);
+        position(shield, 0, 0);
+        paintScrim(screenWidth, screenHeight);
+        var controlsRoot = controls != null && controls.root != null && G.field(controls.root, "visible") == true ? controls.root : null;
+        var window = usingWindow && mapWindow != null ? mapWindow.window : null;
+        var order:Array<Dynamic> = [shield];
+        if (window != null) order.push(window);
+        order.push(panel);
+        if (controlsRoot != null) order.push(controlsRoot);
+        var count = G.integer(G.call("h2d.Object", "get_numChildren", root));
+        var start = count - order.length;
+        var aligned = start >= 0;
+        if (aligned) for (i in 0...order.length) if (childIndex(order[i]) != start + i) aligned = false;
+        if (!aligned) {
+            for (object in order) toFront(object);
+            if (markers != null) markers.invalidatePin();
+        }
+        stacked = true;
+        G.set(input, "propagateEvents", false);
+    }
+
+    function paintScrim(screenWidth:Float, screenHeight:Float):Void {
+        if (scrim == null || (scrimWidth == screenWidth && scrimHeight == screenHeight)) return;
+        scrimWidth = screenWidth;
+        scrimHeight = screenHeight;
+        G.call("h2d.Graphics", "clear", scrim);
+        G.call("h2d.Graphics", "beginFill", scrim, [0x02060f, 0.62]);
+        G.call("h2d.Graphics", "drawRect", scrim, [0.0, 0.0, screenWidth, screenHeight]);
+        G.call("h2d.Graphics", "endFill", scrim);
+    }
+
+    function toFront(object:Dynamic):Void {
+        if (object == null || root == null) return;
+        var count = G.integer(G.call("h2d.Object", "get_numChildren", root));
+        moveChild(object, count);
+    }
+
+    function placeWithHud(object:Dynamic):Void {
+        var layer = childIndex(G.field(owner, "gameRoot"));
+        if (layer < 0) layer = 0;
+        moveChild(object, layer);
+    }
+
+    /** Move without Object.remove. remove() erases every Graphics shape under the window. */
+    function moveChild(object:Dynamic, index:Int):Void {
+        G.call("h2d.Flow", "addChildAt", root, [object, index]);
+        absolute(object);
+        graphicsCleared = true;
+    }
+
+    function absolute(object:Dynamic):Void {
         var properties = G.call("h2d.Flow", "getProperties", root, [object]);
         G.call("h2d.FlowProperties", "set_isAbsolute", properties, [true]);
         G.set(properties, "horizontalAlign", null);
@@ -277,27 +472,118 @@ class MinimapView {
         G.set(properties, "offsetY", 0);
     }
 
+    function childIndex(object:Dynamic):Int {
+        if (object == null || root == null) return -1;
+        try return G.integer(G.call("h2d.Object", "getChildIndex", root, [object])) catch (_:Dynamic) return -1;
+    }
+
+    /** Escape and leaving the overworld use this. The expand hotkey still toggles. */
+    public function dismissExpanded():Bool {
+        if (!expanded) return false;
+        closeExpanded();
+        return true;
+    }
+
+    public function toggleExpanded(app:Dynamic):Void {
+        if (panel == null || G.field(panel, "visible") != true) return;
+        expanded = !expanded;
+        panX = 0;
+        panY = 0;
+        dragging = false;
+        dragMoved = false;
+        bounds = "";
+        // Resizing the window can deliver a leftover click on the pin.
+        ignoreClicksUntil = haxe.Timer.stamp() + 0.3;
+        if (markers != null) markers.invalidatePin();
+        if (expanded) CursorMode.engage(app) else CursorMode.restore();
+    }
+
+    function closeExpanded():Void {
+        if (!expanded && panX == 0 && panY == 0) {
+            CursorMode.restore();
+            return;
+        }
+        expanded = false;
+        panX = 0;
+        panY = 0;
+        dragging = false;
+        dragMoved = false;
+        ignoreClicksUntil = haxe.Timer.stamp() + 0.3;
+        if (markers != null) markers.invalidatePin();
+        CursorMode.restore();
+    }
+
+    function onMapPush(event:Dynamic):Void {
+        trackMouse(event);
+        dragMoved = false;
+        if (!expanded || G.integer(G.field(event, "button")) != 0) return;
+        dragging = true;
+        dragX = mouseX;
+        dragY = mouseY;
+    }
+
+    function onMapClick(event:Dynamic):Void {
+        if (markers == null || haxe.Timer.stamp() < ignoreClicksUntil) return;
+        var rawX = G.field(event, "relX");
+        var rawY = G.field(event, "relY");
+        var x = rawX == null ? mouseX : G.number(rawX);
+        var y = rawY == null ? mouseY : G.number(rawY);
+        if (x < 0 || y < 0 || x > size || y > mapHeight) return;
+        var button = G.integer(G.field(event, "button"));
+        if (button == 1) {
+            if (!markers.pinHit(x, y)) return;
+            G.set(event, "propagate", false);
+            PartyPin.clear();
+            return;
+        }
+        if (button != 0 || controls != null && controls.caption() != "") return;
+        var now = haxe.Timer.stamp();
+        var second = PinPlacement.doubleClick(lastClick, x, y, now);
+        if (dragMoved && !second) {
+            dragMoved = false;
+            G.set(event, "propagate", false);
+            return;
+        }
+        dragMoved = false;
+        if (second) {
+            G.set(event, "propagate", false);
+            var spot = PinPlacement.world(x, y, size, viewX, viewY, mapScale, mapRotation, mapHeight);
+            PartyPin.place(spot.x, spot.y, LEVEL);
+            lastClick = null;
+        } else lastClick = {x: x, y: y, time: now};
+    }
+
     function trackMouse(event:Dynamic):Void {
         // Interactive supplies local coordinates, including the game's UI scale.
         mouseX = G.number(G.field(event, "relX"));
         mouseY = G.number(G.field(event, "relY"));
-        var dx = mouseX - size / 2, dy = mouseY - size / 2;
-        hovered = mouseX >= 0 && mouseY >= 0 && mouseX <= size && mouseY <= size
+        var dx = mouseX - size / 2, dy = mouseY - mapHeight / 2;
+        hovered = mouseX >= 0 && mouseY >= 0 && mouseX <= size && mouseY <= mapHeight
             && (!circular || dx * dx + dy * dy <= size * size / 4);
+        if (!dragging || !expanded) return;
+        var movedX = mouseX - dragX;
+        var movedY = mouseY - dragY;
+        if (movedX * movedX + movedY * movedY <= PinPlacement.SLOP * PinPlacement.SLOP) return;
+        dragMoved = true;
+        var next = PinPlacement.drag(panX, panY, movedX, movedY, mapRotation, mapScale);
+        panX = next.x;
+        panY = next.y;
+        dragX = mouseX;
+        dragY = mouseY;
     }
 
-    function updateHover(hero:Dynamic, x:Float, y:Float, rotation:Float):Void {
+    function updateHover(hero:Dynamic, centerX:Float, centerY:Float, heroX:Float, heroY:Float, rotation:Float):Void {
         if (!hovered || G.call("h2d.Interactive", "isOver", input) != true) {
             setHoverCaption("");
             return;
         }
-        var dx = mouseX - size / 2, dy = mouseY - size / 2;
+        var dx = mouseX - size / 2, dy = mouseY - mapHeight / 2;
         var c = Math.cos(rotation), s = Math.sin(rotation);
         // Undo the displayed map rotation and zoom before picking a marker.
-        var px = x + (dx * c + dy * s) / scale;
-        var py = y + (dy * c - dx * s) / scale;
+        var px = centerX + (dx * c + dy * s) / scale;
+        var py = centerY + (dy * c - dx * s) / scale;
         var target = markers.alertHoverAt(mouseX, mouseY);
-        if (target == null) target = markers.hoverAt(px, py, scale, x, y, hero);
+        if (target == null) target = markers.hoverAt(px, py, scale, heroX, heroY, hero);
         if (target == null) {
             setHoverCaption("");
             return;
@@ -308,7 +594,7 @@ class MinimapView {
         if (target.name == hoverCaption && mouseX == hoverMouseX && mouseY == hoverMouseY && now < nextHoverRefresh) return;
         ensureHoverText();
         var details = MarkerDetails.measurements(target,
-            {x: x, y: y, z: G.number(G.field(hero, "posz"), Math.NaN)});
+            {x: heroX, y: heroY, z: G.number(G.field(hero, "posz"), Math.NaN)});
         setHoverCaption(target.name, details);
         hoverMouseX = mouseX; hoverMouseY = mouseY;
         nextHoverRefresh = now + 0.2;
@@ -323,8 +609,7 @@ class MinimapView {
         hoverShadow = G.create("h2d.Text", [font, panel]);
         hoverText = G.create("h2d.Text", [font, panel]);
         hoverMeasurements = new HoverMeasurements(panel, font);
-        G.call("h2d.Text", "set_textColor", hoverShadow, [0x171b24]);
-        G.call("h2d.Text", "set_textColor", hoverText, [0xfff3d6]);
+        applyDialogInk();
     }
 
     function setHoverCaption(value:String, ?details:Array<minimap.MarkerDetails.MarkerMeasurement>):Void {
@@ -347,8 +632,9 @@ class MinimapView {
     function placeHoverText():Void {
         if (hoverText == null || hoverCaption == "") return;
         // A footer outside the clipping mask stays whole in circular mode too.
-        var bottom = placeHoverLine(hoverText, hoverShadow, hoverFontScale, BORDER + size + 4);
-        hoverMeasurements.place(BORDER + size / 2, bottom + 2, size - 12);
+        var footer = expanded ? contentY + mapHeight + 8 : BORDER + mapHeight + 4;
+        var bottom = placeHoverLine(hoverText, hoverShadow, hoverFontScale, footer);
+        hoverMeasurements.place(contentX + size / 2, bottom + 2, size - 12);
     }
 
     function placeHoverLine(text:Dynamic, shadow:Dynamic, desiredScale:Float, y:Float):Float {
@@ -356,7 +642,7 @@ class MinimapView {
         // Fit lines independently: a long name must not shrink the measurements.
         var textScale = Math.min(desiredScale, (size - 12) / Math.max(1, width));
         for (object in [shadow, text]) G.call("h2d.Object", "setScale", object, [textScale]);
-        var x = BORDER + (size - width * textScale) / 2;
+        var x = contentX + (size - width * textScale) / 2;
         position(shadow, x + 1, y + 1);
         position(text, x, y);
         return y + G.number(G.call("h2d.Text", "get_textHeight", text)) * textScale;
@@ -405,16 +691,27 @@ class MinimapView {
                 riftHeight = G.number(G.call("h2d.Text", "get_textHeight", riftText)) * riftFontScale;
             }
         }
-        var color = config.riftAlerts && rifts.alertActive() ? LandmarkIcons.RIFT_ALERT_COLOR : 0xfff3d6;
+        var color = config.riftAlerts && rifts.alertActive() ? LandmarkIcons.RIFT_ALERT_COLOR : (expanded ? INK : 0xfff3d6);
         if (color != riftColor) {
             riftColor = color;
             G.call("h2d.Text", "set_textColor", riftText, [color]);
         }
         if (caption == "") return;
-        var x = Math.round(BORDER + (size - riftWidth) / 2);
-        // Seven pixels above the frame, versus four below it for hover text.
-        // Keep the caption on-screen even with a very small viewport.
-        var y = Math.ceil(Math.max(2 - panelY, -riftHeight - 7));
+        var x:Float;
+        var y:Float;
+        if (usingWindow) {
+            // Right side of the native header, which sits above this panel.
+            x = dialogW - 32 - MapWindow.INSET - riftWidth;
+            y = (MapWindow.HEADER - riftHeight) / 2 - MapWindow.HEADER;
+        } else if (expanded) {
+            x = contentX + (size - riftWidth) / 2;
+            var top = 8.0;
+            var bottom = contentY - 4;
+            y = top + Math.max(0, (bottom - top - riftHeight) / 2);
+        } else {
+            x = Math.round(contentX + (size - riftWidth) / 2);
+            y = Math.ceil(Math.max(2 - panelY, -riftHeight - 7));
+        }
         if (x != riftX || y != riftY) {
             riftX = x; riftY = y;
             position(riftShadow, x + 1, y + 1);
@@ -442,33 +739,81 @@ class MinimapView {
         G.call(type, "set_resolutionScale", filter, [2.0]);
     }
 
-    function layout(value:Int, round:Bool):Void {
+    function layout(value:Int, height:Int, round:Bool):Void {
         size = value;
+        mapHeight = height;
         circular = round;
         bounds = "";
+        contentX = expanded ? DIALOG_PAD : BORDER;
+        contentY = expanded ? (usingWindow ? DIALOG_PAD : DIALOG_PAD + DIALOG_HEADER) : BORDER;
         G.set(mask, "width", size);
-        G.set(mask, "height", size);
+        G.set(mask, "height", mapHeight);
         G.set(input, "width", size * 1.0);
-        G.set(input, "height", size * 1.0);
+        G.set(input, "height", mapHeight * 1.0);
         G.set(input, "isEllipse", round);
+        position(circleMask, contentX, contentY);
+        position(mask, contentX, contentY);
+        position(input, contentX, contentY);
         hovered = false;
         setHoverCaption("");
-        position(arrow, size / 2, size / 2);
-        position(pivot, size / 2, size / 2);
-        position(npcPivot, size / 2, size / 2);
-        G.call("h2d.Graphics", "clear", frame);
-        G.call("h2d.Graphics", "clear", circleMask);
+        position(arrow, size / 2, mapHeight / 2);
+        position(pivot, size / 2, mapHeight / 2);
+        position(npcPivot, size / 2, mapHeight / 2);
         G.call("h2d.Object", "set_filter", mask, [round ? circleFilter : squareFilter]);
         G.call("h2d.Object", "set_visible", circleMask, [round]);
-        if (controls != null) controls.layout(size, circular);
-        if (round) {
+        if (controls != null && !expanded) controls.layout(size, circular);
+        paintChrome();
+        paintOcean();
+        applyDialogInk();
+    }
+
+    function applyDialogInk():Void {
+        var text = expanded ? HOVER_INK : 0xfff3d6;
+        var shade = expanded ? 0x120C08 : 0x171b24;
+        if (hoverText != null) {
+            G.call("h2d.Text", "set_textColor", hoverText, [text]);
+            G.call("h2d.Text", "set_textColor", hoverShadow, [shade]);
+        }
+        if (hoverMeasurements != null) hoverMeasurements.setInk(text, shade);
+    }
+
+    function paintChrome():Void {
+        if (frame == null) return;
+        G.call("h2d.Graphics", "clear", frame);
+        G.call("h2d.Graphics", "clear", circleMask);
+        if (circular) {
             circle(frame, size / 2 + BORDER, size / 2 + BORDER, size / 2 + BORDER, 0xb39888);
             circle(frame, size / 2 + BORDER, size / 2 + BORDER, size / 2, 0x17202b);
             circle(circleMask, size / 2, size / 2, size / 2, 0xffffff);
+        } else if (expanded && usingWindow) {
+            rectangle(contentX - 4, contentY - 4, size + 8, mapHeight + 8, PARCHMENT_EDGE);
+            rectangle(contentX - 2, contentY - 2, size + 4, mapHeight + 4, PARCHMENT_LINE);
+        } else if (expanded) {
+            var w = dialogW > 0 ? dialogW : size + DIALOG_PAD * 2;
+            var h = dialogH > 0 ? dialogH : mapHeight + DIALOG_PAD * 2 + DIALOG_FOOTER;
+            rectangle(0, 0, w, h, PARCHMENT_EDGE);
+            rectangle(5, 5, w - 10, h - 10, PARCHMENT);
+            rectangle(contentX - 4, contentY - 4, size + 8, mapHeight + 8, PARCHMENT_EDGE);
+            rectangle(contentX - 2, contentY - 2, size + 4, mapHeight + 4, PARCHMENT_LINE);
         } else {
-            rectangle(0, 0, size + BORDER * 2, size + BORDER * 2, 0xb39888);
-            rectangle(BORDER, BORDER, size, size, 0x17202b);
+            rectangle(0, 0, size + BORDER * 2, mapHeight + BORDER * 2, 0xb39888);
+            rectangle(BORDER, BORDER, size, mapHeight, 0x17202b);
         }
+    }
+
+    function repaintPlayerArrow():Void {
+        if (arrow == null) return;
+        G.call("h2d.Graphics", "clear", arrow);
+        MinimapMarkers.drawPlayerArrow(arrow, 10, 0xfff3d6);
+    }
+
+    function paintOcean():Void {
+        if (ocean == null) return;
+        G.call("h2d.Graphics", "clear", ocean);
+        if (!expanded) return;
+        G.call("h2d.Graphics", "beginFill", ocean, [WATER, 1.0]);
+        G.call("h2d.Graphics", "drawRect", ocean, [0.0, 0.0, size * 1.0, mapHeight * 1.0]);
+        G.call("h2d.Graphics", "endFill", ocean);
     }
 
     function circle(graphics:Dynamic, x:Float, y:Float, radius:Float, color:Int):Void {
@@ -515,35 +860,35 @@ class MinimapView {
         });
     }
 
-    function loadNextTile():Void {
+    function pumpTiles():Void {
+        var budget = expanded ? 8 : 4;
+        var decoded = 0;
+        while (decoded < budget) {
+            var entry = nextUndecoded();
+            if (entry == null) break;
+            var resource = G.call("hxd.res.Loader", "load", loader, [entry.path]);
+            entry.tile = G.call("h2d.Tile", "clone", G.call("hxd.res.Any", "toTile", resource));
+            // Opening the native map can center its cached tiles. Keep our copy independent.
+            G.set(entry.tile, "dx", 0.0);
+            G.set(entry.tile, "dy", 0.0);
+            decoded++;
+        }
         for (entry in wanted) {
+            if (entry.tile == null) continue;
             var key = tileKey(entry.x, entry.y);
             if (sprites.exists(key)) continue;
-            if (entry.tile == null) {
-                var resource = G.call("hxd.res.Loader", "load", loader, [entry.path]);
-                entry.tile = G.call("h2d.Tile", "clone", G.call("hxd.res.Any", "toTile", resource));
-                // Opening the native map can center its cached tiles. Keep our copy independent.
-                G.set(entry.tile, "dx", 0.0);
-                G.set(entry.tile, "dy", 0.0);
-                cached.push(entry);
-            }
             var bitmap = G.create("h2d.Bitmap", [entry.tile, tileLayer]);
             G.call("h2d.Bitmap", "set_width", bitmap, [tileWorldWidth]);
             G.call("h2d.Bitmap", "set_height", bitmap, [tileWorldWidth]);
             position(bitmap, entry.x * tileWorldWidth, entry.y * tileWorldWidth);
             sprites[key] = bitmap;
-            trimCache();
-            return; // At most one image load per game update.
         }
     }
 
-    function trimCache():Void {
-        if (cached.length <= CACHE_LIMIT) return;
-        cached.sort((a, b) -> a.lastUsed - b.lastUsed);
-        while (cached.length > CACHE_LIMIT && cached[0].lastUsed < generation) {
-            // Textures belong to the native resource loader; never dispose a shared texture.
-            cached.shift().tile = null;
-        }
+    function nextUndecoded():MapTile {
+        for (entry in wanted) if (entry.tile == null) return entry;
+        for (entry in preload) if (entry.tile == null) return entry;
+        return null;
     }
 
     static inline function tileKey(x:Int, y:Int):String return x + ":" + y;
@@ -551,16 +896,26 @@ class MinimapView {
         G.call("h2d.Object", "setPosition", object, [x, y]);
     function show(visible:Bool):Void {
         if (panel != null) G.call("h2d.Object", "set_visible", panel, [visible]);
+        if (mapWindow != null) mapWindow.show(visible && usingWindow);
         if (!visible && controls != null) controls.show(false);
         if (!visible) { hovered = false; setHoverCaption(""); }
     }
 
     public function dispose():Void {
+        closeExpanded();
         // The hidden font source belongs to gameRoot's DOM, outside our panel.
         if (riftFontSource != null) G.call("h2d.Object", "remove", riftFontSource);
         if (controls != null) {
             controls.dispose();
             controls = null;
+        }
+        if (shield != null) {
+            try G.call("h2d.Object", "remove", shield) catch (_:Dynamic) {}
+            shield = null;
+        }
+        if (mapWindow != null) {
+            mapWindow.dispose();
+            mapWindow = null;
         }
         if (panel != null) {
             var old = panel;
@@ -568,7 +923,7 @@ class MinimapView {
             G.call("h2d.Object", "remove", old);
         }
         owner = null; world = null; root = null; loader = null;
-        frame = null; mask = null; circleMask = null; squareFilter = null; circleFilter = null;
+        frame = null; ocean = null; mask = null; circleMask = null; squareFilter = null; circleFilter = null;
         pivot = null; terrain = null; tileLayer = null; arrow = null; markers = null; compass = null;
         rifts = null; riftText = null; riftShadow = null; riftCaption = ""; riftColor = -1;
         riftFontSource = null; riftFont = null;
@@ -579,7 +934,7 @@ class MinimapView {
         nextHoverRefresh = 0; hoverMouseX = Math.NaN; hoverMouseY = Math.NaN;
         transparency = -1;
         markerScale = 0;
-        index = []; sprites = []; wanted = []; cached = [];
+        index = []; sprites = []; wanted = []; preload = [];
         size = 0; scale = 0; bounds = ""; generation = 0; circular = false;
         panelX = Math.NaN; panelY = Math.NaN;
     }

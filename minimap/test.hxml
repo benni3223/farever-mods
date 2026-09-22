@@ -67,3 +67,8 @@
 -cp tests
 -main MinimapButtonLayoutTest
 --interp
+--next
+-cp src
+-cp tests
+-main PinMessageTest
+--interp

@@ -8,6 +8,16 @@ class PlayerMarkers {
 
     public function new() {}
 
+    /** True when `player.group` lists someone other than the local player. */
+    public static function hasMembers(player:Dynamic):Bool {
+        var group = G.field(player, "group");
+        for (member in G.array(G.field(group, "players"), true)) {
+            if (member == null || member == player || G.field(member, "isMe") == true) continue;
+            return true;
+        }
+        return false;
+    }
+
     /** Other heroes in `player.group`. The local hero is omitted. */
     public function roster(player:Dynamic, self:Dynamic):Array<Dynamic> {
         var heroes:Array<Dynamic> = [];

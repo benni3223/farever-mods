@@ -1,6 +1,7 @@
 package minimap;
 
 import minimap.GameAccess as G;
+import minimap.MinimapButtonLayout.ButtonSpot;
 import minimap.MinimapMenu.MenuShortcut;
 import minimap.MinimapMod.MinimapSettings;
 
@@ -67,15 +68,42 @@ class MinimapControls {
         drawIcon = draw;
     }
 
+    var dockKey:String = "";
+
+    /** A fixed column inside the expanded dialog, not stretched across the big map. */
+    public function layoutDock(x:Float, y:Float, height:Float):Void {
+        var shortcuts = MinimapMenu.shortcuts();
+        var count = shortcuts.length;
+        if (count == 0) return;
+        var gap = 4.0;
+        var button = 36.0;
+        var stack = button * count + gap * (count - 1);
+        if (height > 0 && stack > height) {
+            var fit = height / stack;
+            button *= fit;
+            gap *= fit;
+        }
+        var key = Std.int(x) + ":" + Std.int(y) + ":" + Std.int(button * 10) + ":" + count;
+        if (key == dockKey && chips.length == count) return;
+        dockKey = key;
+        var spots:Array<ButtonSpot> = [];
+        for (index in 0...count) spots.push({x: x, y: y + index * (button + gap), size: button});
+        build(spots, -1, false);
+    }
+
     public function layout(nextSize:Int, round:Bool):Void {
-        if (nextSize == size && round == circular && chips.length > 0) return;
+        if (nextSize == size && round == circular && chips.length > 0 && dockKey == "") return;
+        dockKey = "";
+        build(MinimapButtonLayout.spots(nextSize, round), nextSize, round);
+    }
+
+    function build(spots:Array<ButtonSpot>, nextSize:Int, round:Bool):Void {
         size = nextSize;
         circular = round;
         close();
         clear(bar);
         chips = [];
         var shortcuts = MinimapMenu.shortcuts();
-        var spots = MinimapButtonLayout.spots(size, circular);
         if (shortcuts.length == 0 || spots.length == 0) return;
         for (index in 0...spots.length) {
             var shortcut = shortcuts[index];
@@ -110,6 +138,11 @@ class MinimapControls {
             chips.push({id: id, x: spot.x, y: spot.y, width: spot.size, height: spot.size,
                 background: background, icon: icon, hit: hit});
         }
+        drawIcons();
+        paint();
+    }
+
+    public function redrawIcons():Void {
         drawIcons();
         paint();
     }

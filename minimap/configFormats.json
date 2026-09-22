@@ -4,6 +4,7 @@
   "configs": [
     { "type": "title", "label": "General" },
     { "key": "enabled", "type": "checkbox", "label": "Enabled" },
+    { "key": "expandHotkey", "type": "keybinding", "label": "Expand map" },
     { "key": "circular", "type": "checkbox", "label": "Circular minimap" },
     { "key": "leftCorner", "type": "checkbox", "label": "Show in left corner" },
     { "key": "showNorthIndicator", "type": "checkbox", "label": "Show north indicator" },
