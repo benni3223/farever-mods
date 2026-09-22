@@ -12,6 +12,7 @@ Each project has its own source, build, installable ZIP, and versioned releases.
 | Fix Target Lock | [fix-target-lock](fix-target-lock/) | [Build](https://github.com/xWink/farever-mods/actions/workflows/build-fix-target-lock.yml) | [Downloads](https://github.com/xWink/farever-mods/releases?q=fix-target-lock&expanded=true) |
 | DPS Meter | [dps-meter](dps-meter/) | [Build](https://github.com/xWink/farever-mods/actions/workflows/build-dps-meter.yml) | [Downloads](https://github.com/xWink/farever-mods/releases?q=dps-meter%2Fv&expanded=true) |
 | Minimap | [minimap](minimap/) | [Build](https://github.com/xWink/farever-mods/actions/workflows/build-minimap.yml) | [Downloads](https://github.com/xWink/farever-mods/releases?q=minimap%2Fv&expanded=true) |
+| Mod Updater | [mod-updater](mod-updater/) | [Build](https://github.com/xWink/farever-mods/actions/workflows/build-mod-updater.yml) | [Downloads](https://github.com/xWink/farever-mods/releases?q=mod-updater&expanded=true) |
 
 ## Installing
 

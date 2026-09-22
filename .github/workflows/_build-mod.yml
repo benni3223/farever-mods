@@ -91,7 +91,7 @@ jobs:
           destination="package/hlx/mods/$MODULE"
           mkdir -p "$destination"
           cp "build/$MODULE/$MODULE.hl" "$destination/"
-          if [[ "$PROJECT" != "better-mod-settings" ]]; then
+          if [[ -f configFormats.json ]]; then
             cp configFormats.json "$destination/"
           fi
           printf '%s\n' \

@@ -1,0 +1,44 @@
+name: Mod Updater
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['mod-updater/v*']
+    paths:
+      - 'mod-updater/**'
+      - '.github/workflows/build-mod-updater.yml'
+      - '.github/workflows/_build-mod.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mod-updater/**'
+      - '.github/workflows/build-mod-updater.yml'
+      - '.github/workflows/_build-mod.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.7
+      - name: Test update detection and reminder persistence
+        working-directory: mod-updater
+        run: haxe test.hxml
+
+  build:
+    needs: test
+    uses: ./.github/workflows/_build-mod.yml
+    with:
+      project: mod-updater
+      module: mod-updater
+      title: Mod Updater
