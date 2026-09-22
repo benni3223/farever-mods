@@ -865,6 +865,33 @@ class MinimapMarkers {
         while (pool.length > count) G.call("h2d.Object", "remove", pool.pop().icon);
     }
 
+    /** The same marker art used on the map, centered for a category button. */
+    public function drawCategory(graphics:Dynamic, id:String):Void {
+        this.graphics = graphics;
+        switch (id) {
+            case "players":
+                drawIcon({kind: "player", x: 0, y: 0, z: 0, heading: -Math.PI / 2});
+            case "resources":
+                drawIcon({kind: "plant", x: -6, y: 0, z: 0});
+                drawIcon({kind: "ore", x: 6, y: 0, z: 0});
+            case "enemies":
+                drawIcon({kind: "enemy", x: 0, y: 0, z: 0});
+            case "companions":
+                drawIcon({kind: "companion", x: 0, y: 0, z: 0});
+            case "chests":
+                drawIcon({kind: "chest", x: 0, y: 0, z: 0});
+            case "orbs":
+                drawIcon({kind: "secretOrb", x: 0, y: 0, z: 0});
+            case "npcs":
+                drawIcon({kind: "npc", x: 0, y: 0, z: 0});
+            case "landmarks":
+                drawIcon({kind: "obelisk", x: 0, y: 0, z: 0});
+            case "activities":
+                drawIcon({kind: "activity", x: 0, y: 0, z: 0});
+            default:
+        }
+    }
+
     function drawIcon(point:MapPoint):Void {
         var kind = point.kind;
         if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy"

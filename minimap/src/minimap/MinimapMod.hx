@@ -15,6 +15,7 @@ typedef MinimapSettings = {
     var circular:Bool;
     var leftCorner:Bool;
     var showNorthIndicator:Bool;
+    var showCategoryButtons:Bool;
     var showRiftTimer:Bool;
     var riftAlerts:Bool;
     var xOffset:Float;
@@ -59,7 +60,7 @@ class MinimapMod {
     @:hlx.config
     static var config:MinimapSettings = {
         enabled: true, transparency: 0, zoom: 30, size: 250, markerScale: 100, rotateMap: true, followCamera: true,
-        circular: true, leftCorner: false, showNorthIndicator: true, xOffset: 0, yOffset: 0,
+        circular: true, leftCorner: false, showNorthIndicator: true, showCategoryButtons: true, xOffset: 0, yOffset: 0,
         showRiftTimer: true, riftAlerts: true,
         showPlayers: true, hideNonPartyPlayers: false, partyDirectionArrows: true,
         showPlants: true, showOre: true, showEnemies: true,
@@ -97,6 +98,16 @@ class MinimapMod {
         config.verticallyDistantThreshold = MarkerDetails.threshold(config.verticallyDistantThreshold);
         config.xOffset = MinimapPosition.percent(config.xOffset);
         config.yOffset = MinimapPosition.percent(config.yOffset);
+    }
+
+    public static function setToggles(values:Map<String, Bool>):Void {
+        var changed = false;
+        for (key in values.keys()) {
+            if (!Reflect.hasField(config, key) || Reflect.field(config, key) == values[key]) continue;
+            Reflect.setField(config, key, values[key]);
+            changed = true;
+        }
+        if (changed) config.save();
     }
 
     public static function adjustZoom(wheelDelta:Float):Void {

@@ -57,3 +57,13 @@
 -cp tests
 -main HoverMeasurementsTest
 --interp
+--next
+-cp src
+-cp tests
+-main MinimapMenuTest
+--interp
+--next
+-cp src
+-cp tests
+-main MinimapButtonLayoutTest
+--interp

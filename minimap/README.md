@@ -46,6 +46,7 @@ with the new client.
 - Individual plant and ore type filters.
 - Hover over markers or guidance arrows to see their name, horizontal distance, and relative height below the map.
 - Optional vertical-distance filter hides map markers above or below a chosen threshold while keeping guidance arrows available.
+- Category buttons along the right side of the map use the same marker icons. On a circular map they follow the curve of the edge. The map sits further left so the buttons stay on screen. Left-click turns that category on or off. Right-click a button for that category's options. **Show category buttons** in General is on by default.
 - Hover the mouse over the map and scroll to zoom.
 - Up/down arrows show markers more than 15 metres above or below you.
 

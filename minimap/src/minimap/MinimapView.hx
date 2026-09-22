@@ -50,6 +50,7 @@ class MinimapView {
     var riftY:Float = Math.NaN;
     var arrow:Dynamic;
     var input:Dynamic;
+    var controls:MinimapControls;
     var hovered:Bool = false;
     var mouseX:Float = 0;
     var mouseY:Float = 0;
@@ -139,7 +140,9 @@ class MinimapView {
         var outerSize = size + BORDER * 2;
         var screenWidth = G.number(G.call("h2d.Flow", "get_innerWidth", root));
         var screenHeight = G.number(G.call("h2d.Flow", "get_innerHeight", root));
-        var nextX = MinimapPosition.axis(screenWidth, outerSize, config.xOffset, !config.leftCorner);
+        // Keep the category column inside the same screen margin as the card.
+        var buttons = config.showCategoryButtons ? MinimapControls.columnExtra(size, circular) : 0;
+        var nextX = MinimapPosition.axis(screenWidth, outerSize + buttons, config.xOffset, !config.leftCorner);
         var nextY = MinimapPosition.axis(screenHeight, outerSize, config.yOffset);
         if (panelX != nextX || panelY != nextY) {
             panelX = nextX; panelY = nextY;
@@ -158,6 +161,20 @@ class MinimapView {
         compass.update(size, circular, rotation, markerScale / 100, config.showNorthIndicator);
         updateRiftTimer(config);
         show(true);
+        if (controls != null) {
+            controls.show(config.showCategoryButtons);
+            if (!config.showCategoryButtons) {
+                updateHover(hero, x, y, rotation);
+                return;
+            }
+            controls.sync(config);
+            controls.place(panelX, panelY, screenWidth, screenHeight);
+            var label = controls.caption();
+            if (label != "") {
+                setHoverCaption(label);
+                return;
+            }
+        }
         updateHover(hero, x, y, rotation);
     }
 
@@ -243,6 +260,21 @@ class MinimapView {
             G.set(event, "propagate", false);
             MinimapMod.adjustZoom(G.number(G.field(event, "wheelDelta")));
         });
+        controls = new MinimapControls();
+        controls.bindFont(() -> findFont(G.field(owner, "gameRoot"), 6));
+        controls.bindIcons((graphics, id) -> markers.drawCategory(graphics, id));
+        attachAbsolute(controls.root);
+    }
+
+    function attachAbsolute(object:Dynamic):Void {
+        var layer = G.integer(G.call("h2d.Object", "getChildIndex", root, [G.field(owner, "gameRoot")]));
+        G.call("h2d.Flow", "addChildAt", root, [object, layer]);
+        var properties = G.call("h2d.Flow", "getProperties", root, [object]);
+        G.call("h2d.FlowProperties", "set_isAbsolute", properties, [true]);
+        G.set(properties, "horizontalAlign", null);
+        G.set(properties, "verticalAlign", null);
+        G.set(properties, "offsetX", 0);
+        G.set(properties, "offsetY", 0);
     }
 
     function trackMouse(event:Dynamic):Void {
@@ -428,6 +460,7 @@ class MinimapView {
         G.call("h2d.Graphics", "clear", circleMask);
         G.call("h2d.Object", "set_filter", mask, [round ? circleFilter : squareFilter]);
         G.call("h2d.Object", "set_visible", circleMask, [round]);
+        if (controls != null) controls.layout(size, circular);
         if (round) {
             circle(frame, size / 2 + BORDER, size / 2 + BORDER, size / 2 + BORDER, 0xb39888);
             circle(frame, size / 2 + BORDER, size / 2 + BORDER, size / 2, 0x17202b);
@@ -518,12 +551,17 @@ class MinimapView {
         G.call("h2d.Object", "setPosition", object, [x, y]);
     function show(visible:Bool):Void {
         if (panel != null) G.call("h2d.Object", "set_visible", panel, [visible]);
+        if (!visible && controls != null) controls.show(false);
         if (!visible) { hovered = false; setHoverCaption(""); }
     }
 
     public function dispose():Void {
         // The hidden font source belongs to gameRoot's DOM, outside our panel.
         if (riftFontSource != null) G.call("h2d.Object", "remove", riftFontSource);
+        if (controls != null) {
+            controls.dispose();
+            controls = null;
+        }
         if (panel != null) {
             var old = panel;
             panel = null;
