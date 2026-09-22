@@ -1,0 +1,44 @@
+name: Mod Update Alerts
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['mod-update-alerts/v*']
+    paths:
+      - 'mod-update-alerts/**'
+      - '.github/workflows/build-mod-update-alerts.yml'
+      - '.github/workflows/_build-mod.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mod-update-alerts/**'
+      - '.github/workflows/build-mod-update-alerts.yml'
+      - '.github/workflows/_build-mod.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.7
+      - name: Test update detection and reminder persistence
+        working-directory: mod-update-alerts
+        run: haxe test.hxml
+
+  build:
+    needs: test
+    uses: ./.github/workflows/_build-mod.yml
+    with:
+      project: mod-update-alerts
+      module: mod-update-alerts
+      title: Mod Update Alerts

@@ -9,11 +9,13 @@ typedef PlayerInfo = {
 };
 typedef DamageEvent = {
     time:Float, source:String, amount:Float, critical:Bool, kill:Bool, effect:Int, skill:String,
-    target:String, bossKind:String, bossFlags:Int, bossLevel:Int, bossFoeId:Int, ?bossName:String, ?summoned:Bool
+    target:String, bossKind:String, bossFlags:Int, bossLevel:Int, bossFoeId:Int, ?bossName:String, ?summoned:Bool,
+    ?damageType:String, ?affinity:String
 };
 
 class SkillStats {
     public var damage:Float = 0;
+    public var damageBreakdown:DamageBreakdown = new DamageBreakdown();
     public var hits:Int = 0;
     public var crits:Int = 0;
     public var kills:Int = 0;
@@ -22,6 +24,7 @@ class SkillStats {
     public function new() {}
     public function add(e:DamageEvent):Void {
         damage += e.amount;
+        damageBreakdown.add(e);
         hits++;
         if (e.critical) crits++;
         if (e.kill) kills++;
@@ -31,7 +34,8 @@ class SkillStats {
     }
     public function json(id:String, duration:Float):Dynamic {
         return {id: id, damage: rounded(damage, 0), casts: casts, hits: hits, crits: crits, kills: kills,
-            dps: rounded(damage / duration, 1), dmg_per_cast: rounded(casts == 0 ? 0 : damage / casts, 0)};
+            dps: rounded(damage / duration, 1), dmg_per_cast: rounded(casts == 0 ? 0 : damage / casts, 0),
+            damage_breakdown: damageBreakdown.json(damage)};
     }
     public static function rounded(value:Float, digits:Int):Float {
         var scale = Math.pow(10, digits);
@@ -41,6 +45,7 @@ class SkillStats {
 
 class PlayerStats {
     public var damage:Float = 0;
+    public var damageBreakdown:DamageBreakdown = new DamageBreakdown();
     public var heal:Float = 0;
     public var hits:Int = 0;
     public var crits:Int = 0;
@@ -52,6 +57,7 @@ class PlayerStats {
     public function add(e:DamageEvent, info:PlayerInfo):Void {
         this.info = info;
         if (e.effect == 1) heal += e.amount; else damage += e.amount;
+        damageBreakdown.add(e);
         hits++;
         if (e.critical) crits++;
         if (e.kill) kills++;
@@ -71,7 +77,8 @@ class PlayerStats {
         skillIds.sort((a, b) -> skills[a].damage > skills[b].damage ? -1 : skills[a].damage < skills[b].damage ? 1 : Reflect.compare(a, b));
         var result:Dynamic = {uid: info.uid, name: info.name, is_me: info.isMe,
             total_damage: SkillStats.rounded(damage, 0), dps: SkillStats.rounded(damage / duration, 1),
-            heal: SkillStats.rounded(heal, 0), hits: hits, crits: crits, kills: kills};
+            heal: SkillStats.rounded(heal, 0), hits: hits, crits: crits, kills: kills,
+            damage_breakdown: damageBreakdown.json(damage)};
         Reflect.setField(result, "class", info.className);
         // Reports cross into the uploader thread: detach every mutable array
         // and weapon record from the live encounter before handing one off.
@@ -160,10 +167,12 @@ class Fight {
         for (id => p in players) {
             var next = new PlayerStats(p.info);
             next.damage = p.damage; next.heal = p.heal; next.hits = p.hits;
+            next.damageBreakdown = p.damageBreakdown.copy();
             next.crits = p.crits; next.kills = p.kills; next.weapons = p.weapons.copy();
             for (name => skill in p.skills) {
                 var s = new SkillStats();
                 s.damage = skill.damage; s.hits = skill.hits; s.crits = skill.crits;
+                s.damageBreakdown = skill.damageBreakdown.copy();
                 s.kills = skill.kills; s.casts = skill.casts; s.lastHit = skill.lastHit;
                 next.skills[name] = s;
             }

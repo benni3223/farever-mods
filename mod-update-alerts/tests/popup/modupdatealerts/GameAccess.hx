@@ -1,0 +1,33 @@
+package modupdatealerts;
+
+/** Lifecycle test double; rendering is exercised by the real HL build/in-game. */
+class GameAccess {
+    public static var currentUi:Dynamic;
+    public static function field(object:Dynamic,name:String):Dynamic
+        return object==null ? null : Reflect.field(object,name);
+    public static function set(object:Dynamic,name:String,value:Dynamic):Void
+        if(object!=null) Reflect.setField(object,name,value);
+    public static function number(value:Dynamic,fallback:Float=0):Float
+        return value==null ? fallback : value;
+    public static function integer(value:Dynamic,fallback:Int=0):Int
+        return Std.int(number(value,fallback));
+    public static function current(type:String,name:String):Dynamic return currentUi;
+    public static function call(type:String,name:String,object:Dynamic,?args:Array<Dynamic>):Dynamic {
+        switch(type+"."+name) {
+            case "ui.BaseUI.removeWindow":
+                var windows:Array<Dynamic>=object.windows;
+                var window=args[0];windows.remove(window);
+                window.parent=null;window.removed=true;
+            case "h2d.Object.remove":
+                object.parent=null;object.removed=true;
+            default: throw "Unexpected lifecycle call: "+type+"."+name;
+        }
+        return null;
+    }
+    public static function staticCall(type:String,name:String,args:Array<Dynamic>):Dynamic
+        throw "Rendering is not available in lifecycle tests";
+    public static function create(type:String,args:Array<Dynamic>):Dynamic
+        throw "Rendering is not available in lifecycle tests";
+    public static function enumeration(type:String,name:String):Dynamic
+        throw "Rendering is not available in lifecycle tests";
+}

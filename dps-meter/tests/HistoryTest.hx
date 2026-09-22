@@ -21,6 +21,7 @@ import sys.io.File;
 @:access(dpsmeter.RunWriter)
 class HistoryTest {
     static var checks = 0;
+    static final UNKNOWN_SPLIT = "  ·  Physical: 0%  ·  Magical: 0%  ·  Raw: 0%";
     static function check(condition:Bool, message:String):Void {
         checks++;
         if (!condition) throw message;
@@ -400,7 +401,7 @@ class HistoryTest {
         check(FightHistory.decode(record).outcome == "Victory" && record.outcome == "Victory",
             "A copied fight retains its outcome through JSON serialization and decoding");
         check(StringTools.endsWith(FightHistory.attemptHeading(entry), "Party: 3  ·  Victory")
-            && StringTools.endsWith(FightHistory.chartDetail(entry), "2 sec  ·  Victory"),
+            && StringTools.endsWith(FightHistory.chartDetail(entry), "2 sec  ·  Victory" + UNKNOWN_SPLIT),
             "Victory appears after party size in the list and after duration in the chart and snapshot summary");
         var parts = FightHistory.attemptHeadingParts(entry);
         check(parts.player == entry.playerName && parts.before + parts.player + parts.after == FightHistory.attemptHeading(entry)
@@ -779,7 +780,7 @@ class HistoryTest {
         var entry = FightHistory.entry(FightHistory.encode(f, "details"));
         check(FightHistory.attemptHeading(entry) == FightHistory.dateLabel(f.startedAt) + "  ·  Shawn  ·  Party: 5  ·  Outcome unknown", "Attempt button starts with date, character, complete roster size, and outcome");
         check(FightHistory.attemptDetail(entry) == "10 sec  ·  Your DPS: 35", "Attempt button second line has duration then DPS");
-        check(FightHistory.chartDetail(entry) == FightHistory.dateLabel(f.startedAt) + "  ·  Shawn  ·  Your DPS: 35  ·  10 sec  ·  Outcome unknown", "Chart summary has date, character, DPS, duration, and outcome in one row");
+        check(FightHistory.chartDetail(entry) == FightHistory.dateLabel(f.startedAt) + "  ·  Shawn  ·  Your DPS: 35  ·  10 sec  ·  Outcome unknown" + UNKNOWN_SPLIT, "Chart summary has date, character, DPS, duration, outcome, and damage types in one row");
         var old = FightHistory.encode(sample(), "old"); Reflect.deleteField(old, "difficulty"); Reflect.deleteField(old, "partySize");
         entry = FightHistory.entry(old);
         check(entry.difficulty == -1 && entry.partySize == 0 && entry.recordedPlayers == 2, "Old logs preserve unknown difficulty and only a lower bound on party size");
@@ -860,16 +861,16 @@ class HistoryTest {
         var gates = sample(); gates.phase = dpsmeter.RiftTracker.GATES_PHASE; gates.outcome = "Victory";
         var boss = sample(); boss.startedAt += 120000; boss.outcome = "Victory";
         var recap:dpsmeter.RiftTracker.RiftRecap = {gate: gates, boss: boss};
-        check(FightHistory.recapDetail(recap) == "Sep 14, 2026 at 13:20:30  ·  Shawn  ·  Victory",
+        check(FightHistory.recapDetail(recap) == "Sep 14, 2026 at 13:20:30  ·  Shawn  ·  Victory" + UNKNOWN_SPLIT,
             "Recap summary uses the gates start, recorded local player, and boss result in history's date format");
         boss.outcome = "Defeat";
-        check(StringTools.endsWith(FightHistory.recapDetail(recap), "  ·  Defeat"),
+        check(StringTools.endsWith(FightHistory.recapDetail(recap), "  ·  Defeat" + UNKNOWN_SPLIT),
             "A gates victory does not override a defeated boss phase");
         boss.outcome = "";
-        check(StringTools.endsWith(FightHistory.recapDetail(recap), "  ·  Outcome unknown"),
+        check(StringTools.endsWith(FightHistory.recapDetail(recap), "  ·  Outcome unknown" + UNKNOWN_SPLIT),
             "Missing outcome is not invented as a victory or defeat");
         boss.outcome = "Victory"; recap.gate = null;
-        check(FightHistory.recapDetail(recap) == "Sep 14, 2026 at 13:22:30  ·  Shawn  ·  Victory",
+        check(FightHistory.recapDetail(recap) == "Sep 14, 2026 at 13:22:30  ·  Shawn  ·  Victory" + UNKNOWN_SPLIT,
             "Boss-only recap uses its recorded boss start time");
         boss.players.remove("me"); boss.meName = "Wink <Mage> & friends";
         check(FightHistory.recapDetail(recap).indexOf("  ·  Wink <Mage> & friends  ·  ") >= 0,
