@@ -14,11 +14,13 @@ class PopupRetry {
         }
         return now>=retryAt;
     }
-    public function failed(now:Float, error:String):Bool {
+    public function failed(now:Float, error:String, initializing:Bool=false):Bool {
         failures++;
         retryAt=now+Math.min(60,5*Math.pow(2,Math.min(failures-1,4)));
-        var report=error!=lastError;
-        lastError=error;
+        // Expected startup timing is quiet; persistent initialization failures
+        // still become visible, without changing the retry schedule.
+        var report=(!initializing || failures>=3) && error!=lastError;
+        if(report) lastError=error;
         return report;
     }
     public function succeeded():Void {

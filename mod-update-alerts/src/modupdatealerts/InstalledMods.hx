@@ -134,7 +134,8 @@ class InstalledMods {
             if (binaries.length == 0) continue;
             var found = manualPaths.exists(base);
             for (entry in deployed) for (binary in binaries) if (entry.files.indexOf(binary) >= 0) found = true;
-            if (!found) diagnostics.push("No installed-version metadata for " + folder);
+            // Our test build has no Nexus identity until it is published.
+            if (!found && folder!="mod-update-alerts") diagnostics.push("No installed-version metadata for " + folder);
         }
     }
 

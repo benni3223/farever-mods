@@ -13,9 +13,7 @@ class ModUpdateAlertsMod {
     static var originalDismissed:Map<String,String>;
     static var retry=new PopupRetry();
 
-    static function main():Void {
-        trace("[Mod Update Alerts] Loaded; checking starts when the game UI is ready.");
-    }
+    static function main():Void {}
 
     @:hlx.postfix(ui.BaseUI.update)
     static function update(ui:Dynamic,dt:Float,ignored:Void):Void {
@@ -31,7 +29,6 @@ class ModUpdateAlertsMod {
                 if(result!=null) {
                     originalDismissed=result.dismissed.copy();
                     for(note in result.notes) trace("[Mod Update Alerts] "+note);
-                    trace("[Mod Update Alerts] "+result.updates.length+" update(s) available.");
                     if(!UpdateModel.needsReminder(result.updates,result.dismissed)) finished=true;
                 }
             }
@@ -49,14 +46,14 @@ class ModUpdateAlertsMod {
                 worker.saves.add(result.dismissed.copy());
             }, selected);
             retry.succeeded();
-            trace("[Mod Update Alerts] Update popup opened.");
         } catch (error:Dynamic) {
             UpdatePopup.constructing=false;
             var stage=popup==null ? "update check" : popup.stage;
             if(popup!=null) try popup.dispose() catch (_:Dynamic) {}
             popup=null;
-            var message=stage+": "+Std.string(error);
-            if(retry.failed(haxe.Timer.stamp(),message))
+            var detail=Std.string(error), message=stage+": "+detail;
+            var initializing=detail=="Native title window content was not initialized";
+            if(retry.failed(haxe.Timer.stamp(),message,initializing))
                 trace("[Mod Update Alerts] Could not show updates ("+message+"). Will retry when the UI is ready.");
         }
     }

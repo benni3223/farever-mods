@@ -50,7 +50,6 @@ class UpdateWorker {
             }
             for (mod in unique) {
                 if (stopped()) return;
-                result.notes.push("Verified installed version: "+mod.name+" "+mod.version);
                 var latest=client.fetch(mod.domain,mod.modId);
                 if (latest==null) { result.notes.push("Nexus metadata unavailable: "+mod.name); continue; }
                 var comparison=UpdateModel.compare(latest.version,mod.version);

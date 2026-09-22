@@ -8,8 +8,10 @@ versions. Close it with its X or Escape to keep playing. To update, close Fareve
 open Vortex, check for updates, install them, and deploy.
 The popup waits for an initialized UI, registers with the game's window manager,
 and keeps the mouse cursor available. Loading/menu transitions cannot permanently
-exhaust its retries. If native UI creation fails, the log includes the operation
-and actual error; repeated identical errors are suppressed while retries continue.
+exhaust its retries. Routine startup, version verification, and popup success are
+silent. Initial UI-readiness retries are also quiet; persistent initialization
+failures and other errors include the operation and actual error, with repeated
+identical errors suppressed while retries continue.
 
 The checkbox **Don't remind me again about these versions** remembers the listed
 available versions immediately. Unchecking it restores the prior preference.
@@ -97,7 +99,7 @@ A mod author can package `update-info.json` beside their binary:
 Use the real Nexus mod ID and the installed release version. Regenerate the hash
 for each build. Mismatched hashes are ignored so stale metadata cannot label a
 replacement binary as an older release. Mod Update Alerts itself can use this metadata
-once it has a Nexus page; until then, it has no Nexus identity to check.
+once it has a Nexus page; until then, its missing metadata is silently skipped.
 
 Reminder preferences are stored in `hlx/config/mod-update-alerts/reminders.json`.
 Delete the `reminders.json` and `.bak` files from both the new and old config
