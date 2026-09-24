@@ -82,6 +82,7 @@ class MinimapMarkers {
     var gatherKinds:Map<String, String> = [];
     var gatherFilters:Map<String, String> = [];
     var enemies = new EnemyMarkers();
+    var eliteNames:Map<String, String> = [];
     var worldEvents = new WorldEventAccess();
     var npcKinds:Map<String, String> = [];
     var npcDefinitions:Map<String, Dynamic> = [];
@@ -162,16 +163,7 @@ class MinimapMarkers {
             var points = collect(hero, config, x, y, radius + 12 * markerScale / scale);
             draw(points, scale);
         } catch (error:Dynamic) {
-            hitPoints = [];
-            alertTargets = [];
-            partyTargets = [];
-            // An optional marker source must not take down the working map.
-            trimIcons(playerIconMarkers, 0);
-            trimElevations(playerElevationMarkers, 0);
-            trimIcons(mapIconMarkers, 0);
-            trimIcons(npcIconMarkers, 0);
-            trimElevations(mapElevationMarkers, 0);
-            trimElevations(npcElevationMarkers, 0);
+            // Keep the last good icons. Clearing them made one bad unit blank the map.
             nextRefresh = now + 5;
             if (!reportedError) {
                 reportedError = true;
@@ -463,7 +455,8 @@ class MinimapMarkers {
         var collected:Map<String, Bool> = [];
         var roster = players.roster(player, hero);
         var seen:Array<Dynamic> = [];
-        if (config.showPlayers || config.partyDirectionArrows || config.showEnemies || config.showCompanions || config.sparklingCompanionAlerts)
+        if (config.showPlayers || config.partyDirectionArrows || config.showEnemies || config.alwaysShowEliteEnemies == true
+            || config.showCompanions || config.sparklingCompanionAlerts)
         for (unit in G.array(G.field(layer, "units"))) {
             if (unit == hero || G.field(unit, "removed") == true) continue;
             var kind = family(unit);
@@ -472,18 +465,19 @@ class MinimapMarkers {
                 trackPlayer(unit, config, x, y, radius, roster, seen, points);
                 continue;
             }
-            if (!config.showEnemies && !config.showCompanions && !config.sparklingCompanionAlerts) continue;
+            if (!config.showEnemies && config.alwaysShowEliteEnemies != true && !config.showCompanions && !config.sparklingCompanionAlerts) continue;
             var px = G.number(G.field(unit, "posx")), py = G.number(G.field(unit, "posy"));
             var nearby = near(px, py, x, y, radius);
-            if (!nearby && !config.sparklingCompanionAlerts) continue;
             var inf = kind == "enemy" ? G.field(unit, "inf") : null;
             var flags = G.integer(G.field(inf, "flags"));
             var sparkling = (flags & (1 << 22)) != 0;
             var companion = G.text(G.field(inf, "type")) == "Critter";
+            var namedElite = !companion && isWorldElite(inf);
+            var alwaysElite = config.alwaysShowEliteEnemies == true && namedElite;
             var alert = config.sparklingCompanionAlerts && companion && sparkling;
             var point:MapPoint = null;
-            // Alerts scan every replicated unit, with no minimap-distance cutoff.
-            if (!nearby && !alert) continue;
+            // Alerts and elites scan every replicated unit, with no minimap-distance cutoff.
+            if (!nearby && !alert && !alwaysElite) continue;
             if (G.field(unit, "dying") == true || G.call("ent.GameObject", "isDead", unit) == true) continue;
             if (kind == "enemy") {
                 // Player-owned summons are allies, including nested summons.
@@ -513,7 +507,7 @@ class MinimapMarkers {
                     }
                     if (!config.showCompanions || !nearby || (config.hideCollectedCompanions && owned)) continue;
                 } else {
-                    if (!config.showEnemies || G.call("ent.Foe", "isEnemyWith", unit, [hero]) != true) continue;
+                    if ((!config.showEnemies && !alwaysElite) || G.call("ent.Foe", "isEnemyWith", unit, [hero]) != true) continue;
                     if (!enemyKinds.exists(id)) {
                         var needsProgress = config.hideCompletedCodexEnemies || config.hideMasteredCodexEnemies;
                         var progress = !needsProgress || unitsProgress == null ? null : G.call("haxe.ds.StringMap", "get", unitsProgress, [id]);
@@ -521,6 +515,7 @@ class MinimapMarkers {
                             config.hideCompletedCodexEnemies, config.hideMasteredCodexEnemies, config.hideTargetDummies);
                     }
                     kind = enemyKinds[id];
+                    if (namedElite) kind = "elite";
                     if (kind == "") continue;
                 }
             }
@@ -798,6 +793,28 @@ class MinimapMarkers {
         return kind;
     }
 
+    function isWorldElite(inf:Dynamic):Bool {
+        if (inf == null) return false;
+        var id = G.text(G.field(inf, "id"));
+        if (EliteNames.hasId(id)) return true;
+        return EliteNames.has(displayName(inf));
+    }
+
+    function displayName(inf:Dynamic):String {
+        if (inf == null) return "";
+        var id = G.text(G.field(inf, "id"));
+        if (eliteNames.exists(id)) return eliteNames[id];
+        var name = "";
+        try {
+            name = G.text(G.staticCall("HText", "unit", [inf, G.current("ETextKind", "Name")]));
+        } catch (_:Dynamic) {
+            name = "";
+        }
+        if (name == "") name = id;
+        eliteNames[id] = name;
+        return name;
+    }
+
     static function near(px:Float, py:Float, x:Float, y:Float, radius:Float):Bool
         return Math.abs(px - x) <= radius && Math.abs(py - y) <= radius;
 
@@ -805,6 +822,7 @@ class MinimapMarkers {
         case "party": 10;
         case "bank", "demon", "chest", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
+        case "elite": 4;
         case "obelisk", "dungeon", "soulstone", "secretOrb", "glory": 8;
         case "targetDummy", "upcomingRift", "infusion", "craft", "recycler": 9;
         case "riftPortal": 11;
@@ -884,7 +902,7 @@ class MinimapMarkers {
             if (point.entity != null) {
                 var type = switch point.kind {
                     case "player", "party": "ent.Hero";
-                    case "enemy", "boss", "companion", "targetDummy": "ent.Unit";
+                    case "enemy", "boss", "elite", "companion", "targetDummy": "ent.Unit";
                     case "plant", "ore": "ent.interactible.Gatherable";
                     default: "ent.Element";
                 };
@@ -920,6 +938,7 @@ class MinimapMarkers {
             case "player": "Player";
             case "party": "Party member";
             case "companion": "Companion";
+            case "elite": "Elite";
             case "enemy", "boss": "Enemy";
             case "targetDummy": "Target dummy";
             default: "NPC";
@@ -932,7 +951,7 @@ class MinimapMarkers {
     function draw(points:Array<MapPoint>, scale:Float):Void {
         hitPoints = [];
         // All Rift states draw above enemies; services retain top priority.
-        for (kind in ["player", "party", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft", "glory", "infusion"]) {
+        for (kind in ["player", "party", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "elite", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft", "glory", "infusion"]) {
             for (point in points) if (point.kind == kind) {
                 point.elevation = elevationDirection(point.z, heroHeight);
                 hitPoints.push(point);
@@ -1020,6 +1039,7 @@ class MinimapMarkers {
             case "ascension": 0xffc45a;
             case "chest": 0xffa044;
             case "enemy", "boss": 0xff6860;
+            case "elite": 0xb44cff;
             case "respawn": 0xffffff;
             case "npc": 0xffdf78;
             case "bank": 0xffdc42;

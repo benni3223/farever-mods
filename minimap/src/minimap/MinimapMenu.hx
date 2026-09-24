@@ -35,6 +35,7 @@ class MinimapMenu {
         ]),
         shortcut("enemies", "Enemies", 0xff6860, ["showEnemies"], [
             item("showEnemies", "Show enemies"),
+            item("alwaysShowEliteEnemies", "Always show elite enemies"),
             item("hideMasteredCodexEnemies", "Hide mastered Codex enemies"),
             item("hideCompletedCodexEnemies", "Hide partially completed Codex enemies"),
             item("hideTargetDummies", "Hide target dummies")

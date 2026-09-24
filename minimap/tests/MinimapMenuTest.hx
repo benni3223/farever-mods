@@ -15,7 +15,8 @@ class MinimapMenuTest {
             "toggles follow the categories on the map");
         var keys:Array<String> = [];
         for (shortcut in shortcuts) for (entry in shortcut.items) keys.push(entry.key);
-        eq(keys.length, 32, "every marker checkbox is in a category dropdown");
+        eq(keys.length, 33, "every marker checkbox is in a category dropdown");
+        eq(keys.indexOf("alwaysShowEliteEnemies") >= 0, true, "elite enemies have their own toggle");
         eq(keys.indexOf("zoom") < 0 && keys.indexOf("size") < 0 && keys.indexOf("enabled") < 0, true,
             "sliders and general display options stay out of the dropdowns");
         eq(keys.indexOf("showPlayers") >= 0 && keys.indexOf("hideNonPartyPlayers") >= 0

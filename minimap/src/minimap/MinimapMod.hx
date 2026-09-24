@@ -28,6 +28,7 @@ typedef MinimapSettings = {
     var showPlants:Bool;
     var showOre:Bool;
     var showEnemies:Bool;
+    var alwaysShowEliteEnemies:Bool;
     var hideCompletedCodexEnemies:Bool;
     var hideMasteredCodexEnemies:Bool;
     var hideTargetDummies:Bool;
@@ -66,7 +67,7 @@ class MinimapMod {
         expandHotkey: 0,
         showRiftTimer: true, riftAlerts: true,
         showPlayers: true, hideNonPartyPlayers: false, partyDirectionArrows: true,
-        showPlants: true, showOre: true, showEnemies: true,
+        showPlants: true, showOre: true, showEnemies: true, alwaysShowEliteEnemies: true,
         hideCompletedCodexEnemies: false, hideMasteredCodexEnemies: false, hideTargetDummies: false,
         showCompanions: true, hideCollectedCompanions: true, sparklingCompanionAlerts: true,
         showRespawnPoints: true, showObelisks: true, showSoulstoneCircles: true, showNpcs: true,

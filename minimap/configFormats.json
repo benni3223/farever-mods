@@ -51,6 +51,7 @@
     { "key": "hideZealotus", "type": "checkbox", "label": "Hide Zealotus" },
     { "type": "title", "label": "Enemies" },
     { "key": "showEnemies", "type": "checkbox", "label": "Show enemies" },
+    { "key": "alwaysShowEliteEnemies", "type": "checkbox", "label": "Always show elite enemies" },
     { "key": "hideMasteredCodexEnemies", "type": "checkbox", "label": "Hide mastered Codex enemies" },
     { "key": "hideCompletedCodexEnemies", "type": "checkbox", "label": "Hide partially completed Codex enemies" },
     { "key": "hideTargetDummies", "type": "checkbox", "label": "Hide target dummies" },
