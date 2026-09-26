@@ -1,7 +1,7 @@
 {
-  "project": "minimap",
-  "version": "1.7.0",
-  "commit": "ff8ea3321548faebe563bfb3014bf4b1f6cc74eb",
-  "notes": "- New markers for chests, vault chests, and recipe chests\n- New marker for party members\n- New markers for discovered and undiscovered respawn points\n- Elite enemies now have the same marker as sparkling enemies\n- Fixed the outline for alert arrows to have even thickness all the way around",
+  "project": "dps-meter",
+  "version": "1.5.0",
+  "commit": "58a0e092eeb1c814af59b618ad3052983cade805",
+  "notes": "- Added a damage type distribution column for each ability in the damage breakdown\n- Scrolling down in the damage breakdown no longer moves the column headers\n- Removed per-skill DPS column, as the damage % column already covers that",
   "dry_run": false
 }
