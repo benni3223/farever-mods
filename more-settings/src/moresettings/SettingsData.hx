@@ -4,6 +4,7 @@ typedef MoreSettingsConfig = {
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
+    var waitForParty:Bool;
     var hideUiKey:Int;
     var adjustUnfocusedVolume:Bool;
     var backgroundVolume:Float;
@@ -25,6 +26,7 @@ class SettingsData {
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
+        waitForParty: true,
         hideUiKey: 113, // hxd.Key.F2
         adjustUnfocusedVolume: true, backgroundVolume: 0,
         adjustFastTravelVolume: false, fastTravelVolume: 0,

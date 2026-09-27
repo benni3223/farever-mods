@@ -10,7 +10,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 | Category | Controls | Defaults |
 | --- | --- | --- |
-| General | Disable profanity filter; Show boss health; Performance improvements; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; Hide UI defaults to F2 |
+| General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
@@ -30,6 +30,15 @@ The profanity option applies to displayed player text and keeps HTML escaping. C
 Disabling the option restores native handling for subsequent work, feed entries, and terrain compositions; already removed HUD rows are not recreated. These routines were checked in both the live and PTR clients. Automated tests validate reuse and invalidation behavior, not in-game frame-time gains. Terrain job subdivision, entity initialization recovery, widget pooling, map construction, and other GPU pass costs still need profiling or engine changes. The option does not reduce graphics quality or skip world/network updates.
 
 This feature does not implement shader compilation, pipeline prewarming, or a disk cache and does not patch graphics-driver functions. [Shader Persistent Cache](https://github.com/laymain/farever-mods/tree/main/shader-persistent-cache) remains responsible for DX12 pipeline persistence; terrain texture reuse works at a separate game-rendering stage. Both mods can be installed, though in-game testing together is still needed for this terrain change.
+
+**Wait for party before entering** appears after Performance improvements under
+**General** and is enabled by default, including for existing installations.
+When you own a dungeon or rift entry lobby, Start stays disabled and reads
+**Waiting for party members** until every party member has joined that same
+entry menu and is ready. Solo entry, teammates' Ready buttons, countdown
+cancellation, and the game's difficulty/access checks retain their normal behavior.
+Toggling the option takes effect while the menu is open. This protects starts
+made by the player running the mod; it does not control another player's client.
 
 The same build supports the live and new/PTR clients (use HLX Core 0.0.8 or newer
 on PTR). Hit/heal effect attribution accepts both client skill-field layouts.

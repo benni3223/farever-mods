@@ -22,6 +22,11 @@
       "label": "Performance improvements"
     },
     {
+      "key": "waitForParty",
+      "type": "checkbox",
+      "label": "Wait for party before entering"
+    },
+    {
       "key": "hideUiKey",
       "type": "keybinding",
       "label": "Hide UI hotkey"

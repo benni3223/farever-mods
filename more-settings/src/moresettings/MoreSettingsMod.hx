@@ -36,6 +36,7 @@ class MoreSettingsMod {
         SettingsData.normalize(config);
         BossHealth.enabled = config.showBossHealth;
         PerformanceHooks.enabled = config.performanceOptimization;
+        DungeonPartyGuard.enabled = config.waitForParty;
         hideUi.configure(config.hideUiKey);
         config.save();
         audio = new AudioControl(config);
@@ -45,6 +46,7 @@ class MoreSettingsMod {
             SettingsData.normalize(config);
             BossHealth.enabled = config.showBossHealth;
             PerformanceHooks.enabled = config.performanceOptimization;
+            DungeonPartyGuard.enabled = config.waitForParty;
             hideUi.configure(config.hideUiKey);
             AllyEffects.configure(config);
             try audio.configure(config) catch (e:Dynamic) audioError(e);
@@ -66,6 +68,24 @@ class MoreSettingsMod {
     static function hideUiBindings(key:String, result:Dynamic):Dynamic {
         try return hideUi.bindings(key, result) catch (e:Dynamic) inputError(e);
         return result;
+    }
+
+    @:hlx.postfix(ui.win.element.InstanceSelectScreen.init)
+    static function afterInstanceSelectInit(instance:Dynamic, result:Void):Void {
+        try DungeonPartyGuard.update(instance) catch (e:Dynamic) DungeonPartyGuard.reportError(e);
+    }
+
+    @:hlx.postfix(ui.win.element.InstanceSelectScreen.update)
+    static function afterInstanceSelectUpdate(instance:Dynamic, dt:Float, result:Void):Void {
+        try DungeonPartyGuard.update(instance) catch (e:Dynamic) DungeonPartyGuard.reportError(e);
+    }
+
+    @:hlx.prefix(ui.win.element.InstanceSelectScreen.startAction)
+    static function beforeInstanceStart(instance:Dynamic):HlxPrefixResult<Void> {
+        // Check again at activation, including keyboard/controller actions and
+        // party changes since the last UI update. Ready and Cancel stay native.
+        if (DungeonPartyGuard.waiting(instance)) return Skip;
+        return Continue;
     }
 
     @:hlx.postfix(lib.Input.isPressed)
