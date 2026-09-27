@@ -1,4 +1,6 @@
 import moresettings.AppearanceDraft;
+import moresettings.AppearanceCamera;
+import moresettings.AppearancePortraits;
 import moresettings.AppearanceUi;
 import moresettings.AppearanceSwatches;
 import moresettings.GameAccess as G;
@@ -146,6 +148,69 @@ class AppearanceTest {
         rejects(() -> AppearanceSwatches.paint(swatch, {ref: {tile: null}}, false), "Missing color texture fails before drawing");
         var emptyTile:Dynamic = {width: 0.0, height: 1.0};
         rejects(() -> AppearanceSwatches.paint(swatch, {ref: {tile: emptyTile}}, false), "Empty texture cannot reach the renderer");
+        // Camera waits for native fitting; repeated frames/tabs never compound zoom.
+        var camera:Dynamic = {pos: {x: 0.0, y: -10.0, z: 1.0}, target: {x: 0.0, y: 0.0, z: 1.0}};
+        var preview:Dynamic = {needFit: 2, preAnimBounds: {zMin: 0.0, zMax: 2.0},
+            unitScene: {s3d: {camera: camera}}, unitView: {head: {matrix: {_43: 1.8}}}};
+        var zoom = new AppearanceCamera();
+        zoom.update(preview, true);
+        eq(camera.pos.y, -10.0, "Wait for native fitting before zooming");
+        preview.needFit = -1; zoom.update(preview, true);
+        eq(Math.abs(camera.pos.y + 3.8) < 0.0001, true, "Zoom in for Face/Hair");
+        eq(camera.target.z, 1.8, "Aim at the head joint");
+        for (i in 0...20) zoom.update(preview, true);
+        eq(Math.abs(camera.pos.y + 3.8) < 0.0001, true, "Zoom never compounds across frames");
+        zoom.update(preview, false);
+        eq(camera.pos.y, -10.0, "Body restores original distance");
+        eq(camera.target.z, 1.0, "Body restores original target");
+        preview.needFit = 1; zoom.update(preview, true);
+        camera.pos.y = -20.0; preview.needFit = -1; zoom.update(preview, true);
+        eq(Math.abs(camera.pos.y + 7.6) < 0.0001, true, "A model refit replaces the baseline");
+        preview.unitView.head = null;
+        zoom.update(preview, false); zoom.update(preview, true);
+        eq(camera.target.z, 1.76, "Missing head joint falls back to body bounds");
+
+        var source:Dynamic = {template: 1, hair: "Hair1", facialHair: "Beard1", shapes: null};
+        var sourceSignature = haxe.Json.stringify(source);
+        var previousScene:Dynamic = {disposed: false}, previousPrefab:Dynamic = {};
+        G.portraitScene = previousScene; G.portraitPrefab = previousPrefab;
+        var portraits = new AppearancePortraits({windows: []}, source, {});
+        var renderView = G.portraitViews[0];
+        eq(renderView.skin != source, true, "Thumbnails have a second private skin");
+        portraits.add({}, "blend-shape-pick-button", {category: "Face", name: null}, 0, 0, 92, true, () -> true, () -> {});
+        portraits.add({}, "body-part-pick-button", {type: 0, id: "Hair2"}, 0, 0, 92, false, () -> true, () -> {});
+        renderView.ready = false; portraits.update(source);
+        eq(G.portraitInputs.length, 0, "Wait for thumbnail renderer readiness");
+        renderView.ready = true; portraits.update(source);
+        eq(G.portraitInputs.length, 1, "Render at most one thumbnail each frame");
+        eq(G.portraitInputs[0].hair, null, "Hide hair so face details remain visible");
+        eq(G.portraitInputs[0].facialHair, null, "Hide beard on face shape thumbnails");
+        eq(G.array(G.portraitInputs[0].shapes).length, 0, "Default shape has an empty array");
+        portraits.update(source);
+        eq(G.portraitInputs[1].hair, "Hair1", "Reset temporary skin changes before the next thumbnail");
+        eq(G.array(G.portraitInputs[1].shapes).length, 0, "Reset temporary shape changes too");
+        eq(haxe.Json.stringify(source), sourceSignature, "Thumbnail generation never changes the draft");
+        eq(G.portraitScene, previousScene, "Restore the game's portrait scene");
+        eq(G.portraitPrefab, previousPrefab, "Restore the game's portrait prefab");
+        eq(previousScene.disposed, false, "Never dispose an existing game portrait scene");
+        eq(renderView.parent, null, "Detach private view before disposing the temporary scene");
+        eq(G.portraitButtons[0].icon.width, 84.0, "Thumbnail fits inside its frame");
+        var texture = G.portraitButtons[0].tex;
+        portraits.prepare(source, {});
+        eq(texture.disposed, true, "Rebuilding pages disposes owned thumbnail textures");
+        eq(texture.realloc, null, "Disposed thumbnails release native reallocation closures");
+        portraits.update(source);
+        eq(G.portraitInputs.length, 2, "Old pages have no pending renders after rebuild");
+        portraits.add({}, "template-pick-button", 1, 0, 0, 122, true, () -> true, () -> {});
+        G.failPortrait = true;
+        rejects(() -> portraits.update(source), "Capture errors propagate after cleanup");
+        eq(G.portraitScene, previousScene, "Restore global scene after a capture error");
+        eq(G.portraitPrefab, previousPrefab, "Restore global prefab after a capture error");
+        eq(renderView.parent, null, "Failed capture also detaches the view");
+        eq(haxe.Json.stringify(source), sourceSignature, "Failed capture cannot mutate the draft");
+        portraits.dispose();
+        eq(G.portraitButtons[2].tex, null, "Closing releases the last thumbnail");
+        G.failPortrait = false;
         Sys.println('Appearance tests passed ($checks checks)');
     }
 }

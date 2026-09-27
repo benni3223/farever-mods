@@ -9,6 +9,7 @@ class AppearanceWindow {
     static inline var HEIGHT = 750;
     static inline var PANEL_X = 372;
     static inline var PANEL_W = 440;
+    static inline var CONTENT_W = 414;
     var ui:Dynamic;
     var draft:AppearanceDraft;
     var window:Dynamic;
@@ -16,6 +17,9 @@ class AppearanceWindow {
     var body:Dynamic;
     var container:Dynamic;
     var controls:Dynamic;
+    var viewport:Dynamic;
+    var portraits:AppearancePortraits;
+    var camera = new AppearanceCamera();
     var title:Dynamic;
     var headingStyle:Dynamic;
     var preview:Dynamic;
@@ -24,7 +28,8 @@ class AppearanceWindow {
     var models:Array<Dynamic>;
     var parts:Array<Dynamic>;
     var gradients:Array<Dynamic>;
-    var colorPages:Map<String, Int> = [];
+    var choicePages:Map<String, Int> = [];
+    var resetScroll = true;
     var tab = "Body";
     var tabButtons:Map<String, Dynamic> = [];
     var status:Dynamic;
@@ -102,16 +107,20 @@ class AppearanceWindow {
         absolute(preview, scene); padding(scene, 0); size(scene, 340, 560); position(scene, 0, 0);
         textAt(container, "Drag the preview to rotate", 48, 580, 288);
         textAt(container, "Changes apply only when you Save.", 30, 612, 322);
-        var names = ["Body", "Face", "Hair"];
+        var names = ["Body", "Hair", "Face"];
         for (i in 0...names.length) {
             var name = names[i];
             var button = buttonAt(container, name, PANEL_X + i * 148, 16, 140, () -> {
-                tab = name; rebuildControls = true;
+                tab = name; rebuildControls = true; resetScroll = true;
             });
             tabButtons[name] = button;
         }
-        controls = G.field(node("flow", parent, [], "moreSettingsAppearanceControls"), "obj");
-        absolute(container, controls); padding(controls, 0); size(controls, PANEL_W, 526); position(controls, PANEL_X, 70);
+        viewport = G.field(node("block", parent, [], "moreSettingsAppearanceViewport"), "obj");
+        absolute(container, viewport); padding(viewport, 0); size(viewport, PANEL_W, 510); position(viewport, PANEL_X, 70);
+        var scroll = G.enumeration("h2d.FlowOverflow", "Scroll");
+        G.call("h2d.Flow", "set_overflow", viewport, [scroll]); style(viewport, "overflow", scroll);
+        controls = G.field(node("flow", G.field(viewport, "dom"), [], "moreSettingsAppearanceControls"), "obj");
+        padding(controls, 0); size(controls, CONTENT_W, 510);
         status = textAt(container, "Loading character preview...", PANEL_X, 590, PANEL_W);
         buttonAt(container, "Cancel", PANEL_X + 140, 632, 140, dispose, false);
         saveButton = buttonAt(container, "Save", PANEL_X + 292, 632, 148, save);
@@ -161,96 +170,121 @@ class AppearanceWindow {
         rebuildControls = true;
     }
 
-    function cycle(title:String, choices:Array<Dynamic>, selected:Int, y:Int, choose:Dynamic->Void):Void {
-        textAt(controls, title, 0, y, PANEL_W);
-        textAt(controls, choices.length == 0 ? "Unavailable" : selected < 0 ? "Current" : (selected + 1) + " / " + choices.length,
-            176, y + 27, 180);
-        if (choices.length == 0) return;
-        var pick = (direction:Int) -> {
-            var next = selected < 0 ? (direction > 0 ? 0 : choices.length - 1)
-                : (selected + direction + choices.length) % choices.length;
-            choose(choices[next]);
-        };
-        buttonAt(controls, "<", 0, y + 22, 56, () -> pick(-1));
-        buttonAt(controls, ">", PANEL_W - 56, y + 22, 56, () -> pick(1));
+    function groupTitle(value:String, y:Int):Void {
+        var heading = G.field(node("separator", G.field(controls, "dom"), [escape(value)],
+            "moreSettingsAppearanceGroup"), "obj");
+        absolute(controls, heading); size(heading, CONTENT_W, 24); position(heading, 0, y);
     }
 
-    function part(title:String, field:String, type:Int, y:Int):Void {
-        var choices = AppearanceDraft.parts(parts, type);
+    function choices(title:String, key:String, values:Array<Dynamic>, selected:Int, y:Int,
+            component:String, choose:Dynamic->Void, body = false):Int {
+        groupTitle(title, y);
+        var perPage = body ? 3 : 4;
+        var width = body ? 122 : 92;
+        var gap = 10;
+        var pages = Std.int(Math.max(1, Math.ceil(values.length / perPage)));
+        var page = choicePages.exists(key) ? choicePages[key] : Std.int(Math.max(0, selected) / perPage);
+        page = Std.int(Math.max(0, Math.min(pages - 1, page)));
+        var startX = Std.int((CONTENT_W - (perPage * width + (perPage - 1) * gap)) / 2);
+        for (i in page * perPage...Std.int(Math.min(values.length, (page + 1) * perPage))) {
+            var value = values[i];
+            portraits.add(controls, component, value, startX + (i % perPage) * (width + gap), y + 32, width,
+                i == selected, usable, () -> guard(() -> { choicePages[key] = page; choose(value); }));
+        }
+        if (values.length == 0) textAt(controls, "Unavailable", 150, y + 45, 180);
+        if (pages > 1) {
+            var pageY = y + 38 + width;
+            var previous = buttonAt(controls, "<", startX, pageY, 32,
+                () -> { choicePages[key] = (page + pages - 1) % pages; rebuildControls = true; });
+            var next = buttonAt(controls, ">", CONTENT_W - startX - 32, pageY, 32,
+                () -> { choicePages[key] = (page + 1) % pages; rebuildControls = true; });
+            size(previous, 32, 28); size(next, 32, 28);
+            for (i in 0...pages) {
+                var dot = G.field(node("element", G.field(controls, "dom"), [], "moreSettingsAppearancePage"), "obj");
+                absolute(controls, dot); padding(dot, 0); size(dot, 22, 28);
+                position(dot, (CONTENT_W - pages * 22) / 2 + i * 22, pageY);
+                var graphic = G.create("h2d.Graphics", [dot]);
+                absolute(dot, graphic);
+                G.call("h2d.Graphics", "beginFill", graphic, [i == page ? 0x6F4934 : 0xB9A28C, 1.0]);
+                G.call("h2d.Graphics", "drawCircle", graphic, [11.0, 14.0, i == page ? 4.0 : 3.0, 0]);
+                G.call("h2d.Graphics", "endFill", graphic);
+                G.call("ui.UIElement", "set_onClick", dot, [() -> guard(() -> { choicePages[key] = i; rebuildControls = true; })]);
+            }
+        }
+        return y + width + (pages > 1 ? 86 : 56);
+    }
+
+    function part(title:String, field:String, type:Int, y:Int):Int {
+        var values = AppearanceDraft.parts(parts, type);
         var current = G.text(G.field(draft.skin, field));
         var selected = -1;
-        for (i in 0...choices.length) if (G.text(G.field(choices[i], "id")) == current) selected = i;
-        cycle(title, choices, selected, y, value -> {
-            G.set(draft.skin, field, G.field(value, "id"));
-            changed();
+        for (i in 0...values.length) if (G.text(G.field(values[i], "id")) == current) selected = i;
+        return choices(title, field, values, selected, y, "body-part-pick-button", value -> {
+            G.set(draft.skin, field, G.field(value, "id")); changed();
         });
     }
 
-    function shape(category:String, y:Int):Void {
-        var choices:Array<Dynamic> = [null];
+    function shape(category:String, y:Int):Int {
+        var values:Array<Dynamic> = [{category: category, name: null}];
         var selected = 0;
         for (value in G.array(G.call("client.UnitView", "getBlendShapes", view))) {
             if (G.call("client.UnitView", "blendShapeHasCategory", view, [value, category]) != true) continue;
-            choices.push(value);
-            if (G.call("client.UnitView", "isBlendShapeActive", view, [value]) == true) selected = choices.length - 1;
+            values.push({category: category, name: value});
+            if (G.call("client.UnitView", "isBlendShapeActive", view, [value]) == true) selected = values.length - 1;
         }
-        cycle(category, choices, selected, y, value -> {
-            if (value != null) G.call("client.UnitView", "toggleBlendShape", view, [value, 1.0]);
+        return choices(category, category, values, selected, y, "blend-shape-pick-button", value -> {
+            var name = G.field(value, "name");
+            if (name != null) G.call("client.UnitView", "toggleBlendShape", view, [name, 1.0]);
             else if (G.field(draft.skin, "shapes") != null) G.call("client.UnitView", "removeBlendShape", view, [category]);
             changed();
         });
     }
 
-    function palette(title:String, field:String, mask:Int, y:Int):Void {
-        var choices = AppearanceDraft.colors(gradients, mask);
-        textAt(controls, title, 0, y, PANEL_W);
-        var selected = -1;
-        for (i in 0...choices.length) if (G.field(choices[i], "id") == G.field(draft.skin, field)) selected = i;
-        var pages = Math.ceil(choices.length / 20);
-        var page = colorPages.exists(field) ? colorPages[field] : Std.int(Math.max(0, selected) / 20);
-        page = Std.int(Math.max(0, Math.min(pages - 1, page)));
-        for (i in page * 20...Std.int(Math.min(choices.length, (page + 1) * 20))) {
-            var choice = choices[i];
+    function palette(title:String, field:String, mask:Int, y:Int):Int {
+        var values = AppearanceDraft.colors(gradients, mask);
+        groupTitle(title, y);
+        for (i in 0...values.length) {
+            var choice = values[i];
+            var selected = G.field(choice, "id") == G.field(draft.skin, field);
             var swatch = G.field(node("button", G.field(controls, "dom"), [""], "moreSettingsAppearanceColor"), "obj");
             absolute(controls, swatch); padding(swatch, 0); size(swatch, 34, 34);
-            position(swatch, ((i - page * 20) % 10) * 43, y + 25 + Std.int((i - page * 20) / 10) * 40);
-            AppearanceSwatches.paint(swatch, choice, i == selected);
-            G.call("ui.UIElement", "set_selected", swatch, [i == selected]);
+            position(swatch, 14 + (i % 9) * 44, y + 32 + Std.int(i / 9) * 42);
+            AppearanceSwatches.paint(swatch, choice, selected);
+            G.call("ui.UIElement", "set_selected", swatch, [selected]);
             G.call("ui.UIElement", "set_checkEnable", swatch, [usable]);
             G.call("ui.UIElement", "set_onClick", swatch, [() -> guard(() -> {
                 G.set(draft.skin, field, G.field(choice, "id"));
                 if (field == "hairColor") G.set(draft.skin, "hairColorSecondary", G.field(choice, "id"));
-                colorPages[field] = page;
                 changed();
             })]);
         }
-        if (pages > 1) {
-            textAt(controls, (page + 1) + " / " + pages, 190, y + 110, 100);
-            buttonAt(controls, "<", 0, y + 104, 56, () -> { colorPages[field] = (page + pages - 1) % pages; rebuildControls = true; });
-            buttonAt(controls, ">", PANEL_W - 56, y + 104, 56, () -> { colorPages[field] = (page + 1) % pages; rebuildControls = true; });
-        }
+        return y + 52 + Std.int(Math.ceil(values.length / 9)) * 42;
     }
 
     function buildControls():Void {
+        var model = models[G.integer(G.field(draft.skin, "template"))];
+        if (portraits == null) portraits = new AppearancePortraits(ui, draft.skin, model);
+        else portraits.prepare(draft.skin, model);
         for (child in children(controls)) G.call("h2d.Object", "remove", child);
         for (name => button in tabButtons) G.call("ui.UIElement", "set_selected", button, [name == tab]);
+        var y = 8;
         switch tab {
             case "Body":
-                // CharacterCreationScreen.getTemplateValues uses these three entries.
-                cycle("Body type", [0, 1, 2], G.integer(G.field(draft.skin, "template"), -1), 0, value -> {
-                    G.set(draft.skin, "template", value); changed(true);
-                });
-                palette("Skin color", "skinColor", 4, 90);
+                y = choices("Body", "template", [0, 1, 2], G.integer(G.field(draft.skin, "template"), -1), y,
+                    "template-pick-button", value -> { G.set(draft.skin, "template", value); changed(true); }, true);
+                y = palette("Skin Color", "skinColor", 4, y);
             case "Face":
-                palette("Eye color", "eyeColor", 2, 0);
-                part("Eyebrows", "eyebrows", 2, 150);
-                var categories = ["Eyes", "Face", "Nose", "Lips"];
-                for (i in 0...categories.length) shape(categories[i], 222 + i * 72);
+                y = palette("Eye Color", "eyeColor", 2, y);
+                y = part("Eyebrows", "eyebrows", 2, y);
+                for (category in ["Face", "Eyes", "Lips", "Nose"]) y = shape(category, y);
             case "Hair":
-                part("Hair", "hair", 0, 0);
-                part("Facial hair", "facialHair", 3, 80);
-                palette("Hair color", "hairColor", 1, 172);
+                y = part("Hair Style", "hair", 0, y);
+                y = part("Facial Hair", "facialHair", 3, y);
+                y = palette("Hair Color", "hairColor", 1, y);
         }
+        size(controls, CONTENT_W, Std.int(Math.max(510, y)));
+        if (resetScroll) G.call("h2d.Flow", "set_scrollPosY", viewport, [0.0]);
+        resetScroll = false;
         rebuildControls = false;
     }
 
@@ -281,10 +315,15 @@ class AppearanceWindow {
             postInit();
             // Live's post-init adds viewAngle again; keep the user's rotation.
             G.call("h3d.scene.Object", "setRotationQuat", view, [rotation]);
+            camera.invalidate();
             fitPreview = false; ready = true;
             setText(status, "");
         }
-        if (ready && rebuildControls) buildControls();
+        if (ready) {
+            if (rebuildControls) buildControls();
+            portraits.update(draft.skin);
+            camera.update(preview, tab != "Body");
+        }
         return true;
     }
 
@@ -322,12 +361,13 @@ class AppearanceWindow {
 
     public function dispose():Void {
         ready = false;
+        if (portraits != null) { portraits.dispose(); portraits = null; }
         var old = window; window = null;
         if (old != null && ui != null) G.call("ui.BaseUI", "removeWindow", ui, [old]);
         // UnitScene.onRemove disposes its render texture and scene through the
         // native window lifecycle. No restoration of the live hero is needed.
         preview = null; view = null; draft = null; controls = null; container = null; body = null;
         title = null; headingStyle = null; status = null; saveButton = null; root = null; ui = null;
-        parts = []; gradients = []; models = []; baseHero = null; tabButtons = []; colorPages = [];
+        parts = []; gradients = []; models = []; baseHero = null; tabButtons = []; choicePages = []; viewport = null;
     }
 }

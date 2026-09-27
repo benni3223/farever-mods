@@ -58,3 +58,42 @@ categories; Save and check another client's view and relog persistence; cancel
 using Cancel/X/Escape; reopen; resize the game; close during loading; change
 world or log out while the editor is open. The game cannot be launched in the
 build environment.
+
+## Grouped appearance choices and camera zoom
+
+The window now uses the creation screen's `Separator`, `TemplatePickButton`,
+`BodyPartPickButton` and `BlendShapePickButton` components. Body has three
+thumbnails; hair and face features have four choices per page with arrows and
+page dots. Nine-column color grids retain `AppearanceSwatches`. A native Flow
+with `Scroll` overflow contains the groups; tabs, preview, Save and Cancel stay
+outside that viewport.
+
+Audited `PortraitGen.makeFromUnitView` (live 25330 / PTR 26537): it pushes a
+render target, clears, renders the scene and pops the target. Unlike the native
+color swatches, it does not call `capturePixels` or read texture data back to
+the CPU. Thumbnail cameras and lighting come from the same
+`Items/MenuPortraitScene.prefab` used by character creation. One thumbnail is
+generated per update, using a second private UnitView and skin. Hair is hidden
+for eyebrow/beard thumbnails; hair and beard are hidden for face shapes.
+
+Native shape buttons do not fully restore the default shape after rendering,
+so the skin is copied afresh before every thumbnail. An absent shape array is
+replaced with an empty native ArrayObj before calling native shape code.
+`PortraitGen.scene` and `prefab` are restored after each capture, including
+failure; the private view is detached before disposing the temporary scene.
+Page changes and closing explicitly dispose thumbnail textures and clear their
+reallocation closures.
+
+The preview camera waits for UnitScene's native `needFit` countdown to finish,
+then records the full-body camera position/target. Face and Hair use 38% of that
+distance and target the `B_Head` joint (88% of body height if absent). Body
+restores the recorded view; a later native fit replaces the baseline. Rotation
+still belongs to UnitScene.
+
+Appearance tests now include camera waiting/refitting/restoration, repeated
+zoom frames, missing head joints, thumbnail draft isolation, default shapes,
+render throttling, global context restoration on failure and texture cleanup.
+They pass in the interpreter and HashLink (113 checks). Native method names and
+constructor signatures were checked against both supplied clients. These
+checks do not replace an in-game visual/DX12 test of the new thumbnails,
+scrolling and face framing.
