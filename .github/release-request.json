@@ -1,6 +1,6 @@
 {
-  "project": "minimap",
-  "version": "1.7.1",
+  "project": "item-utilities",
+  "version": "1.9.3",
   "commit": "3885fa73f46f007ec3032a7e3d029e0e1f5ae24d",
   "notes": "- Added detection for missing dependencies\n",
   "dry_run": false
