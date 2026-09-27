@@ -2,7 +2,10 @@
   "schemaVersion": 1,
   "displayName": "Fix Target Lock",
   "configs": [
-    { "type": "title", "label": "General" },
+    {
+      "type": "title",
+      "label": "General"
+    },
     {
       "key": "enabled",
       "type": "checkbox",
@@ -21,20 +24,6 @@
       "key": "quickSwapTarget",
       "type": "checkbox",
       "label": "Press Lock Target to switch targets"
-    },
-    {
-      "key": "disableCameraMovement",
-      "type": "checkbox",
-      "label": "Disable automatic camera movement"
-    },
-    {
-      "type": "title",
-      "label": "Quick Cast"
-    },
-    {
-      "key": "quickCast",
-      "type": "checkbox",
-      "label": "Enable quick cast"
     }
   ]
 }

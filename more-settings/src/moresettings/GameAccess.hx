@@ -64,6 +64,11 @@ class GameAccess {
         var t = HlxRuntime.resolveType(type);
         return t == null ? null : HlxRuntime.resolveStaticField(t, name);
     }
+    public static function setCurrent(type:String, name:String, value:Dynamic):Void {
+        var t = HlxRuntime.resolveType(type);
+        if (t == null) throw "Game type unavailable: " + type;
+        HlxRuntime.setStaticField(t, name, value);
+    }
     public static function create(type:String, args:Array<Dynamic>):Dynamic {
         var t = HlxRuntime.resolveType(type);
         if (t == null) throw "Game type unavailable: " + type;

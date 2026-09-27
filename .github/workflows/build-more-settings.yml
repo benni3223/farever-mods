@@ -42,9 +42,25 @@ jobs:
       - uses: krdlab/setup-haxe@v1
         with:
           haxe-version: 4.3.7
-      - name: Test volume, ownership and regional presentation filters
+      - name: Test combat, volume, ownership and regional presentation filters
         working-directory: more-settings
         run: haxe test.hxml
+      - uses: actions/checkout@v4
+        with:
+          repository: HaxeFoundation/hashlink
+          ref: 04a207d73816132b9f742867e8643f58b02a5afa
+          path: .combat-hashlink
+          persist-credentials: false
+      - name: Build the HashLink combat test runtime
+        run: make -C .combat-hashlink -j2 hl
+      - name: Test combat behavior and JSON migration on HashLink
+        working-directory: more-settings
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
+        run: |
+          mkdir -p build
+          haxe -cp src -cp tests/stubs -cp tests -main CombatTest -hl build/combat-test.hl
+          ../.combat-hashlink/hl build/combat-test.hl
       - name: Test native event volume bridge
         working-directory: more-settings
         run: |

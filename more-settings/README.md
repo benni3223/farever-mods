@@ -2,7 +2,7 @@
 
 [Builds](https://github.com/xWink/farever-mods/actions/workflows/build-more-settings.yml) · [Releases](https://github.com/xWink/farever-mods/releases?q=more-settings%2Fv&expanded=true)
 
-Client settings for **Farever**: chat filtering, boss health numbers, optional queue optimizations, temporary audio levels, and separate ally presentation controls for rifts, dungeons, and the overworld. Previously called **More Audio Settings**.
+Client settings for **Farever**: combat controls, chat filtering, boss health numbers, optional queue optimizations, temporary audio levels, and separate ally presentation controls for rifts, dungeons, and the overworld. Previously called **More Audio Settings**.
 
 ## Settings
 
@@ -10,12 +10,19 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 | Category | Controls | Defaults |
 | --- | --- | --- |
+| Combat | Enable quick cast; Disable target-lock camera movement | Both off; imports enabled Fix Target Lock preferences when no More Settings choice exists |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Dungeon Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Overworld Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
+
+**Combat** is the first category. **Enable quick cast** lets you hold a ground-targeted skill's bound key or gamepad button to aim, then release it to cast. It uses the native ground indicator, confirmation, and cancellation paths and works without a target lock. A quick tap is retained through the native first-frame aiming delay. Disabling the option while aiming restores the game's usual confirmation behavior.
+
+**Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
+
+These options moved from **Fix Target Lock**. On first launch, existing More Settings choices take priority; missing choices are imported from the old mod's native or mod-local config. A disabled old mod does not automatically enable either option. Keep the old config file until migration has run. On PTR, native target locking makes Fix Target Lock unnecessary: remove or disable the old mod before testing. If you still use it for the older live client, install its updated build too; that build leaves native target locking alone on PTR and delegates these two options to More Settings.
 
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 

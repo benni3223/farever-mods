@@ -2,7 +2,11 @@
 
 [Builds](https://github.com/xWink/farever-mods/actions/workflows/build-fix-target-lock.yml) · [Releases](https://github.com/xWink/farever-mods/releases?q=fix-target-lock&expanded=true)
 
-An unofficial HLX mod that restores Farever's non-functional **Lock Target** action.
+An unofficial HLX mod that restores **Lock Target** on older Farever clients.
+
+**Deprecation has begun.** The current PTR handles target locking natively, so this mod is no longer needed there. **Quick cast** and **Disable target-lock camera movement** now live in [More Settings → Combat](../more-settings/). Install the updated More Settings build and remove or disable Fix Target Lock on PTR; keep its configuration file for preference migration.
+
+This updated build also stands down automatically when the game's own input handler checks Lock Target, so it can remain installed for the older live client without undoing PTR's native lock. Older Fix Target Lock builds toggle the same press a second time on PTR and must be removed, disabled, or updated.
 
 Look at an enemy and press Farever's existing Lock Target binding to lock it. Press the same binding again to unlock. While locked, Farever routes single-target attacks to that enemy even if another enemy moves under the crosshair. Area-of-effect and point-targeted skills keep their normal targeting.
 
@@ -34,8 +38,7 @@ Open **Mod Settings** from Farever's Game Menu to configure the mod.
 - **Enable** restores the target-lock feature. Disabling the mod clears the current lock and restores Farever's original feature flag.
 - **Auto-unlock when target dies** clears the lock as soon as the locked enemy is defeated or despawns. It is enabled by default.
 - **Press Lock Target to switch targets** changes the lock directly to Farever's current `autoTarget` when another enemy is aimed at. Pressing it without another valid target still unlocks normally. It is disabled by default.
-- **Disable automatic camera movement** prevents Farever from pulling the camera's yaw and pitch toward the locked enemy, leaving camera rotation under manual control while preserving the normal locked-camera sensitivity. It is disabled by default.
-- **Enable quick cast** lets you hold a ground-targeted skill's bound button to aim, then release it to cast. Uses the native ground indicator and cancellation controls. It works without a target lock and is disabled by default.
+- Quick cast and camera controls are configured in **More Settings → Combat**. Their old saved values remain available for one-time migration; this mod no longer hooks those features.
 - Use Farever's normal **Lock Target** key or controller binding to toggle a target lock.
 - Farever's native animated hard-lock indicator appears above the locked enemy.
 
@@ -43,13 +46,15 @@ Settings are saved to `Farever\hlx\config\fix-target-lock\config.json`.
 
 ## How it works
 
-Farever contains a nearly complete target-lock implementation, but `PlayerController.updateInputs()` does not check the `LockTarget` input action. The mod adds that missing toggle behavior:
+Older live clients contain a nearly complete target-lock implementation, but `PlayerController.updateInputs()` does not check the `LockTarget` input action. On those clients, the mod adds that missing toggle behavior:
 
 - unlocked + Lock Target: calls Farever's `lockAutoTarget()` using the enemy currently selected by its normal auto-targeting code;
 - locked + Lock Target: calls Farever's `leaveLock()`;
 - enabled: keeps Farever's `Const.Camera.TargetLock` feature flag active.
 
 Farever already stores the target on `Hero.lockedTarget`, feeds target-based skills through `SkillTarget.Target`, leaves `SkillTarget.Point` behavior intact, and marks the corresponding enemy widget with the native `hard-lock` style.
+
+On clients that check `LockTarget` inside the native input update, all legacy input, forced attack-target, feature-flag, and auto-unlock repairs are bypassed. Detection observes the native input query even when unpressed and excludes this mod's own later query; it does not guess a version from unrelated game classes.
 
 
 ## Building (for developers)

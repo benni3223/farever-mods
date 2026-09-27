@@ -22,3 +22,9 @@
 -cp tests
 -main DungeonPartyGuardTest
 --interp
+--next
+-cp src
+-cp tests/stubs
+-cp tests
+-main CombatTest
+--interp

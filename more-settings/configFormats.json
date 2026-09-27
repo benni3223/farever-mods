@@ -4,6 +4,20 @@
   "configs": [
     {
       "type": "title",
+      "label": "Combat"
+    },
+    {
+      "key": "quickCast",
+      "type": "checkbox",
+      "label": "Enable quick cast"
+    },
+    {
+      "key": "disableTargetLockCameraMovement",
+      "type": "checkbox",
+      "label": "Disable target-lock camera movement"
+    },
+    {
+      "type": "title",
       "label": "General"
     },
     {

@@ -16,6 +16,12 @@ class GameAccess {
     public static var terrainBindings:Int = 0;
     public static var beforeTerrainLookup:Void->Void;
     public static var failTerrainBinding:Bool = false;
+    public static var inputActive:Bool = true;
+    public static var releasedInput:String;
+    public static var failRelease:Bool = false;
+    public static var releaseReads:Int = 0;
+    public static function setCurrent(type:String, name:String, value:Dynamic):Void
+        set(data, name, value);
     public static function bind(type:String, name:String):Array<Dynamic>->Dynamic {
         return args -> {
             if (type == "world.terrain.TerrainData" && name == "getChunk") {
@@ -117,6 +123,11 @@ class GameAccess {
         default: throw "Unexpected native call: " + type + "." + name;
     };
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic return switch name {
+        case "isReleased":
+            if (field(data, "_noCheckMode") != true) throw "Ground aim input mode was not bypassed";
+            releaseReads++;
+            if (failRelease) throw "Native input failed";
+            inputActive && releasedInput == args[0];
         case "getInstance": {};
         case "getVcaVolume":
             if (!audioReady) throw "Access violation: FMOD has not initialized";

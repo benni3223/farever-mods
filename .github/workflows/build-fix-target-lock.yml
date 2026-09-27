@@ -32,7 +32,21 @@ concurrency:
   cancel-in-progress: ${{ github.ref_type != 'tag' && inputs.source-ref == '' }}
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.source-ref || github.sha }}
+      - uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.7
+      - name: Test native and legacy target-lock ownership
+        working-directory: fix-target-lock
+        run: haxe test.hxml
   build:
+    needs: test
     uses: ./.github/workflows/_build-mod.yml
     with:
       source-ref: ${{ inputs.source-ref }}
@@ -40,4 +54,3 @@ jobs:
       required-settings: true
       module: fix-target-lock
       title: Fix Target Lock
-
