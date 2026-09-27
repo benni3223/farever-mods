@@ -4,4 +4,13 @@
 -cp ../shared/src
 -main dpsmeter.DpsMeterMod
 -dce full
+-hl build/dps-meter/implementation/dps-meter.hl
+
+# Check required dependencies before linking the implementation.
+--next
+-D hl-ver=1.16.0
+-cp ../shared/bootstrap
+-D dependency-mod=dps-meter
+-main moddependencies.Bootstrap
+-dce full
 -hl build/dps-meter/dps-meter.hl

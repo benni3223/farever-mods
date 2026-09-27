@@ -11,6 +11,10 @@ with the new client.
 
 ## Installation
 
+**Required:** HLX Core and [Better Mod Settings](https://www.nexusmods.com/farever/mods/10). A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+
+Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
+
 ### Easy Installation
 
 1. Install [HLX Core](https://github.com/hlx-framework/hlx-core) and [Better Mod Settings](https://github.com/xWink/farever-mods/tree/main/better-mod-settings) with Vortex.
@@ -19,7 +23,7 @@ with the new client.
 ### Manual Installation
 
 1. Install [HLX Core](https://github.com/hlx-framework/hlx-core).
-2. Install [Better Mod Settings](https://github.com/xWink/farever-mods/tree/main/better-mod-settings) to configure the meter in-game.
+2. Install [Better Mod Settings](https://github.com/xWink/farever-mods/tree/main/better-mod-settings) (required) to configure the meter in-game.
 3. Download the latest DPS Meter [release](https://github.com/xWink/farever-mods/releases?q=dps-meter&expanded=true) or the `farever-dps-meter` artifact from a successful [build](https://github.com/xWink/farever-mods/actions/workflows/build-dps-meter.yml).
 4. Extract the complete ZIP directly into the Farever game directory. It contains `hlx/mods/dps-meter/` and `hlx/plugins/dps-meter/`.
 5. Launch Farever.

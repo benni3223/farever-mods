@@ -3,4 +3,13 @@
 -cp src
 -main minimap.MinimapMod
 -dce full
+-hl build/minimap/implementation/minimap.hl
+
+# Check required dependencies before linking the implementation.
+--next
+-D hl-ver=1.16.0
+-cp ../shared/bootstrap
+-D dependency-mod=minimap
+-main moddependencies.Bootstrap
+-dce full
 -hl build/minimap/minimap.hl

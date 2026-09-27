@@ -57,6 +57,9 @@ jobs:
           mkdir -p "$HOME/haxelib"
           haxelib setup "$HOME/haxelib"
           haxelib git hlx-runtime https://github.com/hlx-framework/hlx-core.git main hlx-runtime/src
+      - name: Test required dependency checks
+        working-directory: shared
+        run: haxe test-dependencies.hxml
       - name: Compile HLX mod
         run: haxe compile.hxml
       - name: Test fight history and combat boundaries

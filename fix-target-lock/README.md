@@ -12,6 +12,10 @@ For every attack that Farever immediately submits as `Target(autoTarget)`, inclu
 
 ## Installation
 
+**Required:** HLX Core and [Better Mod Settings](https://www.nexusmods.com/farever/mods/10). A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+
+Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
+
 ### Easy Installation
 
 1. Download the mod with Vortex on [NexusMods](https://www.nexusmods.com/farever/mods/8)
@@ -19,7 +23,7 @@ For every attack that Farever immediately submits as `Target(autoTarget)`, inclu
 ### Manual Installation
 
 1. Install [HLX Core](https://www.nexusmods.com/site/mods/2118?tab=files) in the Farever game directory.
-2. Install [Better Mod Settings](https://github.com/xWink/farever-mods/tree/main/better-mod-settings) to configure the mod in-game.
+2. Install [Better Mod Settings](https://github.com/xWink/farever-mods/tree/main/better-mod-settings) (required) to configure the mod in-game.
 3. Download the latest build artifact ZIP. Install it with Vortex, or extract it directly into the Farever game directory; the archive already contains `hlx\mods\fix-target-lock\fix-target-lock.hl`.
 4. Fully close and relaunch Farever.
 

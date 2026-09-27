@@ -60,6 +60,10 @@ Rifts take precedence over dungeons; dungeon instances (including boss instances
 
 ## Installation and upgrade
 
+**Required:** HLX Core and [Better Mod Settings](https://www.nexusmods.com/farever/mods/10). A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+
+Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
+
 1. Install [HLX Core](https://github.com/hlx-framework/hlx-core) and [Better Mod Settings](../better-mod-settings/).
 2. Close Farever. Remove the old **binary and settings descriptor** from `hlx/mods/more-audio-settings/` (or `hlx/mods/mute-unfocused/`). Keep old configuration files for migration.
 3. If the standalone Disable Profanity Filter mod is installed, remove its binary and settings descriptor as well so this setting has one owner. Keep its configuration file.

@@ -4,4 +4,13 @@
 -cp ../shared/src
 -main fixtargetlock.FixTargetLockMod
 -dce full
+-hl build/fix-target-lock/implementation/fix-target-lock.hl
+
+# Check required dependencies before linking the implementation.
+--next
+-D hl-ver=1.16.0
+-cp ../shared/bootstrap
+-D dependency-mod=fix-target-lock
+-main moddependencies.Bootstrap
+-dce full
 -hl build/fix-target-lock/fix-target-lock.hl

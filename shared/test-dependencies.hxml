@@ -1,0 +1,4 @@
+-cp bootstrap
+-cp tests
+-main DependencyCheckTest
+--interp

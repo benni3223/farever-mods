@@ -58,6 +58,7 @@ jobs:
     with:
       source-ref: ${{ inputs.source-ref }}
       project: more-settings
+      required-settings: true
       module: more-settings
       title: More Settings
       travel-audio: true

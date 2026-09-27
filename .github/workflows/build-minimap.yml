@@ -13,12 +13,14 @@ on:
     tags: ['minimap/v*']
     paths:
       - 'minimap/**'
+      - 'shared/**'
       - '.github/workflows/build-minimap.yml'
       - '.github/workflows/_build-mod.yml'
   pull_request:
     branches: [main]
     paths:
       - 'minimap/**'
+      - 'shared/**'
       - '.github/workflows/build-minimap.yml'
       - '.github/workflows/_build-mod.yml'
 
@@ -50,5 +52,6 @@ jobs:
     with:
       source-ref: ${{ inputs.source-ref }}
       project: minimap
+      required-settings: true
       module: minimap
       title: Minimap

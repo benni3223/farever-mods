@@ -10,6 +10,10 @@ with the new client.
 
 ## Installation
 
+**Required:** HLX Core and [Better Mod Settings](https://www.nexusmods.com/farever/mods/10). A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+
+Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
+
 ### Easy Installation
 
 1. Download the mod with Vortex on [NexusMods](https://www.nexusmods.com/farever/mods/15).
@@ -18,8 +22,8 @@ with the new client.
 
 1. Install [HLX Core](https://www.nexusmods.com/site/mods/2118?tab=files) in your Farever game folder.
 2. Download the latest successful [build artifact](https://github.com/xWink/farever-mods/actions/workflows/build-minimap.yml).
-3. Extract the ZIP into the game folder. It contains `hlx/mods/minimap/minimap.hl` and `configFormats.json`.
-4. Install [Better Mod Settings](../better-mod-settings/) for in-game controls, then fully restart Farever.
+3. Extract the ZIP into the game folder. It contains `hlx/mods/minimap/minimap.hl`, `implementation/minimap.hl`, and `configFormats.json`.
+4. Install [Better Mod Settings](../better-mod-settings/) (required) for in-game controls, then fully restart Farever.
 
 ## Highlights
 

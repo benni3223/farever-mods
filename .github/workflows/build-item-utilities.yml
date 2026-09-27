@@ -52,6 +52,7 @@ jobs:
     with:
       source-ref: ${{ inputs.source-ref }}
       project: item-utilities
+      required-settings: true
       module: item-utilities
       title: Item Utilities
       imgui: true

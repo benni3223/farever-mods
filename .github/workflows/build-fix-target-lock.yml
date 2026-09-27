@@ -37,6 +37,7 @@ jobs:
     with:
       source-ref: ${{ inputs.source-ref }}
       project: fix-target-lock
+      required-settings: true
       module: fix-target-lock
       title: Fix Target Lock
 

@@ -5,5 +5,14 @@
 -cp ../shared/src
 -main itemutilities.ItemUtilitiesMod
 -dce full
--hl build/item-utilities/item-utilities.hl
+-hl build/item-utilities/implementation/item-utilities.hl
 
+# Check required dependencies before linking the implementation.
+--next
+-D hl-ver=1.16.0
+-cp ../shared/bootstrap
+-D dependency-mod=item-utilities
+-D dependency-imgui
+-main moddependencies.Bootstrap
+-dce full
+-hl build/item-utilities/item-utilities.hl

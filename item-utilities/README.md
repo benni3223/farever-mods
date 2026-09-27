@@ -13,6 +13,10 @@ panel rectangle and is collected once per frame.
 
 ## Installation
 
+**Required:** HLX Core and [Better Mod Settings](https://www.nexusmods.com/farever/mods/10). Item Utilities also requires the Farever ImGui plugin. A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+
+Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
+
 ### Easy Installation
 1. Download the mod with Vortex on [NexusMods](https://www.nexusmods.com/farever/mods/9)!
 
@@ -275,6 +279,7 @@ Available settings include:
 ## Requirements
 
 - [HLX Core](https://github.com/hlx-framework/hlx-core)
+- [Better Mod Settings](https://www.nexusmods.com/farever/mods/10) (mandatory)
 - The Farever ImGui plugin used by HLX mods with overlay interfaces
 
 ## Building for development
@@ -286,10 +291,11 @@ cd item-utilities
 haxe compile.hxml
 ```
 
-The compiled mod is written to:
+The compiled entry module and its matching implementation are written to:
 
 ```text
 build/item-utilities/item-utilities.hl
+build/item-utilities/implementation/item-utilities.hl
 ```
 
 Run the quick-loot, lock-restoration, overlay-layout, and preset regression tests (Haxe only; no running game required):
