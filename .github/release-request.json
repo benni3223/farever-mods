@@ -1,6 +1,6 @@
 {
-  "project": "dps-meter",
-  "version": "1.5.2",
+  "project": "item-utilities",
+  "version": "1.9.4",
   "commit": "22f22df226509ae64a7cb981b1517e67b26c3323",
   "notes": "- Fixed an issue where symlinks didn't work as downloaded dependencies",
   "dry_run": false
