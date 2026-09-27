@@ -108,6 +108,8 @@ class AppearancePresetTest {
         rejects(function() AppearancePresetPlan.decode([{slot: "Slot_Head", item: null}, {slot: "Slot_Head", item: "Hide_Gear"}]), "duplicate slot rejected");
         rejects(function() AppearancePresetPlan.decode([{slot: 1, item: null}]), "non-string slot rejected");
         rejects(function() AppearancePresetPlan.decode([{slot: "Slot_Head", item: 1}]), "non-string cosmetic rejected");
+        rejects(function() AppearancePresetPlan.decode([{slot: "Slot_Head", item: {bytes: "???", length: 22}}]),
+            "legacy corrupted item IDs cannot be recovered or treated as default appearances");
         rejects(function() AppearancePresetPlan.decode([{slot: "Slot_Head", item: ""}]), "empty string is not a default cosmetic");
         var missing = target.copy();
         missing.remove("Slot_Back");

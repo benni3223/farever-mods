@@ -1,0 +1,12 @@
+-cp tests
+-main AppearancePresetSerializationHost
+-D hl-ver=1.16.0
+-dce full
+-hl build/appearance-serialization-host.hl
+--next
+-cp src
+-cp tests
+-main AppearancePresetSerializationPlugin
+-D hl-ver=1.16.0
+-dce full
+-hl build/appearance-serialization-plugin.hl

@@ -238,6 +238,11 @@ mods to use this button.
 - Rejections, timeouts, unexpected manual appearance changes, and character or
   session changes stop the sequence.
 
+If an older appearance preset reports **Invalid saved appearance item**, recreate
+the desired look and press **Set** on that preset after updating. A previous save
+bug lost cosmetic IDs when writing the config; affected presets cannot be
+recovered automatically.
+
 ### Settings
 
 The **Locking**, **Equipment Presets**, **Talent Presets**, **Skill Presets**, and
@@ -292,3 +297,14 @@ Run the quick-loot, lock-restoration, overlay-layout, and preset regression test
 ```sh
 haxe test.hxml
 ```
+
+To test appearance saves with strings owned by a separate game-like module,
+use HashLink 1.16 or newer from the same directory:
+
+```sh
+haxe test-appearance-serialization.hxml
+hl build/appearance-serialization-host.hl
+```
+
+This additional test checks cosmetic, hidden, and default appearances after a
+JSON round trip. The Haxe interpreter cannot reproduce cross-module string identity.
