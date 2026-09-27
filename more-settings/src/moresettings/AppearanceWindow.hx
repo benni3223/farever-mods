@@ -6,10 +6,12 @@ import moresettings.AppearanceUi.*;
 /** A normal native window with its own render-to-texture scene and skin draft. */
 class AppearanceWindow {
     static inline var WIDTH = 860;
-    static inline var HEIGHT = 750;
+    static inline var HEIGHT = 850;
     static inline var PANEL_X = 372;
     static inline var PANEL_W = 440;
+    static inline var PANEL_H = HEIGHT - 240;
     static inline var CONTENT_W = 414;
+    static inline var PREVIEW_Y = 14 + (HEIGHT - 750) / 2;
     var ui:Dynamic;
     var draft:AppearanceDraft;
     var window:Dynamic;
@@ -103,13 +105,13 @@ class AppearanceWindow {
 
         // No game object is passed: even the animation player and gear are private.
         preview = G.field(node("unit-scene", parent, [null, baseHero], "moreSettingsAppearancePreview"), "obj");
-        absolute(container, preview); padding(preview, 0); size(preview, 340, 560); position(preview, 12, 14);
+        absolute(container, preview); padding(preview, 0); size(preview, 340, 560); position(preview, 12, PREVIEW_Y);
         G.set(preview, "autoFit", true); style(preview, "auto-fit", true);
         G.set(preview, "viewPadding", 0.12); style(preview, "view-padding", 0.12);
         var scene = G.field(preview, "unitScene");
         absolute(preview, scene); padding(scene, 0); size(scene, 340, 560); position(scene, 0, 0);
-        textAt(container, "Drag the preview to rotate", 48, 580, 288);
-        textAt(container, "Changes apply only when you Save.", 30, 612, 322);
+        textAt(container, "Drag the preview to rotate", 48, Std.int(PREVIEW_Y + 566), 288);
+        textAt(container, "Changes apply only when you Save.", 30, Std.int(PREVIEW_Y + 598), 322);
         var names = ["Body", "Hair", "Face"];
         for (i in 0...names.length) {
             var name = names[i];
@@ -119,11 +121,11 @@ class AppearanceWindow {
             tabButtons[name] = button;
         }
         viewport = G.field(node("block", parent, [], "moreSettingsAppearanceViewport"), "obj");
-        absolute(container, viewport); padding(viewport, 0); size(viewport, PANEL_W, 510); position(viewport, PANEL_X, 70);
+        absolute(container, viewport); padding(viewport, 0); size(viewport, PANEL_W, PANEL_H); position(viewport, PANEL_X, 70);
         var scroll = G.enumeration("h2d.FlowOverflow", "Scroll");
         G.call("h2d.Flow", "set_overflow", viewport, [scroll]); style(viewport, "overflow", scroll);
         controls = G.field(node("flow", G.field(viewport, "dom"), [], "moreSettingsAppearanceControls"), "obj");
-        padding(controls, 0); size(controls, CONTENT_W, 510);
+        padding(controls, 0); size(controls, CONTENT_W, PANEL_H);
         // A tall group list must begin at the top, not inherit the native
         // centered alignment that puts its first heading above the clip area.
         var top = G.enumeration("h2d.FlowAlign", "Top");
@@ -139,9 +141,9 @@ class AppearanceWindow {
         // The content column leaves room for the scrollbar. Center that column
         // so the separator text AND both ornaments align with the viewport.
         style(controls, "halign", middle);
-        status = textAt(container, "Loading character preview...", PANEL_X, 590, PANEL_W);
-        buttonAt(container, "Cancel", PANEL_X + 140, 632, 140, dispose, false);
-        saveButton = buttonAt(container, "Save", PANEL_X + 292, 632, 148, save);
+        status = textAt(container, "Loading character preview...", PANEL_X, HEIGHT - 160, PANEL_W);
+        buttonAt(container, "Cancel", PANEL_X + 140, HEIGHT - 118, 140, dispose, false);
+        saveButton = buttonAt(container, "Save", PANEL_X + 292, HEIGHT - 118, 148, save);
     }
 
     function usable():Bool {
@@ -317,7 +319,7 @@ class AppearanceWindow {
                 y = part("Facial Hair", "facialHair", 3, y);
                 y = palette("Hair Color", "hairColor", 1, y);
         }
-        size(controls, CONTENT_W, Std.int(Math.max(510, y)));
+        size(controls, CONTENT_W, Std.int(Math.max(PANEL_H, y)));
         if (resetScroll) G.call("h2d.Flow", "set_scrollPosY", viewport, [0.0]);
         resetScroll = false;
         rebuildControls = false;
