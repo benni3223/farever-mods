@@ -1,7 +1,7 @@
 {
-  "project": "fix-target-lock",
-  "version": "1.4.1",
-  "commit": "3885fa73f46f007ec3032a7e3d029e0e1f5ae24d",
-  "notes": "- Added detection for missing dependencies\n",
+  "project": "minimap",
+  "version": "1.7.2",
+  "commit": "22f22df226509ae64a7cb981b1517e67b26c3323",
+  "notes": "- New marker for Soul Well station\n- Fixed an issue where Vortex-created symlinks didn't work as downloaded dependencies",
   "dry_run": false
 }
