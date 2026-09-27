@@ -10,10 +10,11 @@ references, not constants used by the mod.
 
 `PlayerController.updateInputs` in the old live client does not query LockTarget.
 The new PTR queries it and calls leaveLock or lockAutoTarget itself. The old mod's
-postfix repeats that same press and reverses the native result. Fix Target Lock
-now observes Input.isPressed only during the native update, before any legacy
-postfix input checks. Once observed, native handling owns locking, unlocking,
-attack targeting and feature-flag behavior. Live retains its existing repair.
+postfix repeats that same press and reverses the native result. The initial Combat
+migration added automatic native-input detection to Fix Target Lock. That change
+has since been reverted at the maintainer's request: Fix Target Lock retains its
+original input handling, attack targeting, feature flag, quick cast and camera
+controls. More Settings does not change native lock input handling.
 
 ## Camera
 
@@ -44,7 +45,8 @@ input mode and restoring that flag even when the release read throws.
 
 CombatTest exercises release timing, controller ownership, cancellation/job
 changes, disabled/focused input, failures, nested camera scopes, interrupted-update
-recovery and settings migration. NativeLockInputTest covers old/new input ownership.
+recovery and settings migration. The reverted Fix Target Lock native-input
+detection and its NativeLockInputTest are no longer part of the build.
 Combat tests also run as real HashLink bytecode, including malformed JSON
 values that the Haxe interpreter alone can handle differently. Both full mods
 compile against HLX. In-game aiming and camera feel still require
