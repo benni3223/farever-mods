@@ -38,7 +38,13 @@ class DependencyCheckTest {
         equal(DependencyCheck.isBytecode(path), false);
         File.saveContent(path, "not bytecode");
         equal(DependencyCheck.isBytecode(path), false);
+        for (prefix in ["H", "HL", "HLB"]) {
+            File.saveContent(path, prefix);
+            equal(DependencyCheck.isBytecode(path), false);
+        }
         File.saveBytes(path, haxe.io.Bytes.ofHex("484c4204"));
+        equal(DependencyCheck.isBytecode(path), true);
+        File.saveBytes(path, haxe.io.Bytes.ofHex("484c4206"));
         equal(DependencyCheck.isBytecode(path), true);
         var hash = haxe.crypto.Sha256.make(File.getBytes(path)).toHex();
         equal(DependencyCheck.matchesImplementation(path, hash), true);

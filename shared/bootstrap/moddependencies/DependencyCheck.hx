@@ -37,17 +37,19 @@ class DependencyCheck {
     }
 
     public static function isBytecode(path:String):Bool {
-        // A leftover directory, config file, or disabled/empty binary is not an install.
+        // Read through Vortex's symbolic link to the actual binary. Windows
+        // _wstat can report a valid link as zero bytes, so metadata size is not
+        // a reliable prerequisite. Require the magic AND a version byte;
+        // missing files, directories, broken links and short reads still fail.
         try {
-            if (!FileSystem.exists(path) || FileSystem.isDirectory(path)
-                || FileSystem.stat(path).size < 4) return false;
+            if (FileSystem.isDirectory(path)) return false;
             var file = File.read(path, true);
-            var header = try file.readString(3) catch (e:Dynamic) {
+            var header = try file.read(4) catch (e:Dynamic) {
                 file.close();
                 return false;
             };
             file.close();
-            return header == "HLB";
+            return header.get(0) == 0x48 && header.get(1) == 0x4C && header.get(2) == 0x42;
         } catch (_:Dynamic) return false;
     }
 

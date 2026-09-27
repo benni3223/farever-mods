@@ -23,6 +23,15 @@ not their runtime health or minimum versions. These are installation checks, so
 Mod Update Alerts may be loaded later in HLX's alphabetical load order. We do not
 add a dependency to Better Mod Settings itself or Mod Update Alerts.
 
+Binary validation opens the file and reads its four-byte header (the `HLB`
+magic plus a version byte), following symbolic links to their targets. It does
+not use filesystem metadata to reject small files: Windows `_wstat`, used by
+HashLink's filesystem functions, can report a valid symbolic link as zero
+bytes. This previously caused Vortex symlink deployments to be reported as
+missing dependencies. See [Microsoft's stat documentation](https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/stat-functions).
+Broken links, directories, empty/truncated files and invalid magic still fail;
+implementation hashes and the ImGui check remain mandatory.
+
 Run the dependency policy tests from `shared/` with `haxe test-dependencies.hxml`.
 On Linux with Haxe, HashLink and a C compiler, run the real module-loading tests:
 
@@ -35,3 +44,11 @@ HashLink runtime if it is not installed system-wide. Tests use mock native
 dialogs and ImGui bindings, and prove that missing dependencies exit before
 implementation initializers run. Actual Windows/game display still needs an
 in-game check.
+
+The subprocess suite also tests real symbolic links for dependency binaries,
+entry modules and implementation files, including a staging path containing
+spaces and non-ASCII text. A Linux preload fixture reproduces zero-byte symlink
+metadata while keeping file reads intact, with a HashLink probe verifying both
+conditions. All five old bootstraps fail this regression; all five fixed ones
+load their implementation. Broken/invalid targets and mismatched linked
+implementations still stop before any implementation initializer runs.
