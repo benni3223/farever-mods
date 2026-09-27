@@ -1,6 +1,6 @@
 {
-  "project": "more-settings",
-  "version": "1.9.1",
+  "project": "fix-target-lock",
+  "version": "1.4.1",
   "commit": "3885fa73f46f007ec3032a7e3d029e0e1f5ae24d",
   "notes": "- Added detection for missing dependencies\n",
   "dry_run": false
