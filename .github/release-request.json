@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.9.0",
-  "commit": "2888cd8ba09868214b7c9bbe1bae6c888b642ae6",
-  "notes": "- Added a setting to prevent accidentally entering a dungeon while in a party and the party members haven't joined the ready-check\n",
+  "project": "dps-meter",
+  "version": "1.5.1",
+  "commit": "3885fa73f46f007ec3032a7e3d029e0e1f5ae24d",
+  "notes": "- Added detection for missing dependencies\n",
   "dry_run": false
 }
