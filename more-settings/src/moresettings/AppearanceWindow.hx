@@ -24,7 +24,6 @@ class AppearanceWindow {
     var models:Array<Dynamic>;
     var parts:Array<Dynamic>;
     var gradients:Array<Dynamic>;
-    var colorFactory:Dynamic;
     var colorPages:Map<String, Int> = [];
     var tab = "Body";
     var tabButtons:Map<String, Dynamic> = [];
@@ -48,9 +47,6 @@ class AppearanceWindow {
         if (models.length < 3) throw "Character customization models are unavailable.";
         parts = G.array(G.field(G.current("Data", "bodyPart"), "all"));
         gradients = G.array(G.field(G.current("Data", "gradient"), "all"));
-        // createButton is a stateless factory on both clients. Let the game
-        // choose the live gradient-based or PTR color-based swatch constructor.
-        colorFactory = HlxRuntime.allocInstance(HlxRuntime.resolveType("ui.comp.ColorSelector"));
         window = G.create("ui.win.TitleWindow", ["Options", null]);
         var flags = 0;
         for (name in ["PreventCloseOther", "FreeCursor", "AutoRegisterLayer", "BlockInputs", "BlockSkills", "NeedLayer"])
@@ -215,9 +211,10 @@ class AppearanceWindow {
         page = Std.int(Math.max(0, Math.min(pages - 1, page)));
         for (i in page * 20...Std.int(Math.min(choices.length, (page + 1) * 20))) {
             var choice = choices[i];
-            var swatch = G.call("ui.comp.ColorSelector", "createButton", colorFactory, [choice, controls]);
+            var swatch = G.field(node("button", G.field(controls, "dom"), [""], "moreSettingsAppearanceColor"), "obj");
             absolute(controls, swatch); padding(swatch, 0); size(swatch, 34, 34);
             position(swatch, ((i - page * 20) % 10) * 43, y + 25 + Std.int((i - page * 20) / 10) * 40);
+            AppearanceSwatches.paint(swatch, choice, i == selected);
             G.call("ui.UIElement", "set_selected", swatch, [i == selected]);
             G.call("ui.UIElement", "set_checkEnable", swatch, [usable]);
             G.call("ui.UIElement", "set_onClick", swatch, [() -> guard(() -> {
@@ -331,6 +328,6 @@ class AppearanceWindow {
         // native window lifecycle. No restoration of the live hero is needed.
         preview = null; view = null; draft = null; controls = null; container = null; body = null;
         title = null; headingStyle = null; status = null; saveButton = null; root = null; ui = null;
-        parts = []; gradients = []; models = []; baseHero = null; tabButtons = []; colorFactory = null; colorPages = [];
+        parts = []; gradients = []; models = []; baseHero = null; tabButtons = []; colorPages = [];
     }
 }

@@ -10,6 +10,8 @@ class GameAccess {
     public static var dialogTitle:String;
     public static var dialogText:String;
     public static var dialogButton:Dynamic;
+    public static var swatchBitmaps:Array<Dynamic> = [];
+    public static var swatchBorders:Array<Dynamic> = [];
     public static function field(o:Dynamic, n:String):Dynamic return o == null ? null : Reflect.field(o, n);
     public static function set(o:Dynamic, n:String, value:Dynamic):Void if (o != null) Reflect.setField(o, n, value);
     public static function text(v:Dynamic):String return v == null ? "" : Std.string(v);
@@ -17,6 +19,18 @@ class GameAccess {
     public static function integer(v:Dynamic, fallback = 0):Int return v == null ? fallback : Std.int(number(v));
     public static function array(v:Dynamic):Array<Dynamic> return v == null ? [] : cast v;
     public static function call(t:String, n:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic {
+        if (t == "h2d.Tile" && n == "sub") return {
+            innerTex: field(o, "innerTex"), x: number(field(o, "x")) + number(args[0]),
+            y: number(field(o, "y")) + number(args[1]), width: args[2], height: args[3]
+        };
+        if (t == "h2d.Flow" && n == "getProperties") {
+            var props:Dynamic = {};
+            set(args[0], "flowProperties", props); return props;
+        }
+        if (t == "h2d.FlowProperties" && n == "set_isAbsolute") { set(o, "isAbsolute", args[0]); return args[0]; }
+        if (t == "h2d.Object" && n == "setPosition") { set(o, "x", args[0]); set(o, "y", args[1]); return null; }
+        if (t == "h2d.Bitmap" && (n == "set_width" || n == "set_height")) { set(o, n.substr(4), args[0]); return args[0]; }
+        if (t == "h2d.Graphics" && (n == "lineStyle" || n == "drawRect")) { set(o, n, args.copy()); return null; }
         if (t == "hl.types.ArrayObj" && n == "slice") return array(o).slice(args[0], args[1]);
         if (t == "hl.types.ArrayObj" && n == "pushDyn") return array(o).push(args[0]);
         if (t == "ui.BaseUI" && n == "displayDialog") {
@@ -36,6 +50,7 @@ class GameAccess {
         return field(o, "skinData");
     }
     public static function staticCall(t:String, n:String, args:Array<Dynamic>):Dynamic {
+        if (t == "lib.ExtensionsUI" && n == "toTile") return field(args[0], "tile");
         if (t == "domkit.Properties" && n == "createNew") {
             if (args[0] != "button") throw "Unexpected component";
             var params:Array<Dynamic> = args[2];
@@ -57,6 +72,20 @@ class GameAccess {
             Reflect.setField(args[1], key, value);
         }
         return null;
+    }
+
+    public static function create(t:String, args:Array<Dynamic>):Dynamic {
+        if (t == "h2d.Bitmap") {
+            var object:Dynamic = {tile: args[0], parent: args[1]};
+            swatchBitmaps.push(object); return object;
+        }
+        if (t == "h2d.Graphics") {
+            var object:Dynamic = {parent: args[0]};
+            swatchBorders.push(object); return object;
+        }
+        // Texture allocations, native color pickers, GPU readbacks and driver
+        // calls are deliberately unsupported: using one must fail the test.
+        throw "Unexpected native constructor: " + t;
     }
 
     // Exercise the XML boundary that the native formatted-text controls use.

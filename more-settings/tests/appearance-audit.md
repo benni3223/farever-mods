@@ -16,7 +16,7 @@ Function indices below are evidence only; runtime code resolves names.
 | `Unit.set_skin` | 4685 / 4747 | Also a client-owned property. Selects the active body model and invokes `updateSkin`. The native character editor uses it for body changes. |
 | `Unit.updateSkin` | 4699 / 4761 | Model-dependent refresh. Same-model customization requires an explicit `UnitView.applyModelInfo` refresh. |
 | `HeroData.save` | 14839 / 9139 | Stores the hero's current skin data for normal character persistence. The mod does not call server save functions or admin RPCs. |
-| `ColorSelector.createButton` | 25865 / 27072 | Stateless swatch factory; no receiver fields are read. Live passes a gradient to ColorPickButton; PTR passes its sampled color. Use this factory to retain both constructors. |
+| `ColorSelector.createButton` | 25865 / 27072 | Both clients ultimately call `Texture.capturePixels` to sample each swatch (live in ColorPickButton.init; PTR in this factory). The mod now avoids both native picker classes. |
 | `UnitScene.postInitUnitView` | 25758 / 21178 | Native dynamic callback computes bounds and starts an independent idle animation. Preserve rotation around the callback because live adds `viewAngle`. PTR-only `setAnim` is not required. |
 
 The preview receives no live unit, so it cannot share the hero's animation
@@ -27,6 +27,16 @@ the saved state. World/player changes, a removed hero, a closed/rebuilt window,
 and concurrent appearance replacement invalidate the session. Cancel and
 Escape use normal native window removal and do not call an appearance setter.
 
+After a reported DX12 `flushFrame`/`present` crash, inspected PTR
+`DX12Driver.captureTexPixels` (24819): it records a texture copy, flushes the
+frame, waits for copy/GPU work, and calls `beginFrame`. The old palette executed
+this once per color while opening/rebuilding the window. This is a likely
+trigger, not a GPU-reproduced diagnosis. `AppearanceSwatches` now draws the first
+gradient texel via `Tile.sub` and a normal `Bitmap`, with nearest filtering on
+that drawable only. It uses the existing atlas without readback, texture
+allocation, disposal, shared filtering changes, or direct driver calls. The
+model preview remains the native independent UnitScene.
+
 `AppearanceTest` runs in the Haxe interpreter and actual HashLink in CI. It
 checks nested draft isolation, cancel/reopen, save/retry, rejected setters,
 immediate and same-model refresh, concurrent changes, stale ownership/world
@@ -35,6 +45,12 @@ also run literal button labels and error-dialog messages through an XML parser:
 both paths must escape text before constructing native controls. The original
 raw `<` arrow and raw error message each reproduce a parse failure when their
 escaping is removed. Rendering is not simulated by these tests.
+
+Swatch regression tests exercise atlas offsets, one-texel sampling, display
+size, selected framing, missing textures, and shared resource preservation.
+Their strict adapter rejects native color-picker constructors, pixel readback,
+texture allocation, and driver calls. Actual DX12 rendering still needs an
+in-game check on the user's machine.
 
 In-game verification still required on live and PTR: open from BMS; rotate the
 preview; try all body types, palettes, hair/facial hair, eyebrows and four shape

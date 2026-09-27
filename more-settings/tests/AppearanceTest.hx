@@ -1,5 +1,6 @@
 import moresettings.AppearanceDraft;
 import moresettings.AppearanceUi;
+import moresettings.AppearanceSwatches;
 import moresettings.GameAccess as G;
 
 class AppearanceTest {
@@ -117,6 +118,34 @@ class AppearanceTest {
         eq(G.dialogText, error, "The original parser error can be displayed without a second parse failure");
         eq(G.dialogButton.text, "OK", "Error dialog can finish construction");
         eq(windows.length, 1, "Dialog descriptors do not mutate the native window list");
+
+        var texture:Dynamic = {filter: "Linear", disposed: false};
+        var atlasTile:Dynamic = {innerTex: texture, x: 96.0, y: 64.0, width: 16.0, height: 8.0};
+        var gradient:Dynamic = {id: "Skin1", ref: {tile: atlasTile}};
+        var swatch:Dynamic = {};
+        AppearanceSwatches.paint(swatch, gradient, false);
+        var bitmap:Dynamic = G.swatchBitmaps[0];
+        eq(bitmap.parent, swatch, "Color drawable belongs to its button");
+        eq(bitmap.tile != atlasTile, true, "Use a private sub-tile descriptor");
+        eq(bitmap.tile.innerTex, texture, "Sample the existing atlas without allocating a texture");
+        eq(bitmap.tile.x, 96.0, "Sample the first gradient pixel at its atlas X offset");
+        eq(bitmap.tile.y, 64.0, "Sample the first gradient pixel at its atlas Y offset");
+        eq(bitmap.tile.width, 1.0, "Swatch uses one texel, matching native colors");
+        eq(bitmap.tile.height, 1.0, "One texel vertically");
+        eq(bitmap.width, 26.0, "Enlarge the sample inside the button border");
+        eq(bitmap.height, 26.0, "Square swatch");
+        eq(bitmap.smooth, false, "Disable interpolation on the drawable only");
+        eq(bitmap.flowProperties.isAbsolute, true, "Swatch cannot change button layout");
+        eq(G.swatchBorders.length, 0, "Unselected colors have no selection frame");
+        AppearanceSwatches.paint(swatch, gradient, true);
+        eq(G.swatchBorders.length, 1, "Selected color gets a visible frame");
+        eq(G.swatchBorders[0].parent, swatch, "Frame belongs to the same button");
+        eq(texture.filter, "Linear", "Shared atlas filtering is preserved");
+        eq(texture.disposed, false, "Shared texture is not disposed");
+        eq(atlasTile.width, 16.0, "Shared atlas region is unchanged");
+        rejects(() -> AppearanceSwatches.paint(swatch, {ref: {tile: null}}, false), "Missing color texture fails before drawing");
+        var emptyTile:Dynamic = {width: 0.0, height: 1.0};
+        rejects(() -> AppearanceSwatches.paint(swatch, {ref: {tile: emptyTile}}, false), "Empty texture cannot reach the renderer");
         Sys.println('Appearance tests passed ($checks checks)');
     }
 }
