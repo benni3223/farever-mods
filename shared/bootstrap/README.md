@@ -1,9 +1,9 @@
 # Required dependency checks
 
 DPS Meter, Minimap, Item Utilities, More Settings and Fix Target Lock compile
-two modules. The outer entry checks that Better Mod Settings's binary is
-installed. Item Utilities also checks that the ImGui native binding can load,
-using an optional import so the check itself can run without ImGui.
+two modules. The outer entry checks that the Better Mod Settings and Mod Update
+Alerts binaries are installed. Item Utilities also checks that the ImGui native
+binding can load, using an optional import so the check itself can run without ImGui.
 
 Missing dependencies produce a native desktop error and exit with status 1.
 HLX catches ordinary mod exceptions, so throwing would allow the game to continue.
@@ -18,9 +18,10 @@ module names, configuration paths, event topics, and log labels. The entry embed
 and checks its implementation's SHA-256 to reject incomplete/mixed upgrades and
 keep manual-install binary-hash version metadata tied to the actual code.
 
-The Better Mod Settings check verifies an installed binary, not its runtime
-health or a minimum version. We do not add a dependency to Better Mod Settings
-itself or Mod Update Alerts.
+The Better Mod Settings and Mod Update Alerts checks verify installed binaries,
+not their runtime health or minimum versions. These are installation checks, so
+Mod Update Alerts may be loaded later in HLX's alphabetical load order. We do not
+add a dependency to Better Mod Settings itself or Mod Update Alerts.
 
 Run the dependency policy tests from `shared/` with `haxe test-dependencies.hxml`.
 On Linux with Haxe, HashLink and a C compiler, run the real module-loading tests:

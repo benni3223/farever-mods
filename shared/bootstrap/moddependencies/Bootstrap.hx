@@ -25,6 +25,7 @@ class Bootstrap {
         var id = Build.modId();
         var missing = DependencyCheck.missing(id,
             DependencyCheck.isBytecode("hlx/mods/better-mod-settings/better-mod-settings.hl"),
+            DependencyCheck.isBytecode("hlx/mods/mod-update-alerts/mod-update-alerts.hl"),
             #if dependency_imgui hl.Api.isPrimLoaded(imguiVersion) #else true #end);
         if (missing.length > 0) stop(DependencyCheck.message(id, missing));
 

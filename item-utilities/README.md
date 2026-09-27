@@ -13,7 +13,7 @@ panel rectangle and is collected once per frame.
 
 ## Installation
 
-**Required:** HLX Core and [Better Mod Settings](https://www.nexusmods.com/farever/mods/10). Item Utilities also requires the Farever ImGui plugin. A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+**Required:** HLX Core, [Better Mod Settings](https://www.nexusmods.com/farever/mods/10), and [Mod Update Alerts](https://www.nexusmods.com/farever/mods/17). Item Utilities also requires the Farever ImGui plugin. A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
 
 Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
 
@@ -280,6 +280,7 @@ Available settings include:
 
 - [HLX Core](https://github.com/hlx-framework/hlx-core)
 - [Better Mod Settings](https://www.nexusmods.com/farever/mods/10) (mandatory)
+- [Mod Update Alerts](https://www.nexusmods.com/farever/mods/17) (mandatory)
 - The Farever ImGui plugin used by HLX mods with overlay interfaces
 
 ## Building for development

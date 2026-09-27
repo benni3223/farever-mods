@@ -10,7 +10,7 @@ with the new client.
 
 ## Installation
 
-**Required:** HLX Core and [Better Mod Settings](https://www.nexusmods.com/farever/mods/10). A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+**Required:** HLX Core, [Better Mod Settings](https://www.nexusmods.com/farever/mods/10), and [Mod Update Alerts](https://www.nexusmods.com/farever/mods/17). A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
 
 Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
 
@@ -125,7 +125,7 @@ The **Activities** section includes **Show activities**, **Hide completed activi
 
 **Hide target dummies** is off by default in **Enemies**. Dummies have their own marker and use the game's native Dummy group, independent of their names or Codex progress. **Show enemies** controls them too. The former **Hide enemies without Codex entries** option has been removed; its old saved value no longer hides anything. Other enemies without Codex entries stay visible.
 
-Settings use HLX's native persistence at `hlx/config/minimap/config.json`. Better Mod Settings is optional; the mod works with its defaults without it.
+Settings use HLX's native persistence at `hlx/config/minimap/config.json`. Better Mod Settings and Mod Update Alerts are mandatory dependencies.
 
 ## Map loading
 

@@ -77,7 +77,7 @@ void *hlp_igGetVersion(const char **signature) { *signature = "P_B"; return (voi
     def tearDownClass(cls):
         cls.temp.cleanup()
 
-    def launch(self, mod, settings=True, imgui=True, ui=True, implementation="valid"):
+    def launch(self, mod, settings=True, alerts=True, imgui=True, ui=True, implementation="valid"):
         with tempfile.TemporaryDirectory(dir=self.base) as directory:
             game = Path(directory)
             module = game / "hlx/mods" / mod
@@ -86,6 +86,15 @@ void *hlp_igGetVersion(const char **signature) { *signature = "P_B"; return (voi
                 bms = game / "hlx/mods/better-mod-settings"
                 bms.mkdir()
                 shutil.copy2(module / "implementation" / (mod + ".hl"), bms / "better-mod-settings.hl")
+            if alerts:
+                update_alerts = game / "hlx/mods/mod-update-alerts"
+                update_alerts.mkdir()
+                binary = update_alerts / "mod-update-alerts.hl"
+                shutil.copy2(module / "implementation" / (mod + ".hl"), binary)
+                if alerts == "disabled":
+                    binary.rename(binary.with_suffix(".hl.disabled"))
+                elif alerts == "empty":
+                    binary.write_bytes(b"")
             payload = module / "implementation" / (mod + ".hl")
             if implementation == "missing":
                 payload.unlink()
@@ -117,6 +126,19 @@ void *hlp_igGetVersion(const char **signature) { *signature = "P_B"; return (voi
                 self.assertNotIn("DIALOG", output)
                 self.assertTrue(ran)
 
+    def test_all_five_stop_without_update_alerts(self):
+        for mod in MODS:
+            for alerts in [False, "disabled", "empty"]:
+                with self.subTest(mod=mod, alerts=alerts):
+                    code, output, ran = self.launch(mod, alerts=alerts)
+                    self.assertEqual(code, 1, output)
+                    self.assertIn("DIALOG[2] Farever mod dependency error", output)
+                    self.assertIn("- Mod Update Alerts", output)
+                    self.assertIn("https://www.nexusmods.com/farever/mods/17", output)
+                    self.assertNotIn("- Better Mod Settings", output)
+                    self.assertNotIn("- Farever ImGui plugin", output)
+                    self.assertFalse(ran)
+
     def test_missing_imgui_is_an_actionable_error_not_a_linker_crash(self):
         code, output, ran = self.launch("item-utilities", imgui=False)
         self.assertEqual(code, 1, output)
@@ -125,10 +147,11 @@ void *hlp_igGetVersion(const char **signature) { *signature = "P_B"; return (voi
         self.assertNotIn("- Better Mod Settings", output)
         self.assertFalse(ran)
 
-    def test_reports_both_missing_dependencies(self):
-        code, output, ran = self.launch("item-utilities", settings=False, imgui=False)
+    def test_reports_all_missing_dependencies(self):
+        code, output, ran = self.launch("item-utilities", settings=False, alerts=False, imgui=False)
         self.assertEqual(code, 1, output)
         self.assertIn("- Better Mod Settings", output)
+        self.assertIn("- Mod Update Alerts", output)
         self.assertIn("- Farever ImGui plugin", output)
         self.assertFalse(ran)
 

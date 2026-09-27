@@ -16,9 +16,10 @@ class DependencyCheck {
         };
     }
 
-    public static function missing(id:String, settingsInstalled:Bool, imguiLoaded:Bool):Array<String> {
+    public static function missing(id:String, settingsInstalled:Bool, updateAlertsInstalled:Bool, imguiLoaded:Bool):Array<String> {
         var result = [];
         if (!settingsInstalled) result.push("Better Mod Settings");
+        if (!updateAlertsInstalled) result.push("Mod Update Alerts");
         if (id == "item-utilities" && !imguiLoaded) result.push("Farever ImGui plugin");
         return result;
     }
@@ -30,6 +31,8 @@ class DependencyCheck {
             + "(or extract their complete archives into the Farever game folder), then restart Farever."
             + (missing.indexOf("Better Mod Settings") < 0 ? ""
                 : "\n\nBetter Mod Settings: https://www.nexusmods.com/farever/mods/10")
+            + (missing.indexOf("Mod Update Alerts") < 0 ? ""
+                : "\n\nMod Update Alerts: https://www.nexusmods.com/farever/mods/17")
             + "\n\nFarever will close when you dismiss this message.";
     }
 

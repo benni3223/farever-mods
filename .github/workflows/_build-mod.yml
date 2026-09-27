@@ -100,7 +100,7 @@ jobs:
 
       - name: Package
         env:
-          REQUIREMENTS: ${{ inputs.imgui && 'Requires HLX Core, Better Mod Settings, and the Farever ImGui plugin.' || inputs.required-settings && 'Requires HLX Core and Better Mod Settings.' || 'Requires HLX Core.' }}
+          REQUIREMENTS: ${{ inputs.imgui && 'Requires HLX Core, Better Mod Settings, Mod Update Alerts, and the Farever ImGui plugin.' || inputs.required-settings && 'Requires HLX Core, Better Mod Settings, and Mod Update Alerts.' || 'Requires HLX Core.' }}
           REQUIRED_SETTINGS: ${{ inputs.required-settings }}
         run: |
           destination="package/hlx/mods/$MODULE"
