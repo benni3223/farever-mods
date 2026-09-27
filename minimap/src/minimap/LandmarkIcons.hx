@@ -19,6 +19,7 @@ class LandmarkIcons {
         else if (kind == "inactiveRift") inactiveRift(graphics, radius);
         else if (kind == "glory") gloryToken(graphics, radius);
         else if (kind == "infusion") infusionCrucible(graphics, radius);
+        else if (kind == "soulWell") soulWell(graphics, radius);
         else if (kind == "craft") craftingStation(graphics, radius);
         else if (kind == "upgrade") upgradeStation(graphics, radius);
         else if (kind == "recycler") recycling(graphics, radius);
@@ -354,6 +355,87 @@ class LandmarkIcons {
         end(g);
         fill(g, 0xffb7ff);
         circle(g, -0.07 * r, -0.76 * r, 0.11 * r);
+        end(g);
+    }
+
+    static function soulWell(g:Dynamic, r:Float):Void {
+        // Flat stone bowl with hooked horns, a magenta vortex and floating shard.
+        var base = [-0.86, -0.07, -1, 0.36, -0.83, 0.76, -0.42, 0.98,
+            0.42, 0.98, 0.83, 0.76, 1, 0.36, 0.86, -0.07];
+        fill(g, 0x171b2d);
+        polygon(g, r + 0.8, base);
+        end(g);
+        fill(g, 0x30374f);
+        polygon(g, r, base);
+        end(g);
+        fill(g, 0x454c65);
+        polygon(g, r, [-0.92, 0.29, -0.74, 0.65, -0.39, 0.83, -0.45, 0.37]);
+        polygon(g, r, [0.92, 0.29, 0.74, 0.65, 0.39, 0.83, 0.45, 0.37]);
+        end(g);
+        fill(g, 0x20263e);
+        polygon(g, r, [-0.4, 0.56, 0.4, 0.56, 0.37, 0.96, -0.37, 0.96]);
+        end(g);
+
+        fill(g, 0x7a7c8d);
+        ellipse(g, r, 0, 0.08, 0.89, 0.62);
+        end(g);
+        fill(g, 0x50566d);
+        ellipse(g, r, 0, 0.12, 0.79, 0.53);
+        end(g);
+        fill(g, 0x200b26);
+        ellipse(g, r, 0, 0.08, 0.68, 0.43);
+        end(g);
+        // Filled ribbons keep the spiral legible without a glow or thin strokes.
+        for (turn in 0...2) {
+            var ribbon:Array<Float> = [];
+            for (edge in 0...2) for (step in 0...29) {
+                var t = (edge == 0 ? step : 28 - step) / 28;
+                var angle = t * Math.PI * 2.5 + turn * Math.PI;
+                var width = 0.11 * (1 - t) + 0.045;
+                var radius = 0.60 * (1 - t) + 0.04 + (edge == 0 ? 0 : -width);
+                ribbon.push(Math.cos(angle) * radius);
+                ribbon.push(0.08 + Math.sin(angle) * radius * 0.61);
+            }
+            fill(g, turn == 0 ? 0xd30b78 : 0x81074f);
+            polygon(g, r, ribbon);
+            end(g);
+        }
+
+        // The two rear horns curl outwards; a third stone point crosses the rim.
+        for (side in [-1, 1]) {
+            fill(g, 0x1b2035);
+            polygon(g, r, [0.48, -0.13, 0.83, -0.12, 1.02, -0.57,
+                0.94, -0.86, 0.7, -1.04, 0.43, -1.03, 0.71, -0.8,
+                0.74, -0.61, 0.62, -0.38, 0.43, -0.26], side);
+            end(g);
+            fill(g, 0x62667c);
+            polygon(g, r, [0.52, -0.17, 0.78, -0.17, 0.91, -0.57,
+                0.85, -0.81, 0.68, -0.94, 0.78, -0.76, 0.8, -0.58,
+                0.67, -0.32], side);
+            end(g);
+            fill(g, 0x97939e);
+            polygon(g, r, [0.52, -0.17, 0.63, -0.2, 0.78, -0.57,
+                0.72, -0.78, 0.73, -0.58, 0.61, -0.38, 0.48, -0.27], side);
+            end(g);
+        }
+        fill(g, 0x232b42);
+        polygon(g, r, [-0.2, -0.3, 0.05, 0.04, 0.26, 0.53, 0, 0.79, -0.2, 0.51]);
+        end(g);
+        fill(g, 0x626b81);
+        polygon(g, r, [-0.17, -0.22, -0.04, 0.47, 0, 0.7, -0.15, 0.5]);
+        end(g);
+        fill(g, 0x404b64);
+        polygon(g, r, [-0.17, -0.22, 0.04, 0.09, 0.21, 0.51, 0, 0.7, -0.04, 0.47]);
+        end(g);
+
+        fill(g, 0x671049);
+        polygon(g, r, [-0.16, -1.08, 0.16, -0.86, 0.17, -0.52, -0.16, -0.72]);
+        end(g);
+        fill(g, 0xf21aab);
+        polygon(g, r, [-0.11, -1.01, 0.11, -0.84, 0.12, -0.59, -0.11, -0.74]);
+        end(g);
+        fill(g, 0xff8bd8);
+        polygon(g, r, [-0.11, -1.01, -0.04, -0.78, 0.12, -0.59, -0.11, -0.74]);
         end(g);
     }
 

@@ -590,7 +590,7 @@ class MinimapMarkers {
                 case "ent.interactible.Chest": "chest";
                 case "ent.interactible.Npc", "ent.interactible.CraftStation",
                     "ent.interactible.GearUpgradeStation", "ent.interactible.ScrapStation",
-                    "ent.interactible.InfusionStation": "npc";
+                    "ent.interactible.InfusionStation", "ent.interactible.SoulwellStation": "npc";
                 default: "";
             };
             if (kind != "") break;
@@ -609,7 +609,7 @@ class MinimapMarkers {
         case "obelisk", "dungeon", "soulstone", "secretOrb", "glory", "chest", "vaultChest", "recipeChest": 8;
         case "targetDummy", "upcomingRift", "infusion", "craft", "recycler", "respawn": 9;
         case "riftPortal": 11;
-        case "inactiveRift", "nextRift", "upgrade": 10;
+        case "inactiveRift", "nextRift", "upgrade", "soulWell": 10;
         default: 3.5;
     };
 
@@ -715,6 +715,7 @@ class MinimapMarkers {
             case "craft": "Crafting Station";
             case "glory": "Glory Merchant";
             case "infusion": "Infusion Crucible";
+            case "soulWell": "Soul Well";
             case "activity": "Activity";
             case "ascension": "Ascension";
             case "dungeon": "Dungeon";
@@ -798,7 +799,8 @@ class MinimapMarkers {
         }
         if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy"
             || kind == "riftPortal" || kind == "upcomingRift" || kind == "inactiveRift" || kind == "nextRift"
-            || kind == "glory" || kind == "infusion" || kind == "craft" || kind == "upgrade" || kind == "recycler") {
+            || kind == "glory" || kind == "infusion" || kind == "craft" || kind == "upgrade" || kind == "recycler"
+            || kind == "soulWell") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }
