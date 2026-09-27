@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.10.0",
+  "project": "dps-meter",
+  "version": "1.5.2",
   "commit": "22f22df226509ae64a7cb981b1517e67b26c3323",
-  "notes": "- Added new \"Appearance\" category, containing a button to change character appearance\n- Added new \"Combat\" category to cover settings being moved over from Fix Target Lock after the major update on Sept. 30\n- Added setting to enable quick-cast, allowing casting ground-targeted skills with a single button press instead of two. Hold the skill button to aim, release to cast.\n- Added \"Disable target lock camera movement\", which allows camera free-look while locked onto a target.\n\n* Fixed an issue where symlinks didn't work as downloaded dependencies.",
+  "notes": "- Fixed an issue where symlinks didn't work as downloaded dependencies",
   "dry_run": false
 }
