@@ -8,6 +8,16 @@ class GameAccess {
     public static var portraitViews:Array<Dynamic> = [];
     public static var portraitInputs:Array<Dynamic> = [];
     public static var failPortrait = false;
+    // DOMKit reapplies bitmap dimensions after hover/selection. Direct native
+    // Bitmap setters do not update these styles.
+    public static function reflowPortrait(button:Dynamic):Void {
+        var icon = field(button, "icon");
+        var styles:Dynamic = field(field(icon, "dom"), "styles");
+        for (axis in ["width", "height"]) {
+            var fixed = field(styles, axis);
+            set(icon, axis, fixed == null ? 64.0 : fixed);
+        }
+    }
     public static function current(t:String, n:String):Dynamic {
         if (t != "gfx.PortraitGen") throw "Unexpected global";
         return n == "scene" ? portraitScene : portraitPrefab;
@@ -29,7 +39,7 @@ class GameAccess {
     public static function field(o:Dynamic, n:String):Dynamic return o == null ? null : Reflect.field(o, n);
     public static function set(o:Dynamic, n:String, value:Dynamic):Void if (o != null) Reflect.setField(o, n, value);
     public static function text(v:Dynamic):String return v == null ? "" : Std.string(v);
-    public static function number(v:Dynamic):Float return v == null ? 0 : Std.parseFloat(Std.string(v));
+    public static function number(v:Dynamic, fallback:Float = 0):Float return v == null ? fallback : Std.parseFloat(Std.string(v));
     public static function integer(v:Dynamic, fallback = 0):Int return v == null ? fallback : Std.int(number(v));
     public static function array(v:Dynamic):Array<Dynamic> return v == null ? [] : cast v;
     public static function call(t:String, n:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic {
@@ -43,6 +53,11 @@ class GameAccess {
             }
         }
         if (t == "h3d.Camera" && n == "update") return null;
+        if (t == "domkit.Properties" && n == "initStyle") {
+            var styles = field(o, "styles");
+            if (styles == null) { styles = {}; set(o, "styles", styles); }
+            set(styles, args[0], args[1]); return null;
+        }
         if (t == "client.UnitView" && n == "setUnit") {
             set(o, "skin", args[2]); set(o, "model", args[1]); return null;
         }
@@ -111,7 +126,7 @@ class GameAccess {
             if (["template-pick-button", "body-part-pick-button", "blend-shape-pick-button"].indexOf(args[0]) >= 0) {
                 var params:Array<Dynamic> = args[2];
                 var object:Dynamic = {view: params[1], tex: {disposed: false, realloc: () -> {}}};
-                object.icon = {parent: {parent: object}};
+                object.icon = {parent: {parent: object}, dom: {}};
                 portraitButtons.push(object); return {obj: object};
             }
             if (args[0] != "button") throw "Unexpected component";

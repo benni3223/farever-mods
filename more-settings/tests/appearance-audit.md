@@ -85,15 +85,38 @@ Page changes and closing explicitly dispose thumbnail textures and clear their
 reallocation closures.
 
 The preview camera waits for UnitScene's native `needFit` countdown to finish,
-then records the full-body camera position/target. Face and Hair use 38% of that
-distance and target the `B_Head` joint (88% of body height if absent). Body
-restores the recorded view; a later native fit replaces the baseline. Rotation
-still belongs to UnitScene.
+then records the full-body camera position, target and projection zoom. Face
+and Hair shift the camera and target together by 38% of fitted body height,
+centering the upper 88% point, and multiply the native projection zoom by
+1/0.38. The already-visible camera distance and near/far clipping planes stay
+unchanged. Body restores the complete baseline. Before a native refit, the
+original projection zoom is restored so repeated body/part changes cannot
+compound the magnification. Rotation still belongs to UnitScene.
+
+This replaces the initial close-up implementation after an in-game report that
+Face/Hair hid the model. That implementation shortened camera distance to 38%
+without accounting for the native clipping range, and used a skeleton transform
+as a focus point without checking it against the fitted bounds. The replacement
+uses the same body coordinates as the working native fit. PTR
+`Camera.makeFrustumMatrix` (2080) confirms that `zoom` adjusts projection scale
+independently of near/far clipping; live and PTR both expose that camera field.
+
+After the reported thumbnail shrink on hover (and on the first body's initial
+layout), thumbnail width/height are now also set through `Properties.initStyle`.
+`CompBitmap` registers style handlers for both dimensions, so one-off Bitmap
+setters alone are overwritten on native restyling. The pinned styles preserve
+the existing absolute icon/root positions and apply before the first capture.
 
 Appearance tests now include camera waiting/refitting/restoration, repeated
-zoom frames, missing head joints, thumbnail draft isolation, default shapes,
+optical zoom, clipping-range preservation, mismatched skeleton coordinates,
+initial thumbnail layout and hover restyling, draft isolation, default shapes,
 render throttling, global context restoration on failure and texture cleanup.
-They pass in the interpreter and HashLink (113 checks). Native method names and
+They pass in the interpreter and HashLink (138 checks). Native method names and
 constructor signatures were checked against both supplied clients. These
 checks do not replace an in-game visual/DX12 test of the new thumbnails,
 scrolling and face framing.
+
+Regression checks also run these tests against the previous camera and portrait
+implementations independently: both fail at their respective new assertions.
+The fixes still need an in-game rendering check; no game/GPU run is available
+in this environment.

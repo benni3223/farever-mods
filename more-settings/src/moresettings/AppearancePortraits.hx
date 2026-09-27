@@ -31,6 +31,12 @@ class AppearancePortraits {
         var iconRoot = G.field(icon, "parent");
         absolute(button, iconRoot); padding(iconRoot, 0); size(iconRoot, width - 8, width - 8); position(iconRoot, 4, 4);
         absolute(iconRoot, icon); position(icon, 0, 0);
+        // This is a DOMKit Bitmap, whose width/height styles run again on
+        // initial layout, hover and selection. A one-off Bitmap setter is
+        // overwritten by those styles (including the first thumbnail's delayed
+        // initial layout). Pin the dimensions in the style system as well.
+        style(icon, "width", 1.0 * (width - 8));
+        style(icon, "height", 1.0 * (width - 8));
         G.call("ui.UIElement", "set_selected", button, [selected]);
         G.call("ui.UIElement", "set_checkEnable", button, [enabled]);
         G.call("ui.UIElement", "set_onClick", button, [pick]);

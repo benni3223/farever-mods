@@ -148,27 +148,42 @@ class AppearanceTest {
         rejects(() -> AppearanceSwatches.paint(swatch, {ref: {tile: null}}, false), "Missing color texture fails before drawing");
         var emptyTile:Dynamic = {width: 0.0, height: 1.0};
         rejects(() -> AppearanceSwatches.paint(swatch, {ref: {tile: emptyTile}}, false), "Empty texture cannot reach the renderer");
-        // Camera waits for native fitting; repeated frames/tabs never compound zoom.
-        var camera:Dynamic = {pos: {x: 0.0, y: -10.0, z: 1.0}, target: {x: 0.0, y: 0.0, z: 1.0}};
+        // The native preview's clip range was valid for its full-body distance.
+        // Close-ups must preserve that distance and use projection zoom instead.
+        var camera:Dynamic = {pos: {x: 0.0, y: -10.0, z: 1.0}, target: {x: 0.0, y: 0.0, z: 1.0},
+            zoom: 1.2, zNear: 8.0, zFar: 100.0};
         var preview:Dynamic = {needFit: 2, preAnimBounds: {zMin: 0.0, zMax: 2.0},
-            unitScene: {s3d: {camera: camera}}, unitView: {head: {matrix: {_43: 1.8}}}};
+            unitScene: {s3d: {camera: camera}}, unitView: {head: {matrix: {_43: 180.0}}}};
         var zoom = new AppearanceCamera();
         zoom.update(preview, true);
         eq(camera.pos.y, -10.0, "Wait for native fitting before zooming");
+        eq(camera.zoom, 1.2, "Loading leaves native projection intact");
         preview.needFit = -1; zoom.update(preview, true);
-        eq(Math.abs(camera.pos.y + 3.8) < 0.0001, true, "Zoom in for Face/Hair");
-        eq(camera.target.z, 1.8, "Aim at the head joint");
+        eq(camera.pos.y, -10.0, "Face/Hair keep the camera outside the near plane");
+        eq(camera.target.z, 1.76, "Focus uses fitted body dimensions, not mismatched joint coordinates");
+        eq(camera.pos.z - camera.target.z, 0.0, "Shift the camera and target together");
+        eq(Math.abs(camera.zoom - 1.2 / 0.38) < 0.0001, true, "Optical zoom magnifies Face/Hair");
+        eq(camera.zNear, 8.0, "Close-up preserves the native near plane");
+        eq(camera.zFar, 100.0, "Close-up preserves the native far plane");
         for (i in 0...20) zoom.update(preview, true);
-        eq(Math.abs(camera.pos.y + 3.8) < 0.0001, true, "Zoom never compounds across frames");
+        eq(Math.abs(camera.zoom - 1.2 / 0.38) < 0.0001, true, "Zoom never compounds across frames");
         zoom.update(preview, false);
         eq(camera.pos.y, -10.0, "Body restores original distance");
         eq(camera.target.z, 1.0, "Body restores original target");
-        preview.needFit = 1; zoom.update(preview, true);
-        camera.pos.y = -20.0; preview.needFit = -1; zoom.update(preview, true);
-        eq(Math.abs(camera.pos.y + 7.6) < 0.0001, true, "A model refit replaces the baseline");
-        preview.unitView.head = null;
-        zoom.update(preview, false); zoom.update(preview, true);
-        eq(camera.target.z, 1.76, "Missing head joint falls back to body bounds");
+        eq(camera.pos.z, 1.0, "Body restores original camera height");
+        eq(camera.zoom, 1.2, "Body restores original magnification");
+        zoom.update(preview, true);
+        zoom.invalidate(); preview.needFit = 1; zoom.update(preview, true);
+        eq(camera.zoom, 1.2, "Reset close-up magnification before a native refit");
+        camera.pos.y = -20.0; camera.pos.z = 3.0; camera.target.z = 3.0;
+        preview.preAnimBounds = {zMin: 0.0, zMax: 6.0};
+        preview.needFit = -1; zoom.update(preview, true);
+        eq(camera.pos.y, -20.0, "A model refit replaces the distance baseline");
+        eq(Math.abs(camera.target.z - 5.28) < 0.0001, true, "Larger bodies use their own fitted height");
+        eq(Math.abs(camera.zoom - 1.2 / 0.38) < 0.0001, true, "Refitting cannot multiply previous zoom");
+        zoom.update(preview, false);
+        eq(camera.pos.z, 3.0, "Return to the new body baseline after a refit");
+        eq(camera.zoom, 1.2, "Refitted Body still has its original magnification");
 
         var source:Dynamic = {template: 1, hair: "Hair1", facialHair: "Beard1", shapes: null};
         var sourceSignature = haxe.Json.stringify(source);
@@ -195,6 +210,15 @@ class AppearanceTest {
         eq(previousScene.disposed, false, "Never dispose an existing game portrait scene");
         eq(renderView.parent, null, "Detach private view before disposing the temporary scene");
         eq(G.portraitButtons[0].icon.width, 84.0, "Thumbnail fits inside its frame");
+        // A hover restyles the DOM bitmap. This reproduces the old 84->64
+        // shrink unless dimensions are registered with DOMKit as inline styles.
+        for (i in 0...3) {
+            G.reflowPortrait(G.portraitButtons[0]);
+            eq(G.portraitButtons[0].icon.width, 84.0, "Hover/selection preserve thumbnail width");
+            eq(G.portraitButtons[0].icon.height, 84.0, "Hover/selection preserve thumbnail height");
+            eq(G.portraitButtons[0].icon.x, 0.0, "Hover preserves thumbnail X position");
+            eq(G.portraitButtons[0].icon.y, 0.0, "Hover preserves thumbnail Y position");
+        }
         var texture = G.portraitButtons[0].tex;
         portraits.prepare(source, {});
         eq(texture.disposed, true, "Rebuilding pages disposes owned thumbnail textures");
@@ -202,6 +226,9 @@ class AppearanceTest {
         portraits.update(source);
         eq(G.portraitInputs.length, 2, "Old pages have no pending renders after rebuild");
         portraits.add({}, "template-pick-button", 1, 0, 0, 122, true, () -> true, () -> {});
+        G.reflowPortrait(G.portraitButtons[2]);
+        eq(G.portraitButtons[2].icon.width, 114.0, "First body preview has fixed width before initial layout/capture");
+        eq(G.portraitButtons[2].icon.height, 114.0, "Initial layout preserves body preview height");
         G.failPortrait = true;
         rejects(() -> portraits.update(source), "Capture errors propagate after cleanup");
         eq(G.portraitScene, previousScene, "Restore global scene after a capture error");
