@@ -122,6 +122,14 @@ class AppearanceWindow {
         }
         viewport = G.field(node("block", parent, [], "moreSettingsAppearanceViewport"), "obj");
         absolute(container, viewport); padding(viewport, 0); size(viewport, PANEL_W, PANEL_H); position(viewport, PANEL_X, 70);
+        var panelBackground = G.field(viewport, "bgMask");
+        absolute(viewport, panelBackground); size(panelBackground, PANEL_W, PANEL_H); position(panelBackground, 0, 0);
+        // Block defaults to Stack. With a fixed height, native Stack layout
+        // clamps contentHeight before Scroll can detect overflow, disabling
+        // both the scrollbar and wheel input even when the list is taller.
+        var vertical = G.enumeration("h2d.FlowLayout", "Vertical");
+        G.call("h2d.Flow", "set_layout", viewport, [vertical]); style(viewport, "layout", vertical);
+        G.call("h2d.Flow", "set_multiline", viewport, [false]); style(viewport, "multiline", false);
         var scroll = G.enumeration("h2d.FlowOverflow", "Scroll");
         G.call("h2d.Flow", "set_overflow", viewport, [scroll]); style(viewport, "overflow", scroll);
         controls = G.field(node("flow", G.field(viewport, "dom"), [], "moreSettingsAppearanceControls"), "obj");
@@ -135,6 +143,7 @@ class AppearanceWindow {
         style(viewport, "content-valign", top);
         style(viewport, "content-halign", middle);
         var contentLayout = G.call("h2d.Flow", "getProperties", viewport, [controls]);
+        G.call("h2d.FlowProperties", "set_isAbsolute", contentLayout, [false]); style(controls, "position", false);
         G.set(contentLayout, "verticalAlign", top);
         G.set(contentLayout, "horizontalAlign", middle);
         style(controls, "valign", top);

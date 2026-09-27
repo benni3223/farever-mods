@@ -161,3 +161,21 @@ Only its width and placement are fixed: native Flow still controls visibility,
 thumb height, wheel input and dragging. The relevant fields and methods are
 present in both supplied live/PTR clients. In-game visibility and interaction
 still need visual confirmation; the local checks do not render the native UI.
+
+The subsequent in-game report confirmed that positioning alone did not restore
+the scrollbar. The actual failure is the Block's default Stack layout. In both
+clients, `Flow.reflow` (live 3181 / PTR 3214), Stack branch, clamps the measured
+height to `realMaxHeight` before assigning `contentHeight`. Thus a 560 px
+viewport reports 560 px of content even when its child list is much taller.
+The end of reflow hides the scrollbar when `contentHeight <= calculatedHeight`;
+`onMouseWheel` (live 3168 / PTR 3201) checks the same condition and ignores input.
+
+The viewport now explicitly uses Vertical layout, with multiline disabled so
+the long list cannot wrap into another column. This branch retains the child's
+full height in `contentHeight` while clipping `calculatedHeight` to 560 px,
+enabling both the native scrollbar and wheel path. Inline DOMKit styles pin
+these settings across restyling. The background is fixed outside normal flow
+at the viewport size; the content column explicitly participates in normal
+flow, so it contributes to scroll bounds and moves with the scroll position.
+Top alignment, horizontal centering, per-row
+pagination, preview framing and the 800 px window height remain unchanged.
