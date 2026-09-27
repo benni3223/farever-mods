@@ -238,6 +238,48 @@ class AppearanceTest {
         portraits.dispose();
         eq(G.portraitButtons[2].tex, null, "Closing releases the last thumbnail");
         G.failPortrait = false;
+        // Paging hair must preserve both already-rendered and still-pending
+        // thumbnails in the beard/eyes rows. Rapid paging drops stale work only
+        // in the changed row, without resetting the shared private renderer.
+        var paged = new AppearancePortraits({windows: []}, source, {});
+        var hairRow:Dynamic = {}, beardRow:Dynamic = {}, eyeRow:Dynamic = {};
+        var add = (row:Dynamic, id:String, type:Int) -> {
+            paged.add(row, "body-part-pick-button", {id: id, type: type}, 0, 0, 92, false, () -> true, () -> {});
+            return G.portraitButtons[G.portraitButtons.length - 1];
+        };
+        var renderStart = G.portraitRenders.length;
+        var setupCount = G.portraitSetups;
+        var beard = add(beardRow, "Beard1", 3), oldHair = add(hairRow, "Hair1", 0), eyes = add(eyeRow, "Eyes1", 2);
+        var beardTexture = beard.tex, oldHairTexture = oldHair.tex, eyeTexture = eyes.tex;
+        paged.update(source);
+        eq(G.portraitRenders[renderStart], beard, "First row is already rendered before paging another");
+        paged.clear(hairRow);
+        eq(oldHairTexture.disposed, true, "Paging disposes only the old hair thumbnail");
+        eq(oldHairTexture.realloc, null, "Retired page releases its reallocation callback");
+        eq(beard.tex, beardTexture, "An unchanged row keeps the same texture");
+        eq(beardTexture.disposed, false, "Already-rendered beard texture stays alive");
+        eq(eyeTexture.disposed, false, "Pending thumbnails in other groups stay alive");
+        var nextHair = add(hairRow, "Hair2", 0);
+        paged.update(source); paged.update(source);
+        eq(G.portraitRenders[renderStart + 1], eyes, "Unchanged row keeps its pending capture");
+        eq(G.portraitRenders[renderStart + 2], nextHair, "Only the replacement hair page is newly queued");
+        eq(G.portraitRenders.indexOf(oldHair), -1, "Retired page can never render later");
+        eq(G.portraitRenders.length, renderStart + 3, "Rendered sibling rows are not queued again");
+        eq(G.portraitSetups, setupCount, "Pagination does not rebuild the private UnitView");
+        paged.clear(hairRow);
+        var skipped = add(hairRow, "Hair3", 0), skippedTexture = skipped.tex;
+        paged.clear(hairRow);
+        var latest = add(hairRow, "Hair4", 0);
+        paged.update(source); paged.update(source);
+        eq(skippedTexture.disposed, true, "Rapid paging disposes skipped options");
+        eq(G.portraitRenders.indexOf(skipped), -1, "Rapid paging cancels skipped captures");
+        eq(G.portraitRenders[renderStart + 3], latest, "Rapid paging renders the latest page");
+        eq(G.portraitRenders.length, renderStart + 4, "Other rows remain rendered just once");
+        eq(haxe.Json.stringify(source), sourceSignature, "Page browsing leaves the appearance draft unchanged");
+        paged.prepare(source, {});
+        eq(beardTexture.disposed, true, "Full draft/tab rebuild still retires all groups");
+        eq(eyeTexture.disposed, true, "Full rebuild also retires retained eye thumbnails");
+        paged.dispose();
         Sys.println('Appearance tests passed ($checks checks)');
     }
 }

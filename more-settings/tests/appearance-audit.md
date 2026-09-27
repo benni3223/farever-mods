@@ -111,7 +111,7 @@ Appearance tests now include camera waiting/refitting/restoration, repeated
 optical zoom, clipping-range preservation, mismatched skeleton coordinates,
 initial thumbnail layout and hover restyling, draft isolation, default shapes,
 render throttling, global context restoration on failure and texture cleanup.
-They pass in the interpreter and HashLink (138 checks). Native method names and
+They pass in the interpreter and HashLink (156 checks). Native method names and
 constructor signatures were checked against both supplied clients. These
 checks do not replace an in-game visual/DX12 test of the new thumbnails,
 scrolling and face framing.
@@ -129,3 +129,25 @@ hair, face features and palettes still refresh the model and thumbnails after
 readiness, but retain camera bounds, projection and rotation. Audited PTR
 `UnitView.updateDynamicVisuals` (15415): it updates equipment, body parts and
 blend shapes without scheduling a UnitScene camera refit.
+
+
+Pagination now owns a separate flow for each style's thumbnails and pager.
+Arrow/page-dot clicks dirty only that row; selecting the current dot is a no-op.
+A row refresh cancels its old pending captures and disposes only its textures,
+then queues its replacement options. Other groups retain their native controls,
+textures and outstanding capture work. Tabs and actual appearance changes still
+rebuild all affected previews so they reflect the current skin. Pagination does
+not reset the private UnitView, scroll position or main camera.
+
+The scroll viewport and its content flow now explicitly use Top vertically and
+Middle horizontally, with matching inline DOMKit styles. This keeps the first
+heading above a tall list inside the clip region, and centers the complete
+narrower content column (separators, thumbnails, page controls and palettes) in
+the viewport. The shared live/PTR `content-valign`/`content-halign` handlers and
+Flow alignment methods are present in both supplied clients. Visual placement
+still requires the in-game check.
+
+Pagination regressions cover already-rendered siblings, pending captures in
+other rows, quick consecutive page changes, stale-capture cancellation,
+per-row texture disposal, unchanged renderer/draft state and complete cleanup
+when a tab or appearance change requires a full rebuild.

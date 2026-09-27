@@ -29,6 +29,8 @@ class AppearanceWindow {
     var parts:Array<Dynamic>;
     var gradients:Array<Dynamic>;
     var choicePages:Map<String, Int> = [];
+    var choiceRows:Map<String, Void->Void> = [];
+    var dirtyChoiceRows:Map<String, Bool> = [];
     var resetScroll = true;
     var tab = "Body";
     var tabButtons:Map<String, Dynamic> = [];
@@ -122,6 +124,21 @@ class AppearanceWindow {
         G.call("h2d.Flow", "set_overflow", viewport, [scroll]); style(viewport, "overflow", scroll);
         controls = G.field(node("flow", G.field(viewport, "dom"), [], "moreSettingsAppearanceControls"), "obj");
         padding(controls, 0); size(controls, CONTENT_W, 510);
+        // A tall group list must begin at the top, not inherit the native
+        // centered alignment that puts its first heading above the clip area.
+        var top = G.enumeration("h2d.FlowAlign", "Top");
+        var middle = G.enumeration("h2d.FlowAlign", "Middle");
+        G.call("h2d.Flow", "set_verticalAlign", viewport, [top]);
+        G.call("h2d.Flow", "set_horizontalAlign", viewport, [middle]);
+        style(viewport, "content-valign", top);
+        style(viewport, "content-halign", middle);
+        var contentLayout = G.call("h2d.Flow", "getProperties", viewport, [controls]);
+        G.set(contentLayout, "verticalAlign", top);
+        G.set(contentLayout, "horizontalAlign", middle);
+        style(controls, "valign", top);
+        // The content column leaves room for the scrollbar. Center that column
+        // so the separator text AND both ornaments align with the viewport.
+        style(controls, "halign", middle);
         status = textAt(container, "Loading character preview...", PANEL_X, 590, PANEL_W);
         buttonAt(container, "Cancel", PANEL_X + 140, 632, 140, dispose, false);
         saveButton = buttonAt(container, "Save", PANEL_X + 292, 632, 148, save);
@@ -185,34 +202,49 @@ class AppearanceWindow {
         var width = body ? 122 : 92;
         var gap = 10;
         var pages = Std.int(Math.max(1, Math.ceil(values.length / perPage)));
-        var page = choicePages.exists(key) ? choicePages[key] : Std.int(Math.max(0, selected) / perPage);
-        page = Std.int(Math.max(0, Math.min(pages - 1, page)));
-        var startX = Std.int((CONTENT_W - (perPage * width + (perPage - 1) * gap)) / 2);
-        for (i in page * perPage...Std.int(Math.min(values.length, (page + 1) * perPage))) {
-            var value = values[i];
-            portraits.add(controls, component, value, startX + (i % perPage) * (width + gap), y + 32, width,
-                i == selected, usable, () -> guard(() -> { choicePages[key] = page; choose(value); }));
-        }
-        if (values.length == 0) textAt(controls, "Unavailable", 150, y + 45, 180);
-        if (pages > 1) {
-            var pageY = y + 38 + width;
-            var previous = buttonAt(controls, "<", startX, pageY, 32,
-                () -> { choicePages[key] = (page + pages - 1) % pages; rebuildControls = true; });
-            var next = buttonAt(controls, ">", CONTENT_W - startX - 32, pageY, 32,
-                () -> { choicePages[key] = (page + 1) % pages; rebuildControls = true; });
-            size(previous, 32, 28); size(next, 32, 28);
-            for (i in 0...pages) {
-                var dot = G.field(node("element", G.field(controls, "dom"), [], "moreSettingsAppearancePage"), "obj");
-                absolute(controls, dot); padding(dot, 0); size(dot, 22, 28);
-                position(dot, (CONTENT_W - pages * 22) / 2 + i * 22, pageY);
-                var graphic = G.create("h2d.Graphics", [dot]);
-                absolute(dot, graphic);
-                G.call("h2d.Graphics", "beginFill", graphic, [i == page ? 0x6F4934 : 0xB9A28C, 1.0]);
-                G.call("h2d.Graphics", "drawCircle", graphic, [11.0, 14.0, i == page ? 4.0 : 3.0, 0]);
-                G.call("h2d.Graphics", "endFill", graphic);
-                G.call("ui.UIElement", "set_onClick", dot, [() -> guard(() -> { choicePages[key] = i; rebuildControls = true; })]);
+        var row = G.field(node("flow", G.field(controls, "dom"), [], "moreSettingsAppearanceChoiceRow"), "obj");
+        absolute(controls, row); padding(row, 0);
+        size(row, CONTENT_W, width + (pages > 1 ? 54 : 24)); position(row, 0, y + 32);
+        var render:Void->Void = () -> {
+            // Preserve other groups' controls, textures and queued captures.
+            portraits.clear(row);
+            for (child in children(row)) G.call("h2d.Object", "remove", child);
+            var page = choicePages.exists(key) ? choicePages[key] : Std.int(Math.max(0, selected) / perPage);
+            page = Std.int(Math.max(0, Math.min(pages - 1, page)));
+            var changePage = (next:Int) -> {
+                if (next == page) return;
+                choicePages[key] = next;
+                dirtyChoiceRows[key] = true;
+            };
+            var startX = Std.int((CONTENT_W - (perPage * width + (perPage - 1) * gap)) / 2);
+            for (i in page * perPage...Std.int(Math.min(values.length, (page + 1) * perPage))) {
+                var value = values[i];
+                portraits.add(row, component, value, startX + (i % perPage) * (width + gap), 0, width,
+                    i == selected, usable, () -> guard(() -> { choicePages[key] = page; choose(value); }));
             }
-        }
+            if (values.length == 0) textAt(row, "Unavailable", 150, 13, 180);
+            if (pages > 1) {
+                var pageY = 6 + width;
+                var previous = buttonAt(row, "<", startX, pageY, 32,
+                    () -> changePage((page + pages - 1) % pages));
+                var next = buttonAt(row, ">", CONTENT_W - startX - 32, pageY, 32,
+                    () -> changePage((page + 1) % pages));
+                size(previous, 32, 28); size(next, 32, 28);
+                for (i in 0...pages) {
+                    var dot = G.field(node("element", G.field(row, "dom"), [], "moreSettingsAppearancePage"), "obj");
+                    absolute(row, dot); padding(dot, 0); size(dot, 22, 28);
+                    position(dot, (CONTENT_W - pages * 22) / 2 + i * 22, pageY);
+                    var graphic = G.create("h2d.Graphics", [dot]);
+                    absolute(dot, graphic);
+                    G.call("h2d.Graphics", "beginFill", graphic, [i == page ? 0x6F4934 : 0xB9A28C, 1.0]);
+                    G.call("h2d.Graphics", "drawCircle", graphic, [11.0, 14.0, i == page ? 4.0 : 3.0, 0]);
+                    G.call("h2d.Graphics", "endFill", graphic);
+                    G.call("ui.UIElement", "set_onClick", dot, [() -> guard(() -> changePage(i))]);
+                }
+            }
+        };
+        choiceRows[key] = render;
+        render();
         return y + width + (pages > 1 ? 86 : 56);
     }
 
@@ -264,6 +296,7 @@ class AppearanceWindow {
     }
 
     function buildControls():Void {
+        choiceRows = []; dirtyChoiceRows = [];
         var model = models[G.integer(G.field(draft.skin, "template"))];
         if (portraits == null) portraits = new AppearancePortraits(ui, draft.skin, model);
         else portraits.prepare(draft.skin, model);
@@ -327,6 +360,10 @@ class AppearanceWindow {
         }
         if (ready) {
             if (rebuildControls) buildControls();
+            else if (dirtyChoiceRows.iterator().hasNext()) {
+                var dirty = dirtyChoiceRows; dirtyChoiceRows = [];
+                for (key in dirty.keys()) if (choiceRows.exists(key)) choiceRows[key]();
+            }
             portraits.update(draft.skin);
             camera.update(preview, tab != "Body");
         }
@@ -375,5 +412,6 @@ class AppearanceWindow {
         preview = null; view = null; draft = null; controls = null; container = null; body = null;
         title = null; headingStyle = null; status = null; saveButton = null; root = null; ui = null;
         parts = []; gradients = []; models = []; baseHero = null; tabButtons = []; choicePages = []; viewport = null;
+        choiceRows = []; dirtyChoiceRows = [];
     }
 }

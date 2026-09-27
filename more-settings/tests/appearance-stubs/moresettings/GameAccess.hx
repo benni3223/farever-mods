@@ -7,6 +7,8 @@ class GameAccess {
     public static var portraitButtons:Array<Dynamic> = [];
     public static var portraitViews:Array<Dynamic> = [];
     public static var portraitInputs:Array<Dynamic> = [];
+    public static var portraitRenders:Array<Dynamic> = [];
+    public static var portraitSetups = 0;
     public static var failPortrait = false;
     // DOMKit reapplies bitmap dimensions after hover/selection. Direct native
     // Bitmap setters do not update these styles.
@@ -59,12 +61,14 @@ class GameAccess {
             set(styles, args[0], args[1]); return null;
         }
         if (t == "client.UnitView" && n == "setUnit") {
+            portraitSetups++;
             set(o, "skin", args[2]); set(o, "model", args[1]); return null;
         }
         if (t == "client.UnitView" && n == "isReady") return field(o, "ready");
         if (t == "hxd.res.Any" && n == "toPrefab") return {};
         if (t == "h3d.mat.Texture" && n == "dispose") { set(o, "disposed", true); return null; }
         if (t == "ui.comp.BodyPreviewButton" && n == "refreshPortrait") {
+            portraitRenders.push(o);
             var skin = field(field(o, "view"), "skin");
             var snapshot:Dynamic = {};
             staticCall("data.UnitSkinData", "copySkinData", [skin, snapshot]);

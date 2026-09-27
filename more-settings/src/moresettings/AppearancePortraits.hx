@@ -9,8 +9,8 @@ class AppearancePortraits {
     var skin:Dynamic;
     var emptyShapes:Dynamic;
     var resource:Dynamic;
-    var buttons:Array<Dynamic> = [];
-    var pending:Array<{button:Dynamic, size:Int, hideHair:Bool, hideBeard:Bool}> = [];
+    var buttons:Array<{button:Dynamic, group:Dynamic}> = [];
+    var pending:Array<{button:Dynamic, group:Dynamic, size:Int, hideHair:Bool, hideBeard:Bool}> = [];
 
     public function new(ui:Dynamic, source:Dynamic, model:Dynamic) {
         emptyShapes = G.call("hl.types.ArrayObj", "slice", G.field(ui, "windows"), [0, 0]);
@@ -25,7 +25,7 @@ class AppearancePortraits {
             selected:Bool, enabled:Void->Bool, pick:Void->Void):Void {
         var button = G.field(node(component, G.field(parent, "dom"), [value, view, null, null],
             "moreSettingsAppearancePortrait"), "obj");
-        buttons.push(button);
+        buttons.push({button: button, group: parent});
         absolute(parent, button); padding(button, 0); size(button, width, width); position(button, x, y);
         var icon = G.field(button, "icon");
         var iconRoot = G.field(icon, "parent");
@@ -42,7 +42,8 @@ class AppearancePortraits {
         G.call("ui.UIElement", "set_onClick", button, [pick]);
         var shape = component == "blend-shape-pick-button";
         var partType = component == "body-part-pick-button" ? G.integer(G.field(value, "type"), -1) : -1;
-        pending.push({button: button, size: width - 8, hideHair: shape || partType == 2 || partType == 3, hideBeard: shape});
+        pending.push({button: button, group: parent, size: width - 8,
+            hideHair: shape || partType == 2 || partType == 3, hideBeard: shape});
     }
 
     public function prepare(source:Dynamic, model:Dynamic):Void {
@@ -86,9 +87,13 @@ class AppearancePortraits {
         if (error != null) throw error;
     }
 
-    public function clear():Void {
-        pending = [];
-        for (button in buttons) {
+    /** A page change retires only its row; a tab/draft change clears everything. */
+    public function clear(?group:Dynamic):Void {
+        pending = pending.filter(entry -> group != null && entry.group != group);
+        var kept:Array<{button:Dynamic, group:Dynamic}> = [];
+        for (entry in buttons) {
+            if (group != null && entry.group != group) { kept.push(entry); continue; }
+            var button = entry.button;
             // BodyPreviewButton owns its texture but does not dispose it on
             // removal. Drop the reallocation closure as well as the GPU texture.
             var texture = G.field(button, "tex");
@@ -98,7 +103,7 @@ class AppearancePortraits {
                 G.set(button, "tex", null);
             }
         }
-        buttons = [];
+        buttons = kept;
     }
 
     public function dispose():Void {
