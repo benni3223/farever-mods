@@ -6,7 +6,7 @@ import moresettings.AppearanceUi.*;
 /** A normal native window with its own render-to-texture scene and skin draft. */
 class AppearanceWindow {
     static inline var WIDTH = 860;
-    static inline var HEIGHT = 850;
+    static inline var HEIGHT = 800;
     static inline var PANEL_X = 372;
     static inline var PANEL_W = 440;
     static inline var PANEL_H = HEIGHT - 240;
@@ -141,6 +141,20 @@ class AppearanceWindow {
         // The content column leaves room for the scrollbar. Center that column
         // so the separator text AND both ornaments align with the viewport.
         style(controls, "halign", middle);
+        // Native scrollbar styling can offset it beyond this clipped block.
+        // Keep the bar inside the right gutter, including after hover/reflow.
+        // Flow still owns its visibility, thumb height and scrolling behavior.
+        var scrollBar = G.field(viewport, "scrollBar");
+        var cursor = G.field(viewport, "scrollBarCursor");
+        var right = G.enumeration("h2d.FlowAlign", "Right");
+        absolute(viewport, scrollBar); padding(scrollBar, 0);
+        size(scrollBar, 10); size(cursor, 10);
+        var scrollLayout = G.call("h2d.Flow", "getProperties", viewport, [scrollBar]);
+        G.set(scrollLayout, "horizontalAlign", right);
+        G.set(scrollLayout, "verticalAlign", top);
+        style(scrollBar, "halign", right);
+        style(scrollBar, "valign", top);
+        G.call("h2d.Object", "addChild", viewport, [scrollBar]);
         status = textAt(container, "Loading character preview...", PANEL_X, HEIGHT - 160, PANEL_W);
         buttonAt(container, "Cancel", PANEL_X + 140, HEIGHT - 118, 140, dispose, false);
         saveButton = buttonAt(container, "Save", PANEL_X + 292, HEIGHT - 118, 148, save);

@@ -151,3 +151,13 @@ Pagination regressions cover already-rendered siblings, pending captures in
 other rows, quick consecutive page changes, stale-capture cancellation,
 per-row texture disposal, unchanged renderer/draft state and complete cleanup
 when a tab or appearance change requires a full rebuild.
+
+The appearance window is now 800 px tall, with a 560 px options viewport.
+Its native scrollbar is explicitly 10 px wide and pinned to the top/right
+inside the clip region using both Flow properties and inline DOMKit styles.
+Resetting inherited offsets and drawing the bar after the content keeps it in
+the 13 px right gutter without relying on the Options theme's positioning.
+Only its width and placement are fixed: native Flow still controls visibility,
+thumb height, wheel input and dragging. The relevant fields and methods are
+present in both supplied live/PTR clients. In-game visibility and interaction
+still need visual confirmation; the local checks do not render the native UI.
