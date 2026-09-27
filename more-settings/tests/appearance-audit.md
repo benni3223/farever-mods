@@ -120,3 +120,12 @@ Regression checks also run these tests against the previous camera and portrait
 implementations independently: both fail at their respective new assertions.
 The fixes still need an in-game rendering check; no game/GPU run is available
 in this environment.
+
+After the reported brief zoom-out when picking hair/face options, the window
+now separates completing a visual refresh from requesting a camera refit.
+`postInitUnitView` starts a four-update full-body fit countdown on both clients;
+it is now called only for initial loading and body-type changes. Hair, facial
+hair, face features and palettes still refresh the model and thumbnails after
+readiness, but retain camera bounds, projection and rotation. Audited PTR
+`UnitView.updateDynamicVisuals` (15415): it updates equipment, body parts and
+blend shapes without scheduling a UnitScene camera refit.

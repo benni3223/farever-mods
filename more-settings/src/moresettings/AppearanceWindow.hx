@@ -37,7 +37,8 @@ class AppearanceWindow {
     var initialized = false;
     var ready = false;
     var refreshVisuals = false;
-    var fitPreview = false;
+    var finishRefresh = false;
+    var refitPreview = true;
     var rebuildControls = true;
 
     public function new() {}
@@ -163,6 +164,7 @@ class AppearanceWindow {
     function changed(model = false):Void {
         ready = false;
         if (model) {
+            refitPreview = true;
             var index = G.integer(G.field(draft.skin, "template"));
             G.call("client.UnitView", "applyModelInfo", view, [models[index]]);
         }
@@ -304,19 +306,23 @@ class AppearanceWindow {
         }
         if (refreshVisuals) {
             G.call("client.UnitView", "updateDynamicVisuals", view, [null]);
-            refreshVisuals = false; fitPreview = true;
+            refreshVisuals = false; finishRefresh = true;
             return true;
         }
-        if (fitPreview) {
-            // Recompute bounds after body/part changes, then use the scene's
-            // own camera fitting and independent idle animation.
-            var rotation = G.call("h3d.scene.Object", "getRotationQuat", view);
-            var postInit:Void->Void = G.field(preview, "postInitUnitView");
-            postInit();
-            // Live's post-init adds viewAngle again; keep the user's rotation.
-            G.call("h3d.scene.Object", "setRotationQuat", view, [rotation]);
-            camera.invalidate();
-            fitPreview = false; ready = true;
+        if (finishRefresh) {
+            // Only initial loading and body-type changes need new camera bounds
+            // and idle setup. Hair, face and color changes keep the current
+            // framing instead of restarting the native full-body fit countdown.
+            if (refitPreview) {
+                var rotation = G.call("h3d.scene.Object", "getRotationQuat", view);
+                var postInit:Void->Void = G.field(preview, "postInitUnitView");
+                postInit();
+                // Live's post-init adds viewAngle again; keep the user's rotation.
+                G.call("h3d.scene.Object", "setRotationQuat", view, [rotation]);
+                camera.invalidate();
+                refitPreview = false;
+            }
+            finishRefresh = false; ready = true;
             setText(status, "");
         }
         if (ready) {
