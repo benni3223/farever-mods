@@ -1,7 +1,7 @@
 {
-  "project": "item-utilities",
-  "version": "1.9.2",
-  "commit": "009c08651e9ce9ac3c4a9d99ad2719b404aa8942",
-  "notes": "- Fixed an issue where appearance presets with some specific items didn't save across login sessions\n",
+  "project": "more-settings",
+  "version": "1.9.0",
+  "commit": "2888cd8ba09868214b7c9bbe1bae6c888b642ae6",
+  "notes": "- Added a setting to prevent accidentally entering a dungeon while in a party and the party members haven't joined the ready-check\n",
   "dry_run": false
 }
