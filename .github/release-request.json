@@ -1,7 +1,7 @@
 {
-  "project": "dps-meter",
-  "version": "1.5.0",
-  "commit": "58a0e092eeb1c814af59b618ad3052983cade805",
-  "notes": "- Added a damage type distribution column for each ability in the damage breakdown\n- Scrolling down in the damage breakdown no longer moves the column headers\n- Removed per-skill DPS column, as the damage % column already covers that",
+  "project": "item-utilities",
+  "version": "1.9.2",
+  "commit": "009c08651e9ce9ac3c4a9d99ad2719b404aa8942",
+  "notes": "- Fixed an issue where appearance presets with some specific items didn't save across login sessions\n",
   "dry_run": false
 }
