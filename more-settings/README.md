@@ -12,6 +12,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
 | Combat | Enable quick cast; Disable target-lock camera movement | Both off; imports enabled Fix Target Lock preferences when no More Settings choice exists |
+| Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
@@ -21,6 +22,8 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 **Combat** appears directly below **General**. **Enable quick cast** lets you hold a ground-targeted skill's bound key or gamepad button to aim, then release it to cast. It uses the native ground indicator, confirmation, and cancellation paths and works without a target lock. A quick tap is retained through the native first-frame aiming delay. Disabling the option while aiming restores the game's usual confirmation behavior.
 
 **Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
+
+**Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 
 These options moved from **Fix Target Lock**. On first launch, existing More Settings choices take priority; missing choices are imported from the old mod's native or mod-local config. A disabled old mod does not automatically enable either option. Keep the old config file until migration has run. On PTR, native target locking makes Fix Target Lock unnecessary: remove or disable the old mod before testing. If you still use it for the older live client, install its updated build too; that build leaves native target locking alone on PTR and delegates these two options to More Settings.
 

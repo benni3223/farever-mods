@@ -74,6 +74,10 @@ class GameAccess {
         if (t == null) throw "Game type unavailable: " + type;
         return HlxRuntime.constructInstanceByName(t, args.length, args);
     }
+    public static function enumeration(type:String, name:String):Dynamic {
+        // Native code compares parameterless enum values by identity.
+        return current(type, name);
+    }
     public static function array(value:Dynamic, proxy:Bool = false):Array<Dynamic> {
         if (proxy) value = field(value, "array");
         var out:Array<Dynamic> = [];

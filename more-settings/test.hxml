@@ -28,3 +28,9 @@
 -cp tests
 -main CombatTest
 --interp
+--next
+-cp src
+-cp tests/appearance-stubs
+-cp tests
+-main AppearanceTest
+--interp

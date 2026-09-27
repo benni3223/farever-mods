@@ -47,6 +47,17 @@
     },
     {
       "type": "title",
+      "label": "Appearance"
+    },
+    {
+      "key": "changeAppearance",
+      "type": "button",
+      "label": "Change Appearance",
+      "buttonText": "Change Appearance",
+      "colour": "default"
+    },
+    {
+      "type": "title",
       "label": "Unfocused Volume"
     },
     {

@@ -45,6 +45,8 @@ class MoreSettingsMod {
         config.save();
         audio = new AudioControl(config);
         AllyEffects.configure(config);
+        Bus.subscribe("better-mod-settings/action/" + HlxRuntime.moduleName() + "/changeAppearance",
+            (_:Dynamic) -> AppearanceEditor.request());
         Bus.subscribe("better-mod-settings/config-changed/" + HlxRuntime.moduleName(), (_:Dynamic) -> {
             config = ModConfig.load(HlxRuntime.moduleName(), config);
             SettingsData.normalize(config);
@@ -103,6 +105,7 @@ class MoreSettingsMod {
     static function beforeUpdate(instance:Dynamic, dt:Float):HlxPrefixResult<Void> {
         CombatHooks.beginFrame();
         app = instance;
+        AppearanceEditor.update(instance);
         AllyEffects.update(instance);
         if (audio != null && haxe.Timer.stamp() >= audioRetryAt)
             try audio.update(G.field(instance, "hero")) catch (e:Dynamic) audioError(e);
@@ -124,6 +127,7 @@ class MoreSettingsMod {
     @:hlx.prefix(GameApp.dispose)
     static function dispose(instance:Dynamic):HlxPrefixResult<Void> {
         CombatHooks.dispose();
+        AppearanceEditor.close();
         if (audio != null) try audio.dispose() catch (e:Dynamic) audioError(e);
         AllyEffects.dispose();
         app = null;

@@ -42,7 +42,7 @@ jobs:
       - uses: krdlab/setup-haxe@v1
         with:
           haxe-version: 4.3.7
-      - name: Test combat, volume, ownership and regional presentation filters
+      - name: Test appearance, combat, volume, ownership and regional presentation filters
         working-directory: more-settings
         run: haxe test.hxml
       - uses: actions/checkout@v4
@@ -61,6 +61,13 @@ jobs:
           mkdir -p build
           haxe -cp src -cp tests/stubs -cp tests -main CombatTest -hl build/combat-test.hl
           ../.combat-hashlink/hl build/combat-test.hl
+      - name: Test appearance isolation and saving on HashLink
+        working-directory: more-settings
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
+        run: |
+          haxe -cp src -cp tests/appearance-stubs -cp tests -main AppearanceTest -hl build/appearance-test.hl
+          ../.combat-hashlink/hl build/appearance-test.hl
       - name: Test native event volume bridge
         working-directory: more-settings
         run: |
