@@ -1,4 +1,5 @@
 import moresettings.AppearanceDraft;
+import moresettings.AppearanceUi;
 import moresettings.GameAccess as G;
 
 class AppearanceTest {
@@ -100,6 +101,22 @@ class AppearanceTest {
         eq(action.type, "button", "Appearance is an action, not a saved checkbox");
         eq(action.buttonText, "Change Appearance", "Requested button label");
         eq(action.colour, "default", "Requested default button color");
+
+        // Go through the actual component factory, including the stub's XML
+        // parser, so this fails if escaping is omitted or moved after creation.
+        for (text in ["<", ">", "Save", "A & B", "<b>literal</b>", "[literal] $value"]) {
+            var args:Array<Dynamic> = [text];
+            var button = AppearanceUi.node("button", {}, args, "regressionArrow");
+            eq(button.obj.text, text, "Formatted button renders literal text");
+            eq(args[0], text, "Escaping does not alter the caller's arguments");
+        }
+        var error = "Could not parse < (haxe.xml.XmlParserException: Unexpected end at line 1 char 1)";
+        var windows:Array<Dynamic> = [{}];
+        AppearanceUi.message({windows: windows}, "Appearance <error>", error);
+        eq(G.dialogTitle, "Appearance <error>", "Dialog title is literal");
+        eq(G.dialogText, error, "The original parser error can be displayed without a second parse failure");
+        eq(G.dialogButton.text, "OK", "Error dialog can finish construction");
+        eq(windows.length, 1, "Dialog descriptors do not mutate the native window list");
         Sys.println('Appearance tests passed ($checks checks)');
     }
 }

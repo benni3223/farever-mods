@@ -27,6 +27,12 @@ class AppearanceUi {
             && G.field(G.field(G.field(body, "obj"), "optionsList"), "container") == container;
     }
     public static function node(component:String, parent:Dynamic, args:Array<Dynamic>, id:String, ?layout:String):Dynamic {
+        // Button labels go through FmtText's XML parser too. A literal "<"
+        // must be escaped before construction, not after its first reflow.
+        if (component == "button" && args.length > 0) {
+            args = args.copy();
+            args[0] = escape(G.text(args[0]));
+        }
         var attributes:Dynamic = {id: id};
         if (layout != null) Reflect.setField(attributes, "layout", layout);
         var result = G.staticCall("domkit.Properties", "createNew", [component, parent, args, attributes]);
@@ -88,5 +94,14 @@ class AppearanceUi {
     }
     public static function setText(obj:Dynamic, value:String):Void {
         if (obj != null) G.call("ui.comp.FmtText", "set_text", obj, [escape(value)]);
+    }
+    public static function message(ui:Dynamic, title:String, text:String):Void {
+        var buttons = G.call("hl.types.ArrayObj", "slice", G.field(ui, "windows"), [0, 0]);
+        G.call("hl.types.ArrayObj", "pushDyn", buttons, [{ic: "Confirm", input: null, checkEnable: null, onBack: true}]);
+        // Parser errors can themselves contain "<". Passing the raw exception
+        // to this dialog would fail again while constructing its formatted text.
+        var dialog = G.call("ui.BaseUI", "displayDialog", ui,
+            [escape(title), escape(text), buttons, (_:String) -> {}]);
+        for (button in G.array(G.field(dialog, "buttons"))) G.call("ui.comp.Button", "setText", button, ["OK"]);
     }
 }

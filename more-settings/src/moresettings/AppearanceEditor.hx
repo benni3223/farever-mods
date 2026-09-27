@@ -34,11 +34,7 @@ class AppearanceEditor {
         try {
             var ui = G.current("ui.BaseUI", "current");
             if (ui == null) return;
-            var buttons = G.call("hl.types.ArrayObj", "slice", G.field(ui, "windows"), [0, 0]);
-            G.call("hl.types.ArrayObj", "pushDyn", buttons, [{ic: "Confirm", input: null, checkEnable: null, onBack: true}]);
-            var dialog = G.call("ui.BaseUI", "displayDialog", ui,
-                ["Change Appearance", Std.string(error), buttons, (_:String) -> {}]);
-            for (button in G.array(G.field(dialog, "buttons"))) G.call("ui.comp.Button", "setText", button, ["OK"]);
+            AppearanceUi.message(ui, "Change Appearance", Std.string(error));
         } catch (_:Dynamic) {}
     }
 

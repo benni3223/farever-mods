@@ -30,8 +30,11 @@ Escape use normal native window removal and do not call an appearance setter.
 `AppearanceTest` runs in the Haxe interpreter and actual HashLink in CI. It
 checks nested draft isolation, cancel/reopen, save/retry, rejected setters,
 immediate and same-model refresh, concurrent changes, stale ownership/world
-state, creation-option filters, and category/button metadata. Rendering is not
-simulated by these tests.
+state, creation-option filters, and category/button metadata. Regression tests
+also run literal button labels and error-dialog messages through an XML parser:
+both paths must escape text before constructing native controls. The original
+raw `<` arrow and raw error message each reproduce a parse failure when their
+escaping is removed. Rendering is not simulated by these tests.
 
 In-game verification still required on live and PTR: open from BMS; rotate the
 preview; try all body types, palettes, hair/facial hair, eyebrows and four shape
