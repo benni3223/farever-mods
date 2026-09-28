@@ -17,6 +17,7 @@ class MoreSettingsMod {
     static var app:Dynamic;
     static var reportedAudioError:Bool = false;
     static var audioRetryAt:Float = 0;
+    static var reportedDamageNumberError:Bool = false;
 
     static function main():Void {
         var imported = ConfigMigration.importLegacy("more-audio-settings");
@@ -69,6 +70,25 @@ class MoreSettingsMod {
     @:hlx.postfix(ui.comp.HealthBar.init)
     static function afterHealthBarInit(instance:Dynamic, result:Void):Void {
         try BossHealth.attach(instance) catch (e:Dynamic) BossHealth.reportError(e);
+    }
+
+    @:hlx.postfix(ui.comp.DamageDisplay.init)
+    static function afterDamageDisplayInit(instance:Dynamic, result:Void):Void {
+        if (!config.fancyDamageNumbers || G.field(instance, "isCrit") != true) return;
+        var counter = G.field(instance, "counter");
+        var dom = G.field(counter, "dom");
+        if (dom == null) return;
+        try {
+            // An inline color survives the native affinity/crit CSS refresh.
+            // Each init creates a fresh counter, so no style or widget is retained.
+            G.call("domkit.Properties", "initStyle", dom, ["color", 0xF060D0]);
+            G.call("h2d.Text", "set_textColor", counter, [0xF060D0]);
+        } catch (error:Dynamic) {
+            if (!reportedDamageNumberError) {
+                reportedDamageNumberError = true;
+                trace("[More Settings] Fancy damage numbers: " + Std.string(error));
+            }
+        }
     }
 
     @:hlx.postfix(lib.Input.getBindings)

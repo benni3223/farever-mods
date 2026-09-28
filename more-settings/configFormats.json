@@ -46,6 +46,11 @@
       "label": "Disable target-lock camera movement"
     },
     {
+      "key": "fancyDamageNumbers",
+      "type": "checkbox",
+      "label": "Fancy damage numbers"
+    },
+    {
       "type": "title",
       "label": "Appearance"
     },

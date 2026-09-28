@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | Enable quick cast; Disable target-lock camera movement | Both off; imports enabled Fix Target Lock preferences when no More Settings choice exists |
+| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers | All off; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -23,9 +23,11 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 **Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
 
+**Fancy damage numbers** colors critical-hit floating damage numbers pink-purple. It is off by default and takes effect for newly displayed numbers as soon as it is toggled. Normal hits, healing, damage values, fonts, outlines, and animations retain their native appearance and behavior. Supports both Live and PTR.
+
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 
-The two Combat options are also available in **Fix Target Lock**. On first launch, existing More Settings choices take priority; missing choices are imported from Fix Target Lock's native or mod-local config. A disabled Fix Target Lock does not automatically enable either option. Keep its config file until migration has run. If both mods are installed, enable each of these features in only one mod.
+The quick-cast and camera options are also available in **Fix Target Lock**. On first launch, existing More Settings choices take priority; missing choices are imported from Fix Target Lock's native or mod-local config. A disabled Fix Target Lock does not automatically enable either option. Keep its config file until migration has run. If both mods are installed, enable each of these features in only one mod.
 
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 

@@ -3,6 +3,7 @@ package moresettings;
 typedef MoreSettingsConfig = {
     var quickCast:Bool;
     var disableTargetLockCameraMovement:Bool;
+    var fancyDamageNumbers:Bool;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
@@ -27,6 +28,7 @@ class SettingsData {
     public static function defaults():MoreSettingsConfig return {
         quickCast: false,
         disableTargetLockCameraMovement: false,
+        fancyDamageNumbers: false,
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
