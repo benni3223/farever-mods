@@ -51,23 +51,6 @@
       "label": "Fancy damage numbers"
     },
     {
-      "key": "redCriticals",
-      "type": "checkbox",
-      "label": "Red criticals"
-    },
-    {
-      "key": "criticalDarkColour",
-      "type": "text",
-      "label": "Critical dark colour (hex)",
-      "placeholder": "Preset colour"
-    },
-    {
-      "key": "criticalLightColour",
-      "type": "text",
-      "label": "Critical light colour (hex)",
-      "placeholder": "Preset colour"
-    },
-    {
       "type": "title",
       "label": "Appearance"
     },

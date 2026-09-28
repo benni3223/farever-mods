@@ -34,18 +34,14 @@ class FancyDamageNumbers {
         }
 
         var critical = G.field(display, "isCrit") == true;
-        // Physical and magic criticals use the selected critical palette.
+        // Physical and magic criticals share the fixed red palette.
         var magic = false;
         if (!critical && damage != null)
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
 
         // Light at the top, dark at the bottom (formerly Flip gradient).
-        var top = critical
-            ? SettingsData.hexColour(config.criticalLightColour, config.redCriticals ? 0xFA4B34 : 0xEF8DEB)
-            : magic ? 0xBCC2FF : damage != null ? 0xFFCB6D : baseColor;
-        var bottom = critical
-            ? SettingsData.hexColour(config.criticalDarkColour, config.redCriticals ? 0x9C120D : 0xA80C2C)
-            : magic ? 0x5963C4 : damage != null ? 0xF04424 : shade(baseColor);
+        var top = critical ? 0xFF7F66 : magic ? 0xBCC2FF : damage != null ? 0xFFCB6D : baseColor;
+        var bottom = critical ? 0xFF0000 : magic ? 0x5963C4 : damage != null ? 0xF04424 : shade(baseColor);
         var filter:Dynamic = G.field(counter, "filter");
         filter = append(filter, gradient(top, bottom));
         applyBorder(counter, dom, filter);

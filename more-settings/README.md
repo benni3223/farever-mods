@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Red criticals; Critical dark/light colour (hex) | Toggles off; custom colours blank (use preset); imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
+| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers | Toggles off; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -23,19 +23,13 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 **Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
 
-**Fancy damage numbers** adds a 1 px black outline to all damage numbers. Physical damage uses an orange gradient and magic damage uses a blue gradient. All gradients run from light at the top to dark at the bottom. By default, critical hits use the pink palette inspired by the MapleStory reference. Raw damage keeps a pure white fill, including critical Raw hits, with the same black border and no shadow or gradient.
+**Fancy damage numbers** adds a 1 px black outline to all damage numbers. Physical damage uses an orange gradient and magic damage uses a blue gradient. All gradients run from light at the top to dark at the bottom. Physical and magic critical hits use `#FF7F66` at the light/top end and `#FF0000` at the dark/bottom end. Raw damage keeps a pure white fill, including critical Raw hits, with the same black border and no shadow or gradient.
 
 The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it includes outlines for all damage and gradients for non-Raw damage; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
-**Red criticals** switches physical and magic critical hits to a gradient between the two reference reds (`#9C120D` and `#FA4B34`). It is off by default. Raw critical hits keep their solid white fill.
+Fancy damage numbers is the only control for this styling. The former colour, gradient, and border controls have been removed; old saved values no longer affect the appearance.
 
-**Critical dark colour (hex)** and **Critical light colour (hex)** independently override the two critical gradient endpoints. Enter six RGB hex digits, such as `#9C120D` and `#FA4B34`; `9C120D` and `0x9C120D` also work, with either letter case and optional surrounding whitespace. Blank or invalid values use that endpoint's current pink/red preset colour. The light colour appears at the top and the dark colour at the bottom. Custom values affect only non-Raw critical hits and take effect on newly displayed numbers. The original text is kept in the config. These fields require the Better Mod Settings build with `text` controls.
-
-The former Blue magic, Orange physical, Light orange physical, Flip gradient, Fancy border, and Border thickness controls have been removed. Old saved values for these options no longer affect the fixed appearance described above.
-
-These options require Fancy damage numbers to be enabled and affect newly displayed numbers immediately.
-
-Gradients span the damage text itself, excluding the surrounding border padding. Their endpoints stay aligned with the glyph bounds as border thickness, font size, or rendering resolution changes.
+Gradients span the damage text itself, excluding the surrounding border padding. Their endpoints stay aligned with the glyph bounds as font size or rendering resolution changes.
 
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 

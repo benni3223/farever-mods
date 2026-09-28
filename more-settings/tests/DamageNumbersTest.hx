@@ -26,9 +26,6 @@ class DamageNumbersTest {
     static function main():Void {
         var config = SettingsData.defaults();
         eq(config.fancyDamageNumbers, false, "Fancy damage numbers remains opt-in");
-        eq(config.redCriticals, false, "Criticals keep their existing pink palette by default");
-        eq(config.criticalDarkColour, "", "Existing dark preset is retained on upgrade");
-        eq(config.criticalLightColour, "", "Existing light preset is retained on upgrade");
         // Leftover preferences from older builds cannot override the fixed style.
         var legacy:Dynamic = config;
         for (key in ["blueMagic", "orangePhysical", "flipGradient"])
@@ -36,14 +33,11 @@ class DamageNumbersTest {
         Reflect.setField(legacy, "lightOrangePhysical", true);
         Reflect.setField(legacy, "fancyBorder", true);
         Reflect.setField(legacy, "borderThickness", 6.0);
-        config.redCriticals = true;
-        config.criticalDarkColour = "#123456";
-        config.criticalLightColour = "#ABCDEF";
         for (critical in [false, true]) for (raw in [false, true]) {
             var disabled = display(critical, false, raw);
             FancyDamageNumbers.apply(disabled, config);
             eq(disabled.counter.textColor, 0xABCDEF, "Master toggle gates every style option");
-            eq(disabled.counter.filter, null, "Custom colours and borders cannot style numbers with the master disabled");
+            eq(disabled.counter.filter, null, "Colours and borders cannot style numbers with the master disabled");
             eq(G.textures.length, 0, "Disabled feature allocates no GPU texture");
         }
         config.fancyDamageNumbers = true;
@@ -67,10 +61,7 @@ class DamageNumbersTest {
             eq(raw.counter.text, "123,456", "Raw styling preserves the damage value");
             eq(G.textures.length, 0, "Raw-only hits allocate no gradient texture");
         }
-        config.criticalDarkColour = "";
-        config.criticalLightColour = "";
-        for (redCriticals in [false, true]) for (critical in [false, true]) for (magic in [false, true]) {
-            config.redCriticals = redCriticals;
+        for (critical in [false, true]) for (magic in [false, true]) {
             var d = display(critical, magic);
             var nativeFilter:Dynamic = {kind: "native"};
             d.counter.filter = nativeFilter;
@@ -91,8 +82,8 @@ class DamageNumbersTest {
             eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");
             eq(shader.maskMatB__.y, 1.0, "Ramp follows screen-quad vertical coordinate");
             eq(shader.maskChannel__.w, 0.0, "Opaque mask alpha must not bias interpolation");
-            var top = critical ? (redCriticals ? 0xFA4B34 : 0xEF8DEB) : coloredMagic ? 0xBCC2FF : 0xFFCB6D;
-            var bottom = critical ? (redCriticals ? 0x9C120D : 0xA80C2C) : coloredMagic ? 0x5963C4 : 0xF04424;
+            var top = critical ? 0xFF7F66 : coloredMagic ? 0xBCC2FF : 0xFFCB6D;
+            var bottom = critical ? 0xFF0000 : coloredMagic ? 0x5963C4 : 0xF04424;
             assertRGB(shader.matrix__, top, "All palettes start with their light endpoint at the top");
             assertRGB(shader.matrix2__, bottom, "All palettes end with their dark endpoint at the bottom");
             var topRed:Float = shader.matrix__._11, bottomRed:Float = shader.matrix2__._11;
@@ -106,7 +97,7 @@ class DamageNumbersTest {
                 near(shader.matrix__._41 + shader.matrix2__._41, 0, "Black shadow pixels receive no additive tint");
             }
         }
-        customCriticalColours();
+        legacyCriticalPreferences();
         var mappingFilter = gradientMapping();
         eq(G.textures.length, 1, "All hits and palettes reuse one ramp texture");
         var texture = G.textures[0];
@@ -127,93 +118,23 @@ class DamageNumbersTest {
         Sys.println('Fancy damage numbers: $checks checks passed.');
     }
 
-    static function customCriticalColours():Void {
-        for (sample in [
-            {text: "ff0003", expected: 0xFF0003},
-            {text: "#9C120D", expected: 0x9C120D},
-            {text: "FA4B34", expected: 0xFA4B34},
-            {text: "  #aBcDeF \t", expected: 0xABCDEF},
-            {text: "0x1234aB", expected: 0x1234AB},
-            {text: "0XFFFFFF", expected: 0xFFFFFF},
-            {text: "#000000", expected: 0x000000}
-        ]) eq(SettingsData.hexColour(sample.text, 0x102030), sample.expected,
-            "RGB hex input accepts optional prefix, case and surrounding whitespace");
-        for (invalid in [null, "", " \t", "#", "#F00", "12345", "1234567", "#FF0000FF",
-            "#FA4B3Z", "FA4B34junk", "FA4B34\n12", "-123456", "0x", "1.23456", "FF FF FF", "red"])
-            eq(SettingsData.hexColour(invalid, 0x102030), 0x102030,
-                "Invalid and partially typed RGB values fall back without partial parsing");
-
-        for (damagedKey in ["criticalDarkColour", "criticalLightColour"])
-        for (broken in ([{bytes: "???", length: 6}, null, 123, false, []]:Array<Dynamic>)) {
-            var repaired = SettingsData.defaults();
-            repaired.fancyDamageNumbers = true;
-            repaired.redCriticals = true;
-            repaired.quickCast = true;
-            repaired.criticalDarkColour = "ff0003";
-            repaired.criticalLightColour = "ff0003";
-            Reflect.setField(repaired, damagedKey, broken);
-            repaired = cast haxe.Json.parse(haxe.Json.stringify(repaired));
-            SettingsData.normalize(repaired);
-            eq(Reflect.field(repaired, damagedKey), "", "Damaged JSON endpoints reset before typed String access");
-            var otherKey = damagedKey == "criticalDarkColour" ? "criticalLightColour" : "criticalDarkColour";
-            eq(Reflect.field(repaired, otherKey), "ff0003", "Repair preserves the valid endpoint verbatim");
-            eq(repaired.quickCast, true, "Repair preserves unrelated preferences");
-            var hit = display(true);
-            FancyDamageNumbers.apply(hit, repaired);
-            var repairedShader = filters(hit.counter.filter)[0].shader;
-            assertRGB(repairedShader.matrix__, damagedKey == "criticalLightColour" ? 0xFA4B34 : 0xFF0003,
-                "Crits safely render the repaired light endpoint");
-            assertRGB(repairedShader.matrix2__, damagedKey == "criticalDarkColour" ? 0x9C120D : 0xFF0003,
-                "Crits safely render the repaired dark endpoint");
-            var saved:Dynamic = haxe.Json.parse(haxe.Json.stringify(repaired));
-            eq(saved.criticalDarkColour, repaired.criticalDarkColour, "Repair can be persisted as ordinary text");
-            eq(saved.criticalLightColour, repaired.criticalLightColour, "Repair persists both endpoints safely");
-        }
-
-        var config = SettingsData.defaults();
-        config.fancyDamageNumbers = true;
-        config.criticalDarkColour = "  #1234aB ";
-        config.criticalLightColour = "0xFeDcBa";
-        config = cast haxe.Json.parse(haxe.Json.stringify(config));
-        SettingsData.normalize(config);
-        eq(config.criticalDarkColour, "  #1234aB ", "Config round-trip preserves raw text and whitespace");
-        eq(config.criticalLightColour, "0xFeDcBa", "Config normalization preserves prefix and case");
-        for (red in [false, true]) for (magic in [false, true]) {
-            config.redCriticals = red;
-            var d = display(true, magic);
-            FancyDamageNumbers.apply(d, config);
-            var shader = filters(d.counter.filter)[0].shader;
-            assertRGB(shader.matrix__, 0xFEDCBA, "Custom light endpoint reaches the top of the shader exactly");
-            assertRGB(shader.matrix2__, 0x1234AB, "Custom dark endpoint reaches the bottom of the shader exactly");
-
-            var normal = display(false, magic);
-            FancyDamageNumbers.apply(normal, config);
-            var normalShader = filters(normal.counter.filter)[0].shader;
-            var top = magic ? 0xBCC2FF : 0xFFCB6D;
-            var bottom = magic ? 0x5963C4 : 0xF04424;
-            assertRGB(normalShader.matrix__, top, "Custom critical colours leave normal hits unchanged");
-            assertRGB(normalShader.matrix2__, bottom, "Normal light endpoint is unchanged");
-            var raw = display(true, magic, true);
-            FancyDamageNumbers.apply(raw, config);
-            eq(raw.counter.textColor, 0xFFFFFF, "Custom critical colours cannot tint Raw damage");
-            eq(filters(raw.counter.filter)[0].kind, "outline", "Raw has no custom gradient");
-        }
-        for (red in [false, true]) for (invalid in ["", "#FA4B3", "#GGGGGG"]) {
-            config.redCriticals = red;
-            config.criticalDarkColour = "#000000";
-            config.criticalLightColour = invalid;
-            var darkOnly = display(true);
-            FancyDamageNumbers.apply(darkOnly, config);
-            var shader = filters(darkOnly.counter.filter)[0].shader;
-            assertRGB(shader.matrix2__, 0, "Black is a valid custom endpoint");
-            assertRGB(shader.matrix__, red ? 0xFA4B34 : 0xEF8DEB, "Invalid light end falls back independently");
-            config.criticalDarkColour = invalid;
-            config.criticalLightColour = "#FFFFFF";
-            var lightOnly = display(true);
-            FancyDamageNumbers.apply(lightOnly, config);
-            shader = filters(lightOnly.counter.filter)[0].shader;
-            assertRGB(shader.matrix2__, red ? 0x9C120D : 0xA80C2C, "Invalid dark end falls back independently");
-            assertRGB(shader.matrix__, 0xFFFFFF, "White is a valid custom endpoint");
+    static function legacyCriticalPreferences():Void {
+        for (red in [false, true])
+        for (oldColour in (["#123456", "", {bytes: "???", length: 6}, null]:Array<Dynamic>)) {
+            var config = SettingsData.defaults();
+            config.fancyDamageNumbers = true;
+            Reflect.setField(config, "redCriticals", red);
+            Reflect.setField(config, "criticalDarkColour", oldColour);
+            Reflect.setField(config, "criticalLightColour", oldColour);
+            config = cast haxe.Json.parse(haxe.Json.stringify(config));
+            SettingsData.normalize(config);
+            for (magic in [false, true]) {
+                var hit = display(true, magic);
+                FancyDamageNumbers.apply(hit, config);
+                var shader = filters(hit.counter.filter)[0].shader;
+                assertRGB(shader.matrix__, 0xFF7F66, "Legacy colour settings cannot override the fixed light end");
+                assertRGB(shader.matrix2__, 0xFF0000, "Legacy or damaged text cannot override the fixed dark end");
+            }
         }
     }
 
@@ -226,7 +147,6 @@ class DamageNumbersTest {
     static function gradientMapping():Dynamic {
         var config = SettingsData.defaults();
         config.fancyDamageNumbers = true;
-        config.redCriticals = true;
         var d = display(true);
         FancyDamageNumbers.apply(d, config);
         var filter = filters(d.counter.filter)[0];
@@ -257,9 +177,9 @@ class DamageNumbersTest {
                 // Bilinear sampling of a 64-row ramp at its texel centers.
                 var blend = (maskUV * 64 - 0.5) / 63;
                 near(blend, fraction, "Gradient spans glyphs despite border padding, font size, scale, or clipping");
-                var r0:Float = shader.matrix__._11, r1:Float = shader.matrix2__._11;
-                near(r0 * (1-blend) + r1 * blend, (250 * (1-fraction) + 156 * fraction) / 255,
-                    "Rendered red blend reaches both sampled endpoints with an even transition");
+                var g0:Float = shader.matrix__._22, g1:Float = shader.matrix2__._22;
+                near(g0 * (1-blend) + g1 * blend, 127 * (1-fraction) / 255,
+                    "Rendered critical blend reaches both fixed endpoints with an even transition");
             }
         }
         FancyDamageNumbers.unbindGradient(filter);
