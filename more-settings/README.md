@@ -23,17 +23,17 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 **Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
 
-**Fancy damage numbers** adds black outlines and vertical color gradients to physical and magic damage numbers with one checkbox. Critical hits fade from deep red-pink to light purple-pink, inspired by the MapleStory reference. Non-critical magic hits fade from red-orange to bright orange. Normal physical hits fade from a darker shade of their native color to that color. Raw damage is always pure white, including critical Raw hits, with no border, shadow, or gradient.
+**Fancy damage numbers** adds black outlines to all damage numbers and vertical color gradients to physical and magic damage. Critical hits fade from deep red-pink to light purple-pink, inspired by the MapleStory reference. Non-critical magic hits fade from red-orange to bright orange. Normal physical hits fade from a darker shade of their native color to that color. Raw damage keeps a pure white fill, including critical Raw hits, with the selected border and no shadow or gradient.
 
-The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it includes outlines and gradients for non-Raw damage; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
+The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it includes outlines for all damage and gradients for non-Raw damage; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
-**Blue magic** switches non-critical magic damage from orange to a lavender-blue gradient, fading from a darker blue to the reference color `#9FA8FF`. It is off by default; critical magic hits keep their pink gradient.
+**Blue magic** switches non-critical magic damage from orange to a lavender-blue gradient, fading from a darker blue to pale lavender-blue (`#BCC2FF`). It is off by default; critical magic hits keep their pink gradient.
 
-**Orange physical** gives non-critical physical hits the same red-orange-to-bright-orange gradient used by magic damage. **Light orange physical** changes that palette to a lighter orange ending in the reference color `#FEAC74`; enable both options to use it. Both default to off, and physical critical hits keep their pink gradient.
+**Orange physical** gives non-critical physical hits the same red-orange-to-light-orange (`#FFCB6D`) gradient used by magic damage. **Light orange physical** changes that palette to a lighter orange ending in pale peach (`#FEC59E`), based on the orange reference; enable both options to use it. Both default to off, and physical critical hits keep their pink gradient.
 
-**Flip gradient** reverses the top and bottom colors of every damage gradient, including critical hits, magic, and physical damage. It is off by default; Raw damage stays plain white.
+**Flip gradient** reverses the top and bottom colors of every damage gradient, including critical hits, magic, and physical damage. It is off by default; Raw damage keeps its solid white fill.
 
-**Fancy border** adds a white inner outline inside the black outer outline on physical and magic damage numbers. It is off by default. **Border thickness** adjusts each outline layer from 0.5 to 6 px in 0.5 px steps, defaulting to the existing 2 px. It controls the black outline and, when Fancy border is enabled, the white inner outline too. Raw damage remains borderless.
+**Fancy border** adds a white inner outline inside the black outer outline on all damage numbers, including Raw. It is off by default. **Border thickness** adjusts each outline layer from 0.5 to 6 px in 0.5 px steps, defaulting to the existing 2 px. It controls the black outline and, when Fancy border is enabled, the white inner outline too.
 
 These options require Fancy damage numbers to be enabled and affect newly displayed numbers immediately.
 

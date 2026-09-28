@@ -24,10 +24,9 @@ class FancyDamageNumbers {
         G.call("h2d.Text", "set_textColor", counter, [0xFFFFFF]);
 
         var damage = G.field(display, "dmg");
-        // Raw is always plain white, even for critical hits or magic-tagged skills.
+        // Raw keeps a white fill and the chosen border, without a gradient.
         if (G.field(damage, "affinity") == "Raw") {
-            G.call("domkit.Properties", "initStyle", dom, ["filter", null]);
-            G.call("h2d.Object", "set_filter", counter, [null]);
+            applyBorder(counter, dom, null, config);
             G.call("domkit.Properties", "initStyle", dom, ["text-shadow", null]);
             G.set(counter, "dropShadow", null);
             return;
@@ -40,10 +39,10 @@ class FancyDamageNumbers {
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
 
         var magicTop = config.blueMagic ? 0x5963C4 : 0xF04424;
-        var magicBottom = config.blueMagic ? 0x9FA8FF : 0xFFB52E;
+        var magicBottom = config.blueMagic ? 0xBCC2FF : 0xFFCB6D;
         var orangePhysical = config.orangePhysical && damage != null;
         var physicalTop = orangePhysical ? (config.lightOrangePhysical ? 0xF18745 : 0xF04424) : shade(baseColor);
-        var physicalBottom = orangePhysical ? (config.lightOrangePhysical ? 0xFEAC74 : 0xFFB52E) : baseColor;
+        var physicalBottom = orangePhysical ? (config.lightOrangePhysical ? 0xFEC59E : 0xFFCB6D) : baseColor;
         var top = critical ? 0xA80C2C : magic ? magicTop : physicalTop;
         var bottom = critical ? 0xEF8DEB : magic ? magicBottom : physicalBottom;
         if (config.flipGradient) {
@@ -53,6 +52,10 @@ class FancyDamageNumbers {
         }
         var filter:Dynamic = G.field(counter, "filter");
         filter = append(filter, gradient(top, bottom));
+        applyBorder(counter, dom, filter, config);
+    }
+
+    static function applyBorder(counter:Dynamic, dom:Dynamic, filter:Dynamic, config:MoreSettingsConfig):Void {
         // Outline after tinting to keep both borders free of the gradient.
         // The black pass surrounds the white pass, forming the outer layer.
         if (config.fancyBorder) filter = append(filter, outline(0xFFFFFF, config.borderThickness));
