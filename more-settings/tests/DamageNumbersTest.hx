@@ -129,6 +129,7 @@ class DamageNumbersTest {
 
     static function customCriticalColours():Void {
         for (sample in [
+            {text: "ff0003", expected: 0xFF0003},
             {text: "#9C120D", expected: 0x9C120D},
             {text: "FA4B34", expected: 0xFA4B34},
             {text: "  #aBcDeF \t", expected: 0xABCDEF},
@@ -141,6 +142,33 @@ class DamageNumbersTest {
             "#FA4B3Z", "FA4B34junk", "FA4B34\n12", "-123456", "0x", "1.23456", "FF FF FF", "red"])
             eq(SettingsData.hexColour(invalid, 0x102030), 0x102030,
                 "Invalid and partially typed RGB values fall back without partial parsing");
+
+        for (damagedKey in ["criticalDarkColour", "criticalLightColour"])
+        for (broken in ([{bytes: "???", length: 6}, null, 123, false, []]:Array<Dynamic>)) {
+            var repaired = SettingsData.defaults();
+            repaired.fancyDamageNumbers = true;
+            repaired.redCriticals = true;
+            repaired.quickCast = true;
+            repaired.criticalDarkColour = "ff0003";
+            repaired.criticalLightColour = "ff0003";
+            Reflect.setField(repaired, damagedKey, broken);
+            repaired = cast haxe.Json.parse(haxe.Json.stringify(repaired));
+            SettingsData.normalize(repaired);
+            eq(Reflect.field(repaired, damagedKey), "", "Damaged JSON endpoints reset before typed String access");
+            var otherKey = damagedKey == "criticalDarkColour" ? "criticalLightColour" : "criticalDarkColour";
+            eq(Reflect.field(repaired, otherKey), "ff0003", "Repair preserves the valid endpoint verbatim");
+            eq(repaired.quickCast, true, "Repair preserves unrelated preferences");
+            var hit = display(true);
+            FancyDamageNumbers.apply(hit, repaired);
+            var repairedShader = filters(hit.counter.filter)[0].shader;
+            assertRGB(repairedShader.matrix__, damagedKey == "criticalLightColour" ? 0xFA4B34 : 0xFF0003,
+                "Crits safely render the repaired light endpoint");
+            assertRGB(repairedShader.matrix2__, damagedKey == "criticalDarkColour" ? 0x9C120D : 0xFF0003,
+                "Crits safely render the repaired dark endpoint");
+            var saved:Dynamic = haxe.Json.parse(haxe.Json.stringify(repaired));
+            eq(saved.criticalDarkColour, repaired.criticalDarkColour, "Repair can be persisted as ordinary text");
+            eq(saved.criticalLightColour, repaired.criticalLightColour, "Repair persists both endpoints safely");
+        }
 
         var config = SettingsData.defaults();
         config.fancyDamageNumbers = true;

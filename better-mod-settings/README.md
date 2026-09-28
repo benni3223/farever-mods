@@ -114,13 +114,15 @@ A title displays larger, bold text on its own row, without a separator or contro
 | --- | --- | --- | --- |
 | `checkbox` | Boolean (`true` or `false`) | None | Represents a boolean only. A missing value is displayed as `false`. |
 | `slider` | Number | `min` (default `0`), `max` (default `100`), and `step` (default `1`), all numbers | Supply sensible bounds with `min <= max` and a positive `step`. A missing value starts at `min`. |
-| `text` | String | `placeholder` (default `""`) | Native single-line text field. Saves on each edit, including clearing to `""`, and publishes the usual config-change notification. BMS preserves the text exactly: no trimming, parsing, validation, or conversion to numbers/booleans. Missing/null values display as empty. Long text scrolls within the field. Placeholder text is only a hint and is never saved. |
+| `text` | String | `placeholder` (default `""`) | Native single-line text field. Saves on each edit, including clearing to `""`, and publishes the usual config-change notification. BMS preserves the text exactly: no trimming, parsing, validation, or conversion to numbers/booleans. Missing or non-string values display as empty. Long text scrolls within the field. Placeholder text is only a hint and is never saved. |
 | `keybinding` | Integer key code | None | Left-click to assign one `hxd.Key`-compatible key; right-click the assignment button to unbind it immediately. Modifier combinations and multi-key chords are not supported. `0` means **Not set**. Escape cancels capture and cannot be assigned through the UI. All hotkey activation is suppressed during assignment, including held input and release events. |
 | `button` | None | `buttonText`, `colour`, `warning` | Sends an action event. No matching settings JSON property is needed or written. See below. |
 
 Key capture consumes keyboard and mouse-button events centrally, before `hxd.Key.onEvent` publishes them. BMS clears the previously published key state when the picker opens and keeps assignment input private. Native game actions and mods polling `hxd.Key.isPressed`, `isDown`, or `isReleased` (including inlined reads) therefore see no assignment input; they do not need individual capture guards. After assignment or Escape cancellation, protection remains until all keys/buttons are released and a quiet frame passes. The assigned key must be pressed again to activate its action. Closing the settings window cancels an unfinished assignment; leaving the game clears capture state. This covers Farever's key-state API, not separate operating-system or ImGui input backends.
 
 Mods interpret and validate text values themselves; for example, a mod can expose a hex colour as a string setting. Opening the settings window does not save or normalize text values.
+
+Native text is wrapped in a mod-local String before JSON serialization. The initial text-input build saved game String internals as `{ "bytes": "???", "length": ... }`; these damaged entries display as empty and need re-entry because their original characters were not stored.
 
 The current format does not provide dropdowns, color pickers, nested settings values, collapsible groups, conditional controls, or settings that span multiple JSON properties.
 
@@ -226,3 +228,5 @@ Action checks cover descriptor defaults, colour values, mod-specific routing, co
 Confirmation button lists are allocated through the game's native `ArrayObj.slice`
 and populated with `pushDyn`. The dialog API requires `ArrayObj`; passing a mod's
 `Array<Dynamic>` directly produces `ArrayDyn` and fails before the popup opens.
+
+Text tests run on the interpreter and HashLink. The HashLink test reproduces the native string identity mismatch, checks that values serialize as JSON strings, and covers Unicode, whitespace, empty input, numeric-looking text, reopening, and malformed old records.

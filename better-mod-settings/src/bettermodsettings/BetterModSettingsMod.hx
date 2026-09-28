@@ -891,7 +891,8 @@ class BetterModSettingsMod {
                     // the field instead of pushing the settings row out of view.
                     applyInlineStyle(HlxRuntime.resolveField(input, "dom"), "width", 200);
                     var setText = HlxRuntime.resolveMember(HlxRuntime.resolveType("h2d.TextInput"), "set_text");
-                    HlxRuntime.callResolved(setText, [input, stringField(Reflect.field(mod, "values"), key, "")]);
+                    HlxRuntime.callResolved(setText, [input,
+                        TextSetting.storedValue(Reflect.field(Reflect.field(mod, "values"), key))]);
                     var setHint = HlxRuntime.resolveMember(HlxRuntime.resolveType("ui.comp.InputBox"), "set_hintText");
                     HlxRuntime.callResolved(setHint, [box, stringField(definition, "placeholder", "")]);
                     var targetMod = mod;
@@ -899,7 +900,7 @@ class BetterModSettingsMod {
                     // Bind after initialization. Keep InputBox's native focus,
                     // editing and hint callbacks; only subscribe to its change event.
                     HlxRuntime.setField(box, "onChange", function():Void {
-                        var value:String = HlxRuntime.resolveField(input, "text");
+                        var value = TextSetting.nativeValue(HlxRuntime.resolveField(input, "text"));
                         saveSetting(targetMod, targetKey, value);
                     });
                 }

@@ -65,6 +65,12 @@ class SettingsData {
     }
 
     public static function normalize(config:MoreSettingsConfig):Void {
+        // The first BMS text-input build serialized native String internals.
+        // Inspect the raw JSON fields before any typed String access can throw.
+        // The buffer was saved as "???", so reset only the damaged endpoints.
+        for (key in ["criticalDarkColour", "criticalLightColour"])
+            if (!Std.isOfType(Reflect.field(config, key), String))
+                Reflect.setField(config, key, "");
         // Same single-key range as Better Mod Settings; zero means unassigned.
         if (config.hideUiKey < 0 || config.hideUiKey >= 512 || config.hideUiKey == 27) config.hideUiKey = 113;
         config.backgroundVolume = percent(config.backgroundVolume);
