@@ -40,3 +40,9 @@
 -cp tests
 -main DamageNumbersTest
 --interp
+--next
+-cp src
+-cp tests/stubs
+-cp tests
+-main ClassColorsTest
+--interp

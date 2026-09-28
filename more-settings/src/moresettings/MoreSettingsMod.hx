@@ -42,6 +42,7 @@ class MoreSettingsMod {
         BossHealth.enabled = config.showBossHealth;
         PerformanceHooks.enabled = config.performanceOptimization;
         DungeonPartyGuard.enabled = config.waitForParty;
+        NameplateColors.enabled = config.classColoredNames;
         hideUi.configure(config.hideUiKey);
         config.save();
         audio = new AudioControl(config);
@@ -55,6 +56,7 @@ class MoreSettingsMod {
             BossHealth.enabled = config.showBossHealth;
             PerformanceHooks.enabled = config.performanceOptimization;
             DungeonPartyGuard.enabled = config.waitForParty;
+            NameplateColors.enabled = config.classColoredNames;
             hideUi.configure(config.hideUiKey);
             AllyEffects.configure(config);
             try audio.configure(config) catch (e:Dynamic) audioError(e);
@@ -65,6 +67,11 @@ class MoreSettingsMod {
     @:hlx.prefix(HText.cleanPlayerText)
     static function cleanPlayerText(text:String):HlxPrefixResult<String> {
         return config.disableProfanityFilter ? SkipWith(StringTools.htmlEscape(text)) : Continue;
+    }
+
+    @:hlx.postfix(ui.hud.HeroWidget.initActive)
+    static function afterHeroNameplate(instance:Dynamic, result:Void):Void {
+        try NameplateColors.attach(instance) catch (e:Dynamic) NameplateColors.reportError(e);
     }
 
     @:hlx.postfix(ui.comp.HealthBar.init)

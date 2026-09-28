@@ -5,6 +5,7 @@ typedef MoreSettingsConfig = {
     var disableTargetLockCameraMovement:Bool;
     var fancyDamageNumbers:Bool;
     var pinkCrits:Bool;
+    var classColoredNames:Bool;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
@@ -31,6 +32,7 @@ class SettingsData {
         disableTargetLockCameraMovement: false,
         fancyDamageNumbers: false,
         pinkCrits: false,
+        classColoredNames: true,
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
