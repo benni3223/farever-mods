@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers | All off; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
+| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Fancy border | All off; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -26,6 +26,8 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 **Fancy damage numbers** adds black outlines and vertical color gradients to all damage numbers with one checkbox. Critical hits fade from deep red-pink to light purple-pink, inspired by the MapleStory reference. Non-critical magic hits fade from red-orange to bright orange. Other normal hits fade from a darker shade of their native color to that color. Critical magic hits keep the pink critical-hit palette.
 
 The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it always includes the outlines and gradients; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
+
+**Fancy border**, directly below Fancy damage numbers, adds a white inner outline inside the black outer outline on all damage numbers. It is off by default and requires Fancy damage numbers to be enabled. The color gradients stay the same, and toggling it affects newly displayed numbers immediately.
 
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 

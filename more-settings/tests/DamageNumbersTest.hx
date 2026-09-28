@@ -26,18 +26,20 @@ class DamageNumbersTest {
     static function main():Void {
         var config = SettingsData.defaults();
         eq(config.fancyDamageNumbers, false, "Fancy damage numbers remains opt-in");
-        var disabled = display(true);
-        FancyDamageNumbers.apply(disabled, config);
-        eq(disabled.counter.textColor, 0xABCDEF, "Master toggle gates every style option");
-        eq(G.textures.length, 0, "Disabled feature allocates no GPU texture");
-        var normal = display(false);
-        FancyDamageNumbers.apply(normal, config);
-        eq(normal.counter.textColor, 0xABCDEF, "Disabled normal hits retain native colors");
-        eq(normal.counter.filter, null, "Disabled normal hits acquire no filters");
+        eq(config.fancyBorder, false, "Fancy border is opt-in to preserve the existing black outline");
+        for (fancyBorder in [false, true]) for (critical in [false, true]) {
+            config.fancyBorder = fancyBorder;
+            var disabled = display(critical);
+            FancyDamageNumbers.apply(disabled, config);
+            eq(disabled.counter.textColor, 0xABCDEF, "Master toggle gates every style option");
+            eq(disabled.counter.filter, null, "Fancy border cannot style numbers with the master disabled");
+            eq(G.textures.length, 0, "Disabled feature allocates no GPU texture");
+        }
         config.fancyDamageNumbers = true;
-        for (critical in [false, true]) for (kind in [
+        for (fancyBorder in [false, true]) for (critical in [false, true]) for (kind in [
             {magic: false, raw: false}, {magic: true, raw: false}, {magic: true, raw: true}
         ]) {
+            config.fancyBorder = fancyBorder;
             var d = display(critical, kind.magic, kind.raw);
             var nativeFilter:Dynamic = {kind: "native"};
             d.counter.filter = nativeFilter;
@@ -47,9 +49,17 @@ class DamageNumbersTest {
             eq(d.counter.text, "123,456", "Styling never rewrites damage text");
             var flame = !critical && kind.magic && !kind.raw;
             eq(d.counter.textColor, 0xFFFFFF, "Every damage type gets the gradient fill");
-            eq(stack.length, 3, "One setting includes both gradient and outline");
-            eq(stack[2].kind, "outline", "Outline follows gradient so it stays black");
-            eq(stack[2].color, 0, "Black outline");
+            eq(stack.length, fancyBorder ? 4 : 3, "Fancy border adds exactly one outline layer");
+            if (fancyBorder) {
+                eq(stack[2].kind, "outline", "White inner border follows the gradient");
+                eq(stack[2].color, 0xFFFFFF, "Inner border stays white");
+                eq(stack[2].size, 2.0, "White inner border thickness");
+            }
+            var outer = stack[stack.length - 1];
+            eq(outer.kind, "outline", "Black outline wraps the fully styled number");
+            eq(outer.color, 0, "Outer border stays black in both modes");
+            eq(outer.size, 2.0, "Black outer border keeps its existing thickness");
+            eq(d.counter.dom.styles.filter, d.counter.filter, "Both outline modes survive CSS refreshes");
             var shader = stack[1].shader;
             eq(shader.useAlpha__, true, "Native filter preserves source alpha");
             eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");

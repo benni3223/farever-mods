@@ -29,12 +29,10 @@ class FancyDamageNumbers {
         var bottom = critical ? 0xEF8DEB : magic ? 0xFFB52E : baseColor;
         var filter:Dynamic = G.field(counter, "filter");
         filter = append(filter, gradient(top, bottom));
-        var outline = G.create("h2d.filter.Outline", [null, null, null, null]);
-        G.call("h2d.filter.Outline", "set_size", outline, [2.0]);
-        G.call("h2d.filter.Outline", "set_quality", outline, [0.5]);
-        // Outline's native defaults are opaque black with premultiplied alpha.
-        // Apply it last so the gradient never recolors the border.
-        filter = append(filter, outline);
+        // Outline after tinting to keep both borders free of the gradient.
+        // The black pass surrounds the white pass, forming the outer layer.
+        if (config.fancyBorder) filter = append(filter, outline(0xFFFFFF));
+        filter = append(filter, outline(0x000000));
         G.call("domkit.Properties", "initStyle", dom, ["filter", filter]);
         G.call("h2d.Object", "set_filter", counter, [filter]);
 
@@ -42,6 +40,15 @@ class FancyDamageNumbers {
         // DamageDisplay.init creates a fresh counter, so toggling affects new hits.
         G.call("domkit.Properties", "initStyle", dom, ["color", 0xFFFFFF]);
         G.call("h2d.Text", "set_textColor", counter, [0xFFFFFF]);
+    }
+
+    static function outline(color:Int):Dynamic {
+        var filter = G.create("h2d.filter.Outline", [null, null, null, null]);
+        G.call("h2d.filter.Outline", "set_size", filter, [2.0]);
+        G.call("h2d.filter.Outline", "set_quality", filter, [0.5]);
+        G.call("h2d.filter.Outline", "set_color", filter, [color]);
+        // Keep native opaque, premultiplied-alpha rendering for both layers.
+        return filter;
     }
 
     static function append(existing:Dynamic, next:Dynamic):Dynamic {
