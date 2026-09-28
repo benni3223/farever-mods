@@ -63,19 +63,37 @@
     {
       "key": "criticalLightColour",
       "type": "text",
-      "label": "Critical top colour (hex)",
+      "label": "Physical crit top colour (hex)",
       "placeholder": "Preset colour"
     },
     {
       "key": "criticalMiddleColour",
       "type": "text",
-      "label": "Critical middle colour (hex)",
+      "label": "Physical crit middle colour (hex)",
       "placeholder": "Top/bottom midpoint"
     },
     {
       "key": "criticalDarkColour",
       "type": "text",
-      "label": "Critical bottom colour (hex)",
+      "label": "Physical crit bottom colour (hex)",
+      "placeholder": "Preset colour"
+    },
+    {
+      "key": "magicalCriticalLightColour",
+      "type": "text",
+      "label": "Magical crit top colour (hex)",
+      "placeholder": "Preset colour"
+    },
+    {
+      "key": "magicalCriticalMiddleColour",
+      "type": "text",
+      "label": "Magical crit middle colour (hex)",
+      "placeholder": "Top/bottom midpoint"
+    },
+    {
+      "key": "magicalCriticalDarkColour",
+      "type": "text",
+      "label": "Magical crit bottom colour (hex)",
       "placeholder": "Preset colour"
     },
     {

@@ -36,18 +36,20 @@ class FancyDamageNumbers {
         }
 
         var critical = G.field(display, "isCrit") == true;
-        // Physical and magic criticals share the selected palette and overrides.
+        // Criticals must use their damage affinity too, so each set of colour
+        // overrides follows the actual hit rather than the skill or crit flag.
         var magic = false;
-        if (!critical && damage != null)
+        if (damage != null)
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
 
-        var top = critical ? SettingsData.hexColour(Reflect.field(config, "criticalLightColour"), config.pinkCrits ? 0xEF8DEB : 0xFF7F66)
+        var criticalPrefix = magic ? "magicalCritical" : "critical";
+        var top = critical ? SettingsData.hexColour(Reflect.field(config, criticalPrefix + "LightColour"), config.pinkCrits ? 0xEF8DEB : 0xFF7F66)
             : magic ? 0xBCC2FF : damage != null ? 0xFFCB6D : baseColor;
-        var bottom = critical ? SettingsData.hexColour(Reflect.field(config, "criticalDarkColour"), config.pinkCrits ? 0xA80C2C : 0xFF0000)
+        var bottom = critical ? SettingsData.hexColour(Reflect.field(config, criticalPrefix + "DarkColour"), config.pinkCrits ? 0xA80C2C : 0xFF0000)
             : magic ? 0x5963C4 : damage != null ? 0xF04424 : shade(baseColor);
         var filter:Dynamic = G.field(counter, "filter");
         if (critical && config.threeColourCriticals) {
-            var middle = SettingsData.hexColour(Reflect.field(config, "criticalMiddleColour"), midpoint(top, bottom));
+            var middle = SettingsData.hexColour(Reflect.field(config, criticalPrefix + "MiddleColour"), midpoint(top, bottom));
             // Encode the original white/black intensity in R and height in G.
             // A second native matrix pass selects a linear segment at half height.
             // This supports arbitrary stops (including black) without dividing by

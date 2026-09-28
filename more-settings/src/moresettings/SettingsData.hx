@@ -9,6 +9,9 @@ typedef MoreSettingsConfig = {
     var criticalLightColour:String;
     var criticalMiddleColour:String;
     var criticalDarkColour:String;
+    var magicalCriticalLightColour:String;
+    var magicalCriticalMiddleColour:String;
+    var magicalCriticalDarkColour:String;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
@@ -39,6 +42,11 @@ class SettingsData {
         criticalLightColour: "",
         criticalMiddleColour: "",
         criticalDarkColour: "",
+        // Null identifies a missing preference on the first load after splitting
+        // crit colours. normalize copies the former shared colours once.
+        magicalCriticalLightColour: null,
+        magicalCriticalMiddleColour: null,
+        magicalCriticalDarkColour: null,
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
@@ -68,10 +76,19 @@ class SettingsData {
     }
 
     public static function normalize(config:MoreSettingsConfig):Void {
-        // Recover malformed values saved by the original experimental text input.
-        for (key in ["criticalLightColour", "criticalMiddleColour", "criticalDarkColour"])
+        // Keep the old shared keys for physical crits. Seed only missing magical
+        // fields from them; an explicitly blank field must stay on its preset.
+        // Inspect raw fields before typed String access to recover damaged input.
+        for (stop in ["Light", "Middle", "Dark"]) {
+            var key = "critical" + stop + "Colour";
+            var magicalKey = "magicalCritical" + stop + "Colour";
             if (!Std.isOfType(Reflect.field(config, key), String))
                 Reflect.setField(config, key, "");
+            if (Reflect.field(config, magicalKey) == null)
+                Reflect.setField(config, magicalKey, Reflect.field(config, key));
+            else if (!Std.isOfType(Reflect.field(config, magicalKey), String))
+                Reflect.setField(config, magicalKey, "");
+        }
         // Same single-key range as Better Mod Settings; zero means unassigned.
         if (config.hideUiKey < 0 || config.hideUiKey >= 512 || config.hideUiKey == 27) config.hideUiKey = 113;
         config.backgroundVolume = percent(config.backgroundVolume);

@@ -102,6 +102,7 @@ class DamageNumbersTest {
             }
         }
         criticalColourInputs();
+        criticalColourMigration();
         var mappingFilter = gradientMapping();
         eq(G.textures.length, 1, "All hits and palettes reuse one ramp texture");
         var texture = G.textures[0];
@@ -148,6 +149,61 @@ class DamageNumbersTest {
                 assertRGB(shader.matrix2__, valid ? 0x123456 : pink ? 0xA80C2C : 0xFF0000, "Custom bottom colour overrides either preset");
             }
         }
+        var separate = SettingsData.defaults();
+        separate.fancyDamageNumbers = true;
+        separate.criticalLightColour = "ffbbaa";
+        separate.criticalDarkColour = "aa1122";
+        separate.magicalCriticalLightColour = "aabbff";
+        separate.magicalCriticalDarkColour = "1122aa";
+        for (pink in [false, true]) for (magic in [false, true]) {
+            separate.pinkCrits = pink;
+            var hit = display(true, magic);
+            FancyDamageNumbers.apply(hit, separate);
+            var shader = filters(hit.counter.filter)[0].shader;
+            assertRGB(shader.matrix__, magic ? 0xAABBFF : 0xFFBBAA, "Each critical hit selects its own top colour regardless of Pink crits");
+            assertRGB(shader.matrix2__, magic ? 0x1122AA : 0xAA1122, "Each critical hit selects its own bottom colour");
+        }
+        separate.magicalCriticalLightColour = "";
+        separate.magicalCriticalDarkColour = "invalid";
+        SettingsData.normalize(separate);
+        var magicHit = display(true, true);
+        FancyDamageNumbers.apply(magicHit, separate);
+        var magicShader = filters(magicHit.counter.filter)[0].shader;
+        assertRGB(magicShader.matrix__, 0xEF8DEB, "A cleared magical stop uses Pink crits without inheriting physical colours");
+        assertRGB(magicShader.matrix2__, 0xA80C2C, "Invalid magical input uses its preset independently");
+        var physicalHit = display(true);
+        FancyDamageNumbers.apply(physicalHit, separate);
+        assertRGB(filters(physicalHit.counter.filter)[0].shader.matrix__, 0xFFBBAA, "Changing magical overrides leaves physical crits unchanged");
+    }
+
+    static function criticalColourMigration():Void {
+        var config = SettingsData.defaults();
+        config.criticalLightColour = " #FFBBAA ";
+        config.criticalMiddleColour = "12AB34";
+        config.criticalDarkColour = "0x991122";
+        config = cast haxe.Json.parse(haxe.Json.stringify(config));
+        // Old files do not have the newly introduced fields at all.
+        for (stop in ["Light", "Middle", "Dark"])
+            Reflect.deleteField(config, "magicalCritical" + stop + "Colour");
+        SettingsData.normalize(config);
+        for (stop in ["Light", "Middle", "Dark"])
+            eq(Reflect.field(config, "magicalCritical" + stop + "Colour"), Reflect.field(config, "critical" + stop + "Colour"),
+                "An upgrade copies each saved stop to magical crits without changing the text");
+        config.magicalCriticalLightColour = "";
+        config.magicalCriticalMiddleColour = "abcdef";
+        config.criticalDarkColour = "000000";
+        config = cast haxe.Json.parse(haxe.Json.stringify(config));
+        SettingsData.normalize(config);
+        eq(config.magicalCriticalLightColour, "", "Cleared magical input survives save/reload without being remigrated");
+        eq(config.magicalCriticalMiddleColour, "abcdef", "Explicit magical input survives save/reload");
+        eq(config.magicalCriticalDarkColour, "0x991122", "Later physical edits do not affect magical colours");
+        Reflect.setField(config, "magicalCriticalMiddleColour", {bytes: "???", length: 6});
+        SettingsData.normalize(config);
+        eq(config.magicalCriticalMiddleColour, "", "Malformed magical strings recover without a HashLink cast failure");
+        config = SettingsData.defaults();
+        SettingsData.normalize(config);
+        for (stop in ["Light", "Middle", "Dark"])
+            eq(Reflect.field(config, "magicalCritical" + stop + "Colour"), "", "Fresh installations keep the existing preset for both crit types");
     }
 
     // Evaluate the native ColorMatrixShader's row-vector multiplication and
@@ -197,9 +253,13 @@ class DamageNumbersTest {
         for (pink in [false, true]) for (magic in [false, true])
         for (palette in [[0xFF0000, 0x00FF00, 0x0000FF], [0x000000, 0xFFFFFF, 0x000000], [0xFFFFFF, 0x000000, 0xFFFFFF], [0xEF8DEB, 0xFF0003, 0xA80C2C]]) {
             config.pinkCrits = pink;
-            config.criticalLightColour = StringTools.hex(palette[0], 6);
-            config.criticalMiddleColour = StringTools.hex(palette[1], 6);
-            config.criticalDarkColour = StringTools.hex(palette[2], 6);
+            var prefix = magic ? "magicalCritical" : "critical";
+            var otherPrefix = magic ? "critical" : "magicalCritical";
+            var stops = ["Light", "Middle", "Dark"];
+            for (i in 0...3) {
+                Reflect.setField(config, prefix + stops[i] + "Colour", StringTools.hex(palette[i], 6));
+                Reflect.setField(config, otherPrefix + stops[i] + "Colour", "987654");
+            }
             var hit = display(true, magic);
             FancyDamageNumbers.apply(hit, config);
             var stack = filters(hit.counter.filter);
