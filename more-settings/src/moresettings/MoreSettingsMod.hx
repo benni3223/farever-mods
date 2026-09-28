@@ -74,20 +74,13 @@ class MoreSettingsMod {
 
     @:hlx.postfix(ui.comp.DamageDisplay.init)
     static function afterDamageDisplayInit(instance:Dynamic, result:Void):Void {
-        if (!config.fancyDamageNumbers || G.field(instance, "isCrit") != true) return;
-        var counter = G.field(instance, "counter");
-        var dom = G.field(counter, "dom");
-        if (dom == null) return;
-        try {
-            // An inline color survives the native affinity/crit CSS refresh.
-            // Each init creates a fresh counter, so no style or widget is retained.
-            G.call("domkit.Properties", "initStyle", dom, ["color", 0xF060D0]);
-            G.call("h2d.Text", "set_textColor", counter, [0xF060D0]);
-        } catch (error:Dynamic) {
-            if (!reportedDamageNumberError) {
-                reportedDamageNumberError = true;
-                trace("[More Settings] Fancy damage numbers: " + Std.string(error));
-            }
+        try FancyDamageNumbers.apply(instance, config) catch (error:Dynamic) damageNumberError(error);
+    }
+
+    static function damageNumberError(error:Dynamic):Void {
+        if (!reportedDamageNumberError) {
+            reportedDamageNumberError = true;
+            trace("[More Settings] Fancy damage numbers: " + Std.string(error));
         }
     }
 
@@ -147,6 +140,7 @@ class MoreSettingsMod {
     @:hlx.prefix(GameApp.dispose)
     static function dispose(instance:Dynamic):HlxPrefixResult<Void> {
         CombatHooks.dispose();
+        try FancyDamageNumbers.dispose() catch (error:Dynamic) damageNumberError(error);
         AppearanceEditor.close();
         if (audio != null) try audio.dispose() catch (e:Dynamic) audioError(e);
         AllyEffects.dispose();

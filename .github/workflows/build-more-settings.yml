@@ -61,6 +61,13 @@ jobs:
           mkdir -p build
           haxe -cp src -cp tests/stubs -cp tests -main CombatTest -hl build/combat-test.hl
           ../.combat-hashlink/hl build/combat-test.hl
+      - name: Test damage-number styling on HashLink
+        working-directory: more-settings
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
+        run: |
+          haxe -cp src -cp tests/damage-stubs -cp tests -main DamageNumbersTest -hl build/damage-numbers-test.hl
+          ../.combat-hashlink/hl build/damage-numbers-test.hl
       - name: Test appearance isolation and saving on HashLink
         working-directory: more-settings
         env:

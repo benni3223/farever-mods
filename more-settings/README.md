@@ -23,7 +23,13 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 **Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
 
-**Fancy damage numbers** colors critical-hit floating damage numbers pink-purple. It is off by default and takes effect for newly displayed numbers as soon as it is toggled. Normal hits, healing, damage values, fonts, outlines, and animations retain their native appearance and behavior. Supports both Live and PTR.
+**Fancy damage numbers** colors critical-hit floating damage numbers pink-purple. The three checkboxes immediately below it customize that style:
+
+- **Number outline** adds a black outline around critical-hit numbers.
+- **Gradient** changes the fill from darker pink at the top to lighter purple-pink at the bottom, inspired by the MapleStory reference.
+- **Red** uses a flame-like red-orange fill. With Gradient enabled, it transitions to bright orange at the bottom.
+
+All four options are off by default; existing Fancy damage numbers users keep their flat pink-purple fill until they enable the new options. The three style options apply while Fancy damage numbers is enabled and can be combined independently. Changes affect newly displayed numbers immediately. Normal hits, healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 

@@ -51,6 +51,21 @@
       "label": "Fancy damage numbers"
     },
     {
+      "key": "damageNumberOutline",
+      "type": "checkbox",
+      "label": "Number outline"
+    },
+    {
+      "key": "damageNumberGradient",
+      "type": "checkbox",
+      "label": "Gradient"
+    },
+    {
+      "key": "damageNumberRed",
+      "type": "checkbox",
+      "label": "Red"
+    },
+    {
       "type": "title",
       "label": "Appearance"
     },
