@@ -56,6 +56,16 @@
       "label": "Blue magic"
     },
     {
+      "key": "orangePhysical",
+      "type": "checkbox",
+      "label": "Orange physical"
+    },
+    {
+      "key": "lightOrangePhysical",
+      "type": "checkbox",
+      "label": "Light orange physical"
+    },
+    {
       "key": "flipGradient",
       "type": "checkbox",
       "label": "Flip gradient"

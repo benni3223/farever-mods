@@ -14,21 +14,38 @@ class FancyDamageNumbers {
         var dom = G.field(counter, "dom");
         if (dom == null) return;
 
-        var critical = G.field(display, "isCrit") == true;
-        // Criticals keep their pink identity regardless of damage type. Other
-        // magic hits use the selected palette; raw damage is not a magic affinity.
-        var magic = false;
-        var damage = G.field(display, "dmg");
-        if (!critical && damage != null && G.field(damage, "affinity") != "Raw")
-            magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
-
         var nativeColor:Dynamic = G.field(G.field(display, "affinity"), "damageColor");
         if (nativeColor == null) nativeColor = G.field(counter, "textColor");
         var baseColor:Int = nativeColor == null ? 0xFFFFFF : cast nativeColor;
+
+        // Inline styles survive subsequent native affinity/crit CSS refreshes.
+        // DamageDisplay.init creates a fresh counter, so toggling affects new hits.
+        G.call("domkit.Properties", "initStyle", dom, ["color", 0xFFFFFF]);
+        G.call("h2d.Text", "set_textColor", counter, [0xFFFFFF]);
+
+        var damage = G.field(display, "dmg");
+        // Raw is always plain white, even for critical hits or magic-tagged skills.
+        if (G.field(damage, "affinity") == "Raw") {
+            G.call("domkit.Properties", "initStyle", dom, ["filter", null]);
+            G.call("h2d.Object", "set_filter", counter, [null]);
+            G.call("domkit.Properties", "initStyle", dom, ["text-shadow", null]);
+            G.set(counter, "dropShadow", null);
+            return;
+        }
+
+        var critical = G.field(display, "isCrit") == true;
+        // Physical and magic criticals keep their pink identity.
+        var magic = false;
+        if (!critical && damage != null)
+            magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
+
         var magicTop = config.blueMagic ? 0x5963C4 : 0xF04424;
         var magicBottom = config.blueMagic ? 0x9FA8FF : 0xFFB52E;
-        var top = critical ? 0xA80C2C : magic ? magicTop : shade(baseColor);
-        var bottom = critical ? 0xEF8DEB : magic ? magicBottom : baseColor;
+        var orangePhysical = config.orangePhysical && damage != null;
+        var physicalTop = orangePhysical ? (config.lightOrangePhysical ? 0xF18745 : 0xF04424) : shade(baseColor);
+        var physicalBottom = orangePhysical ? (config.lightOrangePhysical ? 0xFEAC74 : 0xFFB52E) : baseColor;
+        var top = critical ? 0xA80C2C : magic ? magicTop : physicalTop;
+        var bottom = critical ? 0xEF8DEB : magic ? magicBottom : physicalBottom;
         if (config.flipGradient) {
             var originalTop = top;
             top = bottom;
@@ -42,11 +59,6 @@ class FancyDamageNumbers {
         filter = append(filter, outline(0x000000, config.borderThickness));
         G.call("domkit.Properties", "initStyle", dom, ["filter", filter]);
         G.call("h2d.Object", "set_filter", counter, [filter]);
-
-        // Inline styles survive subsequent native affinity/crit CSS refreshes.
-        // DamageDisplay.init creates a fresh counter, so toggling affects new hits.
-        G.call("domkit.Properties", "initStyle", dom, ["color", 0xFFFFFF]);
-        G.call("h2d.Text", "set_textColor", counter, [0xFFFFFF]);
     }
 
     static function outline(color:Int, thickness:Float):Dynamic {

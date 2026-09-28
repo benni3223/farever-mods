@@ -27,6 +27,8 @@ class DamageNumbersTest {
         var config = SettingsData.defaults();
         eq(config.fancyDamageNumbers, false, "Fancy damage numbers remains opt-in");
         eq(config.blueMagic, false, "Magic damage keeps its existing orange palette by default");
+        eq(config.orangePhysical, false, "Orange physical is opt-in");
+        eq(config.lightOrangePhysical, false, "Light orange physical is opt-in");
         eq(config.flipGradient, false, "Gradients retain their original direction by default");
         eq(config.fancyBorder, false, "Fancy border is opt-in to preserve the existing black outline");
         eq(config.borderThickness, 2.0, "Border thickness preserves the existing two-pixel layers");
@@ -42,19 +44,47 @@ class DamageNumbersTest {
         config.borderThickness = 2;
         config.blueMagic = true;
         config.flipGradient = true;
-        for (fancyBorder in [false, true]) for (critical in [false, true]) {
+        config.orangePhysical = true;
+        config.lightOrangePhysical = true;
+        for (fancyBorder in [false, true]) for (critical in [false, true]) for (raw in [false, true]) {
             config.fancyBorder = fancyBorder;
-            var disabled = display(critical);
+            var disabled = display(critical, false, raw);
             FancyDamageNumbers.apply(disabled, config);
             eq(disabled.counter.textColor, 0xABCDEF, "Master toggle gates every style option");
             eq(disabled.counter.filter, null, "Fancy border cannot style numbers with the master disabled");
             eq(G.textures.length, 0, "Disabled feature allocates no GPU texture");
         }
         config.fancyDamageNumbers = true;
+        for (critical in [false, true]) for (magic in [false, true])
+        for (fancyBorder in [false, true]) for (flip in [false, true]) {
+            config.fancyBorder = fancyBorder;
+            config.flipGradient = flip;
+            var raw = display(critical, magic, true);
+            raw.counter.filter = {kind: "native"};
+            raw.counter.dropShadow = {color: 0, alpha: 1.0, dx: 1.0, dy: 1.0};
+            FancyDamageNumbers.apply(raw, config);
+            eq(raw.counter.textColor, 0xFFFFFF, "Raw hits stay pure white, including criticals");
+            eq(raw.counter.dom.styles.color, 0xFFFFFF, "CSS cannot restore a crit color on Raw hits");
+            eq(raw.counter.filter, null, "Raw hits have no native or fancy filter");
+            eq(Reflect.hasField(raw.counter.dom.styles, "filter"), true, "Inline filter override prevents CSS borders on Raw");
+            eq(raw.counter.dom.styles.filter, null, "Raw filter override is explicitly empty");
+            eq(raw.counter.dropShadow, null, "Raw hits have no native text shadow");
+            eq(Reflect.hasField(raw.counter.dom.styles, "text-shadow"), true, "Raw shadow stays disabled after CSS refresh");
+            eq(raw.counter.text, "123,456", "Raw styling preserves the damage value");
+            eq(G.textures.length, 0, "Raw-only hits allocate no gradient texture");
+        }
         config.flipGradient = false;
+        for (physical in [
+            {orange: false, light: false, top: 0x8C8C8C, bottom: 0xFFFFFF},
+            {orange: false, light: true, top: 0x8C8C8C, bottom: 0xFFFFFF},
+            {orange: true, light: false, top: 0xF04424, bottom: 0xFFB52E},
+            {orange: true, light: true, top: 0xF18745, bottom: 0xFEAC74}
+        ])
         for (blueMagic in [false, true]) for (fancyBorder in [false, true]) for (critical in [false, true]) for (kind in [
-            {magic: false, raw: false}, {magic: true, raw: false}, {magic: true, raw: true}
+            {magic: false, raw: false}, {magic: true, raw: false}
         ]) {
+            config.orangePhysical = physical.orange;
+            config.lightOrangePhysical = physical.light;
             config.fancyBorder = fancyBorder;
             config.blueMagic = blueMagic;
             var d = display(critical, kind.magic, kind.raw);
@@ -82,8 +112,8 @@ class DamageNumbersTest {
             eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");
             eq(shader.maskMatB__.y, 1.0, "Ramp follows screen-quad vertical coordinate");
             eq(shader.maskChannel__.w, 0.0, "Opaque mask alpha must not bias interpolation");
-            var top = critical ? 0xA80C2C : coloredMagic ? (blueMagic ? 0x5963C4 : 0xF04424) : 0x8C8C8C;
-            var bottom = critical ? 0xEF8DEB : coloredMagic ? (blueMagic ? 0x9FA8FF : 0xFFB52E) : 0xFFFFFF;
+            var top = critical ? 0xA80C2C : coloredMagic ? (blueMagic ? 0x5963C4 : 0xF04424) : physical.top;
+            var bottom = critical ? 0xEF8DEB : coloredMagic ? (blueMagic ? 0x9FA8FF : 0xFFB52E) : physical.bottom;
             near(shader.matrix__._22, ((top >> 8) & 255) / 255.0,
                 "Only normal magic switches between the flame and blue palettes");
             near(shader.matrix2__._33, (bottom & 255) / 255.0, "Gradient ends in the selected palette");
