@@ -5,6 +5,10 @@ typedef MoreSettingsConfig = {
     var disableTargetLockCameraMovement:Bool;
     var fancyDamageNumbers:Bool;
     var pinkCrits:Bool;
+    var threeColourCriticals:Bool;
+    var criticalLightColour:String;
+    var criticalMiddleColour:String;
+    var criticalDarkColour:String;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
@@ -31,6 +35,10 @@ class SettingsData {
         disableTargetLockCameraMovement: false,
         fancyDamageNumbers: false,
         pinkCrits: false,
+        threeColourCriticals: false,
+        criticalLightColour: "",
+        criticalMiddleColour: "",
+        criticalDarkColour: "",
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
@@ -46,7 +54,24 @@ class SettingsData {
     public static function percent(value:Float):Float
         return Math.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
 
+    static var rgbHex = ~/^[0-9a-fA-F]{6}$/;
+
+    /** Invalid or unfinished input uses the preset without rewriting saved text. */
+    public static function hexColour(value:Dynamic, fallback:Int):Int {
+        if (!Std.isOfType(value, String)) return fallback;
+        var hex = StringTools.trim(cast value);
+        if (StringTools.startsWith(hex, "#")) hex = hex.substr(1);
+        else if (hex.substr(0, 2).toLowerCase() == "0x") hex = hex.substr(2);
+        if (!rgbHex.match(hex)) return fallback;
+        var colour = Std.parseInt("0x" + hex);
+        return colour == null ? fallback : colour;
+    }
+
     public static function normalize(config:MoreSettingsConfig):Void {
+        // Recover malformed values saved by the original experimental text input.
+        for (key in ["criticalLightColour", "criticalMiddleColour", "criticalDarkColour"])
+            if (!Std.isOfType(Reflect.field(config, key), String))
+                Reflect.setField(config, key, "");
         // Same single-key range as Better Mod Settings; zero means unassigned.
         if (config.hideUiKey < 0 || config.hideUiKey >= 512 || config.hideUiKey == 27) config.hideUiKey = 113;
         config.backgroundVolume = percent(config.backgroundVolume);

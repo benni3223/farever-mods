@@ -56,6 +56,29 @@
       "label": "Pink crits"
     },
     {
+      "key": "threeColourCriticals",
+      "type": "checkbox",
+      "label": "Three-colour crit gradients"
+    },
+    {
+      "key": "criticalLightColour",
+      "type": "text",
+      "label": "Critical top colour (hex)",
+      "placeholder": "Preset colour"
+    },
+    {
+      "key": "criticalMiddleColour",
+      "type": "text",
+      "label": "Critical middle colour (hex)",
+      "placeholder": "Top/bottom midpoint"
+    },
+    {
+      "key": "criticalDarkColour",
+      "type": "text",
+      "label": "Critical bottom colour (hex)",
+      "placeholder": "Preset colour"
+    },
+    {
       "type": "title",
       "label": "Appearance"
     },

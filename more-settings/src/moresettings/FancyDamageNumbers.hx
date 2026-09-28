@@ -7,6 +7,8 @@ import moresettings.SettingsData.MoreSettingsConfig;
 class FancyDamageNumbers {
     static var ramp:Dynamic;
     static var rampPixels:Dynamic;
+    static var halfMask:Dynamic;
+    static var halfPixels:Dynamic;
     static var gradientOwners = new haxe.ds.ObjectMap<Dynamic, {counter:Dynamic, shader:Dynamic}>();
 
     public static function apply(display:Dynamic, config:MoreSettingsConfig):Void {
@@ -34,18 +36,25 @@ class FancyDamageNumbers {
         }
 
         var critical = G.field(display, "isCrit") == true;
-        // Physical and magic criticals share the selected red or pink palette.
+        // Physical and magic criticals share the selected palette and overrides.
         var magic = false;
         if (!critical && damage != null)
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
 
-        // Light at the top, dark at the bottom (formerly Flip gradient).
-        var top = critical ? (config.pinkCrits ? 0xEF8DEB : 0xFF7F66)
+        var top = critical ? SettingsData.hexColour(Reflect.field(config, "criticalLightColour"), config.pinkCrits ? 0xEF8DEB : 0xFF7F66)
             : magic ? 0xBCC2FF : damage != null ? 0xFFCB6D : baseColor;
-        var bottom = critical ? (config.pinkCrits ? 0xA80C2C : 0xFF0000)
+        var bottom = critical ? SettingsData.hexColour(Reflect.field(config, "criticalDarkColour"), config.pinkCrits ? 0xA80C2C : 0xFF0000)
             : magic ? 0x5963C4 : damage != null ? 0xF04424 : shade(baseColor);
         var filter:Dynamic = G.field(counter, "filter");
-        filter = append(filter, gradient(top, bottom));
+        if (critical && config.threeColourCriticals) {
+            var middle = SettingsData.hexColour(Reflect.field(config, "criticalMiddleColour"), midpoint(top, bottom));
+            // Encode the original white/black intensity in R and height in G.
+            // A second native matrix pass selects a linear segment at half height.
+            // This supports arbitrary stops (including black) without dividing by
+            // a colour channel, tinting shadows, or allocating textures per hit.
+            filter = append(filter, gradient(0xFF00FF, 0xFFFFFF));
+            filter = append(filter, matrixGradient(segment(top, middle, false), segment(middle, bottom, true), getHalfMask()));
+        } else filter = append(filter, gradient(top, bottom));
         applyBorder(counter, dom, filter);
     }
 
@@ -80,15 +89,39 @@ class FancyDamageNumbers {
     }
 
     static function gradient(top:Int, bottom:Int):Dynamic {
+        return matrixGradient(tint(top), tint(bottom), getRamp());
+    }
+
+    static function midpoint(top:Int, bottom:Int):Int {
+        var result = 0;
+        for (shift in [0, 8, 16])
+            result |= Math.round((((top >> shift) & 255) + ((bottom >> shift) & 255)) / 2) << shift;
+        return result;
+    }
+
+    /** Transform intensity * [1, height, 1] into either half of the RGB gradient. */
+    static function segment(start:Int, end:Int, lower:Bool):Dynamic {
+        var matrix = tint(0);
+        for (column in 1...4) {
+            var shift = (3 - column) * 8;
+            var a = ((start >> shift) & 255) / 255.0;
+            var b = ((end >> shift) & 255) / 255.0;
+            G.set(matrix, "_1" + column, lower ? 2 * a - b : a);
+            G.set(matrix, "_2" + column, 2 * (b - a));
+        }
+        return matrix;
+    }
+
+    static function matrixGradient(first:Dynamic, second:Dynamic, mask:Dynamic):Dynamic {
         // Reuse the game's masked two-matrix screen shader. UVs cover the whole
         // rendered counter, not the unrelated positions of digits in the font atlas.
         var shader = G.create("h3d.pass.ColorMatrixShader", []);
         for (name in ["useAlpha", "useMask", "hasSecondMatrix"])
             G.call("h3d.pass.ColorMatrixShader", "set_" + name, shader, [true]);
         G.call("h3d.pass.ColorMatrixShader", "set_maskInvert", shader, [false]);
-        G.call("h3d.pass.ColorMatrixShader", "set_matrix", shader, [tint(top)]);
-        G.call("h3d.pass.ColorMatrixShader", "set_matrix2", shader, [tint(bottom)]);
-        G.call("h3d.pass.ColorMatrixShader", "set_mask", shader, [getRamp()]);
+        G.call("h3d.pass.ColorMatrixShader", "set_matrix", shader, [first]);
+        G.call("h3d.pass.ColorMatrixShader", "set_matrix2", shader, [second]);
+        G.call("h3d.pass.ColorMatrixShader", "set_mask", shader, [mask]);
         G.call("h3d.pass.ColorMatrixShader", "set_maskPower", shader, [1.0]);
         vector(G.field(shader, "maskMatA__"), 1, 0, 0);
         vector(G.field(shader, "maskMatB__"), 0, 1, 0);
@@ -101,7 +134,7 @@ class FancyDamageNumbers {
     public static function bindGradient(filter:Dynamic, counter:Dynamic):Void {
         if (ramp == null) return;
         var shader = G.field(G.field(filter, "pass"), "shader");
-        if (shader != null && G.field(shader, "mask__") == ramp)
+        if (shader != null && (G.field(shader, "mask__") == ramp || (halfMask != null && G.field(shader, "mask__") == halfMask)))
             gradientOwners.set(filter, {counter: counter, shader: shader});
     }
 
@@ -174,8 +207,38 @@ class FancyDamageNumbers {
         return ramp;
     }
 
+    static function getHalfMask():Dynamic {
+        if (halfMask != null && G.call("h3d.mat.Texture", "isDisposed", halfMask) != true) return halfMask;
+        if (halfMask != null) G.set(halfMask, "realloc", null);
+        if (halfPixels != null) G.call("hxd.Pixels", "dispose", halfPixels);
+        // Same texel-center mapping as the linear ramp, with an exact split at
+        // 50%. Nearest avoids blending the two line equations near the middle.
+        var format = G.enumeration("hxd.PixelFormat", "RGBA");
+        halfPixels = G.staticCall("hxd.Pixels", "alloc", [1, 64, format]);
+        for (y in 0...64)
+            G.call("hxd.Pixels", "setPixel", halfPixels, [0, y, y < 32 ? 0xFF000000 : 0xFFFFFFFF]);
+        halfMask = G.staticCall("h3d.mat.Texture", "fromPixels", [halfPixels, format]);
+        G.call("h3d.mat.Texture", "set_filter", halfMask, [G.enumeration("h3d.mat.Filter", "Nearest")]);
+        G.call("h3d.mat.Texture", "set_wrap", halfMask, [G.enumeration("h3d.mat.Wrap", "Clamp")]);
+        G.call("h3d.mat.Texture", "preventAutoDispose", halfMask);
+        var texture = halfMask, pixels = halfPixels;
+        G.set(texture, "realloc", function():Void {
+            G.call("h3d.mat.Texture", "uploadPixels", texture, [pixels, null, null]);
+        });
+        return halfMask;
+    }
+
     public static function dispose():Void {
         gradientOwners.clear();
+        if (halfMask != null) {
+            G.set(halfMask, "realloc", null);
+            G.call("h3d.mat.Texture", "dispose", halfMask);
+            halfMask = null;
+        }
+        if (halfPixels != null) {
+            G.call("hxd.Pixels", "dispose", halfPixels);
+            halfPixels = null;
+        }
         if (ramp != null) {
             G.set(ramp, "realloc", null);
             G.call("h3d.mat.Texture", "dispose", ramp);

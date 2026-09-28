@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Pink crits | Toggles off; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
+| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Pink crits; Three-colour crit gradients; Critical top/middle/bottom colour (hex) | Toggles off; blank colours use the preset; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -23,11 +23,15 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 **Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
 
-**Fancy damage numbers** adds a 1 px black outline to all damage numbers. Physical damage uses an orange gradient and magic damage uses a blue gradient. All gradients run from light at the top to dark at the bottom. Physical and magic critical hits use `#FF7F66` at the light/top end and `#FF0000` at the dark/bottom end. Raw damage keeps a pure white fill, including critical Raw hits, with the same black border and no shadow or gradient.
+**Fancy damage numbers** adds a 1 px black outline to all damage numbers. Physical damage uses an orange gradient and magic damage uses a blue gradient. By default, gradients run from light at the top to dark at the bottom. Physical and magic critical hits use `#FF7F66` at the light/top end and `#FF0000` at the dark/bottom end. Raw damage keeps a pure white fill, including critical Raw hits, with the same black border and no shadow or gradient.
 
 The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it includes outlines for all damage and gradients for non-Raw damage; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
-**Pink crits**, directly below **Fancy damage numbers**, switches physical and magic critical hits to `#EF8DEB` at the light/top end and `#A80C2C` at the dark/bottom end. It is off by default, requires Fancy damage numbers, and affects newly displayed numbers immediately. Normal hits and Raw damage retain their existing colours. The former custom colour, gradient, and border controls remain removed; their old saved values no longer affect the appearance.
+**Pink crits**, directly below **Fancy damage numbers**, switches the critical preset to `#EF8DEB` at the top and `#A80C2C` at the bottom. It is off by default and requires Fancy damage numbers.
+
+**Critical top/middle/bottom colour (hex)** lets you override each critical gradient stop. Enter six RGB hex digits, optionally prefixed with `#` or `0x` (for example, `ff0000`). Blank or invalid top/bottom fields fall back to the red or Pink crits preset; a blank or invalid middle field uses the average of the resolved top and bottom colours. Valid overrides take priority over Pink crits, and the former light/dark colour preferences are restored as top/bottom overrides. Malformed values from the original experimental text-input build are safely reset.
+
+**Three-colour crit gradients** is off by default. When enabled, criticals blend from Top to Middle over the upper half of the number, then Middle to Bottom over the lower half. When disabled, they blend directly from Top to Bottom and ignore the middle field. These controls affect newly displayed physical and magic criticals immediately; normal hits and Raw damage retain their existing colours. Text inputs require Better Mod Settings 1.3.0 or newer.
 
 Gradients span the damage text itself, excluding the surrounding border padding. Their endpoints stay aligned with the glyph bounds as font size or rendering resolution changes.
 

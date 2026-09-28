@@ -101,7 +101,7 @@ class DamageNumbersTest {
                 near(shader.matrix__._41 + shader.matrix2__._41, 0, "Black shadow pixels receive no additive tint");
             }
         }
-        legacyCriticalPreferences();
+        criticalColourInputs();
         var mappingFilter = gradientMapping();
         eq(G.textures.length, 1, "All hits and palettes reuse one ramp texture");
         var texture = G.textures[0];
@@ -119,27 +119,150 @@ class DamageNumbersTest {
         FancyDamageNumbers.apply(display(true), config);
         eq(G.textures.length, 2, "Next scene creates a fresh valid ramp");
         FancyDamageNumbers.dispose();
+        threeColourGradients();
         Sys.println('Fancy damage numbers: $checks checks passed.');
     }
 
-    static function legacyCriticalPreferences():Void {
-        for (pink in [false, true]) for (red in [false, true])
-        for (oldColour in (["#123456", "", {bytes: "???", length: 6}, null]:Array<Dynamic>)) {
+    static function criticalColourInputs():Void {
+        eq(SettingsData.defaults().threeColourCriticals, false, "Three-colour gradients remain opt-in");
+        for (text in ["ff0003", "#FF0003", "0Xff0003", "  #ff0003 "])
+            eq(SettingsData.hexColour(text, 0), 0xFF0003, "Supported hex notation parses the entire RGB value");
+        for (bad in (["", "#FFF", "ff0003junk", "gg0000", "12345678", 123456, {bytes: "???", length: 6}, null]:Array<Dynamic>))
+            eq(SettingsData.hexColour(bad, 0xABCDEF), 0xABCDEF, "Incomplete or malformed input safely uses the preset");
+        for (pink in [false, true]) for (oldColour in (["#123456", "", {bytes: "???", length: 6}, null]:Array<Dynamic>)) {
             var config = SettingsData.defaults();
             config.fancyDamageNumbers = true;
             config.pinkCrits = pink;
-            Reflect.setField(config, "redCriticals", red);
             Reflect.setField(config, "criticalDarkColour", oldColour);
             Reflect.setField(config, "criticalLightColour", oldColour);
+            Reflect.setField(config, "criticalMiddleColour", oldColour);
             config = cast haxe.Json.parse(haxe.Json.stringify(config));
             SettingsData.normalize(config);
+            var valid = oldColour == "#123456";
+            eq(config.criticalMiddleColour, valid ? "#123456" : "", "JSON strings survive; corrupted native String objects recover safely");
             for (magic in [false, true]) {
                 var hit = display(true, magic);
                 FancyDamageNumbers.apply(hit, config);
                 var shader = filters(hit.counter.filter)[0].shader;
-                assertRGB(shader.matrix__, pink ? 0xEF8DEB : 0xFF7F66, "Legacy settings cannot override the selected light end");
-                assertRGB(shader.matrix2__, pink ? 0xA80C2C : 0xFF0000, "Legacy or damaged text cannot override the selected dark end");
+                assertRGB(shader.matrix__, valid ? 0x123456 : pink ? 0xEF8DEB : 0xFF7F66, "Custom top colour overrides either preset");
+                assertRGB(shader.matrix2__, valid ? 0x123456 : pink ? 0xA80C2C : 0xFF0000, "Custom bottom colour overrides either preset");
             }
+        }
+    }
+
+    // Evaluate the native ColorMatrixShader's row-vector multiplication and
+    // texture sampling, including mask quantization. Test the rendered colour,
+    // not merely the presence of the new settings or matrix objects.
+    static function sampleMask(shader:Dynamic, fraction:Float):Float {
+        var texture:Dynamic = shader.mask__;
+        var colors:Array<Int> = texture.pixels.colors;
+        var slope:Float = shader.maskMatB__.y, offset:Float = shader.maskMatB__.z;
+        var uv:Float = slope * fraction + offset;
+        if (texture.filter == "h3d.mat.Filter.Nearest") {
+            var index = Std.int(Math.max(0, Math.min(63, Math.floor(uv * 64))));
+            return ((colors[index] >> 16) & 255) / 255.0;
+        }
+        var texel = Math.max(0, Math.min(63, uv * 64 - 0.5));
+        var lo = Std.int(Math.floor(texel)), hi = Std.int(Math.min(63, lo + 1));
+        return ((((colors[lo] >> 16) & 255) * (1 - (texel-lo))) + (((colors[hi] >> 16) & 255) * (texel-lo))) / 255.0;
+    }
+
+    static function render(stack:Array<Dynamic>, fraction:Float, intensity:Float, alpha:Float):Array<Float> {
+        var rgba = [intensity * alpha, intensity * alpha, intensity * alpha, alpha];
+        for (filter in stack) if (filter.kind == "gradient") {
+            var shader = filter.shader;
+            var weight = sampleMask(shader, fraction);
+            var out:Array<Float> = [];
+            for (column in 1...5) {
+                var value = 0.0;
+                for (row in 1...5) {
+                    var key = '_$row$column';
+                    var a:Float = Reflect.field(shader.matrix__, key), b:Float = Reflect.field(shader.matrix2__, key);
+                    value += rgba[row-1] * (a * (1-weight) + b * weight);
+                }
+                out.push(Math.max(0, Math.min(1, value)));
+            }
+            rgba = out;
+        }
+        return rgba;
+    }
+
+    static function threeColourGradients():Void {
+        FancyDamageNumbers.dispose();
+        var before = G.textures.length;
+        var config = SettingsData.defaults();
+        config.fancyDamageNumbers = true;
+        config.threeColourCriticals = true;
+        var tracked:Array<Dynamic> = [];
+        for (pink in [false, true]) for (magic in [false, true])
+        for (palette in [[0xFF0000, 0x00FF00, 0x0000FF], [0x000000, 0xFFFFFF, 0x000000], [0xFFFFFF, 0x000000, 0xFFFFFF], [0xEF8DEB, 0xFF0003, 0xA80C2C]]) {
+            config.pinkCrits = pink;
+            config.criticalLightColour = StringTools.hex(palette[0], 6);
+            config.criticalMiddleColour = StringTools.hex(palette[1], 6);
+            config.criticalDarkColour = StringTools.hex(palette[2], 6);
+            var hit = display(true, magic);
+            FancyDamageNumbers.apply(hit, config);
+            var stack = filters(hit.counter.filter);
+            eq(stack.length, 3, "Three stops use two native matrix passes and one outline");
+            eq(stack[2].color, 0, "Three-stop border remains black");
+            eq(stack[2].size, 1.0, "Three-stop border remains 1 px");
+            for (filter in stack) if (filter.kind == "gradient") {
+                FancyDamageNumbers.bindGradient(filter, hit.counter);
+                hit.counter.calcYMin = 0.0; hit.counter.calcHeight = 40.0;
+                FancyDamageNumbers.syncGradient(filter, null, {dy: 0.0, height: 40.0});
+                tracked.push(filter);
+            }
+            for (fraction in [0.0, 0.25, 0.499, 0.5, 0.501, 0.75, 1.0]) for (alpha in [0.0, 0.25, 1.0]) for (intensity in [0.0, 0.6, 1.0]) {
+                var out = render(stack, fraction, intensity, alpha);
+                var low = fraction < 0.5 ? palette[0] : palette[1];
+                var high = fraction < 0.5 ? palette[1] : palette[2];
+                var weight = fraction < 0.5 ? fraction * 2 : fraction * 2 - 1;
+                for (channel in 0...3) {
+                    var shift = (2-channel)*8;
+                    var expected = (((low >> shift) & 255) * (1-weight) + ((high >> shift) & 255) * weight) / 255.0 * alpha * intensity;
+                    eq(Math.abs(out[channel] - expected) <= 1.01 / 255.0, true, 'Rendered gradient stop: palette=$palette y=$fraction channel=$channel intensity=$intensity alpha=$alpha expected=$expected got=${out[channel]}');
+                }
+                near(out[3], alpha, "Three-colour interpolation preserves alpha");
+            }
+            for (other in [display(false, magic), display(true, magic, true)]) {
+                FancyDamageNumbers.apply(other, config);
+                var otherStack = filters(other.counter.filter);
+                eq(otherStack.length, other.dmg.affinity == "Raw" ? 1 : 2, "Critical overrides do not change normal hits or Raw");
+            }
+        }
+        // Clearing the middle input keeps the current top-to-bottom appearance.
+        config.criticalLightColour = "ff7f66";
+        config.criticalDarkColour = "ff0000";
+        config.criticalMiddleColour = "";
+        var fallback = display(true);
+        FancyDamageNumbers.apply(fallback, config);
+        for (f in filters(fallback.counter.filter)) if (f.kind == "gradient") {
+            FancyDamageNumbers.bindGradient(f, fallback.counter);
+            fallback.counter.calcYMin = 0.0; fallback.counter.calcHeight = 40.0;
+            FancyDamageNumbers.syncGradient(f, null, {dy: 0.0, height: 40.0});
+        }
+        var middle = render(filters(fallback.counter.filter), 0.5, 1, 1);
+        near(middle[0], 1.0, "Default middle keeps red fully saturated");
+        eq(Math.abs(middle[1] - 64 / 255.0) < 1.01 / 255, true, "Empty middle uses the average endpoint colour");
+        eq(G.textures.length, before + 2, "All three-colour palettes share two masks without per-hit allocations");
+        for (texture in G.textures.slice(before)) {
+            var reload:Void->Void = texture.realloc;
+            reload();
+            eq(texture.uploads, 2, "Both masks can recover after GPU reset");
+        }
+        config.threeColourCriticals = false;
+        var two = display(true);
+        FancyDamageNumbers.apply(two, config);
+        eq(filters(two.counter.filter).length, 2, "Disabling three colours restores the original one-pass gradient");
+        FancyDamageNumbers.dispose();
+        for (texture in G.textures.slice(before)) {
+            eq(texture.disposed && texture.pixels.disposed, true, "Both gradient resources are released on disposal");
+            eq(texture.realloc, null, "Neither disposed mask retains its recovery callback");
+        }
+        for (filter in tracked) {
+            filter.shader.maskMatB__.y = 123.0;
+            FancyDamageNumbers.syncGradient(filter, null, null);
+            eq(filter.shader.maskMatB__.y, 123.0, "Disposal releases both kinds of gradient owners");
         }
     }
 
