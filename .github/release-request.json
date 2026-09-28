@@ -1,7 +1,7 @@
 {
-  "project": "item-utilities",
-  "version": "1.9.4",
-  "commit": "22f22df226509ae64a7cb981b1517e67b26c3323",
-  "notes": "- Fixed an issue where symlinks didn't work as downloaded dependencies",
+  "project": "better-mod-settings",
+  "version": "1.3.0",
+  "commit": "612f9260773f476d72df2ca60dd4567ebd5684e0",
+  "notes": "- Added support for raw text inputs",
   "dry_run": false
 }
