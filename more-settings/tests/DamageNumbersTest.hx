@@ -123,8 +123,8 @@ class DamageNumbersTest {
             eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");
             eq(shader.maskMatB__.y, 1.0, "Ramp follows screen-quad vertical coordinate");
             eq(shader.maskChannel__.w, 0.0, "Opaque mask alpha must not bias interpolation");
-            var top = critical ? (redCriticals ? 0x98233C : 0xA80C2C) : coloredMagic ? (blueMagic ? 0x5963C4 : 0xF04424) : physical.top;
-            var bottom = critical ? (redCriticals ? 0xFF9A9A : 0xEF8DEB) : coloredMagic ? (blueMagic ? 0xBCC2FF : 0xFFCB6D) : physical.bottom;
+            var top = critical ? (redCriticals ? 0xD22D39 : 0xA80C2C) : coloredMagic ? (blueMagic ? 0x5963C4 : 0xF04424) : physical.top;
+            var bottom = critical ? (redCriticals ? 0xFFFFFF : 0xEF8DEB) : coloredMagic ? (blueMagic ? 0xBCC2FF : 0xFFCB6D) : physical.bottom;
             near(shader.matrix__._22, ((top >> 8) & 255) / 255.0,
                 "Critical palette overrides physical and magic palettes only on critical hits");
             near(shader.matrix2__._33, (bottom & 255) / 255.0, "Gradient ends in the selected palette");
