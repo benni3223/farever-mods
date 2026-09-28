@@ -15,44 +15,33 @@ class FancyDamageNumbers {
         if (dom == null) return;
 
         var critical = G.field(display, "isCrit") == true;
-        if (!critical && !config.damageNumberGradient && !config.damageNumberOutline) return;
         // Criticals keep their pink identity regardless of damage type. Other
         // magic hits use the flame palette; raw damage is not a magic affinity.
         var magic = false;
         var damage = G.field(display, "dmg");
-        if (config.damageNumberGradient && !critical && damage != null && G.field(damage, "affinity") != "Raw")
+        if (!critical && damage != null && G.field(damage, "affinity") != "Raw")
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
-        var outlineEnabled = config.damageNumberOutline || magic;
 
+        var nativeColor:Dynamic = G.field(G.field(display, "affinity"), "damageColor");
+        if (nativeColor == null) nativeColor = G.field(counter, "textColor");
+        var baseColor:Int = nativeColor == null ? 0xFFFFFF : cast nativeColor;
+        var top = critical ? 0xA80C2C : magic ? 0xF04424 : shade(baseColor);
+        var bottom = critical ? 0xEF8DEB : magic ? 0xFFB52E : baseColor;
         var filter:Dynamic = G.field(counter, "filter");
-        if (config.damageNumberGradient) {
-            var nativeColor:Dynamic = G.field(G.field(display, "affinity"), "damageColor");
-            if (nativeColor == null) nativeColor = G.field(counter, "textColor");
-            var baseColor:Int = nativeColor == null ? 0xFFFFFF : cast nativeColor;
-            var top = critical ? 0xA80C2C : magic ? 0xF04424 : shade(baseColor);
-            var bottom = critical ? 0xEF8DEB : magic ? 0xFFB52E : baseColor;
-            filter = append(filter, gradient(top, bottom));
-        }
-        if (outlineEnabled) {
-            var outline = G.create("h2d.filter.Outline", [null, null, null, null]);
-            G.call("h2d.filter.Outline", "set_size", outline, [2.0]);
-            G.call("h2d.filter.Outline", "set_quality", outline, [0.5]);
-            // Outline's native defaults are opaque black with premultiplied alpha.
-            // Apply it last so the gradient never recolors the border.
-            filter = append(filter, outline);
-        }
-        if (config.damageNumberGradient || outlineEnabled) {
-            G.call("domkit.Properties", "initStyle", dom, ["filter", filter]);
-            G.call("h2d.Object", "set_filter", counter, [filter]);
-        }
+        filter = append(filter, gradient(top, bottom));
+        var outline = G.create("h2d.filter.Outline", [null, null, null, null]);
+        G.call("h2d.filter.Outline", "set_size", outline, [2.0]);
+        G.call("h2d.filter.Outline", "set_quality", outline, [0.5]);
+        // Outline's native defaults are opaque black with premultiplied alpha.
+        // Apply it last so the gradient never recolors the border.
+        filter = append(filter, outline);
+        G.call("domkit.Properties", "initStyle", dom, ["filter", filter]);
+        G.call("h2d.Object", "set_filter", counter, [filter]);
 
-        // An outline alone must not replace the native fill of non-critical hits.
-        if (!critical && !config.damageNumberGradient) return;
-        var color = config.damageNumberGradient ? 0xFFFFFF : 0xF060D0;
         // Inline styles survive subsequent native affinity/crit CSS refreshes.
-        // DamageDisplay.init creates a fresh counter, so each option affects new hits.
-        G.call("domkit.Properties", "initStyle", dom, ["color", color]);
-        G.call("h2d.Text", "set_textColor", counter, [color]);
+        // DamageDisplay.init creates a fresh counter, so toggling affects new hits.
+        G.call("domkit.Properties", "initStyle", dom, ["color", 0xFFFFFF]);
+        G.call("h2d.Text", "set_textColor", counter, [0xFFFFFF]);
     }
 
     static function append(existing:Dynamic, next:Dynamic):Dynamic {

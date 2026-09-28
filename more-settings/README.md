@@ -23,12 +23,9 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 **Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
 
-**Fancy damage numbers** colors critical-hit floating damage numbers pink-purple. The two checkboxes immediately below it also style normal damage numbers:
+**Fancy damage numbers** adds black outlines and vertical color gradients to all damage numbers with one checkbox. Critical hits fade from deep red-pink to light purple-pink, inspired by the MapleStory reference. Non-critical magic hits fade from red-orange to bright orange. Other normal hits fade from a darker shade of their native color to that color. Critical magic hits keep the pink critical-hit palette.
 
-- **Number outline** adds a black outline around all damage numbers.
-- **Gradient** gives all damage numbers a vertical gradient. Critical hits fade from deep red-pink to light purple-pink, inspired by the MapleStory reference. Non-critical magic hits use a red-orange to bright-orange gradient with a black outline, even if Number outline is off. Other normal hits fade from a darker shade of their native color to that color. Critical magic hits keep the pink critical-hit palette.
-
-All three options are off by default. Number outline and Gradient apply while Fancy damage numbers is enabled. The previous Red toggle has been removed; its saved value no longer affects styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
+The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it always includes the outlines and gradients; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 

@@ -51,16 +51,6 @@
       "label": "Fancy damage numbers"
     },
     {
-      "key": "damageNumberOutline",
-      "type": "checkbox",
-      "label": "Number outline"
-    },
-    {
-      "key": "damageNumberGradient",
-      "type": "checkbox",
-      "label": "Gradient"
-    },
-    {
       "type": "title",
       "label": "Appearance"
     },
