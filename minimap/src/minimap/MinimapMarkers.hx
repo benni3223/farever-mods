@@ -40,6 +40,10 @@ class MinimapMarkers {
     var playerElevations:Dynamic;
     var playerIconMarkers:Array<IconMarker> = [];
     var playerElevationMarkers:Array<ElevationMarker> = [];
+    var partyIcons:Dynamic;
+    var partyElevations:Dynamic;
+    var partyIconMarkers:Array<IconMarker> = [];
+    var partyElevationMarkers:Array<ElevationMarker> = [];
     var mapIcons:Dynamic;
     var npcIcons:Dynamic;
     var mapIconMarkers:Array<IconMarker> = [];
@@ -105,8 +109,7 @@ class MinimapMarkers {
 
     public function new(parent:Dynamic, foreground:Dynamic, overlay:Dynamic, level:String) {
         this.level = level;
-        // Players and their height arrows sit below the local cursor. All other
-        // markers sit above it, with NPCs retaining the highest normal priority.
+        // Other players stay under the map. Party members are attached later, above it.
         playerIcons = G.create("h2d.Object", [parent]);
         playerElevations = G.create("h2d.Object", [parent]);
         mapIcons = G.create("h2d.Object", [foreground]);
@@ -116,6 +119,12 @@ class MinimapMarkers {
         alertLayer = G.create("h2d.Object", [overlay]);
     }
 
+    /** Party icons sit above every other marker. The view adds the local player after this. */
+    public function attachPartyLayer(parent:Dynamic):Void {
+        partyIcons = G.create("h2d.Object", [parent]);
+        partyElevations = G.create("h2d.Object", [parent]);
+    }
+
     /** The expanded window is removed and reinserted. Pin art must be drawn again after that. */
     public function invalidatePin():Void {
         pinEpoch++;
@@ -123,7 +132,7 @@ class MinimapMarkers {
 
     /** Refill icons erased when the minimap left the scene. Positions stay as they are. */
     public function restoreGraphics():Void {
-        for (pool in [playerIconMarkers, mapIconMarkers, npcIconMarkers]) for (marker in pool) {
+        for (pool in [playerIconMarkers, mapIconMarkers, npcIconMarkers, partyIconMarkers]) for (marker in pool) {
             if (marker.key == "" || marker.icon == null) continue;
             var kind = marker.key;
             var unlocked = StringTools.endsWith(kind, ":unlocked");
@@ -136,7 +145,7 @@ class MinimapMarkers {
             G.call("h2d.Graphics", "clear", graphics);
             drawIcon({kind: kind, sparkling: spark, partyMember: party, respawnUnlocked: unlocked, heading: 0, x: 0, y: 0, z: 0});
         }
-        for (pool in [playerElevationMarkers, mapElevationMarkers, npcElevationMarkers]) for (marker in pool) {
+        for (pool in [playerElevationMarkers, mapElevationMarkers, npcElevationMarkers, partyElevationMarkers]) for (marker in pool) {
             if (marker.arrow == null) continue;
             G.call("h2d.Graphics", "clear", marker.arrow);
             drawPlayerArrow(marker.arrow, 4, 0xfff3d6);
@@ -151,6 +160,7 @@ class MinimapMarkers {
                 G.call("h2d.Object", "set_rotation", marker.icon, [-rotation]);
             for (marker in npcIconMarkers) G.call("h2d.Object", "set_rotation", marker.icon, [-rotation]);
             for (marker in playerElevationMarkers) G.call("h2d.Object", "set_rotation", marker.root, [-rotation]);
+            for (marker in partyElevationMarkers) G.call("h2d.Object", "set_rotation", marker.root, [-rotation]);
             for (marker in mapElevationMarkers) G.call("h2d.Object", "set_rotation", marker.root, [-rotation]);
             for (marker in npcElevationMarkers) G.call("h2d.Object", "set_rotation", marker.root, [-rotation]);
         }
@@ -774,6 +784,9 @@ class MinimapMarkers {
     static function isPlayer(kind:String):Bool
         return kind == "player" || kind == "party";
 
+    static function isPartyPoint(point:MapPoint):Bool
+        return point.kind == "party" || point.partyMember == true;
+
     static function hiddenResource(resource:String, config:MinimapSettings):Bool return switch resource {
         case "Copper": config.hideCopper;
         case "Iron": config.hideIron;
@@ -880,27 +893,35 @@ class MinimapMarkers {
     }
 
     public function hoverAt(x:Float, y:Float, scale:Float, heroX:Float, heroY:Float, hero:Dynamic):Null<MarkerHover> {
-        var checkHero = true;
+        if (nearCursor(x, y, heroX, heroY, 11 * markerScale / scale)) return heroHover(hero, heroX, heroY);
         var i = hitPoints.length;
-        // Reverse draw order: other markers, then our cursor, then other players.
         while (i > 0) {
             var point = hitPoints[--i];
-            if (checkHero && isPlayer(point.kind)) {
-                checkHero = false;
-                if (nearCursor(x, y, heroX, heroY, 11 * markerScale / scale)) return heroHover(hero, heroX, heroY);
-            }
-            var r = (markerRadius(point.kind) + (point.partyMember == true ? 4.5 : point.sparkling == true ? 2.5 : 0) + 2) * markerScale / scale;
-            var hit = nearCursor(x, y, point.x, point.y, r);
-            if (!hit && point.elevation != null && point.elevation != 0) {
-                var offset = elevationOffset(point) * markerScale / scale;
-                hit = nearCursor(x, y, point.x + Math.cos(mapRotation) * offset,
-                    point.y - Math.sin(mapRotation) * offset, 6 * markerScale / scale);
-            }
-            if (!hit) continue;
-            if (point.entity != null && G.field(point.entity, "removed") == true) continue;
-            return MarkerDetails.hover(markerName(point), point);
+            if (!isPartyPoint(point)) continue;
+            var hover = hoverPoint(point, x, y, scale);
+            if (hover != null) return hover;
         }
-        return checkHero && nearCursor(x, y, heroX, heroY, 11 * markerScale / scale) ? heroHover(hero, heroX, heroY) : null;
+        i = hitPoints.length;
+        while (i > 0) {
+            var point = hitPoints[--i];
+            if (isPartyPoint(point)) continue;
+            var hover = hoverPoint(point, x, y, scale);
+            if (hover != null) return hover;
+        }
+        return null;
+    }
+
+    function hoverPoint(point:MapPoint, x:Float, y:Float, scale:Float):Null<MarkerHover> {
+        var r = (markerRadius(point.kind) + (point.partyMember == true ? 4.5 : point.sparkling == true ? 2.5 : 0) + 2) * markerScale / scale;
+        var hit = nearCursor(x, y, point.x, point.y, r);
+        if (!hit && point.elevation != null && point.elevation != 0) {
+            var offset = elevationOffset(point) * markerScale / scale;
+            hit = nearCursor(x, y, point.x + Math.cos(mapRotation) * offset,
+                point.y - Math.sin(mapRotation) * offset, 6 * markerScale / scale);
+        }
+        if (!hit) return null;
+        if (point.entity != null && G.field(point.entity, "removed") == true) return null;
+        return MarkerDetails.hover(markerName(point), point);
     }
 
     function heroHover(hero:Dynamic, x:Float, y:Float):MarkerHover
@@ -977,12 +998,16 @@ class MinimapMarkers {
                 take(points, kind, 2);
             } else take(points, kind, 0);
         }
-        var playerPoints = [for (point in hitPoints) if (isPlayer(point.kind)) point];
+        var partyPoints = [for (point in hitPoints) if (isPartyPoint(point)) point];
+        var playerPoints = [for (point in hitPoints) if (point.kind == "player" && !isPartyPoint(point)) point];
         var mapPoints = [for (point in hitPoints) if (!isPlayer(point.kind) && !isNpc(point.kind)) point];
         var npcPoints = [for (point in hitPoints) if (isNpc(point.kind)) point];
         updateIcons(playerPoints, playerIconMarkers, playerIcons, scale);
         updateIcons(mapPoints, mapIconMarkers, mapIcons, scale);
         updateIcons(npcPoints, npcIconMarkers, npcIcons, scale);
+        updateIcons(partyPoints, partyIconMarkers, partyIcons, scale);
+        updateElevations([for (point in partyPoints) if (point.elevation != 0) point],
+            partyElevationMarkers, partyElevations, scale);
         updateElevations([for (point in playerPoints) if (point.elevation != 0) point],
             playerElevationMarkers, playerElevations, scale);
         updateElevations([for (point in mapPoints) if (point.elevation != 0) point],

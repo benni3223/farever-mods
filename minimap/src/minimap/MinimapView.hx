@@ -49,6 +49,8 @@ class MinimapView {
     var tileLayer:Dynamic;
     var npcPivot:Dynamic;
     var npcTerrain:Dynamic;
+    var partyPivot:Dynamic;
+    var partyTerrain:Dynamic;
     var markers:MinimapMarkers;
     var compass:MinimapCompass;
     var rifts:RiftMarkers;
@@ -172,6 +174,7 @@ class MinimapView {
             scale = newScale;
             G.call("h2d.Object", "setScale", terrain, [scale]);
             G.call("h2d.Object", "setScale", npcTerrain, [scale]);
+            G.call("h2d.Object", "setScale", partyTerrain, [scale]);
             bounds = "";
         }
         var x = G.number(G.field(hero, "posx"));
@@ -190,8 +193,10 @@ class MinimapView {
         // Native facing is (cos(heading), sin(heading)); screen-up is -PI/2.
         G.call("h2d.Object", "set_rotation", pivot, [rotation]);
         G.call("h2d.Object", "set_rotation", npcPivot, [rotation]);
+        G.call("h2d.Object", "set_rotation", partyPivot, [rotation]);
         position(terrain, -viewCenterX * scale, -viewCenterY * scale);
         position(npcTerrain, -viewCenterX * scale, -viewCenterY * scale);
+        position(partyTerrain, -viewCenterX * scale, -viewCenterY * scale);
         var screenWidth = G.number(G.call("h2d.Flow", "get_innerWidth", root));
         var screenHeight = G.number(G.call("h2d.Flow", "get_innerHeight", root));
         var viewW = config.size;
@@ -349,14 +354,16 @@ class MinimapView {
         pivot = G.create("h2d.Object", [mask]);
         terrain = G.create("h2d.Object", [pivot]);
         tileLayer = G.create("h2d.Object", [terrain]);
-        arrow = G.create("h2d.Graphics", [mask]);
-        MinimapMarkers.drawPlayerArrow(arrow, 10, 0xfff3d6);
-        // Non-player markers overlay both player layers. Only the minimap's
-        // outer boundary clips them; NPCs retain priority within this overlay.
+        // Map markers cover other players. Party members and the local arrow are added last.
         npcPivot = G.create("h2d.Object", [mask]);
         npcTerrain = G.create("h2d.Object", [npcPivot]);
         markers = new MinimapMarkers(terrain, npcTerrain, mask, LEVEL);
         compass = new MinimapCompass(mask);
+        partyPivot = G.create("h2d.Object", [mask]);
+        partyTerrain = G.create("h2d.Object", [partyPivot]);
+        markers.attachPartyLayer(partyTerrain);
+        arrow = G.create("h2d.Graphics", [mask]);
+        MinimapMarkers.drawPlayerArrow(arrow, 10, 0xfff3d6);
         rifts = new RiftMarkers(LEVEL);
         input = G.create("h2d.Interactive", [1.0, 1.0, panel, null]);
         position(input, BORDER, BORDER);
@@ -762,6 +769,7 @@ class MinimapView {
         position(arrow, size / 2, mapHeight / 2);
         position(pivot, size / 2, mapHeight / 2);
         position(npcPivot, size / 2, mapHeight / 2);
+        position(partyPivot, size / 2, mapHeight / 2);
         G.call("h2d.Object", "set_filter", mask, [round ? circleFilter : squareFilter]);
         G.call("h2d.Object", "set_visible", circleMask, [round]);
         if (controls != null && !expanded) controls.layout(size, circular);
@@ -964,6 +972,7 @@ class MinimapView {
         riftFontSource = null; riftFont = null;
         riftX = Math.NaN; riftY = Math.NaN;
         npcPivot = null; npcTerrain = null;
+        partyPivot = null; partyTerrain = null;
         input = null; hovered = false; hoverText = null; hoverShadow = null; hoverCaption = "";
         hoverMeasurements = null; hoverDetails = "";
         nextHoverRefresh = 0; hoverMouseX = Math.NaN; hoverMouseY = Math.NaN;
