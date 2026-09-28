@@ -35,6 +35,16 @@
 --next
 -cp src
 -cp tests
+-main ChestMarkersTest
+--interp
+--next
+-cp src
+-cp tests
+-main RespawnMarkersTest
+--interp
+--next
+-cp src
+-cp tests
 -main RiftMarkersTest
 --interp
 --next
@@ -71,4 +81,9 @@
 -cp src
 -cp tests
 -main PinMessageTest
+--interp
+--next
+-cp src
+-cp tests
+-main MapTileLoadTest
 --interp

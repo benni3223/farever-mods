@@ -4,4 +4,13 @@
 -cp ../shared/src
 -main moresettings.MoreSettingsMod
 -dce full
+-hl build/more-settings/implementation/more-settings.hl
+
+# Check required dependencies before linking the implementation.
+--next
+-D hl-ver=1.16.0
+-cp ../shared/bootstrap
+-D dependency-mod=more-settings
+-main moddependencies.Bootstrap
+-dce full
 -hl build/more-settings/more-settings.hl

@@ -1,3 +1,4 @@
+import itemutilities.PresetSlots;
 import itemutilities.AppearancePresetLayout;
 import itemutilities.AppearancePresetPlan;
 import itemutilities.AppearancePresetPlan.AppearanceSlotRule;
@@ -107,6 +108,8 @@ class AppearancePresetTest {
         rejects(function() AppearancePresetPlan.decode([{slot: "Slot_Head", item: null}, {slot: "Slot_Head", item: "Hide_Gear"}]), "duplicate slot rejected");
         rejects(function() AppearancePresetPlan.decode([{slot: 1, item: null}]), "non-string slot rejected");
         rejects(function() AppearancePresetPlan.decode([{slot: "Slot_Head", item: 1}]), "non-string cosmetic rejected");
+        rejects(function() AppearancePresetPlan.decode([{slot: "Slot_Head", item: {bytes: "???", length: 22}}]),
+            "legacy corrupted item IDs cannot be recovered or treated as default appearances");
         rejects(function() AppearancePresetPlan.decode([{slot: "Slot_Head", item: ""}]), "empty string is not a default cosmetic");
         var missing = target.copy();
         missing.remove("Slot_Back");
@@ -174,17 +177,17 @@ class AppearancePresetTest {
             var projection = new UiOverlayGeometry(scale, 0, 0, scale, 100, 50);
             var button = projection.rect(411, 689, 150, 36);
             var panel = projection.rect(8, 120, 1192, 620);
-            var controls = projection.rect(0, 0, 254, 36);
+            var controls = projection.rect(0, 0, PresetSlots.CONTROLS_WIDTH, 36);
             var rect = AppearancePresetLayout.place(button, panel, controls);
-            near(rect.left, 100 + 125 * scale, "preset bar sits to the left of Character");
+            near(rect.left, 100 + 177 * scale, "preset bar sits to the left of Character");
             near(rect.top, 50 + 689 * scale, "same vertical alignment as Character button");
             near(button.left - rect.right, 32 * scale, "matches equipment preset spacing");
-            near(rect.width, 254 * scale, "matching preset bar width");
+            near(rect.width, PresetSlots.CONTROLS_WIDTH * scale, "matching preset bar width");
             near(rect.height, 36 * scale, "matching preset button height");
         }
         var narrow = AppearancePresetLayout.place(new OverlayRect(220, 600, 370, 636),
-            new OverlayRect(8, 0, 800, 650), new OverlayRect(0, 0, 254, 36));
-        check(narrow.left > 8 && narrow.right < 220 && narrow.width < 254, "narrow panel fits without overlap or clipping");
+            new OverlayRect(8, 0, 800, 650), new OverlayRect(0, 0, PresetSlots.CONTROLS_WIDTH, 36));
+        check(narrow.left > 8 && narrow.right < 220 && narrow.width < PresetSlots.CONTROLS_WIDTH, "narrow panel fits without overlap or clipping");
         check(AppearancePresetLayout.place(null, null, null) == null, "missing native anchors hide the bar");
         trace('Appearance presets: $checks checks passed');
     }

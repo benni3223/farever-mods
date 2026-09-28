@@ -32,7 +32,13 @@ class AppearancePresetPlan {
     public static function encode(choices:Map<String, String>):Array<Dynamic> {
         var slots = [for (slot in choices.keys()) slot];
         slots.sort(Reflect.compare);
-        return [for (slot in slots) {slot: slot, item: choices.get(slot)}];
+        return [for (slot in slots) {
+            var item = choices.get(slot);
+            // Game-owned strings have a different class identity in HashLink.
+            // Copy them before JSON serialization, which otherwise writes
+            // their bytes/length fields instead of the item ID. Keep defaults null.
+            {slot: slot, item: item == null ? null : Std.string(item)};
+        }];
     }
 
     public static function validate(choices:Map<String, String>, rules:Array<AppearanceSlotRule>):Void {

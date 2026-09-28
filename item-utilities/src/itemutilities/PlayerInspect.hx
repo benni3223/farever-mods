@@ -1,0 +1,118 @@
+package itemutilities;
+
+import hlx.runtime.HlxPrefixResult;
+import hlx.runtime.PatchTargetKey;
+import itemutilities.InspectAccess as G;
+import itemutilities.InspectMenuContext.InspectTarget;
+
+/** Optional PTR hook. Live clients without the social menu are left untouched. */
+class PlayerInspect {
+    static final menuKey = new PatchTargetKey("ui.GameUI", "openPlayerInteractionMenu");
+    static final contextKey = new PatchTargetKey("ui.BaseUI", "displayContextMenu");
+    static final tooltipKey = new PatchTargetKey("ui.Tooltip", "sync");
+    static var context = new InspectMenuContext();
+    static var isEnabled:Void->Bool;
+    static var requested:InspectTarget;
+    static var popup:InspectWindow;
+    static var active = false;
+    static var reportedMenuIssue = false;
+
+    public static function initialize(enabled:Void->Bool):Void {
+        isEnabled = enabled;
+        try {
+            // main() runs BEFORE HLX's modsLoaded/module recovery. A live type
+            // lookup here returns null, permanently disabling the feature. Read
+            // bytecode metadata now and let the loader resolve/install these
+            // normal, cooperative hooks after recovery, alongside all others.
+            active = InspectSupport.registerForClient(InspectSupport.clientPath(), () -> {
+                HlxRuntime.registerPrefix(menuKey, beginMenu, receiveMenu);
+                HlxRuntime.registerPostfix(menuKey, endMenu, receiveMenu);
+                HlxRuntime.registerPrefix(contextKey, extendMenu, receiveContext);
+                HlxRuntime.registerPostfix(tooltipKey, fitInspectTooltip, receiveTooltip);
+            });
+        } catch (error:Dynamic) trace("[Item Utilities] Inspect unavailable: " + error);
+    }
+    static function receiveMenu(ui:Dynamic, uid:String, name:String, position:Dynamic):Dynamic
+        return HlxRuntime.dispatch(menuKey, [ui, uid, name, position]);
+    static function receiveContext(ui:Dynamic, items:Dynamic, position:Dynamic):Dynamic
+        return HlxRuntime.dispatch(contextKey, [ui, items, position]);
+    static function receiveTooltip(tip:Dynamic, context:Dynamic):Dynamic
+        return HlxRuntime.dispatch(tooltipKey, [tip, context]);
+    static function fitInspectTooltip(tip:Dynamic, context:Dynamic, result:Dynamic):Dynamic {
+        if (popup != null) popup.fitTooltip(tip);
+        return result;
+    }
+    static function beginMenu(ui:Dynamic, uid:String, name:String, position:Dynamic):HlxPrefixResult<Void> {
+        context.begin(ui, uid, name, isEnabled());
+        return Continue;
+    }
+    static function endMenu(ui:Dynamic, uid:String, name:String, position:Dynamic, result:Dynamic):Dynamic {
+        if (context.take(ui) != null && result != null && isEnabled())
+            reportMenuIssue("The social menu opened without reaching the context-menu hook");
+        context.clear();
+        return result;
+    }
+    static function extendMenu(ui:Dynamic, items:Dynamic, position:Dynamic):HlxPrefixResult<Void> {
+        var target = context.take(ui);
+        if (target == null || !isEnabled()) return Continue;
+        try {
+            var icons = G.field(G.current("Data", "icon"), "byId");
+            var icon = G.call("haxe.ds.StringMap", "get", icons, ["SendMessage"]);
+            if (icon == null) {
+                reportMenuIssue("SendMessage icon metadata was not available");
+                return Continue;
+            }
+            var sendMessage = G.text(G.staticCall("HText", "icon", [icon, null]));
+            var index = InspectMenuContext.insertionIndex(
+                [for (item in G.array(items)) G.text(G.field(item, "label"))], sendMessage);
+            if (index >= 0) {
+                var entry:Dynamic = {label: "Inspect", onClick: function():Void {
+                    // Open on the next UI frame, after the context menu finishes closing.
+                    if (isEnabled()) requested = target;
+                }};
+                G.call("hl.types.ArrayObj", "insertDyn", items, [index, entry]);
+            } else reportMenuIssue("The social menu did not contain the expected Send message label");
+        } catch (error:Dynamic) reportMenuIssue(Std.string(error));
+        return Continue;
+    }
+    static function reportMenuIssue(message:String):Void {
+        if (reportedMenuIssue) return;
+        reportedMenuIssue = true;
+        trace("[Item Utilities] Could not add Inspect: " + message);
+    }
+    public static function update():Void {
+        if (!active) return;
+        context.clear();
+        if (requested == null && popup == null) return;
+        try {
+            var ui = G.current("ui.BaseUI", "current");
+            if (!isEnabled()) { requested = null; close(); return; }
+            if (requested != null) {
+                var target = requested; requested = null;
+                close();
+                if (target.ui == ui && localHero() != null) {
+                    popup = new InspectWindow();
+                    popup.open(target, localHero());
+                }
+            }
+            if (popup != null && !popup.update(ui, localHero())) close();
+        } catch (error:Dynamic) {
+            close();
+            trace("[Item Utilities] Could not display Inspect: " + error);
+        }
+    }
+    static function close():Void {
+        if (popup == null) return;
+        var old = popup; popup = null;
+        old.dispose();
+    }
+    public static function localHero():Dynamic {
+        var controller = G.current("client.PlayerController", "inst");
+        return controller == null ? null : G.call("client.PlayerController", "get_hero", controller);
+    }
+    public static function remoteHero(local:Dynamic, uid:String):Dynamic {
+        var layer = G.field(G.field(local, "player"), "layer");
+        if (layer == null) return null;
+        return G.field(G.call("st.GameLayer", "getPlayerById", layer, [uid]), "hero");
+    }
+}

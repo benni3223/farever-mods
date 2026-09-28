@@ -11,6 +11,10 @@ with the new client.
 
 ## Installation
 
+**Required:** HLX Core, [Better Mod Settings](https://www.nexusmods.com/farever/mods/10), and [Mod Update Alerts](https://www.nexusmods.com/farever/mods/17). A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+
+Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
+
 ### Easy Installation
 
 1. Install [HLX Core](https://github.com/hlx-framework/hlx-core) and [Better Mod Settings](https://github.com/xWink/farever-mods/tree/main/better-mod-settings) with Vortex.
@@ -19,7 +23,7 @@ with the new client.
 ### Manual Installation
 
 1. Install [HLX Core](https://github.com/hlx-framework/hlx-core).
-2. Install [Better Mod Settings](https://github.com/xWink/farever-mods/tree/main/better-mod-settings) to configure the meter in-game.
+2. Install [Better Mod Settings](https://github.com/xWink/farever-mods/tree/main/better-mod-settings) (required) to configure the meter in-game.
 3. Download the latest DPS Meter [release](https://github.com/xWink/farever-mods/releases?q=dps-meter&expanded=true) or the `farever-dps-meter` artifact from a successful [build](https://github.com/xWink/farever-mods/actions/workflows/build-dps-meter.yml).
 4. Extract the complete ZIP directly into the Farever game directory. It contains `hlx/mods/dps-meter/` and `hlx/plugins/dps-meter/`.
 5. Launch Farever.
@@ -56,8 +60,9 @@ can be removed if no other mod uses it.
 - **Live party DPS:** Damage, DPS, and team contribution with class-colored bars and clickable skill breakdowns using game skill names and each skill's share of that player's damage.
 - **Summon tracking:** Minion damage credited to its owner and the skill that summoned it.
 - **Native, customizable window:** Move, resize, lock, and scroll the meter, with optional automatic hiding and a smooth fade.
+- **Controller focus:** The live meter stays out of controller navigation so it does not take focus from the game's menu controls. Its buttons, charts, dragging, and resizing remain mouse-operated; full controller navigation is not implemented.
 - **Rift tracking and recaps:** Separate gate and boss phases covering all players present, with both charts in one post-rift recap.
-- **Fight history:** Save Boss Dungeons, Classic Dungeons, and World Bosses; choose an attempt by date, character, party size, duration, and your DPS, then reopen its player and skill charts. New Other combat is not saved; existing Other history remains available.
+- **Fight history:** Save Boss Dungeons, Classic Dungeons, World Bosses, and **Target Dummies**; choose an attempt by date, character, party size, duration, and your DPS, then reopen its player and skill charts. Other unclassified combat is not saved; existing Other history remains available.
 - **Kill notifications:** Optional boss kill totals with the previous fastest kill time. **Show unmastered Codex kills** displays progress through each enemy's final mastery requirement, including the finishing kill. **Show mastered Codex kills** displays subsequent kill totals. The target comes from the game's enemy-specific Codex thresholds, rather than the earlier XP reward milestone. Existing settings are preserved; unmastered notifications default to on and mastered notifications to off.
 - **Automatic log uploads:** Send completed boss encounters to [Farever Logs](https://fareverlogs.fr/) in the background, with no external application.
 - **Better Mod Settings integration:** Customize display options and hotkeys, with settings and window placement saved between sessions.
@@ -115,13 +120,20 @@ the Raw affinity under unclassified recover its share when opened. Older logs wi
 damage-type information keep their existing summary. Click a
 player to see their skills; click a skill row to return to the player chart.
 Each ability occupies one row with its game icon, display name, total damage,
-share of your damage, and DPS. A full-width history view also has casts,
+and share of your damage. A full-width history view also has casts,
 average damage per cast, hits, average damage per hit, and critical-hit percentage.
-Ability DPS uses the entire fight's duration, matching the player's total DPS.
-Wide tables label the share/bar area **Damage (%)** and the numeric total **Damage**.
-The bars and printed percentages both use the player's total damage, so a skill
-responsible for 20% of the damage fills 20% of its bar. Narrow windows keep the core columns
-readable. Ability rows have no hover tooltip.
+**Damage (%)** shows only the skill's numeric share of the player's total damage.
+The adjacent **Phys/Magic/Raw** column shows the split within that skill's damage:
+red for physical, blue for magical, and off-white for Raw. Each bar represents
+100% of that skill's damage, regardless of its contribution to the player's total.
+Percentages appear above each bar in the order shown in the column heading.
+Narrow windows wrap the heading and stack the values vertically so all three
+percentages remain readable.
+Column headers stay fixed while the skill rows below them scroll. Snapshots
+include the headers and the full table.
+Logs with missing or incomplete damage-type data show a dash instead of a bar.
+The numeric total keeps its separate **Damage** column. Narrow windows abbreviate
+headings and keep the core columns readable. Ability rows have no hover tooltip.
 **Back** returns to the same page of attempts, then to the encounter names.
 **Escape** closes an open sort/filter dropdown first, then the history window,
 without also closing a window underneath it.
@@ -210,9 +222,13 @@ The recorded skill IDs and damage totals remain unchanged, so old logs gain the
 display names without being recorded again. Removed definitions keep a readable
 ID fallback.
 
-History records ordinary combats, boss attempts, and both rift phases. Combats
-without a boss name appear under **Other combat**. A fight still in progress
-when you leave an area or exit normally is also preserved. Completed rift phases
+History records boss attempts, both rift phases, and combats involving target
+dummies. Dummy encounters appear as **Target dummy** under **Target Dummies**,
+between **World Bosses** and **Other** in the category list. Previously saved dummy
+fights also appear there without rewriting their logs. Dummies are identified
+from the game's unit metadata rather than their names. Other unclassified combat
+is not saved. A qualifying fight still in progress when you leave an area or
+exit normally is also preserved. Completed rift phases
 keep their separate **Rift: Gates** and **Rift: [boss name]** charts.
 
 New Chakram recordings keep both health bars and the intervening bridge sequence

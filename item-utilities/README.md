@@ -13,6 +13,10 @@ panel rectangle and is collected once per frame.
 
 ## Installation
 
+**Required:** HLX Core, [Better Mod Settings](https://www.nexusmods.com/farever/mods/10), and [Mod Update Alerts](https://www.nexusmods.com/farever/mods/17). Item Utilities also requires the Farever ImGui plugin. A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+
+Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
+
 ### Easy Installation
 1. Download the mod with Vortex on [NexusMods](https://www.nexusmods.com/farever/mods/9)!
 
@@ -26,6 +30,28 @@ panel rectangle and is collected once per frame.
 6. Launch Farever.
 
 ## Features
+
+### Inspect players (PTR social menu)
+
+Hold Interact on another player and choose **Inspect**, immediately below
+**Send message**. The native window shows their equipped weapons, armour, and
+accessories, with item icons, rarity colours, and the game's item-detail tooltips.
+The taller **Inspecting: <name>** window follows the character page's equipment
+column order, with Main Hand, Off Hand, and Arsenal in a separate weapons section.
+The inspected hero's model appears between the equipment columns. **Appearance**
+switches to their equipped styles, and **Character** returns to equipment.
+Slots using their original gear look are labelled **Equipped appearance**.
+Hover an item icon to see its details. Comparison tooltips fit both panels within
+the screen, including at smaller resolutions; style tooltips omit combat stats.
+These are their actual equipped items, independently of cosmetic appearances.
+The window updates when their equipped gear changes and closes with X or Escape.
+
+Inspect is read-only and uses equipment already available to your client. If a
+player leaves or their equipment is unavailable, the window says so. It does not
+request private inventory data or provide equip, drag, or transfer actions.
+The option is included whenever Item Utilities is enabled. On clients without
+the new player social menu, its hooks are not registered and other features
+continue to work normally.
 
 ### Hold interact to quick-loot
 
@@ -118,31 +144,45 @@ still checks the ingredients, inventory space, and combat restrictions, and the
 result arrives after the server responds. This setting is off by default and
 applies only to motes.
 
+### Preset controls
+
+All four categories have five slots, labeled **Preset 1**, **Preset 2**, **Preset 3**,
+**Preset 4**, and **Preset 5**. The collapsed dropdown shows the selected slot;
+choosing a saved option immediately applies it. Empty options remain selectable.
+Selecting the current slot again reapplies it. Preset controls have no tooltips;
+menu labels and **Set** use slightly bolder, vertically centered text.
+**Set** saves your current setup to the selected slot. Controls are disabled while
+that category is applying a preset. The dropdown closes when you choose an option
+or click outside; individual hotkeys can apply presets without opening it.
+Game tooltips underneath an open menu do not hide or dismiss it.
+While a preset menu is open, tabs and other game controls behind its options do
+not receive hover, click, or scroll input. Closing the menu restores normal input.
+
 ### Equipment presets
 
-Adds three equipment preset buttons and a **Set** button beside **Appearance** on the Character Profile page. These controls are hidden while Appearance is open.
+Adds a **Preset 1–5** dropdown and a **Set** button beside **Appearance** on the Character Profile page. These controls are hidden while Appearance is open.
 
 - Preset 1 is selected by default for a new character.
 - Select a preset and press **Set** to save the currently equipped weapons, head, neck, shoulders, chest, back, both rings, hands, waist, legs, feet, and trinket.
-- Pressing a configured preset equips its saved items into their original slots, using items from the character inventory or another equipment slot.
-- Activating an unset preset does nothing.
+- Choosing a saved preset from the dropdown equips its saved items into their original slots, using items from the character inventory or another equipment slot.
+- Selecting an empty slot changes no equipment; press **Set** to save into it.
 - If one or more saved items are missing, available items are still equipped and missing entries are skipped. Empty slots are left unchanged.
 - Presets and the currently selected preset are persisted separately for each character.
 
 Each preset can also be assigned its own keyboard shortcut under **Equipment
-Presets** in Better Mod Settings. Existing equipment bindings and saved presets
-are retained. Preset hotkeys work without opening the Character Profile page.
+Presets** in Better Mod Settings. Existing bindings and saved presets in slots 1–3 are retained. Slots 4 and 5
+start empty with unbound hotkeys. Preset hotkeys work without opening the Character Profile page.
 
 Existing weapon presets remain usable. Press **Set** again on each preset to include your current armor and accessories. Equipment changes follow the game's normal restrictions.
 
 ### Talent presets
 
-Adds matching **Presets 1 2 3 Set** controls near the top of the Talents page,
+Adds a matching **Preset 1–5** dropdown and **Set** button near the top of the Talents page,
 aligned with **Talent Points available** and centered between the root talent
 and the description panel. The controls follow the game's UI scale and position.
 
 - Select a preset slot and press **Set** to save the current talent allocation.
-- Click a saved preset or use its **Talent preset 1/2/3 hotkey** under **Talent
+- Choose a saved preset from the dropdown or use its **Talent preset 1–5 hotkey** under **Talent
   Presets** in Better Mod Settings to apply it. Hotkeys also work with the page closed.
 - Talent presets and the selected slot are saved separately for each character,
   independently of equipment presets. Selecting an unsaved slot changes no talents.
@@ -153,16 +193,16 @@ and the description panel. The controls follow the game's UI scale and position.
   each server reply and replicated rank change before sending the next request.
 - An already-active preset makes no requests. A saved empty allocation refunds
   all points. Rejected changes, timeouts, manual changes during application, and
-  character/session changes stop the sequence. Hover the preset bar for its status.
+  character/session changes stop the sequence.
 
 ### Skill presets
 
-Adds matching **Presets 1 2 3 Set** controls at the far right of the Skills
+Adds a matching **Preset 1–5** dropdown and **Set** button at the far right of the Skills
 page's bottom strip, vertically centered and aligned with the current UI scale.
 
 - Select a preset slot and press **Set** to save the four equipped class skills,
   their slot order, and the runes equipped on each of those skills.
-- Click a saved preset or use its **Skill preset 1/2/3 hotkey** under **Skill
+- Choose a saved preset from the dropdown or use its **Skill preset 1–5 hotkey** under **Skill
   Presets** in Better Mod Settings. Hotkeys also work with the window closed.
 - Presets and the selected slot are saved separately for each character,
   independently of equipment and talent presets. An unsaved slot changes nothing.
@@ -173,11 +213,11 @@ page's bottom strip, vertically centered and aligned with the current UI scale.
   combat. All checks happen before applying the first change.
 - Uses normal skill-slot and rune requests, waiting for each server update.
   Rejections, timeouts, unexpected changes, entering combat, and character or
-  session changes stop the sequence. Hover the preset bar to see its status.
+  session changes stop the sequence.
 
 ### Appearance presets
 
-Adds matching **Presets 1 2 3 Set** controls to the left of **Character** in the
+Adds a matching **Preset 1–5** dropdown and **Set** button to the left of **Character** in the
 Appearance view, following the button's position and the game's UI scale.
 
 **Reset appearance presets** at the bottom of **Appearance Presets** in Better Mod
@@ -189,7 +229,7 @@ mods to use this button.
 
 - Select a preset slot and press **Set** to save the appearance choices for
   all eight armour slots: head, shoulders, chest, back, hands, waist, legs and feet.
-- Click a saved preset or use its **Appearance preset 1/2/3 hotkey** under
+- Choose a saved preset from the dropdown or use its **Appearance preset 1–5 hotkey** under
   **Appearance Presets** in Better Mod Settings. Hotkeys work with the view closed.
 - Saves the exact choice for every slot: the equipped item's normal appearance,
   a selected cosmetic, or hidden gear. Restoring a default choice clears that
@@ -200,7 +240,12 @@ mods to use this button.
   before any changes begin. Each change uses the normal appearance RPC, waiting
   for both its successful reply and replicated state before continuing.
 - Rejections, timeouts, unexpected manual appearance changes, and character or
-  session changes stop the sequence. Hover the preset bar for its status.
+  session changes stop the sequence.
+
+If an older appearance preset reports **Invalid saved appearance item**, recreate
+the desired look and press **Set** on that preset after updating. A previous save
+bug lost cosmetic IDs when writing the config; affected presets cannot be
+recovered automatically.
 
 ### Settings
 
@@ -225,15 +270,17 @@ Available settings include:
 - Keep locked items in their exact slots while sorting
 - Complete motes without the use animation's wait
 - Reset the current character's locks after confirmation
-- Configure or clear hotkeys for equipment presets 1–3
-- Configure or clear hotkeys for talent presets 1–3
-- Configure or clear hotkeys for skill presets 1–3
-- Configure or clear hotkeys for appearance presets 1–3
+- Configure or clear hotkeys for equipment presets 1–5
+- Configure or clear hotkeys for talent presets 1–5
+- Configure or clear hotkeys for skill presets 1–5
+- Configure or clear hotkeys for appearance presets 1–5
 - Reset each preset category for the current character after confirmation
 
 ## Requirements
 
 - [HLX Core](https://github.com/hlx-framework/hlx-core)
+- [Better Mod Settings](https://www.nexusmods.com/farever/mods/10) (mandatory)
+- [Mod Update Alerts](https://www.nexusmods.com/farever/mods/17) (mandatory)
 - The Farever ImGui plugin used by HLX mods with overlay interfaces
 
 ## Building for development
@@ -245,10 +292,11 @@ cd item-utilities
 haxe compile.hxml
 ```
 
-The compiled mod is written to:
+The compiled entry module and its matching implementation are written to:
 
 ```text
 build/item-utilities/item-utilities.hl
+build/item-utilities/implementation/item-utilities.hl
 ```
 
 Run the quick-loot, lock-restoration, overlay-layout, and preset regression tests (Haxe only; no running game required):
@@ -256,3 +304,14 @@ Run the quick-loot, lock-restoration, overlay-layout, and preset regression test
 ```sh
 haxe test.hxml
 ```
+
+To test appearance saves with strings owned by a separate game-like module,
+use HashLink 1.16 or newer from the same directory:
+
+```sh
+haxe test-appearance-serialization.hxml
+hl build/appearance-serialization-host.hl
+```
+
+This additional test checks cosmetic, hidden, and default appearances after a
+JSON round trip. The Haxe interpreter cannot reproduce cross-module string identity.

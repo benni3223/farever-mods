@@ -5,6 +5,7 @@ import minimap.GameAccess as G;
 /** Local pixel geometry, retained by the marker pool across refreshes. */
 class LandmarkIcons {
     public static inline var RIFT_ALERT_COLOR:Int = 0xc94a9f;
+    public static inline var SPARKLING_COLOR:Int = 0xffdc42;
 
     public static function draw(graphics:Dynamic, kind:String, radius:Float):Void {
         if (kind == "obelisk") obelisk(graphics, radius);
@@ -18,9 +19,120 @@ class LandmarkIcons {
         else if (kind == "inactiveRift") inactiveRift(graphics, radius);
         else if (kind == "glory") gloryToken(graphics, radius);
         else if (kind == "infusion") infusionCrucible(graphics, radius);
+        else if (kind == "soulWell") soulWell(graphics, radius);
         else if (kind == "craft") craftingStation(graphics, radius);
         else if (kind == "upgrade") upgradeStation(graphics, radius);
         else if (kind == "recycler") recycling(graphics, radius);
+    }
+
+    public static function respawnPoint(g:Dynamic, r:Float, unlocked:Bool):Void {
+        // Broad, shallow stone platform beneath the upright monument and basin.
+        fill(g, 0x293d48);
+        ellipse(g, r, 0, 0.49, 1.04, 0.51);
+        end(g);
+        fill(g, 0x475f6b);
+        ellipse(g, r, 0, 0.51, 0.97, 0.44);
+        end(g);
+        fill(g, 0x6c8792);
+        ellipse(g, r, 0, 0.44, 0.97, 0.43);
+        end(g);
+        fill(g, 0x49616e);
+        for (i in 0...10) {
+            var a = i * Math.PI * 2 / 10 - 0.025, b = a + 0.05;
+            polygon(g, r, [Math.cos(a) * 0.63, 0.44 + Math.sin(a) * 0.29,
+                Math.cos(a) * 0.96, 0.44 + Math.sin(a) * 0.43,
+                Math.cos(b) * 0.96, 0.44 + Math.sin(b) * 0.43,
+                Math.cos(b) * 0.63, 0.44 + Math.sin(b) * 0.29]);
+        }
+        end(g);
+
+        // Flared shoulders, a gently peaked cap and feet set behind the pool.
+        fill(g, 0x293d48);
+        polygon(g, r, [-0.24, -0.75, 0.24, -0.75, 0.35, 0.2, -0.35, 0.2]);
+        polygon(g, r, [0, -1.1, 0.58, -0.9, 0.53, -0.67, 0.3, -0.55,
+            -0.3, -0.55, -0.53, -0.67, -0.58, -0.9]);
+        for (side in [-1, 1]) polygon(g, r, [0.3, -0.06, 0.48, 0.24, 0.2, 0.18], side);
+        end(g);
+        fill(g, 0x8ca5b4);
+        polygon(g, r, [-0.18, -0.73, 0.18, -0.73, 0.28, 0.16, -0.28, 0.16]);
+        polygon(g, r, [0, -1.02, 0.49, -0.85, 0.46, -0.72, 0.23, -0.61,
+            -0.23, -0.61, -0.46, -0.72, -0.49, -0.85]);
+        for (side in [-1, 1]) polygon(g, r, [0.25, 0, 0.37, 0.18, 0.2, 0.15], side);
+        end(g);
+        fill(g, 0xb0c2c5);
+        for (side in [-1, 1]) polygon(g, r, [0, -1.02, 0.49, -0.85, 0.44, -0.8, 0, -0.96], side);
+        polygon(g, r, [-0.18, -0.63, -0.11, -0.6, -0.18, 0.13, -0.26, 0.16]);
+        end(g);
+        fill(g, 0x5d7b93);
+        polygon(g, r, [-0.085, -0.54, 0.085, -0.54, 0.11, 0.12, -0.11, 0.12]);
+        end(g);
+        fill(g, 0x7b9eb7);
+        for (y in [-0.4, -0.2, 0.0]) polygon(g, r, [0, y - 0.08, 0.075, y, 0, y + 0.08, -0.075, y]);
+        end(g);
+        fill(g, 0x3b4f64);
+        ellipse(g, r, 0, -0.73, 0.19, 0.18);
+        end(g);
+        fill(g, 0xe0d29c);
+        ellipse(g, r, 0, -0.73, 0.16, 0.15);
+        end(g);
+        fill(g, 0x766792);
+        ellipse(g, r, 0, -0.73, 0.105, 0.1);
+        end(g);
+
+        // The raised inner ring sits on the platform, in front of the monument.
+        fill(g, 0x344b5c);
+        ellipse(g, r, 0, 0.49, 0.71, 0.36);
+        end(g);
+        fill(g, 0x8a9eaa);
+        ellipse(g, r, 0, 0.43, 0.66, 0.31);
+        end(g);
+        fill(g, 0x536d7e);
+        for (i in 0...10) {
+            var a = i * Math.PI * 2 / 10 - 0.03, b = a + 0.06;
+            polygon(g, r, [Math.cos(a) * 0.52, 0.43 + Math.sin(a) * 0.23,
+                Math.cos(a) * 0.66, 0.43 + Math.sin(a) * 0.31,
+                Math.cos(b) * 0.66, 0.43 + Math.sin(b) * 0.31,
+                Math.cos(b) * 0.52, 0.43 + Math.sin(b) * 0.23]);
+        }
+        ellipse(g, r, 0, 0.43, 0.53, 0.245);
+        end(g);
+        if (unlocked) {
+            fill(g, 0x37dfef);
+            ellipse(g, r, 0, 0.43, 0.5, 0.22);
+            end(g);
+            fill(g, 0x08ade9);
+            ellipse(g, r, 0, 0.44, 0.42, 0.17);
+            end(g);
+            // One flat cyan curl suggests the blue water without a glow effect.
+            G.call("h2d.Graphics", "lineStyle", g, [0.75, 0x49e4f2, 1.0]);
+            for (i in 0...25) {
+                var a = -1.3 + i * Math.PI * 1.6 / 24;
+                var curl = 0.33 - i * 0.22 / 24;
+                G.call("h2d.Graphics", i == 0 ? "moveTo" : "lineTo", g,
+                    [Math.cos(a) * curl * r, (0.44 + Math.sin(a) * curl * 0.4) * r]);
+            }
+            G.call("h2d.Graphics", "lineStyle", g, [0.0, 0, 0.0]);
+        } else {
+            fill(g, 0x727e95);
+            ellipse(g, r, 0, 0.43, 0.5, 0.22);
+            end(g);
+            fill(g, 0x9096a9);
+            polygon(g, r, [-0.36, 0.44, -0.18, 0.32, 0.15, 0.31, 0.32, 0.4, 0.14, 0.48, -0.15, 0.5]);
+            end(g);
+            // Exposed stone at the bottom of the empty, undiscovered basin.
+            fill(g, 0x67788c);
+            polygon(g, r, [-0.39, 0.44, 0.38, 0.48, 0.37, 0.515, -0.39, 0.475]);
+            polygon(g, r, [0.055, 0.25, 0.095, 0.25, 0.035, 0.46, -0.005, 0.46]);
+            end(g);
+        }
+        for (side in [-1, 1]) {
+            fill(g, 0x344c59);
+            polygon(g, r, [0.83, 0.18, 0.91, 0.14, 1, 0.48, 0.79, 0.48], side);
+            end(g);
+            fill(g, 0x809ba5);
+            polygon(g, r, [0.84, 0.22, 0.89, 0.19, 0.93, 0.39, 0.81, 0.43], side);
+            end(g);
+        }
     }
 
     static function recycling(g:Dynamic, r:Float):Void {
@@ -243,6 +355,87 @@ class LandmarkIcons {
         end(g);
         fill(g, 0xffb7ff);
         circle(g, -0.07 * r, -0.76 * r, 0.11 * r);
+        end(g);
+    }
+
+    static function soulWell(g:Dynamic, r:Float):Void {
+        // Flat stone bowl with hooked horns, a magenta vortex and floating shard.
+        var base = [-0.86, -0.07, -1, 0.36, -0.83, 0.76, -0.42, 0.98,
+            0.42, 0.98, 0.83, 0.76, 1, 0.36, 0.86, -0.07];
+        fill(g, 0x171b2d);
+        polygon(g, r + 0.8, base);
+        end(g);
+        fill(g, 0x30374f);
+        polygon(g, r, base);
+        end(g);
+        fill(g, 0x454c65);
+        polygon(g, r, [-0.92, 0.29, -0.74, 0.65, -0.39, 0.83, -0.45, 0.37]);
+        polygon(g, r, [0.92, 0.29, 0.74, 0.65, 0.39, 0.83, 0.45, 0.37]);
+        end(g);
+        fill(g, 0x20263e);
+        polygon(g, r, [-0.4, 0.56, 0.4, 0.56, 0.37, 0.96, -0.37, 0.96]);
+        end(g);
+
+        fill(g, 0x7a7c8d);
+        ellipse(g, r, 0, 0.08, 0.89, 0.62);
+        end(g);
+        fill(g, 0x50566d);
+        ellipse(g, r, 0, 0.12, 0.79, 0.53);
+        end(g);
+        fill(g, 0x200b26);
+        ellipse(g, r, 0, 0.08, 0.68, 0.43);
+        end(g);
+        // Filled ribbons keep the spiral legible without a glow or thin strokes.
+        for (turn in 0...2) {
+            var ribbon:Array<Float> = [];
+            for (edge in 0...2) for (step in 0...29) {
+                var t = (edge == 0 ? step : 28 - step) / 28;
+                var angle = t * Math.PI * 2.5 + turn * Math.PI;
+                var width = 0.11 * (1 - t) + 0.045;
+                var radius = 0.60 * (1 - t) + 0.04 + (edge == 0 ? 0 : -width);
+                ribbon.push(Math.cos(angle) * radius);
+                ribbon.push(0.08 + Math.sin(angle) * radius * 0.61);
+            }
+            fill(g, turn == 0 ? 0xd30b78 : 0x81074f);
+            polygon(g, r, ribbon);
+            end(g);
+        }
+
+        // The two rear horns curl outwards; a third stone point crosses the rim.
+        for (side in [-1, 1]) {
+            fill(g, 0x1b2035);
+            polygon(g, r, [0.48, -0.13, 0.83, -0.12, 1.02, -0.57,
+                0.94, -0.86, 0.7, -1.04, 0.43, -1.03, 0.71, -0.8,
+                0.74, -0.61, 0.62, -0.38, 0.43, -0.26], side);
+            end(g);
+            fill(g, 0x62667c);
+            polygon(g, r, [0.52, -0.17, 0.78, -0.17, 0.91, -0.57,
+                0.85, -0.81, 0.68, -0.94, 0.78, -0.76, 0.8, -0.58,
+                0.67, -0.32], side);
+            end(g);
+            fill(g, 0x97939e);
+            polygon(g, r, [0.52, -0.17, 0.63, -0.2, 0.78, -0.57,
+                0.72, -0.78, 0.73, -0.58, 0.61, -0.38, 0.48, -0.27], side);
+            end(g);
+        }
+        fill(g, 0x232b42);
+        polygon(g, r, [-0.2, -0.3, 0.05, 0.04, 0.26, 0.53, 0, 0.79, -0.2, 0.51]);
+        end(g);
+        fill(g, 0x626b81);
+        polygon(g, r, [-0.17, -0.22, -0.04, 0.47, 0, 0.7, -0.15, 0.5]);
+        end(g);
+        fill(g, 0x404b64);
+        polygon(g, r, [-0.17, -0.22, 0.04, 0.09, 0.21, 0.51, 0, 0.7, -0.04, 0.47]);
+        end(g);
+
+        fill(g, 0x671049);
+        polygon(g, r, [-0.16, -1.08, 0.16, -0.86, 0.17, -0.52, -0.16, -0.72]);
+        end(g);
+        fill(g, 0xf21aab);
+        polygon(g, r, [-0.11, -1.01, 0.11, -0.84, 0.12, -0.59, -0.11, -0.74]);
+        end(g);
+        fill(g, 0xff8bd8);
+        polygon(g, r, [-0.11, -1.01, -0.04, -0.78, 0.12, -0.59, -0.11, -0.74]);
         end(g);
     }
 
@@ -474,11 +667,35 @@ class LandmarkIcons {
 
     static function alertArrowShape(g:Dynamic, r:Float, padding:Float):Void {
         var tail = -0.9 * r - padding, shoulder = 0.4 * r;
-        var shaft = 0.23 * r + padding, head = 0.45 * r + padding;
+        var shaft = 0.23 * r + padding;
+        // Offset each triangle edge perpendicularly by the same padding as
+        // the shaft. Adding padding to X/Y alone thins the two slanted edges.
+        var slope = 0.45 / 0.6;
+        var normalLength = Math.sqrt(1 + slope * slope);
+        var tip = r + padding * normalLength / slope;
+        var head = 0.45 * r + padding * (normalLength + slope);
         // Two convex fills avoid a concave junction and keep the outline intact
         // where the shaft meets the head. Padding stays inside the alert bounds.
         polygon(g, 1, [tail, -shaft, shoulder, -shaft, shoulder, shaft, tail, shaft]);
-        polygon(g, 1, [r + padding, 0, shoulder - padding, head, shoulder - padding, -head]);
+        polygon(g, 1, [tip, 0, shoulder - padding, head, shoulder - padding, -head]);
+    }
+
+    public static function partyPlayer(g:Dynamic, radius:Float):Void {
+        // Trace only the arrow's outside contour, including its rear notch.
+        // Draw the blue fill last so the outline preserves the ordinary arrow.
+        // Start midway along an edge so the stroke joins at every corner,
+        // especially the tip, rather than leaving two end caps there.
+        var contour:Array<Float> = [0.1, 0.35, -0.8, 0.7, -0.45, 0, -0.8, -0.7, 1, 0];
+        G.call("h2d.Graphics", "lineStyle", g, [3.0, 0x201b1b, 1.0]);
+        polygon(g, radius, contour);
+        G.call("h2d.Graphics", "lineStyle", g, [2.0, SPARKLING_COLOR, 1.0]);
+        polygon(g, radius, contour);
+        G.call("h2d.Graphics", "lineStyle", g, [0.0, 0, 0.0]);
+        // The same two solid triangles as the ordinary blue player arrow.
+        fill(g, 0x70d8ff);
+        polygon(g, radius, [1, 0, -0.45, 0, -0.8, -0.7]);
+        polygon(g, radius, [1, 0, -0.8, 0.7, -0.45, 0]);
+        end(g);
     }
 
     public static function sparklingRing(g:Dynamic, radius:Float):Void {
@@ -486,7 +703,7 @@ class LandmarkIcons {
         // Retain thin dark edges for contrast, then reset stroke state for icons.
         G.call("h2d.Graphics", "lineStyle", g, [4.5, 0x201b1b, 1.0]);
         G.call("h2d.Graphics", "drawCircle", g, [0., 0., radius - 2.25, 32]);
-        G.call("h2d.Graphics", "lineStyle", g, [2.5, 0xffdc42, 1.0]);
+        G.call("h2d.Graphics", "lineStyle", g, [2.5, SPARKLING_COLOR, 1.0]);
         G.call("h2d.Graphics", "drawCircle", g, [0., 0., radius - 2.25, 32]);
         G.call("h2d.Graphics", "lineStyle", g, [0., 0, 0.0]);
     }

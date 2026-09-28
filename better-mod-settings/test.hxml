@@ -12,3 +12,8 @@
 -cp tests
 -main ActionButtonTest
 --interp
+--next
+-cp src
+-cp tests
+-main TextSettingTest
+--interp

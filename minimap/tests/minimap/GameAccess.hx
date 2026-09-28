@@ -2,6 +2,7 @@ package minimap;
 
 /** Native activity, Codex, item and drawing boundaries for interpreter regression tests. */
 class GameAccess {
+    public static var nativeCall:(String, String, Dynamic, Array<Dynamic>)->Dynamic;
     public static var statusOwner:String = "Config";
     public static var eventArguments:Int = 1;
     public static var eventStatusCalls:Int = 0;
@@ -49,6 +50,9 @@ class GameAccess {
 
     public static function field(object:Dynamic, name:String):Dynamic
         return object == null ? null : Reflect.field(object, name);
+
+    public static function set(object:Dynamic, name:String, value:Dynamic):Void
+        Reflect.setField(object, name, value);
 
     public static function text(value:Dynamic, fallback:String = ""):String
         return value == null ? fallback : Std.string(value);
@@ -106,19 +110,20 @@ class GameAccess {
             codexThresholdReads++;
             return field(args[0], "thresholds");
         }
-        if (type != "HActivity" || name != "isOfType") throw "Unexpected native static call";
+        if ((type != "HActivity" && type != "HElement") || name != "isOfType") throw "Unexpected native static call";
         var inf = args[0];
-        // Native HActivity.isOfType follows IDs through the inheritance chain.
+        // Native definition checks follow IDs through the inheritance chain.
         while (inf != null) {
             if (field(inf, "id") == args[1]) return true;
             var parent = field(inf, "inherit");
             if (parent == null) return false;
-            inf = definitions[parent];
+            inf = type == "HElement" ? elements[parent] : definitions[parent];
         }
         return false;
     }
 
     public static function call(type:String, name:String, object:Dynamic, ?args:Array<Dynamic>):Dynamic {
+        if (nativeCall != null) return nativeCall(type, name, object, args == null ? [] : args);
         if (type == "st.event.WorldEvents" && name == "getEventStatus") {
             eventStatusCalls++;
             if (args.length != eventArguments) throw "Incorrect native argument count";

@@ -6,6 +6,8 @@ typedef SkillColumn = {key:String, title:String, x:Int, width:Int};
 typedef SkillValues = {damage:Float, percent:Float, casts:Int, avgCast:Float, hits:Int, avgHit:Float, crit:Float, dps:Float};
 
 class SkillBreakdown {
+    public static final KEYS = ["ability", "percent", "distribution", "damage", "casts", "avgCast", "hits", "avgHit", "crit"];
+
     public static function values(skill:SkillStats, total:Float, duration:Float):SkillValues return {
         damage: skill.damage, percent: total > 0 ? skill.damage * 100 / total : 0,
         casts: skill.casts, avgCast: skill.casts > 0 ? skill.damage / skill.casts : 0,
@@ -15,14 +17,19 @@ class SkillBreakdown {
         dps: skill.damage / Math.max(1, duration)
     };
     public static function columns(width:Int):Array<SkillColumn> {
-        // Keep names, total damage, share, and DPS legible in the small live
+        // Keep names, total damage, share, and damage types legible in the small live
         // meter too. Wide history windows show every statistic in its own cell.
-        var keys = width >= 800 ? ["ability", "damage", "casts", "avgCast", "hits", "avgHit", "crit", "dps"]
-            : width >= 580 ? ["ability", "damage", "casts", "hits", "crit", "dps"] : ["ability", "damage", "dps"];
-        var ratios = width >= 800 ? [.24, .28, .06, .09, .055, .085, .09, .10]
-            : width >= 580 ? [.31, .31, .09, .08, .11, .10] : [.43, .40, .17];
-        var titles = ["ability" => "Ability", "damage" => "Damage (%)", "casts" => "Casts", "avgCast" => "Avg cast",
-            "hits" => "Hits", "avgHit" => "Avg hit", "crit" => "Crit %", "dps" => "DPS"];
+        var keys = width >= 800 ? KEYS
+            : width >= 700 ? ["ability", "percent", "distribution", "damage", "casts", "hits", "crit"]
+            : ["ability", "percent", "distribution", "damage"];
+        var ratios = width >= 800 ? [.23, .125, .165, .10, .065, .085, .06, .085, .085]
+            : width >= 700 ? [.275, .155, .20, .125, .085, .075, .085]
+            : width >= 500 ? [.36, .21, .27, .16]
+            : width >= 360 ? [.40, .19, .24, .17] : [.36, .22, .21, .21];
+        var titles = ["ability" => "Ability", "percent" => width < 360 ? "Dmg%" : width < 500 ? "Dmg %" : "Damage (%)",
+            "distribution" => "Phys/Magic/Raw", "damage" => width < 500 ? "Dmg" : "Damage",
+            "casts" => "Casts", "avgCast" => "Avg cast",
+            "hits" => "Hits", "avgHit" => "Avg hit", "crit" => "Crit %"];
         var result:Array<SkillColumn> = [];
         var x = 0; var ratio = 0.0;
         for (i in 0...keys.length) {

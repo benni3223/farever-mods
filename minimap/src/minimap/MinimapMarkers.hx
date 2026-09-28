@@ -13,6 +13,8 @@ private typedef MapPoint = {
     var ?elevation:Int;
     var ?heading:Float;
     var ?sparkling:Bool;
+    var ?partyMember:Bool;
+    var ?respawnUnlocked:Bool;
     var ?eventElement:String;
     var ?entity:Dynamic;
     var ?inf:Dynamic;
@@ -83,6 +85,7 @@ class MinimapMarkers {
     var gatherFilters:Map<String, String> = [];
     var enemies = new EnemyMarkers();
     var eliteNames:Map<String, String> = [];
+    var chests = new ChestMarkers();
     var worldEvents = new WorldEventAccess();
     var npcKinds:Map<String, String> = [];
     var npcDefinitions:Map<String, Dynamic> = [];
@@ -122,12 +125,16 @@ class MinimapMarkers {
     public function restoreGraphics():Void {
         for (pool in [playerIconMarkers, mapIconMarkers, npcIconMarkers]) for (marker in pool) {
             if (marker.key == "" || marker.icon == null) continue;
-            var key = marker.key;
-            var spark = StringTools.endsWith(key, ":spark");
-            var kind = spark ? key.substr(0, key.length - 6) : key;
+            var kind = marker.key;
+            var unlocked = StringTools.endsWith(kind, ":unlocked");
+            if (unlocked) kind = kind.substr(0, kind.length - 9);
+            var party = StringTools.endsWith(kind, ":party");
+            if (party) kind = kind.substr(0, kind.length - 6);
+            var spark = StringTools.endsWith(kind, ":spark");
+            if (spark) kind = kind.substr(0, kind.length - 6);
             graphics = marker.icon;
             G.call("h2d.Graphics", "clear", graphics);
-            drawIcon({kind: kind, sparkling: spark, heading: 0, x: 0, y: 0, z: 0});
+            drawIcon({kind: kind, sparkling: spark, partyMember: party, respawnUnlocked: unlocked, heading: 0, x: 0, y: 0, z: 0});
         }
         for (pool in [playerElevationMarkers, mapElevationMarkers, npcElevationMarkers]) for (marker in pool) {
             if (marker.arrow == null) continue;
@@ -472,8 +479,10 @@ class MinimapMarkers {
             var flags = G.integer(G.field(inf, "flags"));
             var sparkling = (flags & (1 << 22)) != 0;
             var companion = G.text(G.field(inf, "type")) == "Critter";
+            // Boss and miniboss stay on the normal enemy toggle. World elites match id, then English name.
             var namedElite = !companion && isWorldElite(inf);
-            var alwaysElite = config.alwaysShowEliteEnemies == true && namedElite;
+            var flagElite = !companion && (flags & (1 << 3)) != 0 && (flags & ((1 << 4) | (1 << 5))) == 0;
+            var alwaysElite = config.alwaysShowEliteEnemies == true && (namedElite || flagElite);
             var alert = config.sparklingCompanionAlerts && companion && sparkling;
             var point:MapPoint = null;
             // Alerts and elites scan every replicated unit, with no minimap-distance cutoff.
@@ -515,11 +524,15 @@ class MinimapMarkers {
                             config.hideCompletedCodexEnemies, config.hideMasteredCodexEnemies, config.hideTargetDummies);
                     }
                     kind = enemyKinds[id];
-                    if (namedElite) kind = "elite";
+                    if (kind == "" && alwaysElite)
+                        kind = (flags & ((1 << 4) | (1 << 5))) != 0 ? "boss" : "enemy";
                     if (kind == "") continue;
+                    // His elite ring is the sparkling marker. Known world elites get it even without the flag.
+                    sparkling = (kind == "enemy" || kind == "boss") && (EnemyMarkers.highlighted(inf) || namedElite);
                 }
             }
             if (point == null) point = {kind: kind, x: px, y: py, z: G.number(G.field(unit, "posz"), Math.NaN), sparkling: sparkling, entity: unit,
+                partyMember: kind == "player" && G.call("ent.Hero", "isSameGroup", hero, [unit]) == true,
                 heading: kind == "player" ? G.number(G.field(unit, "rotationZ")) : 0};
             // Share the exact sampled position with the alert. Settings can
             // hide normal companion markers while leaving alerts enabled.
@@ -552,7 +565,7 @@ class MinimapMarkers {
                 // the game, including activity chests. Locked chests still show.
                 var state = G.call("ent.Element", "getElementStateInf", element, [player]);
                 var flags = G.integer(G.field(state, "flags"));
-                if ((flags & 0x29) == 0) points.push({kind: "chest", x: px, y: py,
+                if ((flags & 0x29) == 0) points.push({kind: chests.kind(G.field(element, "inf")), x: px, y: py,
                     z: G.number(G.field(element, "posz"), Math.NaN), entity: element});
             } else if (active) {
                 // Gatherable.consume disables the entity until its next respawn.
@@ -573,7 +586,12 @@ class MinimapMarkers {
                 case "soulstone": config.showSoulstoneCircles;
                 default: config.showNpcs;
             };
-            if (show && near(point.x, point.y, x, y, radius)) points.push(point);
+            if (show && near(point.x, point.y, x, y, radius)) {
+                // Definitions are cached, but unlocks belong to the current
+                // character and must refresh after activating a respawn point.
+                if (point.kind == "respawn") point.respawnUnlocked = RespawnMarkers.unlocked(point.inf, progress);
+                points.push(point);
+            }
         }
         for (point in liveNpcs) if (point != null && near(point.x, point.y, x, y, radius)) points.push(point);
         if (config.showSecretOrbs && progress != null) for (id => point in secretOrbs) {
@@ -783,7 +801,7 @@ class MinimapMarkers {
                 case "ent.interactible.Chest": "chest";
                 case "ent.interactible.Npc", "ent.interactible.CraftStation",
                     "ent.interactible.GearUpgradeStation", "ent.interactible.ScrapStation",
-                    "ent.interactible.InfusionStation": "npc";
+                    "ent.interactible.InfusionStation", "ent.interactible.SoulwellStation": "npc";
                 default: "";
             };
             if (kind != "") break;
@@ -820,13 +838,12 @@ class MinimapMarkers {
 
     static function markerRadius(kind:String):Float return switch kind {
         case "party": 10;
-        case "bank", "demon", "chest", "player", "activity", "ascension", "companion": 7;
+        case "bank", "demon", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
-        case "elite": 4;
-        case "obelisk", "dungeon", "soulstone", "secretOrb", "glory": 8;
-        case "targetDummy", "upcomingRift", "infusion", "craft", "recycler": 9;
+        case "obelisk", "dungeon", "soulstone", "secretOrb", "glory", "chest", "vaultChest", "recipeChest": 8;
+        case "targetDummy", "upcomingRift", "infusion", "craft", "recycler", "respawn": 9;
         case "riftPortal": 11;
-        case "inactiveRift", "nextRift", "upgrade": 10;
+        case "inactiveRift", "nextRift", "upgrade", "soulWell": 10;
         default: 3.5;
     };
 
@@ -838,7 +855,7 @@ class MinimapMarkers {
     }
 
     static function elevationOffset(point:MapPoint):Float
-        return markerRadius(point.kind) + (point.sparkling == true ? 3.5 : 1) + 3;
+        return markerRadius(point.kind) + (point.partyMember == true ? 4.5 : point.sparkling == true ? 3.5 : 1) + 3;
 
     function updateElevations(points:Array<MapPoint>, pool:Array<ElevationMarker>, parent:Dynamic, scale:Float):Void {
         trimElevations(pool, points.length);
@@ -872,7 +889,7 @@ class MinimapMarkers {
                 checkHero = false;
                 if (nearCursor(x, y, heroX, heroY, 11 * markerScale / scale)) return heroHover(hero, heroX, heroY);
             }
-            var r = (markerRadius(point.kind) + (point.sparkling == true ? 2.5 : 0) + 2) * markerScale / scale;
+            var r = (markerRadius(point.kind) + (point.partyMember == true ? 4.5 : point.sparkling == true ? 2.5 : 0) + 2) * markerScale / scale;
             var hit = nearCursor(x, y, point.x, point.y, r);
             if (!hit && point.elevation != null && point.elevation != 0) {
                 var offset = elevationOffset(point) * markerScale / scale;
@@ -896,13 +913,15 @@ class MinimapMarkers {
 
     function markerName(point:MapPoint):String {
         if (point.kind == "secretOrb") return "Secret Orb";
+        if (point.kind == "recipeChest") return "Recipe Chest";
+        if (point.kind == "respawn") return RespawnMarkers.name(point.respawnUnlocked == true);
         if (point.name != null) return point.name;
         var name = "";
         try {
             if (point.entity != null) {
                 var type = switch point.kind {
                     case "player", "party": "ent.Hero";
-                    case "enemy", "boss", "elite", "companion", "targetDummy": "ent.Unit";
+                    case "enemy", "boss", "companion", "targetDummy": "ent.Unit";
                     case "plant", "ore": "ent.interactible.Gatherable";
                     default: "ent.Element";
                 };
@@ -920,7 +939,7 @@ class MinimapMarkers {
         } catch (_:Dynamic) {}
         if (name == "") name = switch point.kind {
             case "chest": "Chest";
-            case "respawn": "Respawn point";
+            case "vaultChest": "Vault Chest";
             case "obelisk": "Obelisk";
             case "soulstone": "Soulstone summoning circle";
             case "bank": "Guild Merchant";
@@ -930,6 +949,7 @@ class MinimapMarkers {
             case "craft": "Crafting Station";
             case "glory": "Glory Merchant";
             case "infusion": "Infusion Crucible";
+            case "soulWell": "Soul Well";
             case "activity": "Activity";
             case "ascension": "Ascension";
             case "dungeon": "Dungeon";
@@ -938,7 +958,6 @@ class MinimapMarkers {
             case "player": "Player";
             case "party": "Party member";
             case "companion": "Companion";
-            case "elite": "Elite";
             case "enemy", "boss": "Enemy";
             case "targetDummy": "Target dummy";
             default: "NPC";
@@ -951,11 +970,12 @@ class MinimapMarkers {
     function draw(points:Array<MapPoint>, scale:Float):Void {
         hitPoints = [];
         // All Rift states draw above enemies; services retain top priority.
-        for (kind in ["player", "party", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "companion", "enemy", "boss", "elite", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft", "glory", "infusion"]) {
-            for (point in points) if (point.kind == kind) {
-                point.elevation = elevationDirection(point.z, heroHeight);
-                hitPoints.push(point);
-            }
+        // Sparkling elites use his ring and are painted after plain red markers.
+        for (kind in ["player", "party", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "vaultChest", "recipeChest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft", "glory", "infusion", "soulWell"]) {
+            if (kind == "enemy" || kind == "boss") {
+                take(points, kind, 1);
+                take(points, kind, 2);
+            } else take(points, kind, 0);
         }
         var playerPoints = [for (point in hitPoints) if (isPlayer(point.kind)) point];
         var mapPoints = [for (point in hitPoints) if (!isPlayer(point.kind) && !isNpc(point.kind)) point];
@@ -971,19 +991,32 @@ class MinimapMarkers {
             npcElevationMarkers, npcElevations, scale);
     }
 
+    /** mode 0 keeps every marker of this kind; 1 is plain and 2 is the sparkling ring. */
+    function take(points:Array<MapPoint>, kind:String, mode:Int):Void {
+        for (point in points) {
+            if (point.kind != kind) continue;
+            if (mode == 1 && point.sparkling == true) continue;
+            if (mode == 2 && point.sparkling != true) continue;
+            point.elevation = elevationDirection(point.z, heroHeight);
+            hitPoints.push(point);
+        }
+    }
+
     function updateIcons(points:Array<MapPoint>, pool:Array<IconMarker>, parent:Dynamic, scale:Float):Void {
         trimIcons(pool, points.length);
         while (pool.length < points.length)
             pool.push({icon: G.create("h2d.Graphics", [parent]), key: "", directional: false});
         for (i in 0...points.length) {
             var point = points[i], marker = pool[i];
-            var key = point.kind + (point.sparkling == true ? ":spark" : "");
+            var key = point.kind + (point.sparkling == true ? ":spark" : "") + (point.partyMember == true ? ":party" : "")
+                + (point.respawnUnlocked == true ? ":unlocked" : "");
             // Draw in local pixels once per appearance, then reuse the geometry
             // as the marker moves, zooms or counter-rotates with the map.
             if (marker.key != key) {
                 graphics = marker.icon;
                 G.call("h2d.Graphics", "clear", graphics);
-                drawIcon({kind: point.kind, sparkling: point.sparkling, heading: 0, x: 0, y: 0, z: 0});
+                drawIcon({kind: point.kind, sparkling: point.sparkling, partyMember: point.partyMember,
+                    respawnUnlocked: point.respawnUnlocked, heading: 0, x: 0, y: 0, z: 0});
                 marker.key = key;
             }
             marker.directional = isPlayer(point.kind);
@@ -1026,9 +1059,22 @@ class MinimapMarkers {
 
     function drawIcon(point:MapPoint):Void {
         var kind = point.kind;
+        if (kind == "respawn") {
+            LandmarkIcons.respawnPoint(graphics, markerRadius(kind), point.respawnUnlocked == true);
+            return;
+        }
+        if (kind == "player" && point.partyMember == true) {
+            LandmarkIcons.partyPlayer(graphics, markerRadius(kind));
+            return;
+        }
+        if (kind == "chest" || kind == "vaultChest" || kind == "recipeChest") {
+            ChestIcons.draw(graphics, kind, markerRadius(kind));
+            return;
+        }
         if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy"
             || kind == "riftPortal" || kind == "upcomingRift" || kind == "inactiveRift" || kind == "nextRift"
-            || kind == "glory" || kind == "infusion" || kind == "craft" || kind == "upgrade" || kind == "recycler") {
+            || kind == "glory" || kind == "infusion" || kind == "craft" || kind == "upgrade" || kind == "recycler"
+            || kind == "soulWell") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }
@@ -1037,10 +1083,7 @@ class MinimapMarkers {
             case "ore": 0xb7bcc7;
             case "activity": 0x7f3e91;
             case "ascension": 0xffc45a;
-            case "chest": 0xffa044;
             case "enemy", "boss": 0xff6860;
-            case "elite": 0xb44cff;
-            case "respawn": 0xffffff;
             case "npc": 0xffdf78;
             case "bank": 0xffdc42;
             case "demon": 0xe8a1ff;
@@ -1054,7 +1097,7 @@ class MinimapMarkers {
         shape(point, radius + (sparkling && kind != "companion" ? 3.5 : 1));
         G.call("h2d.Graphics", "endFill", graphics);
         if (sparkling && (kind == "enemy" || kind == "boss")) {
-            G.call("h2d.Graphics", "beginFill", graphics, [0xffdc42, 1.0]);
+            G.call("h2d.Graphics", "beginFill", graphics, [LandmarkIcons.SPARKLING_COLOR, 1.0]);
             shape(point, radius + 2.5);
             G.call("h2d.Graphics", "endFill", graphics);
         }
@@ -1081,7 +1124,7 @@ class MinimapMarkers {
             G.call("h2d.Graphics", "drawCircle", graphics, [-radius * 0.08, -radius * 0.08, radius * 0.13, 24]);
             G.call("h2d.Graphics", "endFill", graphics);
         }
-        if ((isNpc(kind) && kind != "npc") || kind == "chest" || kind == "plant" || kind == "ore") {
+        if ((isNpc(kind) && kind != "npc") || kind == "plant" || kind == "ore") {
             G.call("h2d.Graphics", "beginFill", graphics, [0x201b1b, 1.0]);
             detail(point, radius);
             G.call("h2d.Graphics", "endFill", graphics);
@@ -1125,8 +1168,6 @@ class MinimapMarkers {
                     -0.7, 0.55, -0.7, 0.85, 0.4, 0.85, 0.75, 0.55, 0.75, 0.1,
                     0.4, -0.15, -0.3, -0.15, -0.4, -0.25, -0.4, -0.4, -0.3, -0.5, 0.7, -0.5]);
                 G.call("h2d.Graphics", "drawRect", graphics, [x - 0.13 * r, y - 1.05 * r, 0.26 * r, 2.15 * r]);
-            case "chest":
-                G.call("h2d.Graphics", "drawRect", graphics, [x - r, y - 0.75 * r, 2 * r, 1.5 * r]);
             case "demon":
                 // Keep the face and horns convex so both sides triangulate
                 // independently at world-map coordinates.
@@ -1134,9 +1175,6 @@ class MinimapMarkers {
                     0.45, 0.75, 0, 1, -0.45, 0.75, -0.8, 0.25]);
                 polygon(point, r, [-0.9, -1, -0.2, -0.3, -0.8, 0.05]);
                 polygon(point, r, [0.9, -1, 0.8, 0.05, 0.2, -0.3]);
-            case "respawn":
-                G.call("h2d.Graphics", "drawRect", graphics, [x - r / 3, y - r, r * 2 / 3, r * 2]);
-                G.call("h2d.Graphics", "drawRect", graphics, [x - r, y - r / 3, r * 2, r * 2 / 3]);
             case "npc":
                 G.call("h2d.Graphics", "drawCircle", graphics, [x, y, r, 32]);
             default:
@@ -1155,7 +1193,7 @@ class MinimapMarkers {
 
     static function drawAlertArrow(graphics:Dynamic):Void {
         LandmarkIcons.sparklingRing(graphics, 12);
-        LandmarkIcons.alertArrow(graphics, 7.7, 0xffdc42);
+        LandmarkIcons.alertArrow(graphics, 7.7, LandmarkIcons.SPARKLING_COLOR);
     }
 
     static function arrowShape(graphics:Dynamic, x:Float, y:Float, radius:Float, heading:Float):Void {
@@ -1188,10 +1226,6 @@ class MinimapMarkers {
                 polygon(point, r, [-0.55, -0.5, -0.4, -0.6, -0.1, -0.1, -0.3, 0]);
                 polygon(point, r, [-0.3, -0.15, -0.1, -0.1, -0.65, 0.45, -0.8, 0.35]);
                 polygon(point, r, [-0.1, -0.1, 0.65, -0.1, 0.7, 0.1, -0.1, 0.1]);
-            case "chest":
-                // Keep the lock and lid seam inside the solid rectangular body.
-                G.call("h2d.Graphics", "drawRect", graphics, [point.x - 0.8 * r, point.y - 0.15 * r, 1.6 * r, 0.15 * r]);
-                G.call("h2d.Graphics", "drawRect", graphics, [point.x - 0.16 * r, point.y - 0.1 * r, 0.32 * r, 0.3 * r]);
             case "demon":
                 polygon(point, r, [-0.6, -0.05, -0.15, 0.1, -0.2, 0.3, -0.5, 0.25]);
                 polygon(point, r, [0.6, -0.05, 0.15, 0.1, 0.2, 0.3, 0.5, 0.25]);

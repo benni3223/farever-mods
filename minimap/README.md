@@ -10,6 +10,10 @@ with the new client.
 
 ## Installation
 
+**Required:** HLX Core, [Better Mod Settings](https://www.nexusmods.com/farever/mods/10), and [Mod Update Alerts](https://www.nexusmods.com/farever/mods/17). A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+
+Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
+
 ### Easy Installation
 
 1. Download the mod with Vortex on [NexusMods](https://www.nexusmods.com/farever/mods/15).
@@ -18,8 +22,8 @@ with the new client.
 
 1. Install [HLX Core](https://www.nexusmods.com/site/mods/2118?tab=files) in your Farever game folder.
 2. Download the latest successful [build artifact](https://github.com/xWink/farever-mods/actions/workflows/build-minimap.yml).
-3. Extract the ZIP into the game folder. It contains `hlx/mods/minimap/minimap.hl` and `configFormats.json`.
-4. Install [Better Mod Settings](../better-mod-settings/) for in-game controls, then fully restart Farever.
+3. Extract the ZIP into the game folder. It contains `hlx/mods/minimap/minimap.hl`, `implementation/minimap.hl`, and `configFormats.json`.
+4. Install [Better Mod Settings](../better-mod-settings/) (required) for in-game controls, then fully restart Farever.
 
 ## Highlights
 
@@ -42,7 +46,7 @@ with the new client.
 - Independent enemy filters for Codex XP completion, full mastery, and target dummies.
 - Companion markers with an option to hide variants already in your collection.
 - Yellow-ringed edge arrows guide you toward uncollected sparkling companions when their markers are out of view.
-- Yellow rings highlight sparkling enemies and bosses.
+- Yellow rings highlight elite enemies and sparkling enemies and bosses.
 - Individual plant and ore type filters.
 - Hover over markers or guidance arrows to see their name, horizontal distance, and relative height below the map.
 - Optional vertical-distance filter hides map markers above or below a chosen threshold while keeping guidance arrows available.
@@ -56,11 +60,11 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | --- | --- |
 | Your character | Flat ivory arrow |
 | Other players | Light-blue arrow showing facing direction |
-| Party members | Larger gold arrow showing facing direction |
+| Party members | The same light-blue arrow with a yellow outline following its shape |
 | Off-screen party members | Gold edge arrow pointing toward them |
 | Plants | Green leaf |
 | Ore | Gray stone |
-| Enemies | Red circle; larger for bosses; thick yellow ring for sparkling variants |
+| Enemies | Red circle; larger for bosses; thick yellow ring for elites and sparkling variants |
 | Target dummies | Tan practice dummy on a wooden cross, with a red bullseye |
 | Companions | Green pawprint; thick yellow ring for sparkling variants |
 | Activities | Purple square with a white four-point star |
@@ -70,7 +74,8 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Next Rift | Purple-magenta closed fissure at the next location while the timer is above 15:00 |
 | Active Rift | Round magenta-purple energy ball at the next location when the timer is 15:00 or less |
 | Open Rift Portal | Larger jagged pink tear with a dark interior |
-| Respawn points | White cross |
+| Unlocked respawn points | Stone basin filled with bright cyan-blue water; hover label **Respawn Point** |
+| Undiscovered respawn points | The same basin with an empty stone floor; hover label **Respawn Point (Undiscovered)** |
 | Obelisks | Broad grey stone idol with a split crown and gold inlays |
 | Soulstone summoning circles | Purple rune ring surrounding a pink faceted soulstone |
 | NPCs | Yellow circle |
@@ -81,7 +86,10 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Weapon Upgrade | Grey stone forge with gold studs and a bright multicoloured flame |
 | Crafting Station | Boat-shaped wooden workbench with cyan bottles, a scroll, and a hanging rune sign |
 | Infusion Crucible | Stone basin with turquoise liquid, a copper rim, and a floating pink orb |
-| Chests | Orange rectangular treasure chest |
+| Soul Well (PTR) | Dark stone basin with hooked horns, a magenta spiral, and a floating pink crystal |
+| Abandoned chests | Brown wooden chest with dull metal bands and a brass lock |
+| Vault chests | Red chest with gold bands, a keyhole, and a diamond crest |
+| Recipe chests | Burgundy pouch with cream parchment scrolls; hover label **Recipe Chest** |
 | Undiscovered secret orbs | Gold orb with an ivory centre and broken purple rings |
 
 **Show NPCs** also controls the Guild Merchant, Glory Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. Party markers draw above other players and still behind the map. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
@@ -90,7 +98,15 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 
 **Party direction arrows** is on by default. Each living party member the client has a position for gets one gold guidance arrow on the minimap edge while they are outside the view. The arrow uses the Rift alert shape, points toward that member, and disappears once their marker is on the map, including when **Show other players** is off. Several members produce several arrows. Hover shows that member's name, distance, and height. There is no arrow when the client has no coordinates for them, or when they are removed or dead.
 
+Party member arrows use the same yellow as sparkling markers, outlining the arrow's edges and rear notch. Membership follows the game's native group check and refreshes with the live markers, so joining or leaving a party updates the outline automatically. **Show players** controls both ordinary and party player markers; facing direction, scaling, hover details, and height filtering work the same for both.
+
+Respawn point markers use a broad oval stone platform and a tall shouldered monument with a gold-rimmed purple inset, matching the world model. Their water and hover label follow the current character's unlock progress and update after activation. **Show respawn points** controls both states; marker scaling, hover distances, and vertical filtering apply to both. Obelisks keep their separate icon.
+
+All three chest markers use flat, front-facing geometry without glow. Vault and recipe chests follow the game's native definition ancestry, independent of translated names; other chests use the wooden chest icon. **Show chests** controls all three, with the same opened/hidden checks, distance details, marker scaling, and vertical filtering. Recipe chest hover names always read **Recipe Chest**. Elite enemies use the same thick yellow ring as sparkling enemies. **Always show elite enemies** keeps those elites on the map when **Show enemies** is off, including beyond the nearby radius. A unit counts when it has the native Elite flag without also being a boss or miniboss, or when its unit id (then its English name) is a known world elite. Sparkling companion alerts still require the Spark flag.
+
 Glory Merchants are identified by the PTR's dedicated merchant unit (`TODO_MOG_Merchant`), with service-title and Glory-price checks as fallbacks; Infusion Crucibles use the new client's native station type. Both appear automatically wherever those services exist, with the same hover distances, height indicators, and vertical filtering as other NPC markers. A live NPC's resolved definition can replace a generic map definition. Their definitions and icon geometry are cached, and the same build continues to support the current client.
+
+PTR Soul Wells use the game's `Soulwell` definition ancestry to distinguish them from Spark Recyclers, which share their station type. Their flat marker matches the horned stone basin and magenta vortex; **Show NPCs** controls them alongside other stations. Rumi (`DemonHunterRumi`) uses the same purple horned Demon Huntress marker as Mira and Zoey, independent of translated names. These markers keep the same hover, height, and scaling behavior and do not require PTR-only APIs on the live client.
 
 Hover details are always enabled. The marker name stays on the first line, with a smaller, dimmer second line such as **↔ 42 m · ↑ 18 m**. The double horizontal arrow marks horizontal distance; the up/down arrow shows height above or below your character. Measurements round to whole metres and refresh five times per second. A height that rounds to zero reads **↕ 0 m**; unknown elevation is omitted. All arrows are drawn geometry, so no font glyph support or language fallback is needed. Arrows and numbers fit the available width together, independently of the name. Rift, party, and sparkling companion guidance arrows show measurements to their destination, not to the edge of the minimap.
 
@@ -120,7 +136,11 @@ The **Activities** section includes **Show activities**, **Hide completed activi
 
 **Hide target dummies** is off by default in **Enemies**. Dummies have their own marker and use the game's native Dummy group, independent of their names or Codex progress. **Show enemies** controls them too. The former **Hide enemies without Codex entries** option has been removed; its old saved value no longer hides anything. Other enemies without Codex entries stay visible.
 
-Settings use HLX's native persistence at `hlx/config/minimap/config.json`. Better Mod Settings is optional; the mod works with its defaults without it.
+Settings use HLX's native persistence at `hlx/config/minimap/config.json`. Better Mod Settings and Mod Update Alerts are mandatory dependencies.
+
+## Map loading
+
+Map textures use the game's asynchronous image-loading path when their format and backend support it, with the native synchronous fallback otherwise. The minimap keeps at most two requests outstanding, prioritizes visible tiles, and prepares up to four adjacent tiles within its existing cache allowance. It finalizes at most one tile and attaches at most one bitmap per update. Tiles are displayed only after the full texture is ready, avoiding stretched loading placeholders. Shared native textures are never disposed by the minimap, and outstanding native loads cannot attach to a disposed map. This behavior is automatic; it does not require More Settings or its performance option. Unsupported image formats and individual GPU uploads may still do synchronous work.
 
 ## Building
 

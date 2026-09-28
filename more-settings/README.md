@@ -2,7 +2,7 @@
 
 [Builds](https://github.com/xWink/farever-mods/actions/workflows/build-more-settings.yml) · [Releases](https://github.com/xWink/farever-mods/releases?q=more-settings%2Fv&expanded=true)
 
-Client settings for **Farever**: chat filtering, boss health numbers, temporary audio levels, and separate ally presentation controls for rifts, dungeons, and the overworld. Previously called **More Audio Settings**.
+Client settings for **Farever**: combat controls, chat filtering, boss health numbers, optional queue optimizations, temporary audio levels, and separate ally presentation controls for rifts, dungeons, and the overworld. Previously called **More Audio Settings**.
 
 ## Settings
 
@@ -10,16 +10,53 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 | Category | Controls | Defaults |
 | --- | --- | --- |
-| General | Disable profanity filter; Show boss health; Hide UI hotkey | Profanity option on (imports previous preference); boss health off; Hide UI defaults to F2 |
+| General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
+| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Pink crits | Toggles off; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
+| Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Dungeon Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Overworld Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 
+**Combat** appears directly below **General**. **Enable quick cast** lets you hold a ground-targeted skill's bound key or gamepad button to aim, then release it to cast. It uses the native ground indicator, confirmation, and cancellation paths and works without a target lock. A quick tap is retained through the native first-frame aiming delay. Disabling the option while aiming restores the game's usual confirmation behavior.
+
+**Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
+
+**Fancy damage numbers** adds a 1 px black outline to all damage numbers. Physical damage uses an orange gradient and magic damage uses a blue gradient. All gradients run from light at the top to dark at the bottom. Physical and magic critical hits use `#FF7F66` at the light/top end and `#FF0000` at the dark/bottom end. Raw damage keeps a pure white fill, including critical Raw hits, with the same black border and no shadow or gradient.
+
+The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it includes outlines for all damage and gradients for non-Raw damage; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
+
+**Pink crits**, directly below **Fancy damage numbers**, switches physical and magic critical hits to `#EF8DEB` at the light/top end and `#A80C2C` at the dark/bottom end. It is off by default, requires Fancy damage numbers, and affects newly displayed numbers immediately. Normal hits and Raw damage retain their existing colours. The former custom colour, gradient, and border controls remain removed; their old saved values no longer affect the appearance.
+
+Gradients span the damage text itself, excluding the surrounding border padding. Their endpoints stay aligned with the glyph bounds as font size or rendering resolution changes.
+
+**Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
+
+The quick-cast and camera options are also available in **Fix Target Lock**. On first launch, existing More Settings choices take priority; missing choices are imported from Fix Target Lock's native or mod-local config. A disabled Fix Target Lock does not automatically enable either option. Keep its config file until migration has run. If both mods are installed, enable each of these features in only one mod.
+
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 
 **Show boss health** adds the boss's current HP before its percentage in the top-of-screen boss bar: `123,456 (100%)`. It uses the actual Health attribute, rounded down to a whole number like the game's numeric health display, and updates throughout the fight. The native percentage and shield information are preserved. Toggle it at any time under **General**; disabling it restores the native label. If the new/PTR client's resource-display option already shows numeric HP, that label stays unchanged.
+
+**Performance improvements** is an optional checkbox under **General**, off by default. It can be changed while playing. It addresses specific findings from the static performance review:
+
+- Large main-thread worker queues use an index while executing jobs and compact the remaining array once per servicing pass, avoiding a full array shift for every job. Small queues keep the native path. Job order, newly submitted jobs, loading/gameplay budgets, and threaded-work tracking are preserved. Jobs still run to completion on their original thread; one expensive job can still cause a hitch.
+- The incoming-effects feed removes its oldest damage/healing rows when needed to make room within a 32-row target. Pending display times are brought forward so a sustained burst cannot keep extending the same delayed numeric tail. Combat transitions, game-beat messages, and other text notifications are retained, even when that requires exceeding the target. This affects the HUD's recent numeric feed only; damage, healing, floating combat numbers, and DPS Meter logs continue normally.
+- Terrain normal/height textures reuse their last native composition while the camera neighborhood, chunks, buffer bindings, source textures, and destination resources remain unchanged. This avoids repeated clears/copies and temporary rendering-object creation on reusable passes. Native chunk lookups and renderer bindings still run; pixel refreshes, arriving/departing chunks, resource recreation, context loss, and camera neighborhood changes force the original rebuild. Source textures retain the native recent-use lifetime. Cache references are bounded and released on terrain disposal or when the option is disabled.
+
+Disabling the option restores native handling for subsequent work, feed entries, and terrain compositions; already removed HUD rows are not recreated. These routines were checked in both the live and PTR clients. Automated tests validate reuse and invalidation behavior, not in-game frame-time gains. Terrain job subdivision, entity initialization recovery, widget pooling, map construction, and other GPU pass costs still need profiling or engine changes. The option does not reduce graphics quality or skip world/network updates.
+
+This feature does not implement shader compilation, pipeline prewarming, or a disk cache and does not patch graphics-driver functions. [Shader Persistent Cache](https://github.com/laymain/farever-mods/tree/main/shader-persistent-cache) remains responsible for DX12 pipeline persistence; terrain texture reuse works at a separate game-rendering stage. Both mods can be installed, though in-game testing together is still needed for this terrain change.
+
+**Wait for party before entering** appears after Performance improvements under
+**General** and is enabled by default, including for existing installations.
+When you own a dungeon or rift entry lobby, Start stays disabled and reads
+**Waiting for party members** until every party member has joined that same
+entry menu and is ready. Solo entry, teammates' Ready buttons, countdown
+cancellation, and the game's difficulty/access checks retain their normal behavior.
+Toggling the option takes effect while the menu is open. This protects starts
+made by the player running the mod; it does not control another player's client.
 
 The same build supports the live and new/PTR clients (use HLX Core 0.0.8 or newer
 on PTR). Hit/heal effect attribution accepts both client skill-field layouts.
@@ -40,6 +77,10 @@ The fast-travel slider adjusts **only your obelisk travel music event** (`Hero_F
 Rifts take precedence over dungeons; dungeon instances (including boss instances) use Dungeon Effects; World maps use Overworld Effects. Unknown locations are left visible. Visibility options are client presentation changes: skills, damage, healing, targeting, animation callbacks, and network state continue normally.
 
 ## Installation and upgrade
+
+**Required:** HLX Core, [Better Mod Settings](https://www.nexusmods.com/farever/mods/10), and [Mod Update Alerts](https://www.nexusmods.com/farever/mods/17). A missing dependency shows a desktop error naming what to install and closes Farever before this mod starts.
+
+Install the **complete archive**, including the `implementation/` subfolder. Missing or mismatched implementation files also stop startup with a reinstall message.
 
 1. Install [HLX Core](https://github.com/hlx-framework/hlx-core) and [Better Mod Settings](../better-mod-settings/).
 2. Close Farever. Remove the old **binary and settings descriptor** from `hlx/mods/more-audio-settings/` (or `hlx/mods/mute-unfocused/`). Keep old configuration files for migration.
@@ -72,6 +113,6 @@ build/event-volume-test
 
 The plugin output is `build/native/more_settings_audio.hdll`; install it in `hlx/plugins/more-settings/`. It resolves the public FMOD event-volume API from the game's loaded `fmodstudio.dll`; no game or FMOD binaries are bundled. If the plugin is missing or unavailable, an audio error is logged and the mod never falls back to changing a global volume for travel.
 
-Regression tests exercise the production UI binding adapter, boss health formatting and update callbacks, volume controller, region/ability policy, classifier, and presentation tracker with a simulated native adapter. CI requires those tests plus native bridge tests before compiling and packaging both binaries. Native API and bytecode inspection supplements these tests; actual rendering/audio still require in-game multiplayer testing after game updates.
+Regression tests exercise the production UI binding adapter, boss health formatting and update callbacks, volume controller, region/ability policy, classifier, presentation tracker, worker queue ordering/budgets/error recovery, effects-feed overload behavior, and terrain composition reuse/invalidation/resource lifetime with a simulated native adapter. CI requires those tests plus native bridge tests before compiling and packaging both binaries. Native API and bytecode inspection supplements these tests; actual rendering/audio and performance still require in-game multiplayer testing after game updates.
 
 The mod avoids repeating FMOD writes on unchanged frames. Model membership and adoption of existing effects refresh at most five times per second. Native member lookup and skill classification are cached; disabled filters avoid entity scans. Rendering hooks never skip skill execution or character animation updates.

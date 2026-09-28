@@ -32,3 +32,28 @@
 -cp tests
 -main CharacterResetTest
 --interp
+--next
+-cp src
+-cp tests
+-main PresetSlotsTest
+--interp
+--next
+-cp src
+-cp tests
+-main PresetDropdownStateTest
+--interp
+--next
+-cp src
+-cp tests
+-main InspectMenuContextTest
+--interp
+--next
+-cp src
+-cp tests
+-main InspectSupportTest
+--interp
+--next
+-cp src
+-cp tests
+-main InspectTooltipPlacementTest
+--interp

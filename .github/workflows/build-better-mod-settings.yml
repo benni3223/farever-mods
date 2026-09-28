@@ -1,6 +1,12 @@
 name: Better Mod Settings
 
 on:
+  workflow_call:
+    inputs:
+      source-ref:
+        description: Exact source commit for the release pipeline
+        type: string
+        default: ""
   workflow_dispatch:
   push:
     branches: [main]
@@ -20,25 +26,45 @@ permissions:
   contents: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref_type != 'tag' }}
+  group: build-better-mod-settings-${{ github.workflow }}-${{ github.ref }}-${{ inputs.source-ref }}
+  cancel-in-progress: ${{ github.ref_type != 'tag' && inputs.source-ref == '' }}
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.source-ref || github.sha }}
       - uses: krdlab/setup-haxe@v1
         with:
           haxe-version: 4.3.7
       - name: Test hotkey capture and release protection
         working-directory: better-mod-settings
         run: haxe test.hxml
+      - uses: actions/checkout@v4
+        with:
+          repository: HaxeFoundation/hashlink
+          ref: 04a207d73816132b9f742867e8643f58b02a5afa
+          path: .text-hashlink
+          persist-credentials: false
+      - name: Build the HashLink text test runtime
+        run: make -C .text-hashlink -j2 hl
+      - name: Test native text conversion and JSON round trips on HashLink
+        working-directory: better-mod-settings
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.text-hashlink
+        run: |
+          mkdir -p build
+          haxe -cp src -cp tests -main TextSettingTest -hl build/text-setting-test.hl
+          ../.text-hashlink/hl build/text-setting-test.hl
 
   build:
     needs: test
     uses: ./.github/workflows/_build-mod.yml
     with:
+      source-ref: ${{ inputs.source-ref }}
       project: better-mod-settings
       module: better-mod-settings
       title: Better Mod Settings

@@ -1,50 +1,63 @@
 package modupdatealerts;
 
 import hlx.runtime.HlxPrefixResult;
-import modupdatealerts.UpdateWorker.CheckResult;
 
 @:build(hlx.runtime.Mod.build())
 class ModUpdateAlertsMod {
     static var worker:UpdateWorker;
-    static var result:CheckResult;
     static var popup:UpdatePopup;
-    static var finished=false;
-    static var selected=false;
-    static var originalDismissed:Map<String,String>;
+    static var session=new AlertSession();
     static var retry=new PopupRetry();
 
     static function main():Void {}
 
+    @:hlx.postfix(App.init)
+    static function appInitialized(app:Dynamic,ignored:Void):Void {
+        try startWorker() catch(error:Dynamic)
+            trace("[Mod Update Alerts] Could not start update check: "+Std.string(error));
+    }
+
+    static function startWorker():Void {
+        // Starting threads during HLX module loading can deadlock the loader.
+        // App.init has finished by this point; no particular screen is required.
+        if(worker==null) {
+            var created=new UpdateWorker(Sys.getCwd());
+            sys.thread.Thread.create(created.run);
+            worker=created;
+        }
+    }
+
     @:hlx.postfix(ui.BaseUI.update)
     static function update(ui:Dynamic,dt:Float,ignored:Void):Void {
         try {
+            if(ui==null) return;
+            // Also covers a loader attached after the application initialized.
+            startWorker();
             if(GameAccess.current("ui.BaseUI","current")!=ui) return;
-            // Starting threads during HLX module loading can deadlock the loader.
-            if(worker==null) {
-                worker=new UpdateWorker(Sys.getCwd());
-                sys.thread.Thread.create(worker.run);
+            var changed=false;
+            while(true) {
+                var result=worker.results.pop(false);
+                if(result==null) break;
+                session.accept(result);
+                changed=true;
+                if(result.complete) for(note in result.notes) trace("[Mod Update Alerts] "+note);
             }
-            if(result==null) {
-                result=worker.results.pop(false);
-                if(result!=null) {
-                    originalDismissed=result.dismissed.copy();
-                    for(note in result.notes) trace("[Mod Update Alerts] "+note);
-                    if(!UpdateModel.needsReminder(result.updates,result.dismissed)) finished=true;
+            if(popup!=null) {
+                if(popup.update(ui)) {
+                    if(changed) popup.replaceUpdates(session.updates,session.selected);
+                    return;
                 }
+                popup=null;
             }
-            if(finished || result==null) return;
-            if(popup!=null && popup.update(ui)) return;
+            if(!session.shouldShow()) return;
             if(!retry.ready(ui,haxe.Timer.stamp()) || !UpdatePopup.ready(ui)) return;
             popup=new UpdatePopup();
-            popup.open(ui,result.updates,function(suppress:Bool):Void {
-                finished=true;
+            popup.open(ui,session.updates,function(suppress:Bool):Void {
+                session.close();
                 popup=null;
             }, function(value:Bool):Void {
-                selected=value;
-                result.dismissed=originalDismissed.copy();
-                if(value) UpdateModel.dismiss(result.updates,result.dismissed);
-                worker.saves.add(result.dismissed.copy());
-            }, selected);
+                worker.saves.add(session.select(value));
+            }, session.selected);
             retry.succeeded();
         } catch (error:Dynamic) {
             UpdatePopup.constructing=false;
@@ -52,10 +65,21 @@ class ModUpdateAlertsMod {
             if(popup!=null) try popup.dispose() catch (_:Dynamic) {}
             popup=null;
             var detail=Std.string(error), message=stage+": "+detail;
-            var initializing=detail=="Native title window content was not initialized";
-            if(retry.failed(haxe.Timer.stamp(),message,initializing))
+            if(retry.failed(haxe.Timer.stamp(),message))
                 trace("[Mod Update Alerts] Could not show updates ("+message+"). Will retry when the UI is ready.");
         }
+    }
+
+    @:hlx.prefix(ui.BaseUI.dispose)
+    static function leavingUi(ui:Dynamic):HlxPrefixResult<Void> {
+        // Unregister from the old UI before it is torn down. An undismissed
+        // alert can then open on the next active UI, including gameplay.
+        if(popup!=null && popup.owner==ui) {
+            var old=popup;popup=null;
+            try old.dispose() catch(error:Dynamic)
+                trace("[Mod Update Alerts] Could not remove popup during UI transition: "+Std.string(error));
+        }
+        return Continue;
     }
 
     @:hlx.prefix(ui.win.BaseWindow.autoDisplay)

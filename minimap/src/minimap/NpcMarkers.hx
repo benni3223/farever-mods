@@ -15,12 +15,17 @@ class NpcMarkers {
     };
 
     public static function isNpc(kind:String):Bool return switch kind {
-        case "npc", "bank", "demon", "craft", "upgrade", "recycler", "glory", "infusion": true;
+        case "npc", "bank", "demon", "craft", "upgrade", "recycler", "glory", "infusion", "soulWell": true;
         default: false;
     };
 
     public static function kind(inf:Dynamic):String {
         var station = stationKind(G.integer(G.field(inf, "type")));
+        // PTR Element.create uses ScrapStation (31) for both services, then
+        // checks Soulwell ancestry before constructing SoulwellStation.
+        // isOfType also exists on live; no PTR-only class needs resolving.
+        if (station == "recycler" && G.staticCall("HElement", "isOfType", [inf, "Soulwell"]) == true)
+            return "soulWell";
         if (station != "") return station;
         var props = G.field(inf, "props");
         var npc = G.field(props, "npc");

@@ -6,16 +6,20 @@ import modupdatealerts.ReminderStore;
 import modupdatealerts.PopupRetry;
 import modupdatealerts.LevelDbSnapshot;
 import modupdatealerts.VortexState;
+import modupdatealerts.UpdateWorker;
+import modupdatealerts.ChangelogText;
+import modupdatealerts.LiteralText;
 import sys.io.File;
 import sys.FileSystem;
 
 class UpdaterTest {
     static var checks=0;
-    static function eq(a:Dynamic,b:Dynamic):Void {checks++;if(a!=b)throw 'Expected $b, got $a';}
+    static function eq(a:Dynamic,b:Dynamic):Void {checks++;if(a!=b)throw 'Expected $b, got $a'+haxe.CallStack.toString(haxe.CallStack.callStack());}
     static function u(id:Int,a:String,b:String):AvailableUpdate
         return {name:"Mod "+id,domain:"farever",modId:id,current:a,latest:b};
     static function main():Void {
         checks+=PopupLifecycleTest.run();
+        checks+=ProgressiveAlertTest.run();
         for(p in [["1.10.0","1.9.0"],["2","1.99.99"],["1.0.0","1.0.0-rc.1"],["1.0.0-rc.10","1.0.0-rc.2"]]) {
             eq(UpdateModel.compare(p[0],p[1]),1);eq(UpdateModel.compare(p[1],p[0]),-1);
         }
@@ -49,23 +53,25 @@ class UpdaterTest {
         var retry=new PopupRetry(), menu:Dynamic={}, game:Dynamic={};
         eq(retry.ready(menu,0),true);
         eq(retry.failed(0,"building header: not ready"),true);
-        eq(retry.ready(menu,4),false); eq(retry.ready(menu,5),true);
-        eq(retry.failed(5,"building header: not ready"),false); // No duplicate log spam.
-        eq(retry.ready(menu,14),false); eq(retry.ready(menu,15),true);
-        eq(retry.failed(15,"building header: not ready"),false);
-        eq(retry.ready(menu,34),false); eq(retry.ready(menu,35),true); // The old three-attempt cutoff.
-        retry.failed(35,"building header: not ready");
-        eq(retry.ready(game,36),true); // Menu -> game resets the backoff immediately.
-        eq(retry.failed(36,"building header: not ready"),true);
-        eq(retry.ready(game,40),false); eq(retry.ready(game,41),true);
-        eq(retry.failed(41,"building checkbox: failure"),true); // A different error is reported.
-        retry.succeeded(); eq(retry.ready(game,41),true);
+        eq(retry.ready(menu,0.24),false); eq(retry.ready(menu,0.25),true);
+        eq(retry.failed(0.25,"building header: not ready"),false); // No duplicate log spam.
+        eq(retry.ready(menu,0.74),false); eq(retry.ready(menu,0.75),true);
+        eq(retry.failed(0.75,"building header: not ready"),false);
+        eq(retry.ready(menu,1.74),false); eq(retry.ready(menu,1.75),true);
+        retry.failed(1.75,"building header: not ready");
+        eq(retry.ready(menu,3.74),false); eq(retry.ready(menu,3.75),true);
+        eq(retry.ready(game,2),true); // Menu -> game resets the backoff immediately.
+        eq(retry.failed(2,"building header: not ready"),true);
+        eq(retry.ready(game,2.24),false); eq(retry.ready(game,2.25),true);
+        eq(retry.failed(2.25,"building checkbox: failure"),true); // A different error is reported.
+        retry.succeeded(); eq(retry.ready(game,2.25),true);
         for(i in 0...10) {
             retry.failed(i*100,"temporarily unavailable");
-            eq(retry.ready(game,i*100+60),true); // Delays are bounded, attempts are not.
+            eq(retry.ready(game,i*100+2),true); // Delays are bounded, attempts are not.
         }
         eq(NexusClient.hasDownload({name:"Minimap",version:"1.6.0",files:files}),true);
         eq(NexusClient.hasDownload({name:"Minimap",version:"1.5.1",files:files}),false);
+        downloadTests();
         var root="tests/tmp-"+Std.random(10000000);
         try {
             var base=root+"/game/hlx/mods/example";
@@ -99,6 +105,7 @@ class UpdaterTest {
             eq(UpdateModel.compare("1.6.0",scan.deployed[0].metadata.version),0);
             eq(UpdateModel.compare("1.7.0",scan.deployed[0].metadata.version),1);
             eq(scan.deployed[0].metadata.modId,15);
+            discoveryRetryTests(root);
             // Same size and timestamps do not prove that staging was deployed.
             File.saveContent(staging+"/"+source+"/hlx/mods/example/example.hl","changed");
             scan=new InstalledMods();scan.scan(root+"/game",root+"/vortex");eq(scan.deployed.length,0);
@@ -130,6 +137,86 @@ class UpdaterTest {
             scan=new InstalledMods();scan.scan(root+"/game",root+"/empty");eq(scan.manual.length,0);
         }catch(e:Dynamic){remove(root);throw e;}
         remove(root);Sys.println('Mod Update Alerts: $checks checks passed.');
+    }
+    static function downloadTests():Void {
+        // A newer file is not advertised until the author updates the page.
+        var release={name:"Item Utilities",version:"1.8.2",files:(cast [
+            {version:"1.8.2",categoryId:7},
+            {version:"1.8.3",categoryId:1,changelogText:["Not advertised yet"]}
+        ]:Array<Dynamic>)};
+        eq(NexusClient.hasDownload(release),false);
+        eq(NexusClient.changelog(release),"");
+        release.files.push({version:"1.8.2",categoryId:1,changelogText:["Stable changes"]});
+        eq(NexusClient.hasDownload(release),true);
+        eq(UpdateModel.compare(release.version,"1.8.2"),0);
+        eq(NexusClient.changelog(release),"Stable changes");
+        release.files.push({version:"2.0.0-beta.1",categoryId:1,changelogText:["Beta only"]});
+        release.files.push({version:"2.0.0",categoryId:2,changelogText:["Future release"]});
+        release.files.push({version:"1.8.2",categoryId:3,changelogText:["Optional file"]});
+        eq(NexusClient.changelog(release),"Stable changes");
+        release.version="1.8.3";
+        eq(NexusClient.hasDownload(release),true);
+        eq(NexusClient.changelog(release),"Not advertised yet");
+        var dismissed:Map<String,String>=["farever/9"=>"1.8.2"];
+        var updates=[u(9,"1.8.2",release.version)];
+        eq(UpdateModel.needsReminder(updates,dismissed),true);
+        UpdateModel.dismiss(updates,dismissed);
+        eq(UpdateModel.needsReminder([u(9,"1.7.0",release.version)],dismissed),false);
+        release.version="9.0.0"; // A page-only version is not a download.
+        eq(NexusClient.hasDownload(release),false);
+        release.files=[{version:"9.0.0",categoryId:7},{version:"unknown",categoryId:1}];
+        eq(NexusClient.hasDownload(release),false);
+        release.files=[];
+        eq(NexusClient.hasDownload(release),false);
+        release.files=[{version:"9",categoryId:2,changelogText:(["A","A","",null,42,"B"]:Array<Dynamic>)},
+            {version:"9.0.0",categoryId:1,changelogText:["A"]}];
+        eq(NexusClient.hasDownload(release),true);
+        eq(NexusClient.changelog(release),"A\n\nB");
+        release.files=[{version:"9.0.0",categoryId:1}];
+        eq(NexusClient.hasDownload(release),true); // Missing notes never block an alert.
+        eq(NexusClient.changelog(release),"");
+        release.files=[{version:"9.0.0",categoryId:1,changelogText:[for(i in 0...120) 'Change $i']}];
+        eq(NexusClient.changelog(release).indexOf("More notes are available")>=0,true);
+        eq(NexusClient.changelog(release).indexOf("Change 100")<0,true);
+        eq(ChangelogText.plain("<p><b>Fixed</b><br>More &amp; better</p>"),"Fixed\nMore & better");
+        eq(ChangelogText.plain("[list][*][b]Fix[/b][/list]"),"- Fix");
+        eq(ChangelogText.plain("&#92; &#x41; &quot;test&quot;"),'\\ A "test"');
+        eq(ChangelogText.plain("a\x00b\r\nc"),"ab\nc");
+        eq(LiteralText.escape(ChangelogText.plain("&#91;skill&#93; $test() &lt;img&gt;")),
+            "&#91;skill] &#36;test() &lt;img&gt;");
+    }
+    static function discoveryRetryTests(root:String):Void {
+        var path=root+"/vortex/state.v2", current=File.getContent(path+"/CURRENT");
+        var baseline=new InstalledMods();baseline.scan(root+"/game",root+"/vortex");
+        File.saveContent(path+"/CURRENT","temporarily unavailable");
+        var worker=new UpdateWorker(root+"/game"), delays:Array<Float>=[];
+        // Replace real sleeps: two failed scans followed by recovery in the
+        // same launch. Both records and deployed binaries are scanned afresh.
+        worker.wait=function(seconds) {
+            delays.push(seconds);
+            if(delays.length==2) File.saveContent(path+"/CURRENT",current);
+            return true;
+        };
+        var inventory=worker.discover(root+"/vortex");
+        eq(delays.join(","),"5,15");
+        eq(inventory.retryable,false);
+        eq(inventory.deployed[0].metadata.version,"1.6.0");
+        eq(inventory.diagnostics.join("\n"),baseline.diagnostics.join("\n")); // Recovered errors stay quiet.
+        delays=[];
+        inventory=worker.discover(root+"/vortex");
+        eq(delays.length,0); // Healthy startup never waits.
+        File.saveContent(path+"/CURRENT","unsupported manifest");
+        worker.wait=function(seconds) {delays.push(seconds);return true;};
+        inventory=worker.discover(root+"/vortex");
+        eq(delays.join(","),"5,15");
+        eq(inventory.retryable,true);
+        eq(inventory.deployed[0].metadata,null);
+        eq(inventory.diagnostics.length,baseline.diagnostics.length+1);
+        eq(inventory.diagnostics[0].indexOf("Unsupported database manifest")>=0,true);
+        worker.wait=function(seconds) {worker.stop();return false;};
+        fails(function() worker.discover(root+"/vortex"));
+        File.saveContent(path+"/CURRENT",current);
+        fails(function() worker.discover(root+"/vortex")); // Already cancelled.
     }
     static function installFixture(path:String):Void {
         FileSystem.createDirectory(path);

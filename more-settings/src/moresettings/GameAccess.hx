@@ -55,14 +55,28 @@ class GameAccess {
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
         return HlxRuntime.callResolved(member(type, name, true), args);
     }
+    /** Prebind hot calls; args include the receiver and may be reused by the caller. */
+    public static function bind(type:String, name:String):Array<Dynamic>->Dynamic {
+        var resolved = member(type, name);
+        return args -> HlxRuntime.callResolved(resolved, args);
+    }
     public static function current(type:String, name:String):Dynamic {
         var t = HlxRuntime.resolveType(type);
         return t == null ? null : HlxRuntime.resolveStaticField(t, name);
+    }
+    public static function setCurrent(type:String, name:String, value:Dynamic):Void {
+        var t = HlxRuntime.resolveType(type);
+        if (t == null) throw "Game type unavailable: " + type;
+        HlxRuntime.setStaticField(t, name, value);
     }
     public static function create(type:String, args:Array<Dynamic>):Dynamic {
         var t = HlxRuntime.resolveType(type);
         if (t == null) throw "Game type unavailable: " + type;
         return HlxRuntime.constructInstanceByName(t, args.length, args);
+    }
+    public static function enumeration(type:String, name:String):Dynamic {
+        // Native code compares parameterless enum values by identity.
+        return current(type, name);
     }
     public static function array(value:Dynamic, proxy:Bool = false):Array<Dynamic> {
         if (proxy) value = field(value, "array");

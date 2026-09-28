@@ -1,4 +1,5 @@
 import minimap.NpcMarkers;
+import minimap.GameAccess as G;
 
 class NpcMarkersTest {
     static var checks = 0;
@@ -21,11 +22,22 @@ class NpcMarkersTest {
             "npc", "Borrowing an ancestor does not turn an unrelated NPC into a Glory merchant");
         for (unit in ["DemonHunterMira", "DemonHunterZoey", "DemonHunterRumi"])
             expect(NpcMarkers.kind({type: 22, props: {npc: {unit: unit}}}), "demon", "Demon huntress " + unit);
+        expect(NpcMarkers.kind({id: "World_Rumi", type: 22, props: {npc: {unit: "DemonHunterRumi", npcTitle: "localized title"}},
+            texts: {name: "localized name"}}), "demon", "PTR Rumi uses her native unit identity");
         expect(NpcMarkers.kind({type: 22, inherit: "DemonHunterMira", props: {npc: {unit: "Other"}}}),
             "npc", "Unrelated NPC borrowing a template");
         expect(NpcMarkers.kind({type: 23}), "craft", "Craft station");
         expect(NpcMarkers.kind({type: 24}), "upgrade", "Upgrade station");
         expect(NpcMarkers.kind({type: 31}), "recycler", "Recycler");
+        G.elements["Soulwell"] = {id: "Soulwell", type: 31};
+        G.elements["RegionalWell"] = {id: "RegionalWell", type: 31, inherit: "Soulwell"};
+        expect(NpcMarkers.kind(G.elements["Soulwell"]), "soulWell", "Native Soulwell root shares recycler type");
+        expect(NpcMarkers.kind({id: "World_Station", type: 31, inherit: "RegionalWell", texts: {name: "localized name"}}),
+            "soulWell", "World Soul Well follows multiple ancestors without a translated name");
+        expect(NpcMarkers.kind({id: "Soulwell_Decoration", type: 31, texts: {name: "Soul Well"}}),
+            "recycler", "A name alone does not replace the recycler marker");
+        expect(NpcMarkers.kind({type: 31, inherit: "Unavailable"}), "recycler", "Live recycler with unknown ancestry");
+        expect(NpcMarkers.kind({type: 22, inherit: "Soulwell"}), "npc", "Soul Well requires the native station type");
         expect(NpcMarkers.stationKind(22), "", "NPC is not a station");
         expect(NpcMarkers.stationKind(32), "", "Wave spawner is not a station");
         expect(NpcMarkers.kind({id: "arbitrary-world-id", type: 33}), "infusion", "Crucible uses its native type");
@@ -52,6 +64,7 @@ class NpcMarkersTest {
             "npc", "Shop lists do not set a custom price");
         expect(NpcMarkers.isNpc("glory"), true, "Glory uses NPC visibility and priority");
         expect(NpcMarkers.isNpc("infusion"), true, "Crucible uses NPC visibility and priority");
+        expect(NpcMarkers.isNpc("soulWell"), true, "Soul Well uses station visibility and priority");
         expect(NpcMarkers.isNpc("riftPortal"), false, "Rifts keep their own category");
         Sys.println('NPC marker checks passed ($checks)');
     }

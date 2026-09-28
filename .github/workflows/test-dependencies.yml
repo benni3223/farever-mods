@@ -1,0 +1,36 @@
+name: Required dependency startup checks
+
+on:
+  push:
+    branches: [main]
+    paths: ['shared/**', '*/compile.hxml', '.github/workflows/test-dependencies.yml']
+  pull_request:
+    paths: ['shared/**', '*/compile.hxml', '.github/workflows/test-dependencies.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.7
+      - uses: actions/checkout@v4
+        with:
+          repository: HaxeFoundation/hashlink
+          ref: 04a207d73816132b9f742867e8643f58b02a5afa
+          path: .dependency-hashlink
+          persist-credentials: false
+      - name: Build the HashLink test runtime
+        run: make -C .dependency-hashlink -j2 hl
+      - name: Exercise real startup, missing dependencies, and incomplete installs
+        env:
+          HL: ${{ github.workspace }}/.dependency-hashlink/hl
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.dependency-hashlink
+        run: python3 -m unittest discover -s shared/tests -p 'test_dependency_bootstrap.py' -v

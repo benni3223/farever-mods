@@ -1,8 +1,14 @@
 package moresettings;
 
 typedef MoreSettingsConfig = {
+    var quickCast:Bool;
+    var disableTargetLockCameraMovement:Bool;
+    var fancyDamageNumbers:Bool;
+    var pinkCrits:Bool;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
+    var performanceOptimization:Bool;
+    var waitForParty:Bool;
     var hideUiKey:Int;
     var adjustUnfocusedVolume:Bool;
     var backgroundVolume:Float;
@@ -21,8 +27,14 @@ typedef MoreSettingsConfig = {
 
 class SettingsData {
     public static function defaults():MoreSettingsConfig return {
+        quickCast: false,
+        disableTargetLockCameraMovement: false,
+        fancyDamageNumbers: false,
+        pinkCrits: false,
         disableProfanityFilter: true,
         showBossHealth: false,
+        performanceOptimization: false,
+        waitForParty: true,
         hideUiKey: 113, // hxd.Key.F2
         adjustUnfocusedVolume: true, backgroundVolume: 0,
         adjustFastTravelVolume: false, fastTravelVolume: 0,

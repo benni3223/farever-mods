@@ -10,6 +10,7 @@ private typedef MapTile = {
     var resolution:Int;
     var path:String;
     var tile:Dynamic;
+    var loading:MapTileLoad;
     var lastUsed:Int;
 }
 
@@ -18,6 +19,7 @@ class MinimapView {
     static inline var LEVEL = "World/W1_Siagarta";
     static inline var DIRECTORY = "Level/" + LEVEL + ".dat/minimap";
     static inline var BORDER = 3;
+    static inline var CACHE_LIMIT = 24;
     static inline var WATER = 0x0B1B3C;
     static inline var WATER_EDGE = 0x061428;
     /** Parchment frame sampled from the DPS meter window. The map itself stays water blue. */
@@ -117,7 +119,9 @@ class MinimapView {
     var index:Map<String, MapTile> = [];
     var sprites:Map<String, Dynamic> = [];
     var wanted:Array<MapTile> = [];
-    var preload:Array<MapTile> = [];
+    var prefetch:Array<MapTile> = [];
+    var pending:Array<MapTile> = [];
+    var cached:Array<MapTile> = [];
     var generation:Int = 0;
 
     public function new() {}
@@ -241,7 +245,7 @@ class MinimapView {
             ? Math.sqrt(halfW * halfW + halfH * halfH)
             : size / (2 * scale) * (config.rotateMap && !circular ? Math.sqrt(2) : 1);
         selectTiles(viewCenterX, viewCenterY, radius);
-        pumpTiles();
+        loadNextTile();
         rifts.update(G.field(hero, "layer"), haxe.Timer.stamp());
         markers.update(hero, config, viewCenterX, viewCenterY, radius, scale, rotation, rifts);
         markers.updateAlerts(config, viewCenterX, viewCenterY, size, scale, rotation, rifts, circular, mapHeight);
@@ -301,7 +305,7 @@ class MinimapView {
             throw "Overworld map images are unavailable";
         var resolutions = G.array(G.field(settings, "MapTileResolutions"));
         var preferred = resolutions.length == 0 ? 512 : G.integer(resolutions[0], 512);
-        // Directory metadata only. Images are decoded ahead of the viewport.
+        // Directory metadata only. Decode images when they reach the viewport.
         for (resource in G.array(G.call("hxd.res.Loader", "dir", loader, [DIRECTORY]))) {
             var name = G.text(G.field(G.field(resource, "entry"), "name"));
             if (!StringTools.endsWith(name, ".png")) continue;
@@ -314,10 +318,9 @@ class MinimapView {
             var key = tileKey(x, y);
             var previous = index[key];
             if (previous != null && Math.abs(previous.resolution - preferred) <= Math.abs(resolution - preferred)) continue;
-            index[key] = {x: x, y: y, resolution: resolution, path: DIRECTORY + "/" + name, tile: null, lastUsed: 0};
+            index[key] = {x: x, y: y, resolution: resolution, path: DIRECTORY + "/" + name, tile: null, loading: null, lastUsed: 0};
         }
         if (!index.iterator().hasNext()) throw "No overworld map tiles were found";
-        preload = [for (entry in index) entry];
     }
 
     function create():Void {
@@ -858,37 +861,69 @@ class MinimapView {
             var delta = ax * ax + ay * ay - bx * bx - by * by;
             return delta < 0 ? -1 : delta > 0 ? 1 : 0;
         });
+        // A small adjacent ring prepares likely next tiles before they enter
+        // view. Visible requests always take priority over speculative work.
+        prefetch = [];
+        for (tx in minX - 1...maxX + 2) for (ty in minY - 1...maxY + 2) {
+            var key = tileKey(tx, ty);
+            var entry = index[key];
+            if (entry != null && !keep.exists(key)) prefetch.push(entry);
+        }
+        prefetch.sort((a, b) -> {
+            var ax = (a.x + 0.5) * tileWorldWidth - x, ay = (a.y + 0.5) * tileWorldWidth - y;
+            var bx = (b.x + 0.5) * tileWorldWidth - x, by = (b.y + 0.5) * tileWorldWidth - y;
+            var delta = ax * ax + ay * ay - bx * bx - by * by;
+            return delta < 0 ? -1 : delta > 0 ? 1 : 0;
+        });
+        var ahead = Std.int(Math.max(0, Math.min(4, CACHE_LIMIT - wanted.length)));
+        if (prefetch.length > ahead) prefetch.resize(ahead);
+        // Protect selected prefetches from immediate eviction behind older
+        // visible tiles; otherwise a full cache would repeatedly request them.
+        for (entry in prefetch) entry.lastUsed = generation;
     }
 
-    function pumpTiles():Void {
-        var budget = expanded ? 8 : 4;
-        var decoded = 0;
-        while (decoded < budget) {
-            var entry = nextUndecoded();
-            if (entry == null) break;
-            var resource = G.call("hxd.res.Loader", "load", loader, [entry.path]);
-            entry.tile = G.call("h2d.Tile", "clone", G.call("hxd.res.Any", "toTile", resource));
-            // Opening the native map can center its cached tiles. Keep our copy independent.
-            G.set(entry.tile, "dx", 0.0);
-            G.set(entry.tile, "dy", 0.0);
-            decoded++;
+    function loadNextTile():Void {
+        for (entry in pending) {
+            var tile = entry.loading.take();
+            if (tile == null) continue;
+            entry.tile = tile; entry.loading = null;
+            cached.push(entry); pending.remove(entry);
+            trimCache();
+            break; // Bound foreground finalization too.
         }
         for (entry in wanted) {
-            if (entry.tile == null) continue;
             var key = tileKey(entry.x, entry.y);
             if (sprites.exists(key)) continue;
+            if (entry.tile == null) {
+                if (entry.loading == null && pending.length < 2) { requestTile(entry); return; }
+                continue;
+            }
             var bitmap = G.create("h2d.Bitmap", [entry.tile, tileLayer]);
             G.call("h2d.Bitmap", "set_width", bitmap, [tileWorldWidth]);
             G.call("h2d.Bitmap", "set_height", bitmap, [tileWorldWidth]);
             position(bitmap, entry.x * tileWorldWidth, entry.y * tileWorldWidth);
             sprites[key] = bitmap;
+            trimCache();
+            return; // At most one bitmap attachment per game update.
+        }
+        if (pending.length < 2) for (entry in prefetch) if (entry.tile == null && entry.loading == null) {
+            requestTile(entry); return;
         }
     }
 
-    function nextUndecoded():MapTile {
-        for (entry in wanted) if (entry.tile == null) return entry;
-        for (entry in preload) if (entry.tile == null) return entry;
-        return null;
+    function requestTile(entry:MapTile):Void {
+        var resource = G.call("hxd.res.Loader", "load", loader, [entry.path]);
+        entry.loading = new MapTileLoad(resource);
+        pending.push(entry);
+    }
+
+    function trimCache():Void {
+        if (cached.length <= CACHE_LIMIT) return;
+        cached.sort((a, b) -> a.lastUsed - b.lastUsed);
+        while (cached.length > CACHE_LIMIT && cached[0].lastUsed < generation) {
+            // Textures belong to the native resource loader; never dispose a shared texture.
+            cached.shift().tile = null;
+        }
     }
 
     static inline function tileKey(x:Int, y:Int):String return x + ":" + y;
@@ -934,7 +969,7 @@ class MinimapView {
         nextHoverRefresh = 0; hoverMouseX = Math.NaN; hoverMouseY = Math.NaN;
         transparency = -1;
         markerScale = 0;
-        index = []; sprites = []; wanted = []; preload = [];
+        index = []; sprites = []; wanted = []; cached = []; prefetch = []; pending = [];
         size = 0; scale = 0; bounds = ""; generation = 0; circular = false;
         panelX = Math.NaN; panelY = Math.NaN;
     }

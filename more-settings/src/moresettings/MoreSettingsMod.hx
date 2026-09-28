@@ -17,6 +17,7 @@ class MoreSettingsMod {
     static var app:Dynamic;
     static var reportedAudioError:Bool = false;
     static var audioRetryAt:Float = 0;
+    static var reportedDamageNumberError:Bool = false;
 
     static function main():Void {
         var imported = ConfigMigration.importLegacy("more-audio-settings");
@@ -26,23 +27,34 @@ class MoreSettingsMod {
         var previous = ModConfig.load(HlxRuntime.moduleName(), {
             enabled: config.adjustUnfocusedVolume,
             adjustUnfocusedVolume: (null:Null<Bool>),
-            disableProfanityFilter: (null:Null<Bool>)
+            disableProfanityFilter: (null:Null<Bool>),
+            quickCast: (null:Null<Bool>),
+            disableTargetLockCameraMovement: (null:Null<Bool>)
         });
         if (previous.adjustUnfocusedVolume == null) config.adjustUnfocusedVolume = previous.enabled;
         if (previous.disableProfanityFilter == null) {
             // Preserve the standalone mod's preference when combining installs.
             config.disableProfanityFilter = previousProfanityPreference();
         }
+        CombatSettings.migrate(config, previous, CombatSettings.previous());
         SettingsData.normalize(config);
+        CombatHooks.configure(config);
         BossHealth.enabled = config.showBossHealth;
+        PerformanceHooks.enabled = config.performanceOptimization;
+        DungeonPartyGuard.enabled = config.waitForParty;
         hideUi.configure(config.hideUiKey);
         config.save();
         audio = new AudioControl(config);
         AllyEffects.configure(config);
+        Bus.subscribe("better-mod-settings/action/" + HlxRuntime.moduleName() + "/changeAppearance",
+            (_:Dynamic) -> AppearanceEditor.request());
         Bus.subscribe("better-mod-settings/config-changed/" + HlxRuntime.moduleName(), (_:Dynamic) -> {
             config = ModConfig.load(HlxRuntime.moduleName(), config);
             SettingsData.normalize(config);
+            CombatHooks.configure(config);
             BossHealth.enabled = config.showBossHealth;
+            PerformanceHooks.enabled = config.performanceOptimization;
+            DungeonPartyGuard.enabled = config.waitForParty;
             hideUi.configure(config.hideUiKey);
             AllyEffects.configure(config);
             try audio.configure(config) catch (e:Dynamic) audioError(e);
@@ -60,10 +72,56 @@ class MoreSettingsMod {
         try BossHealth.attach(instance) catch (e:Dynamic) BossHealth.reportError(e);
     }
 
+    @:hlx.postfix(ui.comp.DamageDisplay.init)
+    static function afterDamageDisplayInit(instance:Dynamic, result:Void):Void {
+        try FancyDamageNumbers.apply(instance, config) catch (error:Dynamic) damageNumberError(error);
+    }
+
+    @:hlx.postfix(h2d.filter.Filter.bind)
+    static function afterDamageFilterBind(instance:Dynamic, s:Dynamic, result:Void):Void {
+        try FancyDamageNumbers.bindGradient(instance, s) catch (error:Dynamic) damageNumberError(error);
+    }
+
+    @:hlx.postfix(h2d.filter.Filter.unbind)
+    static function afterDamageFilterUnbind(instance:Dynamic, s:Dynamic, result:Void):Void {
+        FancyDamageNumbers.unbindGradient(instance);
+    }
+
+    @:hlx.prefix(h2d.filter.Shader.draw)
+    static function beforeDamageGradientDraw(instance:Dynamic, ctx:Dynamic, input:Dynamic):HlxPrefixResult<Dynamic> {
+        try FancyDamageNumbers.syncGradient(instance, ctx, input) catch (error:Dynamic) damageNumberError(error);
+        return Continue;
+    }
+
+    static function damageNumberError(error:Dynamic):Void {
+        if (!reportedDamageNumberError) {
+            reportedDamageNumberError = true;
+            trace("[More Settings] Fancy damage numbers: " + Std.string(error));
+        }
+    }
+
     @:hlx.postfix(lib.Input.getBindings)
     static function hideUiBindings(key:String, result:Dynamic):Dynamic {
         try return hideUi.bindings(key, result) catch (e:Dynamic) inputError(e);
         return result;
+    }
+
+    @:hlx.postfix(ui.win.element.InstanceSelectScreen.init)
+    static function afterInstanceSelectInit(instance:Dynamic, result:Void):Void {
+        try DungeonPartyGuard.update(instance) catch (e:Dynamic) DungeonPartyGuard.reportError(e);
+    }
+
+    @:hlx.postfix(ui.win.element.InstanceSelectScreen.update)
+    static function afterInstanceSelectUpdate(instance:Dynamic, dt:Float, result:Void):Void {
+        try DungeonPartyGuard.update(instance) catch (e:Dynamic) DungeonPartyGuard.reportError(e);
+    }
+
+    @:hlx.prefix(ui.win.element.InstanceSelectScreen.startAction)
+    static function beforeInstanceStart(instance:Dynamic):HlxPrefixResult<Void> {
+        // Check again at activation, including keyboard/controller actions and
+        // party changes since the last UI update. Ready and Cancel stay native.
+        if (DungeonPartyGuard.waiting(instance)) return Skip;
+        return Continue;
     }
 
     @:hlx.postfix(lib.Input.isPressed)
@@ -74,7 +132,9 @@ class MoreSettingsMod {
 
     @:hlx.prefix(GameApp.update)
     static function beforeUpdate(instance:Dynamic, dt:Float):HlxPrefixResult<Void> {
+        CombatHooks.beginFrame();
         app = instance;
+        AppearanceEditor.update(instance);
         AllyEffects.update(instance);
         if (audio != null && haxe.Timer.stamp() >= audioRetryAt)
             try audio.update(G.field(instance, "hero")) catch (e:Dynamic) audioError(e);
@@ -95,6 +155,9 @@ class MoreSettingsMod {
 
     @:hlx.prefix(GameApp.dispose)
     static function dispose(instance:Dynamic):HlxPrefixResult<Void> {
+        CombatHooks.dispose();
+        try FancyDamageNumbers.dispose() catch (error:Dynamic) damageNumberError(error);
+        AppearanceEditor.close();
         if (audio != null) try audio.dispose() catch (e:Dynamic) audioError(e);
         AllyEffects.dispose();
         app = null;

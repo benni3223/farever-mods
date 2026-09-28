@@ -3,6 +3,10 @@ name: Build and release one mod
 on:
   workflow_call:
     inputs:
+      source-ref:
+        description: Exact source commit for the release pipeline
+        type: string
+        default: ""
       project:
         description: Subproject directory and release tag prefix
         required: true
@@ -17,6 +21,10 @@ on:
         type: string
       imgui:
         description: Whether this mod requires the Farever ImGui plugin
+        default: false
+        type: boolean
+      required-settings:
+        description: Package the mandatory dependency startup check
         default: false
         type: boolean
       travel-audio:
@@ -46,6 +54,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.source-ref || github.sha }}
 
       - name: Validate release tag
         if: github.ref_type == 'tag'
@@ -74,6 +83,11 @@ jobs:
         if: inputs.imgui
         run: haxelib git hl-imgui https://github.com/laymain/farever-mods.git main imgui/hl-imgui/src
 
+      - name: Test required dependency checks
+        if: inputs.required-settings
+        working-directory: shared
+        run: haxe test-dependencies.hxml
+
       - name: Compile
         run: haxe compile.hxml
 
@@ -86,11 +100,16 @@ jobs:
 
       - name: Package
         env:
-          REQUIREMENTS: ${{ inputs.imgui && 'Requires HLX Core and the Farever ImGui plugin.' || 'Requires HLX Core.' }}
+          REQUIREMENTS: ${{ inputs.imgui && 'Requires HLX Core, Better Mod Settings, Mod Update Alerts, and the Farever ImGui plugin.' || inputs.required-settings && 'Requires HLX Core, Better Mod Settings, and Mod Update Alerts.' || 'Requires HLX Core.' }}
+          REQUIRED_SETTINGS: ${{ inputs.required-settings }}
         run: |
           destination="package/hlx/mods/$MODULE"
           mkdir -p "$destination"
           cp "build/$MODULE/$MODULE.hl" "$destination/"
+          if [[ "$REQUIRED_SETTINGS" == true ]]; then
+            mkdir -p "$destination/implementation"
+            cp "build/$MODULE/implementation/$MODULE.hl" "$destination/implementation/"
+          fi
           if [[ -f configFormats.json ]]; then
             cp configFormats.json "$destination/"
           fi
@@ -131,6 +150,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          ref: ${{ inputs.source-ref || github.sha }}
 
       - name: Download this mod's build
         uses: actions/download-artifact@v4

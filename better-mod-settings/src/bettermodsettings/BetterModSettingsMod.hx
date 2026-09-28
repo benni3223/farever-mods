@@ -879,6 +879,38 @@ class BetterModSettingsMod {
                         saveSetting(targetMod, targetKey, newValue);
                     });
                 }
+            } else if (type == "text") {
+                var properties:Dynamic = HlxRuntime.callResolved(createNewMember, [
+                    "input-box", settingParent, [], {id: "setting" + index}
+                ]);
+                prepareSettingControl(settingParent, properties, false);
+                var box = properties == null ? null : HlxRuntime.resolveField(properties, "obj");
+                var input = box == null ? null : HlxRuntime.resolveField(box, "input");
+                if (input != null) {
+                    // Bound the editable viewport so long strings scroll inside
+                    // the field instead of pushing the settings row out of view.
+                    var inputProperties = HlxRuntime.resolveField(input, "dom");
+                    applyInlineStyle(inputProperties, "width", 200);
+                    // Keep entered text and empty-field hints readable on the
+                    // native dark input background, including after CSS refreshes.
+                    applyInlineStyle(inputProperties, "color", 0xF5F0E8);
+                    var hint = HlxRuntime.resolveField(box, "inputHint");
+                    if (hint != null)
+                        applyInlineStyle(HlxRuntime.resolveField(hint, "dom"), "color", 0xE0D8CD);
+                    var setText = HlxRuntime.resolveMember(HlxRuntime.resolveType("h2d.TextInput"), "set_text");
+                    HlxRuntime.callResolved(setText, [input,
+                        TextSetting.storedValue(Reflect.field(Reflect.field(mod, "values"), key))]);
+                    var setHint = HlxRuntime.resolveMember(HlxRuntime.resolveType("ui.comp.InputBox"), "set_hintText");
+                    HlxRuntime.callResolved(setHint, [box, stringField(definition, "placeholder", "")]);
+                    var targetMod = mod;
+                    var targetKey = key;
+                    // Bind after initialization. Keep InputBox's native focus,
+                    // editing and hint callbacks; only subscribe to its change event.
+                    HlxRuntime.setField(box, "onChange", function():Void {
+                        var value = TextSetting.nativeValue(HlxRuntime.resolveField(input, "text"));
+                        saveSetting(targetMod, targetKey, value);
+                    });
+                }
             } else if (type == "keybinding") {
                 var keyCode = intValue(Reflect.field(mod, "values"), key, 0);
                 var keyProperties:Dynamic = HlxRuntime.callResolved(createNewMember, [

@@ -4,3 +4,39 @@
 -cp tests
 -main SettingsTest
 --interp
+--next
+-cp src
+-cp tests/stubs
+-cp tests
+-main PerformanceTest
+--interp
+--next
+-cp src
+-cp tests/stubs
+-cp tests
+-main TerrainCacheTest
+--interp
+--next
+-cp src
+-cp tests/stubs
+-cp tests
+-main DungeonPartyGuardTest
+--interp
+--next
+-cp src
+-cp tests/stubs
+-cp tests
+-main CombatTest
+--interp
+--next
+-cp src
+-cp tests/appearance-stubs
+-cp tests
+-main AppearanceTest
+--interp
+--next
+-cp src
+-cp tests/damage-stubs
+-cp tests
+-main DamageNumbersTest
+--interp

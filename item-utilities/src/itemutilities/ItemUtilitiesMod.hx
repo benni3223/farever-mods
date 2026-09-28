@@ -6,6 +6,7 @@ import imgui.ImGui;
 import imgui.Structs.ImVec2;
 import imgui.Structs.ImVec4;
 import imgui.Enums.ImGuiCol;
+import imgui.Enums.ImGuiComboFlags;
 import imgui.Enums.ImGuiKey;
 import imgui.Enums.ImGuiStyleVar;
 import imgui.Enums.ImGuiWindowFlags;
@@ -26,19 +27,27 @@ typedef ItemUtilitiesConfig = {
     var preset1Hotkey:Int;
     var preset2Hotkey:Int;
     var preset3Hotkey:Int;
+    var preset4Hotkey:Int;
+    var preset5Hotkey:Int;
     var appearancePreset1Hotkey:Int;
     var appearancePreset2Hotkey:Int;
     var appearancePreset3Hotkey:Int;
+    var appearancePreset4Hotkey:Int;
+    var appearancePreset5Hotkey:Int;
     var appearancePresets:Array<Dynamic>;
     var selectedAppearancePresets:Array<Dynamic>;
     var skillPreset1Hotkey:Int;
     var skillPreset2Hotkey:Int;
     var skillPreset3Hotkey:Int;
+    var skillPreset4Hotkey:Int;
+    var skillPreset5Hotkey:Int;
     var skillPresets:Array<Dynamic>;
     var selectedSkillPresets:Array<Dynamic>;
     var talentPreset1Hotkey:Int;
     var talentPreset2Hotkey:Int;
     var talentPreset3Hotkey:Int;
+    var talentPreset4Hotkey:Int;
+    var talentPreset5Hotkey:Int;
     var talentPresets:Array<Dynamic>;
     var selectedTalentPresets:Array<Dynamic>;
     // Retain the original preset storage keys for existing configurations.
@@ -76,19 +85,27 @@ class ItemUtilitiesMod {
         preset1Hotkey: 0,
         preset2Hotkey: 0,
         preset3Hotkey: 0,
+        preset4Hotkey: 0,
+        preset5Hotkey: 0,
         appearancePreset1Hotkey: 0,
         appearancePreset2Hotkey: 0,
         appearancePreset3Hotkey: 0,
+        appearancePreset4Hotkey: 0,
+        appearancePreset5Hotkey: 0,
         appearancePresets: [],
         selectedAppearancePresets: [],
         skillPreset1Hotkey: 0,
         skillPreset2Hotkey: 0,
         skillPreset3Hotkey: 0,
+        skillPreset4Hotkey: 0,
+        skillPreset5Hotkey: 0,
         skillPresets: [],
         selectedSkillPresets: [],
         talentPreset1Hotkey: 0,
         talentPreset2Hotkey: 0,
         talentPreset3Hotkey: 0,
+        talentPreset4Hotkey: 0,
+        talentPreset5Hotkey: 0,
         talentPresets: [],
         selectedTalentPresets: [],
         weaponPresets: [],
@@ -103,8 +120,8 @@ class ItemUtilitiesMod {
     static var showDepositMaterials = new BoolRef(true);
     static var showLockVisuals = new BoolRef(true);
     static var sortingIgnoresLockedItems = new BoolRef(false);
-    static var presetHotkeyKeys:Array<Int> = [0, 0, 0];
-    static var skillPresetHotkeyKeys:Array<Int> = [0, 0, 0];
+    static var presetHotkeyKeys:Array<Int> = [for (_ in 0...PresetSlots.COUNT) 0];
+    static var skillPresetHotkeyKeys:Array<Int> = [for (_ in 0...PresetSlots.COUNT) 0];
     static var selectedSkillPreset:Int = 0;
     static var selectedSkillPresetCharacterId:String;
     static var skillPresetTransfer = new SkillPresetTransfer();
@@ -114,7 +131,10 @@ class ItemUtilitiesMod {
     static var skillPresetCharacterId:String;
     static var nextSkillPresetCheck:Float = 0;
     static var skillPresetStatus:String = "";
-    static var appearancePresetHotkeyKeys:Array<Int> = [0, 0, 0];
+    static var appearancePresetHotkeyKeys:Array<Int> = [for (_ in 0...PresetSlots.COUNT) 0];
+    static var presetDropdown = new PresetDropdownState();
+    static var presetDropdownInput = new PresetDropdownInput();
+    static var presetDropdownHost:Dynamic;
     static var selectedAppearancePreset:Int = 0;
     static var selectedAppearancePresetCharacterId:String;
     static var appearancePresetTransfer = new AppearancePresetTransfer();
@@ -125,7 +145,7 @@ class ItemUtilitiesMod {
     static var nextAppearancePresetCheck:Float = 0;
     static var appearancePresetStatus:String = "";
     static var activeGearAppearance:Dynamic;
-    static var talentPresetHotkeyKeys:Array<Int> = [0, 0, 0];
+    static var talentPresetHotkeyKeys:Array<Int> = [for (_ in 0...PresetSlots.COUNT) 0];
     static var selectedTalentPreset:Int = 0;
     static var selectedTalentPresetCharacterId:String;
     static var talentPresetTransfer = new TalentPresetTransfer();
@@ -277,6 +297,7 @@ class ItemUtilitiesMod {
                 function(_:Dynamic):Void resetCharacterData(resetKind)
             );
         }
+        PlayerInspect.initialize(() -> enabled.get());
         ImGui.register(HlxRuntime.moduleName(), draw);
     }
 
@@ -504,6 +525,10 @@ class ItemUtilitiesMod {
     @:hlx.prefix(ui.BaseUI.setTip)
     static function suppressLockEditItemTooltip(instance:Dynamic, element:Dynamic,
         anchor:Dynamic, position:Dynamic, nesting:Dynamic):HlxPrefixResult<Dynamic> {
+        if (enabled.get() && presetDropdown.isOpen()) {
+            var mouse = ImGui.getMousePos();
+            if (presetDropdown.blocksTooltip(mouse.x, mouse.y)) return SkipWith(null);
+        }
         if (!lockEditMode)
             return Continue;
         for (entry in visibleSlots) {
@@ -761,7 +786,10 @@ class ItemUtilitiesMod {
     }
 
     static function draw():Void {
+        PlayerInspect.update();
         NativeUiLayout.beginFrame();
+        presetDropdown.beginFrame();
+        presetDropdownHost = null;
         windowOccluders = null;
         refreshActiveHero();
         updateTalentPreset();
@@ -805,7 +833,8 @@ class ItemUtilitiesMod {
                 drawLockedItemBadges();
             }
         }
-
+        presetDropdown.endFrame();
+        presetDropdownInput.update(presetDropdownHost, presetDropdown.inputBounds());
     }
 
     /** Keep window bounds, content, and custom artwork in the same pixel space. */
@@ -981,10 +1010,9 @@ class ItemUtilitiesMod {
             }
         } catch (_:Dynamic) return;
 
-        // Four 8-unit gaps: title, three preset buttons, and Set.
-        var controlsWidth = 56 + 3 * height + 58 + 4 * 8;
+        var controlsWidth = PresetSlots.CONTROLS_WIDTH;
         var rect = NativeUiLayout.rect(appearanceButton, width + 32, 0, controlsWidth, height);
-        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height))
+        if (presetControlsCovered(rect, Equipment))
             return;
         drawPresetButtons(rect, height, appearanceButton, Equipment);
     }
@@ -1014,8 +1042,8 @@ class ItemUtilitiesMod {
         }
         var points = fieldOrNull(fieldOrNull(view, "availablePoints"), "parent");
         var rect = TalentPresetLayout.place(uiElementRect(points), uiElementRect(activeTalentRoot),
-            uiElementRect(tree), NativeUiLayout.rect(view, 0, 0, 254, 36));
-        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height)) return;
+            uiElementRect(tree), NativeUiLayout.rect(view, 0, 0, PresetSlots.CONTROLS_WIDTH, 36));
+        if (presetControlsCovered(rect, Talent)) return;
         drawPresetButtons(rect, 36, view, Talent);
     }
 
@@ -1036,8 +1064,8 @@ class ItemUtilitiesMod {
             Math.min(runeBounds.top, skillBounds.top), Math.max(runeBounds.right, skillBounds.right),
             Math.max(runeBounds.bottom, skillBounds.bottom));
         var rect = SkillPresetLayout.place(uiElementRect(footer), textBounds,
-            NativeUiLayout.rect(view, 0, 0, 254, 36));
-        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height)) return;
+            NativeUiLayout.rect(view, 0, 0, PresetSlots.CONTROLS_WIDTH, 36));
+        if (presetControlsCovered(rect, Skill)) return;
         drawPresetButtons(rect, 36, view, Skill);
     }
 
@@ -1049,9 +1077,18 @@ class ItemUtilitiesMod {
         var button = fieldOrNull(activeCharacterUI, "appearanceModeBtn");
         if (button == null || !isUiVisible(button)) return;
         var rect = AppearancePresetLayout.place(uiElementRect(button),
-            uiElementRect(fieldOrNull(button, "parent")), NativeUiLayout.rect(button, 0, 0, 254, 36));
-        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height)) return;
+            uiElementRect(fieldOrNull(button, "parent")), NativeUiLayout.rect(button, 0, 0, PresetSlots.CONTROLS_WIDTH, 36));
+        if (presetControlsCovered(rect, Appearance)) return;
         drawPresetButtons(rect, 36, button, Appearance);
+    }
+
+    static function presetControlsCovered(rect:OverlayRect, kind:PresetKind):Bool {
+        if (rect == null) return true;
+        // A tooltip from a skill behind the popup must not stop submitting its
+        // parent bar to ImGui. Real covering windows still hide the controls.
+        return presetDropdown.covered(cast kind,
+            tooltipOverlaps(rect.left, rect.top, rect.width, rect.height),
+            windowOverlaps(rect.left, rect.top, rect.width, rect.height));
     }
 
     static function uiElementRect(element:Dynamic):OverlayRect {
@@ -1063,8 +1100,7 @@ class ItemUtilitiesMod {
 
     static function drawPresetButtons(rect:OverlayRect, height:Float,
         referenceButton:Dynamic, kind:PresetKind):Void {
-        var controlsWidth = 56 + 3 * height + 58 + 4 * 8;
-        prepareOverlay(rect, controlsWidth, height, 6);
+        prepareOverlay(rect, PresetSlots.CONTROLS_WIDTH, height, 6);
         ImGui.setNextWindowBgAlpha(0);
         var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
             | ImGuiWindowFlags.NoScrollWithMouse
@@ -1074,6 +1110,13 @@ class ItemUtilitiesMod {
         ImGui.pushStyleColor(ImGuiCol.ButtonHovered, new ImVec4(0.541, 0.373, 0.275, 1));
         ImGui.pushStyleColor(ImGuiCol.ButtonActive, new ImVec4(0.60, 0.48, 0.43, 1));
         ImGui.pushStyleColor(ImGuiCol.Text, new ImVec4(0.98, 0.93, 0.90, 1));
+        ImGui.pushStyleColor(ImGuiCol.FrameBg, new ImVec4(0.70, 0.59, 0.54, 1));
+        ImGui.pushStyleColor(ImGuiCol.FrameBgHovered, new ImVec4(0.541, 0.373, 0.275, 1));
+        ImGui.pushStyleColor(ImGuiCol.FrameBgActive, new ImVec4(0.60, 0.48, 0.43, 1));
+        ImGui.pushStyleColor(ImGuiCol.PopupBg, new ImVec4(0.81, 0.73, 0.69, 1));
+        ImGui.pushStyleColor(ImGuiCol.Header, new ImVec4(0.70, 0.59, 0.54, 1));
+        ImGui.pushStyleColor(ImGuiCol.HeaderHovered, new ImVec4(0.75, 0.65, 0.60, 1));
+        ImGui.pushStyleColor(ImGuiCol.HeaderActive, new ImVec4(0.60, 0.48, 0.43, 1));
         var windowId = switch kind {
             case Equipment: "##item-utilities-weapon-presets";
             case Talent: "##item-utilities-talent-presets";
@@ -1081,20 +1124,8 @@ class ItemUtilitiesMod {
             case Appearance: "##item-utilities-appearance-presets";
         };
         if (ImGui.begin(windowId, null, flags)) {
-            ImGui.dummy(overlaySize(56, height));
-            var titleMin = ImGui.getItemRectMin();
-            var titleColor = ImGui.colorConvertFloat4ToU32(
-                new ImVec4(0.43, 0.31, 0.28, 1));
-            var drawList = ImGui.getWindowDrawList();
-            var titleY = titleMin.y + (height * overlayScaleY - ImGui.getFontSize()) * 0.5;
-            ImGui.ImDrawList_AddText_Vec2(drawList,
-                new ImVec2(titleMin.x, titleY), titleColor, "Presets");
-            ImGui.ImDrawList_AddText_Vec2(drawList,
-                new ImVec2(titleMin.x + 0.8 * overlayScaleX, titleY), titleColor, "Presets");
-            ImGui.sameLine();
-
             var busy = switch kind {
-                case Equipment: false;
+                case Equipment: presetTransferActive;
                 case Talent: talentPresetTransfer.active;
                 case Skill: skillPresetTransfer.active;
                 case Appearance: appearancePresetTransfer.active;
@@ -1106,40 +1137,59 @@ class ItemUtilitiesMod {
                 case Appearance: selectedAppearancePreset;
             };
             ImGui.beginDisabled(busy);
-            for (preset in 0...3) {
-                if (preset > 0)
-                    ImGui.sameLine();
-                var selected = selectedPreset == preset;
-                if (selected) {
-                    ImGui.pushStyleColor(ImGuiCol.Button, new ImVec4(0.55, 0.39, 0.34, 1));
-                    ImGui.pushStyleColor(ImGuiCol.ButtonHovered, new ImVec4(0.541, 0.373, 0.275, 1));
-                    ImGui.pushStyleColor(ImGuiCol.ButtonActive, new ImVec4(0.47, 0.32, 0.28, 1));
-                }
-                if (ImGui.button(Std.string(preset + 1) + "##weapon-preset",
-                    overlaySize(height, height))) {
-                    playButtonClickSound(referenceButton);
-                    switch kind {
-                        case Equipment:
-                            selectEquipmentPreset(preset);
-                            activateEquipmentPreset(preset);
-                        case Talent:
-                            selectTalentPreset(preset);
-                            activateTalentPreset(preset);
-                        case Skill:
-                            selectSkillPreset(preset);
-                            activateSkillPreset(preset);
-                        case Appearance:
-                            selectAppearancePreset(preset);
-                            activateAppearancePreset(preset);
+            // Match the Set button's height at every native UI scale. Combo
+            // popups use their own window, so the options aren't clipped by
+            // the single-row overlay (including on the Skills footer).
+            ImGui.pushStyleVar(ImGuiStyleVar.FramePadding, new ImVec2(8 * overlayScaleX,
+                Math.max(0, (height * overlayScaleY - ImGui.getFontSize()) * 0.5)));
+            ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, overlaySize(6, 6));
+            ImGui.setNextItemWidth(PresetSlots.SELECTOR_WIDTH * overlayScaleX);
+            var previewMin = ImGui.getCursorScreenPos();
+            var popupOpen = ImGui.beginCombo("##preset-selector", "", ImGuiComboFlags.HeightLarge);
+            if (popupOpen) {
+                var popupPos = ImGui.getWindowPos(), popupSize = ImGui.getWindowSize();
+                presetDropdownHost = referenceButton;
+                presetDropdown.update(cast kind, true, new OverlayRect(popupPos.x, popupPos.y,
+                    popupPos.x + popupSize.x, popupPos.y + popupSize.y));
+                ImGui.pushStyleColor(ImGuiCol.Text, new ImVec4(0.36, 0.26, 0.20, 1));
+                for (preset in 0...PresetSlots.COUNT) {
+                    var selected = selectedPreset == preset;
+                    var rowMin = ImGui.getCursorScreenPos();
+                    var rowMax = new ImVec2(rowMin.x + ImGui.getContentRegionAvail().x,
+                        rowMin.y + 28 * overlayScaleY);
+                    if (ImGui.selectable("##preset-option-" + preset, selected, 0, overlaySize(0, 28))) {
+                        presetDropdown.update(cast kind, false);
+                        playButtonClickSound(referenceButton);
+                        switch kind {
+                            case Equipment:
+                                selectEquipmentPreset(preset);
+                                activateEquipmentPreset(preset);
+                            case Talent:
+                                selectTalentPreset(preset);
+                                activateTalentPreset(preset);
+                            case Skill:
+                                selectSkillPreset(preset);
+                                activateSkillPreset(preset);
+                            case Appearance:
+                                selectAppearancePreset(preset);
+                                activateAppearancePreset(preset);
+                        }
                     }
+                    drawPresetText(PresetSlots.label(preset), rowMin, rowMax);
+                    if (selected) ImGui.setItemDefaultFocus();
+                    if (ImGui.isItemHovered()) setGameButtonCursor();
                 }
-                if (selected)
-                    ImGui.popStyleColor(3);
-                if (ImGui.isItemHovered())
-                    setGameButtonCursor();
-            }
+                ImGui.popStyleColor();
+                ImGui.endCombo();
+            } else presetDropdown.update(cast kind, false);
+            drawPresetText(PresetSlots.label(selectedPreset),
+                new ImVec2(previewMin.x + 8 * overlayScaleX, previewMin.y),
+                new ImVec2(previewMin.x + PresetSlots.SELECTOR_WIDTH * overlayScaleX - height * overlayScaleY,
+                    previewMin.y + height * overlayScaleY));
+            ImGui.popStyleVar(2);
+            if (ImGui.isItemHovered()) setGameButtonCursor();
             ImGui.sameLine();
-            if (ImGui.button("Set##weapon-preset", overlaySize(58, height))) {
+            if (ImGui.button("##weapon-preset-set", overlaySize(PresetSlots.SET_WIDTH, height))) {
                 playButtonClickSound(referenceButton);
                 switch kind {
                     case Equipment: saveCurrentEquipmentToPreset(selectedWeaponPreset);
@@ -1148,20 +1198,28 @@ class ItemUtilitiesMod {
                     case Appearance: saveCurrentAppearancesToPreset(selectedAppearancePreset);
                 }
             }
-            if (ImGui.isItemHovered())
-                setGameButtonCursor();
+            drawPresetText("Set", ImGui.getItemRectMin(), ImGui.getItemRectMax(), true);
+            if (ImGui.isItemHovered()) setGameButtonCursor();
             ImGui.endDisabled();
-            var presetStatus = switch kind {
-                case Equipment: "";
-                case Talent: talentPresetStatus;
-                case Skill: skillPresetStatus;
-                case Appearance: appearancePresetStatus;
-            };
-            if (ImGui.isWindowHovered() && presetStatus != "") ImGui.setTooltip(presetStatus);
         }
         ImGui.end();
-        ImGui.popStyleColor(4);
+        ImGui.popStyleColor(11);
         finishOverlay();
+    }
+
+    static function drawPresetText(value:String, min:ImVec2, max:ImVec2, center:Bool = false):Void {
+        var textSize = ImGui.calcTextSize(value);
+        var weight = overlayStroke(0.65);
+        var x = center ? min.x + (max.x - min.x - textSize.x - weight) * 0.5 : min.x;
+        var y = min.y + (max.y - min.y - textSize.y) * 0.5;
+        var drawList = ImGui.getWindowDrawList();
+        var color = ImGui.getColorU32_Col(ImGuiCol.Text);
+        // The same light overdraw used by the old Presets heading, retaining
+        // the plugin font and disabled-state alpha without another font asset.
+        ImGui.ImDrawList_PushClipRect(drawList, min, max, true);
+        ImGui.ImDrawList_AddText_Vec2(drawList, new ImVec2(x, y), color, value);
+        ImGui.ImDrawList_AddText_Vec2(drawList, new ImVec2(x + weight, y), color, value);
+        ImGui.ImDrawList_PopClipRect(drawList);
     }
 
     static function syncSelectedTalentPreset():Void {
@@ -1173,13 +1231,13 @@ class ItemUtilitiesMod {
         for (entry in config.selectedTalentPresets)
             if (recordString(entry, "characterId") == characterId) {
                 var preset = recordInt(entry, "preset", 0);
-                if (preset >= 0 && preset < 3) selectedTalentPreset = preset;
+                if (PresetSlots.valid(preset)) selectedTalentPreset = preset;
                 return;
             }
     }
 
     static function selectTalentPreset(preset:Int):Void {
-        if (preset < 0 || preset >= 3 || talentPresetTransfer.active) return;
+        if (!PresetSlots.valid(preset) || talentPresetTransfer.active) return;
         var characterId = heroPersistentId(resolveHero());
         if (characterId == null) return;
         selectedTalentPresetCharacterId = characterId;
@@ -1215,7 +1273,7 @@ class ItemUtilitiesMod {
     }
 
     static function saveCurrentTalentsToPreset(preset:Int):Void {
-        if (!enabled.get() || talentPresetTransfer.active || preset < 0 || preset >= 3) return;
+        if (!enabled.get() || talentPresetTransfer.active || !PresetSlots.valid(preset)) return;
         try {
             var hero = resolveHero();
             var characterId = heroPersistentId(hero);
@@ -1239,7 +1297,7 @@ class ItemUtilitiesMod {
     }
 
     static function activateTalentPreset(preset:Int):Void {
-        if (!enabled.get() || talentPresetTransfer.active || preset < 0 || preset >= 3) return;
+        if (!enabled.get() || talentPresetTransfer.active || !PresetSlots.valid(preset)) return;
         try {
             var hero = resolveHero();
             var characterId = heroPersistentId(hero);
@@ -1396,13 +1454,13 @@ class ItemUtilitiesMod {
         for (entry in config.selectedAppearancePresets)
             if (recordString(entry, "characterId") == characterId) {
                 var preset = recordInt(entry, "preset", 0);
-                if (preset >= 0 && preset < 3) selectedAppearancePreset = preset;
+                if (PresetSlots.valid(preset)) selectedAppearancePreset = preset;
                 return;
             }
     }
 
     static function selectAppearancePreset(preset:Int):Void {
-        if (preset < 0 || preset >= 3 || appearancePresetTransfer.active) return;
+        if (!PresetSlots.valid(preset) || appearancePresetTransfer.active) return;
         var characterId = heroPersistentId(resolveHero());
         if (characterId == null) return;
         selectedAppearancePresetCharacterId = characterId;
@@ -1431,7 +1489,7 @@ class ItemUtilitiesMod {
     }
 
     static function saveCurrentAppearancesToPreset(preset:Int):Void {
-        if (!enabled.get() || appearancePresetTransfer.active || preset < 0 || preset >= 3) return;
+        if (!enabled.get() || appearancePresetTransfer.active || !PresetSlots.valid(preset)) return;
         try {
             var hero = resolveHero();
             var characterId = heroPersistentId(hero);
@@ -1455,7 +1513,7 @@ class ItemUtilitiesMod {
     }
 
     static function activateAppearancePreset(preset:Int):Void {
-        if (!enabled.get() || appearancePresetTransfer.active || preset < 0 || preset >= 3) return;
+        if (!enabled.get() || appearancePresetTransfer.active || !PresetSlots.valid(preset)) return;
         try {
             var hero = resolveHero();
             var characterId = heroPersistentId(hero);
@@ -1547,13 +1605,13 @@ class ItemUtilitiesMod {
         for (entry in config.selectedSkillPresets)
             if (recordString(entry, "characterId") == characterId) {
                 var preset = recordInt(entry, "preset", 0);
-                if (preset >= 0 && preset < 3) selectedSkillPreset = preset;
+                if (PresetSlots.valid(preset)) selectedSkillPreset = preset;
                 return;
             }
     }
 
     static function selectSkillPreset(preset:Int):Void {
-        if (preset < 0 || preset >= 3 || skillPresetTransfer.active) return;
+        if (!PresetSlots.valid(preset) || skillPresetTransfer.active) return;
         var characterId = heroPersistentId(resolveHero());
         if (characterId == null) return;
         selectedSkillPresetCharacterId = characterId;
@@ -1577,7 +1635,7 @@ class ItemUtilitiesMod {
     }
 
     static function saveCurrentSkillsToPreset(preset:Int):Void {
-        if (!enabled.get() || skillPresetTransfer.active || preset < 0 || preset >= 3) return;
+        if (!enabled.get() || skillPresetTransfer.active || !PresetSlots.valid(preset)) return;
         try {
             var hero = resolveHero();
             var characterId = heroPersistentId(hero);
@@ -1603,7 +1661,7 @@ class ItemUtilitiesMod {
     }
 
     static function activateSkillPreset(preset:Int):Void {
-        if (!enabled.get() || skillPresetTransfer.active || preset < 0 || preset >= 3) return;
+        if (!enabled.get() || skillPresetTransfer.active || !PresetSlots.valid(preset)) return;
         try {
             var hero = resolveHero();
             var characterId = heroPersistentId(hero);
@@ -1696,7 +1754,7 @@ class ItemUtilitiesMod {
         for (entry in selectedWeaponPresets) {
             if (recordString(entry, "characterId") == characterId) {
                 var preset = recordInt(entry, "preset", 0);
-                if (preset >= 0 && preset < 3)
+                if (PresetSlots.valid(preset))
                     selectedWeaponPreset = preset;
                 return;
             }
@@ -1704,7 +1762,7 @@ class ItemUtilitiesMod {
     }
 
     static function selectEquipmentPreset(preset:Int):Void {
-        if (preset < 0 || preset >= 3)
+        if (!PresetSlots.valid(preset))
             return;
         var characterId = heroPersistentId(resolveHero());
         if (characterId == null)
@@ -1737,6 +1795,7 @@ class ItemUtilitiesMod {
     }
 
     static function saveCurrentEquipmentToPreset(preset:Int):Void {
+        if (!PresetSlots.valid(preset) || presetTransferActive) return;
         var hero = resolveHero();
         var characterId = heroPersistentId(hero);
         var loadout = fieldOrNull(hero, "loadout");
@@ -1787,7 +1846,7 @@ class ItemUtilitiesMod {
     }
 
     static function activateEquipmentPreset(preset:Int):Void {
-        if (presetTransferActive)
+        if (!PresetSlots.valid(preset) || presetTransferActive)
             return;
         var hero = resolveHero();
         var characterId = heroPersistentId(hero);
@@ -3521,7 +3580,7 @@ class ItemUtilitiesMod {
     static function checkPresetHotkeys():Void {
         if (presetTransferActive)
             return;
-        for (preset in 0...3) {
+        for (preset in 0...PresetSlots.COUNT) {
             var key = presetHotkeyKeys[preset];
             if (key > 0 && isGameKeyPressed(key)) {
                 selectEquipmentPreset(preset);
@@ -3533,7 +3592,7 @@ class ItemUtilitiesMod {
 
     static function checkTalentPresetHotkeys():Void {
         if (talentPresetTransfer.active) return;
-        for (preset in 0...3) {
+        for (preset in 0...PresetSlots.COUNT) {
             var key = talentPresetHotkeyKeys[preset];
             // BMS centrally consumes assignment input before hxd.Key sees it.
             if (key > 0 && isGameKeyPressed(key)) {
@@ -3546,7 +3605,7 @@ class ItemUtilitiesMod {
 
     static function checkAppearancePresetHotkeys():Void {
         if (appearancePresetTransfer.active) return;
-        for (preset in 0...3) {
+        for (preset in 0...PresetSlots.COUNT) {
             var key = appearancePresetHotkeyKeys[preset];
             // BMS centrally consumes assignment input before hxd.Key sees it.
             if (key > 0 && isGameKeyPressed(key)) {
@@ -3559,7 +3618,7 @@ class ItemUtilitiesMod {
 
     static function checkSkillPresetHotkeys():Void {
         if (skillPresetTransfer.active) return;
-        for (preset in 0...3) {
+        for (preset in 0...PresetSlots.COUNT) {
             var key = skillPresetHotkeyKeys[preset];
             // BMS centrally consumes assignment input before hxd.Key sees it.
             if (key > 0 && isGameKeyPressed(key)) {
@@ -3626,7 +3685,7 @@ class ItemUtilitiesMod {
                         var selectedPreset = recordInt(entry, "preset", -1);
                         if (selectionCharacterId != null
                             && StringTools.startsWith(selectionCharacterId, "db:")
-                            && selectedPreset >= 0 && selectedPreset < 3)
+                            && PresetSlots.valid(selectedPreset))
                             selectedWeaponPresets.push({
                                 characterId: selectionCharacterId,
                                 preset: selectedPreset
@@ -3642,7 +3701,7 @@ class ItemUtilitiesMod {
                         var preset = recordInt(entry, "preset", -1);
                         var weapons:Array<Dynamic> = cast Reflect.field(entry, "weapons");
                         if (characterId != null && StringTools.startsWith(characterId, "db:")
-                            && preset >= 0 && preset < 3 && weapons != null)
+                            && PresetSlots.valid(preset) && weapons != null)
                             weaponPresets.push({
                                 characterId: characterId,
                                 preset: preset,
@@ -3685,20 +3744,10 @@ class ItemUtilitiesMod {
         if (config.selectedSkillPresets == null) config.selectedSkillPresets = [];
         if (config.talentPresets == null) config.talentPresets = [];
         if (config.selectedTalentPresets == null) config.selectedTalentPresets = [];
-        for (preset in 0...3) {
-            var field = "preset" + (preset + 1) + "Hotkey";
-            if (Reflect.hasField(data, field))
-                presetHotkeyKeys[preset] = cast Reflect.field(data, field);
-            var talentField = "talentPreset" + (preset + 1) + "Hotkey";
-            if (Reflect.hasField(data, talentField))
-                talentPresetHotkeyKeys[preset] = cast Reflect.field(data, talentField);
-            var skillField = "skillPreset" + (preset + 1) + "Hotkey";
-            if (Reflect.hasField(data, skillField))
-                skillPresetHotkeyKeys[preset] = cast Reflect.field(data, skillField);
-            var appearanceField = "appearancePreset" + (preset + 1) + "Hotkey";
-            if (Reflect.hasField(data, appearanceField))
-                appearancePresetHotkeyKeys[preset] = cast Reflect.field(data, appearanceField);
-        }
+        presetHotkeyKeys = PresetSlots.hotkeys(data, "preset");
+        talentPresetHotkeyKeys = PresetSlots.hotkeys(data, "talentPreset");
+        skillPresetHotkeyKeys = PresetSlots.hotkeys(data, "skillPreset");
+        appearancePresetHotkeyKeys = PresetSlots.hotkeys(data, "appearancePreset");
     }
 
     static function saveConfig():Void {
@@ -3717,18 +3766,10 @@ class ItemUtilitiesMod {
             config.showDepositMaterials = showDepositMaterials.get();
             config.showLockVisuals = showLockVisuals.get();
             config.sortingIgnoresLockedItems = sortingIgnoresLockedItems.get();
-            config.preset1Hotkey = presetHotkeyKeys[0];
-            config.preset2Hotkey = presetHotkeyKeys[1];
-            config.preset3Hotkey = presetHotkeyKeys[2];
-            config.appearancePreset1Hotkey = appearancePresetHotkeyKeys[0];
-            config.appearancePreset2Hotkey = appearancePresetHotkeyKeys[1];
-            config.appearancePreset3Hotkey = appearancePresetHotkeyKeys[2];
-            config.skillPreset1Hotkey = skillPresetHotkeyKeys[0];
-            config.skillPreset2Hotkey = skillPresetHotkeyKeys[1];
-            config.skillPreset3Hotkey = skillPresetHotkeyKeys[2];
-            config.talentPreset1Hotkey = talentPresetHotkeyKeys[0];
-            config.talentPreset2Hotkey = talentPresetHotkeyKeys[1];
-            config.talentPreset3Hotkey = talentPresetHotkeyKeys[2];
+            PresetSlots.saveHotkeys(config, "preset", presetHotkeyKeys);
+            PresetSlots.saveHotkeys(config, "appearancePreset", appearancePresetHotkeyKeys);
+            PresetSlots.saveHotkeys(config, "skillPreset", skillPresetHotkeyKeys);
+            PresetSlots.saveHotkeys(config, "talentPreset", talentPresetHotkeyKeys);
             config.weaponPresets = weaponPresets;
             config.selectedWeaponPresets = selectedWeaponPresets;
             config.lockedItems = savedLocks;
