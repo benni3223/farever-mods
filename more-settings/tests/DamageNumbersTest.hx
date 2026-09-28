@@ -26,6 +26,7 @@ class DamageNumbersTest {
     static function main():Void {
         var config = SettingsData.defaults();
         eq(config.fancyDamageNumbers, false, "Fancy damage numbers remains opt-in");
+        eq(config.pinkCrits, false, "Criticals keep their red palette until Pink crits is enabled");
         // Leftover preferences from older builds cannot override the fixed style.
         var legacy:Dynamic = config;
         for (key in ["blueMagic", "orangePhysical", "flipGradient"])
@@ -33,7 +34,8 @@ class DamageNumbersTest {
         Reflect.setField(legacy, "lightOrangePhysical", true);
         Reflect.setField(legacy, "fancyBorder", true);
         Reflect.setField(legacy, "borderThickness", 6.0);
-        for (critical in [false, true]) for (raw in [false, true]) {
+        for (pink in [false, true]) for (critical in [false, true]) for (raw in [false, true]) {
+            config.pinkCrits = pink;
             var disabled = display(critical, false, raw);
             FancyDamageNumbers.apply(disabled, config);
             eq(disabled.counter.textColor, 0xABCDEF, "Master toggle gates every style option");
@@ -41,7 +43,8 @@ class DamageNumbersTest {
             eq(G.textures.length, 0, "Disabled feature allocates no GPU texture");
         }
         config.fancyDamageNumbers = true;
-        for (critical in [false, true]) for (magic in [false, true]) {
+        for (pink in [false, true]) for (critical in [false, true]) for (magic in [false, true]) {
+            config.pinkCrits = pink;
             var raw = display(critical, magic, true);
             raw.counter.filter = {kind: "native"};
             raw.counter.dropShadow = {color: 0, alpha: 1.0, dx: 1.0, dy: 1.0};
@@ -61,7 +64,8 @@ class DamageNumbersTest {
             eq(raw.counter.text, "123,456", "Raw styling preserves the damage value");
             eq(G.textures.length, 0, "Raw-only hits allocate no gradient texture");
         }
-        for (critical in [false, true]) for (magic in [false, true]) {
+        for (pink in [false, true]) for (critical in [false, true]) for (magic in [false, true]) {
+            config.pinkCrits = pink;
             var d = display(critical, magic);
             var nativeFilter:Dynamic = {kind: "native"};
             d.counter.filter = nativeFilter;
@@ -82,8 +86,8 @@ class DamageNumbersTest {
             eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");
             eq(shader.maskMatB__.y, 1.0, "Ramp follows screen-quad vertical coordinate");
             eq(shader.maskChannel__.w, 0.0, "Opaque mask alpha must not bias interpolation");
-            var top = critical ? 0xFF7F66 : coloredMagic ? 0xBCC2FF : 0xFFCB6D;
-            var bottom = critical ? 0xFF0000 : coloredMagic ? 0x5963C4 : 0xF04424;
+            var top = critical ? (pink ? 0xEF8DEB : 0xFF7F66) : coloredMagic ? 0xBCC2FF : 0xFFCB6D;
+            var bottom = critical ? (pink ? 0xA80C2C : 0xFF0000) : coloredMagic ? 0x5963C4 : 0xF04424;
             assertRGB(shader.matrix__, top, "All palettes start with their light endpoint at the top");
             assertRGB(shader.matrix2__, bottom, "All palettes end with their dark endpoint at the bottom");
             var topRed:Float = shader.matrix__._11, bottomRed:Float = shader.matrix2__._11;
@@ -119,10 +123,11 @@ class DamageNumbersTest {
     }
 
     static function legacyCriticalPreferences():Void {
-        for (red in [false, true])
+        for (pink in [false, true]) for (red in [false, true])
         for (oldColour in (["#123456", "", {bytes: "???", length: 6}, null]:Array<Dynamic>)) {
             var config = SettingsData.defaults();
             config.fancyDamageNumbers = true;
+            config.pinkCrits = pink;
             Reflect.setField(config, "redCriticals", red);
             Reflect.setField(config, "criticalDarkColour", oldColour);
             Reflect.setField(config, "criticalLightColour", oldColour);
@@ -132,8 +137,8 @@ class DamageNumbersTest {
                 var hit = display(true, magic);
                 FancyDamageNumbers.apply(hit, config);
                 var shader = filters(hit.counter.filter)[0].shader;
-                assertRGB(shader.matrix__, 0xFF7F66, "Legacy colour settings cannot override the fixed light end");
-                assertRGB(shader.matrix2__, 0xFF0000, "Legacy or damaged text cannot override the fixed dark end");
+                assertRGB(shader.matrix__, pink ? 0xEF8DEB : 0xFF7F66, "Legacy settings cannot override the selected light end");
+                assertRGB(shader.matrix2__, pink ? 0xA80C2C : 0xFF0000, "Legacy or damaged text cannot override the selected dark end");
             }
         }
     }

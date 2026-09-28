@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers | Toggles off; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
+| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Pink crits | Toggles off; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -27,7 +27,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it includes outlines for all damage and gradients for non-Raw damage; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
-Fancy damage numbers is the only control for this styling. The former colour, gradient, and border controls have been removed; old saved values no longer affect the appearance.
+**Pink crits**, directly below **Fancy damage numbers**, switches physical and magic critical hits to `#EF8DEB` at the light/top end and `#A80C2C` at the dark/bottom end. It is off by default, requires Fancy damage numbers, and affects newly displayed numbers immediately. Normal hits and Raw damage retain their existing colours. The former custom colour, gradient, and border controls remain removed; their old saved values no longer affect the appearance.
 
 Gradients span the damage text itself, excluding the surrounding border padding. Their endpoints stay aligned with the glyph bounds as font size or rendering resolution changes.
 

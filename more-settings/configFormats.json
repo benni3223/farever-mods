@@ -51,6 +51,11 @@
       "label": "Fancy damage numbers"
     },
     {
+      "key": "pinkCrits",
+      "type": "checkbox",
+      "label": "Pink crits"
+    },
+    {
       "type": "title",
       "label": "Appearance"
     },
