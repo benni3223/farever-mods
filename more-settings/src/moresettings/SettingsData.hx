@@ -4,7 +4,9 @@ typedef MoreSettingsConfig = {
     var quickCast:Bool;
     var disableTargetLockCameraMovement:Bool;
     var fancyDamageNumbers:Bool;
+    var blueMagic:Bool;
     var fancyBorder:Bool;
+    var borderThickness:Float;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
@@ -30,7 +32,9 @@ class SettingsData {
         quickCast: false,
         disableTargetLockCameraMovement: false,
         fancyDamageNumbers: false,
+        blueMagic: false,
         fancyBorder: false,
+        borderThickness: 2,
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
@@ -51,5 +55,7 @@ class SettingsData {
         if (config.hideUiKey < 0 || config.hideUiKey >= 512 || config.hideUiKey == 27) config.hideUiKey = 113;
         config.backgroundVolume = percent(config.backgroundVolume);
         config.fastTravelVolume = percent(config.fastTravelVolume);
+        config.borderThickness = Math.isFinite(config.borderThickness)
+            ? Math.max(0.5, Math.min(6, config.borderThickness)) : 2;
     }
 }

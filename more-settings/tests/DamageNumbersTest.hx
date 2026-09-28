@@ -26,7 +26,20 @@ class DamageNumbersTest {
     static function main():Void {
         var config = SettingsData.defaults();
         eq(config.fancyDamageNumbers, false, "Fancy damage numbers remains opt-in");
+        eq(config.blueMagic, false, "Magic damage keeps its existing orange palette by default");
         eq(config.fancyBorder, false, "Fancy border is opt-in to preserve the existing black outline");
+        eq(config.borderThickness, 2.0, "Border thickness preserves the existing two-pixel layers");
+        for (sample in [
+            {value: -10.0, expected: 0.5}, {value: 10.0, expected: 6.0},
+            {value: Math.NaN, expected: 2.0}, {value: Math.POSITIVE_INFINITY, expected: 2.0},
+            {value: 0.5, expected: 0.5}, {value: 3.5, expected: 3.5}, {value: 6.0, expected: 6.0}
+        ]) {
+            config.borderThickness = sample.value;
+            SettingsData.normalize(config);
+            eq(config.borderThickness, sample.expected, "Thickness stays within the supported range");
+        }
+        config.borderThickness = 2;
+        config.blueMagic = true;
         for (fancyBorder in [false, true]) for (critical in [false, true]) {
             config.fancyBorder = fancyBorder;
             var disabled = display(critical);
@@ -36,10 +49,11 @@ class DamageNumbersTest {
             eq(G.textures.length, 0, "Disabled feature allocates no GPU texture");
         }
         config.fancyDamageNumbers = true;
-        for (fancyBorder in [false, true]) for (critical in [false, true]) for (kind in [
+        for (blueMagic in [false, true]) for (fancyBorder in [false, true]) for (critical in [false, true]) for (kind in [
             {magic: false, raw: false}, {magic: true, raw: false}, {magic: true, raw: true}
         ]) {
             config.fancyBorder = fancyBorder;
+            config.blueMagic = blueMagic;
             var d = display(critical, kind.magic, kind.raw);
             var nativeFilter:Dynamic = {kind: "native"};
             d.counter.filter = nativeFilter;
@@ -47,7 +61,7 @@ class DamageNumbersTest {
             var stack = filters(d.counter.filter);
             eq(stack[0], nativeFilter, "Existing native filter survives every combination");
             eq(d.counter.text, "123,456", "Styling never rewrites damage text");
-            var flame = !critical && kind.magic && !kind.raw;
+            var coloredMagic = !critical && kind.magic && !kind.raw;
             eq(d.counter.textColor, 0xFFFFFF, "Every damage type gets the gradient fill");
             eq(stack.length, fancyBorder ? 4 : 3, "Fancy border adds exactly one outline layer");
             if (fancyBorder) {
@@ -65,10 +79,10 @@ class DamageNumbersTest {
             eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");
             eq(shader.maskMatB__.y, 1.0, "Ramp follows screen-quad vertical coordinate");
             eq(shader.maskChannel__.w, 0.0, "Opaque mask alpha must not bias interpolation");
-            var top = critical ? 0xA80C2C : flame ? 0xF04424 : 0x8C8C8C;
-            var bottom = critical ? 0xEF8DEB : flame ? 0xFFB52E : 0xFFFFFF;
+            var top = critical ? 0xA80C2C : coloredMagic ? (blueMagic ? 0x2464F0 : 0xF04424) : 0x8C8C8C;
+            var bottom = critical ? 0xEF8DEB : coloredMagic ? (blueMagic ? 0x75DCFF : 0xFFB52E) : 0xFFFFFF;
             near(shader.matrix__._22, ((top >> 8) & 255) / 255.0,
-                "Magic crits stay pink, normal magic is flame, and raw uses its native palette");
+                "Only normal magic switches between the flame and blue palettes");
             near(shader.matrix2__._33, (bottom & 255) / 255.0, "Gradient ends in the selected palette");
             var topRed:Float = shader.matrix__._11, bottomRed:Float = shader.matrix2__._11;
             var opacity:Float = shader.matrix__._44;
@@ -80,6 +94,16 @@ class DamageNumbersTest {
                 near(opacity * alpha, alpha, "Opacity survives both palettes");
                 near(shader.matrix__._41 + shader.matrix2__._41, 0, "Black shadow pixels receive no additive tint");
             }
+        }
+        for (fancyBorder in [false, true]) for (thickness in [0.5, 2.0, 3.5, 6.0]) {
+            config.fancyBorder = fancyBorder;
+            config.borderThickness = thickness;
+            var d = display(false, true);
+            FancyDamageNumbers.apply(d, config);
+            var stack = filters(d.counter.filter);
+            eq(stack.length, fancyBorder ? 3 : 2, "Thickness adds no extra filter passes");
+            for (filter in stack) if (filter.kind == "outline")
+                eq(filter.size, thickness, "Slider controls every border layer, including fractional sizes");
         }
         eq(G.textures.length, 1, "All hits and palettes reuse one ramp texture");
         var texture = G.textures[0];

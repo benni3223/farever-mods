@@ -51,9 +51,22 @@
       "label": "Fancy damage numbers"
     },
     {
+      "key": "blueMagic",
+      "type": "checkbox",
+      "label": "Blue magic"
+    },
+    {
       "key": "fancyBorder",
       "type": "checkbox",
       "label": "Fancy border"
+    },
+    {
+      "key": "borderThickness",
+      "type": "slider",
+      "label": "Border thickness",
+      "min": 0.5,
+      "max": 6,
+      "step": 0.5
     },
     {
       "type": "title",

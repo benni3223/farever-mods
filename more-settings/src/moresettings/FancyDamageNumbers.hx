@@ -16,7 +16,7 @@ class FancyDamageNumbers {
 
         var critical = G.field(display, "isCrit") == true;
         // Criticals keep their pink identity regardless of damage type. Other
-        // magic hits use the flame palette; raw damage is not a magic affinity.
+        // magic hits use the selected palette; raw damage is not a magic affinity.
         var magic = false;
         var damage = G.field(display, "dmg");
         if (!critical && damage != null && G.field(damage, "affinity") != "Raw")
@@ -25,14 +25,16 @@ class FancyDamageNumbers {
         var nativeColor:Dynamic = G.field(G.field(display, "affinity"), "damageColor");
         if (nativeColor == null) nativeColor = G.field(counter, "textColor");
         var baseColor:Int = nativeColor == null ? 0xFFFFFF : cast nativeColor;
-        var top = critical ? 0xA80C2C : magic ? 0xF04424 : shade(baseColor);
-        var bottom = critical ? 0xEF8DEB : magic ? 0xFFB52E : baseColor;
+        var magicTop = config.blueMagic ? 0x2464F0 : 0xF04424;
+        var magicBottom = config.blueMagic ? 0x75DCFF : 0xFFB52E;
+        var top = critical ? 0xA80C2C : magic ? magicTop : shade(baseColor);
+        var bottom = critical ? 0xEF8DEB : magic ? magicBottom : baseColor;
         var filter:Dynamic = G.field(counter, "filter");
         filter = append(filter, gradient(top, bottom));
         // Outline after tinting to keep both borders free of the gradient.
         // The black pass surrounds the white pass, forming the outer layer.
-        if (config.fancyBorder) filter = append(filter, outline(0xFFFFFF));
-        filter = append(filter, outline(0x000000));
+        if (config.fancyBorder) filter = append(filter, outline(0xFFFFFF, config.borderThickness));
+        filter = append(filter, outline(0x000000, config.borderThickness));
         G.call("domkit.Properties", "initStyle", dom, ["filter", filter]);
         G.call("h2d.Object", "set_filter", counter, [filter]);
 
@@ -42,9 +44,9 @@ class FancyDamageNumbers {
         G.call("h2d.Text", "set_textColor", counter, [0xFFFFFF]);
     }
 
-    static function outline(color:Int):Dynamic {
+    static function outline(color:Int, thickness:Float):Dynamic {
         var filter = G.create("h2d.filter.Outline", [null, null, null, null]);
-        G.call("h2d.filter.Outline", "set_size", filter, [2.0]);
+        G.call("h2d.filter.Outline", "set_size", filter, [thickness]);
         G.call("h2d.filter.Outline", "set_quality", filter, [0.5]);
         G.call("h2d.filter.Outline", "set_color", filter, [color]);
         // Keep native opaque, premultiplied-alpha rendering for both layers.
