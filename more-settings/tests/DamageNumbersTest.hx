@@ -26,6 +26,7 @@ class DamageNumbersTest {
     static function main():Void {
         var config = SettingsData.defaults();
         eq(config.fancyDamageNumbers, false, "Fancy damage numbers remains opt-in");
+        eq(config.redCriticals, false, "Criticals keep their existing pink palette by default");
         eq(config.blueMagic, false, "Magic damage keeps its existing orange palette by default");
         eq(config.orangePhysical, false, "Orange physical is opt-in");
         eq(config.lightOrangePhysical, false, "Light orange physical is opt-in");
@@ -42,6 +43,7 @@ class DamageNumbersTest {
             eq(config.borderThickness, sample.expected, "Thickness stays within the supported range");
         }
         config.borderThickness = 2;
+        config.redCriticals = true;
         config.blueMagic = true;
         config.flipGradient = true;
         config.orangePhysical = true;
@@ -82,7 +84,7 @@ class DamageNumbersTest {
         }
         config.flipGradient = false;
         config.borderThickness = 2;
-        for (physical in [
+        for (redCriticals in [false, true]) for (physical in [
             {orange: false, light: false, top: 0x8C8C8C, bottom: 0xFFFFFF},
             {orange: false, light: true, top: 0x8C8C8C, bottom: 0xFFFFFF},
             {orange: true, light: false, top: 0xF04424, bottom: 0xFFCB6D},
@@ -91,6 +93,7 @@ class DamageNumbersTest {
         for (blueMagic in [false, true]) for (fancyBorder in [false, true]) for (critical in [false, true]) for (kind in [
             {magic: false, raw: false}, {magic: true, raw: false}
         ]) {
+            config.redCriticals = redCriticals;
             config.orangePhysical = physical.orange;
             config.lightOrangePhysical = physical.light;
             config.fancyBorder = fancyBorder;
@@ -120,10 +123,10 @@ class DamageNumbersTest {
             eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");
             eq(shader.maskMatB__.y, 1.0, "Ramp follows screen-quad vertical coordinate");
             eq(shader.maskChannel__.w, 0.0, "Opaque mask alpha must not bias interpolation");
-            var top = critical ? 0xA80C2C : coloredMagic ? (blueMagic ? 0x5963C4 : 0xF04424) : physical.top;
-            var bottom = critical ? 0xEF8DEB : coloredMagic ? (blueMagic ? 0xBCC2FF : 0xFFCB6D) : physical.bottom;
+            var top = critical ? (redCriticals ? 0x98233C : 0xA80C2C) : coloredMagic ? (blueMagic ? 0x5963C4 : 0xF04424) : physical.top;
+            var bottom = critical ? (redCriticals ? 0xC2274B : 0xEF8DEB) : coloredMagic ? (blueMagic ? 0xBCC2FF : 0xFFCB6D) : physical.bottom;
             near(shader.matrix__._22, ((top >> 8) & 255) / 255.0,
-                "Only normal magic switches between the flame and blue palettes");
+                "Critical palette overrides physical and magic palettes only on critical hits");
             near(shader.matrix2__._33, (bottom & 255) / 255.0, "Gradient ends in the selected palette");
             var topRed:Float = shader.matrix__._11, bottomRed:Float = shader.matrix2__._11;
             var opacity:Float = shader.matrix__._44;

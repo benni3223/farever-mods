@@ -51,6 +51,11 @@
       "label": "Fancy damage numbers"
     },
     {
+      "key": "redCriticals",
+      "type": "checkbox",
+      "label": "Red criticals"
+    },
+    {
       "key": "blueMagic",
       "type": "checkbox",
       "label": "Blue magic"

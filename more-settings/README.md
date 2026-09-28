@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Blue magic; Orange physical; Light orange physical; Flip gradient; Fancy border; Border thickness | Toggles off; border thickness 2 px; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
+| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Red criticals; Blue magic; Orange physical; Light orange physical; Flip gradient; Fancy border; Border thickness | Toggles off; border thickness 2 px; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -23,13 +23,15 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 **Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
 
-**Fancy damage numbers** adds black outlines to all damage numbers and vertical color gradients to physical and magic damage. Critical hits fade from deep red-pink to light purple-pink, inspired by the MapleStory reference. Non-critical magic hits fade from red-orange to bright orange. Normal physical hits fade from a darker shade of their native color to that color. Raw damage keeps a pure white fill, including critical Raw hits, with the selected border and no shadow or gradient.
+**Fancy damage numbers** adds black outlines to all damage numbers and vertical color gradients to physical and magic damage. By default, critical hits fade from deep red-pink to light purple-pink, inspired by the MapleStory reference. Non-critical magic hits fade from red-orange to bright orange. Normal physical hits fade from a darker shade of their native color to that color. Raw damage keeps a pure white fill, including critical Raw hits, with the selected border and no shadow or gradient.
 
 The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it includes outlines for all damage and gradients for non-Raw damage; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
-**Blue magic** switches non-critical magic damage from orange to a lavender-blue gradient, fading from a darker blue to pale lavender-blue (`#BCC2FF`). It is off by default; critical magic hits keep their pink gradient.
+**Red criticals** switches physical and magic critical hits to a crimson gradient sampled from the reference (`#98233C` to `#C2274B`). It is off by default and works with Flip gradient and both border styles. Raw critical hits keep their solid white fill.
 
-**Orange physical** gives non-critical physical hits the same red-orange-to-light-orange (`#FFCB6D`) gradient used by magic damage. **Light orange physical** changes that palette to a lighter orange ending in pale peach (`#FEC59E`), based on the orange reference; enable both options to use it. Both default to off, and physical critical hits keep their pink gradient.
+**Blue magic** switches non-critical magic damage from orange to a lavender-blue gradient, fading from a darker blue to pale lavender-blue (`#BCC2FF`). It is off by default; critical magic hits use the selected critical palette.
+
+**Orange physical** gives non-critical physical hits the same red-orange-to-light-orange (`#FFCB6D`) gradient used by magic damage. **Light orange physical** changes that palette to a lighter orange ending in pale peach (`#FEC59E`), based on the orange reference; enable both options to use it. Both default to off, and physical critical hits use the selected critical palette.
 
 **Flip gradient** reverses the top and bottom colors of every damage gradient, including critical hits, magic, and physical damage. It is off by default; Raw damage keeps its solid white fill.
 

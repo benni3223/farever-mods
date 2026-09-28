@@ -4,6 +4,7 @@ typedef MoreSettingsConfig = {
     var quickCast:Bool;
     var disableTargetLockCameraMovement:Bool;
     var fancyDamageNumbers:Bool;
+    var redCriticals:Bool;
     var blueMagic:Bool;
     var orangePhysical:Bool;
     var lightOrangePhysical:Bool;
@@ -35,6 +36,7 @@ class SettingsData {
         quickCast: false,
         disableTargetLockCameraMovement: false,
         fancyDamageNumbers: false,
+        redCriticals: false,
         blueMagic: false,
         orangePhysical: false,
         lightOrangePhysical: false,

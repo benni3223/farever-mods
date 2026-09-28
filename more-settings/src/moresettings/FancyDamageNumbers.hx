@@ -33,7 +33,7 @@ class FancyDamageNumbers {
         }
 
         var critical = G.field(display, "isCrit") == true;
-        // Physical and magic criticals keep their pink identity.
+        // Physical and magic criticals use the selected critical palette.
         var magic = false;
         if (!critical && damage != null)
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
@@ -43,8 +43,10 @@ class FancyDamageNumbers {
         var orangePhysical = config.orangePhysical && damage != null;
         var physicalTop = orangePhysical ? (config.lightOrangePhysical ? 0xF18745 : 0xF04424) : shade(baseColor);
         var physicalBottom = orangePhysical ? (config.lightOrangePhysical ? 0xFEC59E : 0xFFCB6D) : baseColor;
-        var top = critical ? 0xA80C2C : magic ? magicTop : physicalTop;
-        var bottom = critical ? 0xEF8DEB : magic ? magicBottom : physicalBottom;
+        var criticalTop = config.redCriticals ? 0x98233C : 0xA80C2C;
+        var criticalBottom = config.redCriticals ? 0xC2274B : 0xEF8DEB;
+        var top = critical ? criticalTop : magic ? magicTop : physicalTop;
+        var bottom = critical ? criticalBottom : magic ? magicBottom : physicalBottom;
         if (config.flipGradient) {
             var originalTop = top;
             top = bottom;
