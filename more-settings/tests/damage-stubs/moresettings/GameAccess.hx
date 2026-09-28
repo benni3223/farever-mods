@@ -5,6 +5,8 @@ class GameAccess {
     public static var textures:Array<Dynamic> = [];
     public static function field(o:Dynamic, name:String):Dynamic return o == null ? null : Reflect.field(o, name);
     public static function set(o:Dynamic, name:String, value:Dynamic):Void Reflect.setField(o, name, value);
+    public static function array(value:Dynamic, proxy:Bool = false):Array<Dynamic>
+        return value == null ? [] : cast value;
     public static function enumeration(type:String, name:String):Dynamic return type + "." + name;
     public static function create(type:String, args:Array<Dynamic>):Dynamic return switch type {
         case "h3d.MatrixImpl": {};

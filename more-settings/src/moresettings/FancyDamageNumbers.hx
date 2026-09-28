@@ -144,15 +144,41 @@ class FancyDamageNumbers {
         gradientOwners.remove(filter);
     }
 
-    /** Map the actual render tile to glyph bounds, excluding border padding. */
+    /** Map the render tile to glyph geometry, excluding line height and borders. */
     public static function syncGradient(filter:Dynamic, context:Dynamic, input:Dynamic):Void {
         var owner = gradientOwners.get(filter);
         if (owner == null) return;
-        // Text and font styles are finalized after DamageDisplay.init. Read the
-        // live bounds at draw time, also covering resized text and clipped tiles.
+        // Text and font styles are finalized after DamageDisplay.init. FmtText
+        // inherits HtmlText, whose calcHeight is the full line box, not the ink.
+        // TileLayerContent records the placed glyph quads, including their font
+        // offsets. Read those live so resizing/rebuilding text stays aligned.
         G.call("h2d.Text", "updateSize", owner.counter);
-        var yMin:Float = G.field(owner.counter, "calcYMin");
-        var height:Float = G.field(owner.counter, "calcHeight");
+        var content = G.field(G.field(owner.counter, "glyphs"), "content");
+        var yMin = number(content, "yMin", Math.POSITIVE_INFINITY);
+        var yMax = number(content, "yMax", Math.NEGATIVE_INFINITY);
+        if (!Math.isFinite(yMin) || !Math.isFinite(yMax) || yMax <= yMin) {
+            yMin = Math.POSITIVE_INFINITY;
+            yMax = Math.NEGATIVE_INFINITY;
+        }
+        // HtmlText can place a differently styled run in another TileGroup.
+        // Its glyph coordinates are also in the text's local space. Ignore
+        // images and interactive boxes, which do not have glyph content bounds.
+        var elements = G.field(owner.counter, "elements");
+        if (number(elements, "length", 0) > 0) for (element in G.array(elements)) {
+            if (G.field(element, "visible") == false) continue;
+            var run = G.field(element, "content");
+            var runMin = number(run, "yMin", Math.NaN);
+            var runMax = number(run, "yMax", Math.NaN);
+            if (!Math.isFinite(runMin) || !Math.isFinite(runMax) || runMax <= runMin) continue;
+            yMin = Math.min(yMin, runMin);
+            yMax = Math.max(yMax, runMax);
+        }
+        var height = yMax - yMin;
+        // Keep a safe mapping while an empty counter has no built glyphs yet.
+        if (!Math.isFinite(height) || height <= 0) {
+            yMin = number(owner.counter, "calcYMin", 0);
+            height = number(owner.counter, "calcHeight", 0);
+        }
         var root = G.field(owner.counter, "filter");
         var scale = number(root, "resolutionScale", 1);
         if (G.field(root, "useScreenResolution") == true)

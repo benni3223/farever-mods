@@ -35,7 +35,7 @@ On upgrade, your existing shared crit colours are retained for physical crits an
 
 **Three-colour crit gradients** is off by default and applies to both crit types, using each type's own colours. When enabled, criticals blend from Top to Middle over the upper half of the number, then Middle to Bottom over the lower half. When disabled, they blend directly from Top to Bottom and ignore the middle fields. These controls affect newly displayed physical and magic criticals immediately; normal hits and Raw damage retain their existing colours. Text inputs require Better Mod Settings 1.3.0 or newer.
 
-Gradients span the damage text itself, excluding the surrounding border padding. Their endpoints stay aligned with the glyph bounds as font size or rendering resolution changes.
+Gradients span the placed glyph geometry, excluding the formatted text's blank line space and the surrounding border padding. Their endpoints stay aligned with the digits as font size or rendering resolution changes; a three-colour gradient reaches its middle colour halfway between the glyph edges.
 
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 

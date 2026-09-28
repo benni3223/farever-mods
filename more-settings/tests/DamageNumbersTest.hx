@@ -121,6 +121,7 @@ class DamageNumbersTest {
         eq(G.textures.length, 2, "Next scene creates a fresh valid ramp");
         FancyDamageNumbers.dispose();
         threeColourGradients();
+        formattedGradientMapping();
         Sys.println('Fancy damage numbers: $checks checks passed.');
     }
 
@@ -332,6 +333,66 @@ class DamageNumbersTest {
         near(matrix._33, (colour & 255) / 255.0, message + " (blue)");
     }
 
+    static function formattedGradientMapping():Void {
+        var config = SettingsData.defaults();
+        config.fancyDamageNumbers = true;
+        config.threeColourCriticals = true;
+        config.criticalLightColour = config.criticalDarkColour = "F04424";
+        config.criticalMiddleColour = "EF8DEB";
+        SettingsData.normalize(config);
+        for (magic in [false, true]) for (runs in [false, true]) for (resolution in [1.0, 2.0]) {
+            var hit = display(true, magic);
+            hit.counter.text = "66";
+            // HtmlText reserves its font's entire line height, but these glyphs
+            // occupy only the middle part. A missing glyph group uses infinities.
+            hit.counter.calcYMin = 0.0;
+            hit.counter.calcHeight = 88.0;
+            hit.counter.glyphs = {visible: false, content: {
+                yMin: runs ? Math.POSITIVE_INFINITY : 24.0,
+                yMax: runs ? Math.NEGATIVE_INFINITY : 72.0
+            }};
+            var elements:Array<Dynamic> = runs ? [
+                {content: {yMin: 24.0, yMax: 48.0}},
+                {content: {yMin: 40.0, yMax: 72.0}},
+                {y: -100.0, height: 300.0}, // Inline image/interactive box.
+                {visible: false, content: {yMin: -100.0, yMax: 200.0}},
+                {content: {yMin: Math.NaN, yMax: Math.NaN}}
+            ] : [];
+            hit.counter.elements = elements;
+            FancyDamageNumbers.apply(hit, config);
+            hit.counter.filter.resolutionScale = resolution;
+            var stack = filters(hit.counter.filter);
+            var tile:Dynamic = {dy: -2.0 / resolution, height: 88.0 * resolution + 4.0};
+            for (filter in stack) if (filter.kind == "gradient") {
+                FancyDamageNumbers.bindGradient(filter, hit.counter);
+                FancyDamageNumbers.syncGradient(filter, null, tile);
+            }
+            var tileHeight:Float = tile.height, tileY:Float = tile.dy;
+            for (fraction in [0.0, 0.25, 0.5, 0.75, 1.0]) {
+                var glyphY = 24.0 + 48.0 * fraction;
+                var uv = (glyphY - tileY) * resolution / tileHeight;
+                var rgba = render(stack, uv, 1.0, 1.0);
+                var middleWeight = 1 - Math.abs(fraction * 2 - 1);
+                for (channel in 0...3) {
+                    var shift = (2-channel)*8;
+                    var edge = (0xF04424 >> shift) & 255;
+                    var middle = (0xEF8DEB >> shift) & 255;
+                    var expected = (edge * (1-middleWeight) + middle * middleWeight) / 255;
+                    eq(Math.abs(rgba[channel] - expected) <= 1.01 / 255, true,
+                        'Orange/pink/orange reaches the visible glyph stops despite blank font space: y=$fraction channel=$channel');
+                }
+            }
+            // New glyph geometry must be used immediately after text/font rebuild.
+            hit.counter.elements = [];
+            hit.counter.glyphs.content = {yMin: 12.0, yMax: 60.0};
+            for (filter in stack) if (filter.kind == "gradient")
+                FancyDamageNumbers.syncGradient(filter, null, tile);
+            var movedTop = render(stack, (12.0 - tileY) * resolution / tileHeight, 1, 1);
+            near(movedTop[2], 36 / 255.0, "Rebuilt glyphs move the orange endpoint without reopening or recolouring the counter");
+        }
+        FancyDamageNumbers.dispose();
+    }
+
     static function gradientMapping():Dynamic {
         var config = SettingsData.defaults();
         config.fancyDamageNumbers = true;
@@ -343,17 +404,18 @@ class DamageNumbersTest {
         FancyDamageNumbers.bindGradient(filter, d.counter);
         for (glyphHeight in [16.0, 37.5]) for (resolution in [1.0, 2.0])
         for (screenScale in [1.0, 1.5]) for (clipped in [false, true]) {
-            d.counter.calcYMin = 4.25;
-            d.counter.calcHeight = glyphHeight;
+            d.counter.calcYMin = 0.0;
+            d.counter.calcHeight = glyphHeight + 24.0;
+            d.counter.glyphs = {content: {yMin: 4.25, yMax: 4.25 + glyphHeight}};
             d.counter.filter.resolutionScale = resolution;
             d.counter.filter.useScreenResolution = screenScale != 1;
             var context:Dynamic = {scene: {viewportScaleY: screenScale}};
             var scale = resolution * screenScale;
             var padding = 2.0; // Native bounds padding for the fixed 1 px outline.
             // Same bounds expansion/rounding as native Object.drawFilters.
-            var pixelTop = Math.floor(4.25 * scale - padding);
-            var pixelBottom = Math.ceil((4.25 + glyphHeight) * scale + padding);
-            if (clipped) pixelTop += Math.floor(glyphHeight * scale / 3);
+            var pixelTop = Math.floor(-padding);
+            var pixelBottom = Math.ceil((glyphHeight + 24.0) * scale + padding);
+            if (clipped) pixelTop = Math.floor((4.25 + glyphHeight / 3) * scale);
             var tile:Dynamic = {dy: pixelTop / scale, height: pixelBottom - pixelTop};
             FancyDamageNumbers.syncGradient(filter, context, tile);
             var slope:Float = shader.maskMatB__.y, offset:Float = shader.maskMatB__.z;
@@ -364,7 +426,7 @@ class DamageNumbersTest {
                 var maskUV = slope * uv + offset;
                 // Bilinear sampling of a 64-row ramp at its texel centers.
                 var blend = (maskUV * 64 - 0.5) / 63;
-                near(blend, fraction, "Gradient spans glyphs despite border padding, font size, scale, or clipping");
+                near(blend, fraction, "Gradient spans glyphs despite blank font space, border padding, font size, scale, or clipping");
                 var g0:Float = shader.matrix__._22, g1:Float = shader.matrix2__._22;
                 near(g0 * (1-blend) + g1 * blend, 127 * (1-fraction) / 255,
                     "Rendered critical blend reaches both fixed endpoints with an even transition");
