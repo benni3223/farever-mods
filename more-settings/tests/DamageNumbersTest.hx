@@ -10,8 +10,10 @@ class DamageNumbersTest {
     }
     static function near(actual:Float, expected:Float, message:String):Void
         eq(Math.abs(actual - expected) < 0.000001, true, message + ': expected $expected, got $actual');
-    static function display(critical:Bool):Dynamic return {
+    static function display(critical:Bool, magic:Bool = false, raw:Bool = false):Dynamic return {
         isCrit: critical,
+        dmg: {magic: magic, affinity: raw ? "Raw" : magic ? "Fire" : "Physical"},
+        affinity: {damageColor: magic && !raw ? 0xFFFF00 : 0xFFFFFF},
         counter: {dom: {styles: {}}, textColor: 0xABCDEF, filter: null, text: "123,456"}
     };
     static function filters(filter:Dynamic):Array<Dynamic> {
@@ -23,31 +25,37 @@ class DamageNumbersTest {
     }
     static function main():Void {
         var config = SettingsData.defaults();
-        eq(config.damageNumberOutline || config.damageNumberGradient || config.damageNumberRed, false, "Existing users keep flat pink");
-        config.damageNumberOutline = config.damageNumberGradient = config.damageNumberRed = true;
+        eq(config.damageNumberOutline || config.damageNumberGradient, false, "Existing users keep flat pink");
+        config.damageNumberOutline = config.damageNumberGradient = true;
         var disabled = display(true);
         FancyDamageNumbers.apply(disabled, config);
         eq(disabled.counter.textColor, 0xABCDEF, "Master toggle gates every style option");
         eq(G.textures.length, 0, "Disabled feature allocates no GPU texture");
         config.fancyDamageNumbers = true;
+        config.damageNumberOutline = config.damageNumberGradient = false;
         var normal = display(false);
         FancyDamageNumbers.apply(normal, config);
-        eq(normal.counter.textColor, 0xABCDEF, "Normal hits retain native colors");
-        eq(normal.counter.filter, null, "Normal hits acquire no filters");
-        for (outline in [false, true]) for (gradient in [false, true]) for (red in [false, true]) {
+        eq(normal.counter.textColor, 0xABCDEF, "Without extra options normal hits retain native colors");
+        eq(normal.counter.filter, null, "Without extra options normal hits acquire no filters");
+        for (outline in [false, true]) for (gradient in [false, true]) for (critical in [false, true]) for (kind in [
+            {magic: false, raw: false}, {magic: true, raw: false}, {magic: true, raw: true}
+        ]) {
             config.damageNumberOutline = outline;
             config.damageNumberGradient = gradient;
-            config.damageNumberRed = red;
-            var d = display(true);
+            var d = display(critical, kind.magic, kind.raw);
             var nativeFilter:Dynamic = {kind: "native"};
             d.counter.filter = nativeFilter;
             FancyDamageNumbers.apply(d, config);
             var stack = filters(d.counter.filter);
             eq(stack[0], nativeFilter, "Existing native filter survives every combination");
             eq(d.counter.text, "123,456", "Styling never rewrites damage text");
-            eq(d.counter.textColor, gradient ? 0xFFFFFF : red ? 0xF04424 : 0xF060D0, "Fill prepares the selected palette");
-            eq(stack.length, 1 + (gradient ? 1 : 0) + (outline ? 1 : 0), "Only enabled effects are attached");
-            if (outline) {
+            var flame = gradient && !critical && kind.magic && !kind.raw;
+            var outlined = outline || flame;
+            eq(d.counter.textColor, gradient ? 0xFFFFFF : critical ? 0xF060D0 : 0xABCDEF,
+                "Outline alone preserves normal fill; crits keep pink");
+            eq(stack.length, 1 + (gradient ? 1 : 0) + (outlined ? 1 : 0),
+                "Gradient covers all hits and magic gradient automatically includes an outline");
+            if (outlined) {
                 eq(stack[stack.length - 1].kind, "outline", "Outline follows gradient so it stays black");
                 eq(stack[stack.length - 1].color, 0, "Black outline");
             }
@@ -57,7 +65,11 @@ class DamageNumbersTest {
                 eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");
                 eq(shader.maskMatB__.y, 1.0, "Ramp follows screen-quad vertical coordinate");
                 eq(shader.maskChannel__.w, 0.0, "Opaque mask alpha must not bias interpolation");
-                var top = red ? 0xF04424 : 0xD92565, bottom = red ? 0xFFB52E : 0xEF8DEB;
+                var top = critical ? 0xA80C2C : flame ? 0xF04424 : 0x8C8C8C;
+                var bottom = critical ? 0xEF8DEB : flame ? 0xFFB52E : 0xFFFFFF;
+                near(shader.matrix__._22, ((top >> 8) & 255) / 255.0,
+                    "Magic crits stay pink, normal magic is flame, and raw uses its native palette");
+                near(shader.matrix2__._33, (bottom & 255) / 255.0, "Gradient ends in the selected palette");
                 var topRed:Float = shader.matrix__._11, bottomRed:Float = shader.matrix2__._11;
                 var opacity:Float = shader.matrix__._44;
                 for (y in [0.0, 0.5, 1.0]) for (alpha in [0.0, 0.25, 1.0]) {

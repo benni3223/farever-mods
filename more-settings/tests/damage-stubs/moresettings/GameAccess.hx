@@ -23,6 +23,7 @@ class GameAccess {
         throw "Unexpected static call: " + type + "." + name;
     }
     public static function call(type:String, name:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic {
+        if (type == "st.skill.DamageResult" && name == "get_isMagic") return o.magic;
         if (type == "h3d.pass.ColorMatrixShader" && StringTools.startsWith(name, "set_")) {
             set(o, name.substr(4) + "__", args[0]); return args[0];
         }

@@ -3,21 +3,37 @@ package moresettings;
 import moresettings.GameAccess as G;
 import moresettings.SettingsData.MoreSettingsConfig;
 
-/** Styles only native critical-hit counters; all rendering objects stay in the game module. */
+/** Styles native damage counters; all rendering objects stay in the game module. */
 class FancyDamageNumbers {
     static var ramp:Dynamic;
     static var rampPixels:Dynamic;
 
     public static function apply(display:Dynamic, config:MoreSettingsConfig):Void {
-        if (!config.fancyDamageNumbers || G.field(display, "isCrit") != true) return;
+        if (!config.fancyDamageNumbers) return;
         var counter = G.field(display, "counter");
         var dom = G.field(counter, "dom");
         if (dom == null) return;
 
+        var critical = G.field(display, "isCrit") == true;
+        if (!critical && !config.damageNumberGradient && !config.damageNumberOutline) return;
+        // Criticals keep their pink identity regardless of damage type. Other
+        // magic hits use the flame palette; raw damage is not a magic affinity.
+        var magic = false;
+        var damage = G.field(display, "dmg");
+        if (config.damageNumberGradient && !critical && damage != null && G.field(damage, "affinity") != "Raw")
+            magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
+        var outlineEnabled = config.damageNumberOutline || magic;
+
         var filter:Dynamic = G.field(counter, "filter");
-        if (config.damageNumberGradient)
-            filter = append(filter, gradient(config.damageNumberRed));
-        if (config.damageNumberOutline) {
+        if (config.damageNumberGradient) {
+            var nativeColor:Dynamic = G.field(G.field(display, "affinity"), "damageColor");
+            if (nativeColor == null) nativeColor = G.field(counter, "textColor");
+            var baseColor:Int = nativeColor == null ? 0xFFFFFF : cast nativeColor;
+            var top = critical ? 0xA80C2C : magic ? 0xF04424 : shade(baseColor);
+            var bottom = critical ? 0xEF8DEB : magic ? 0xFFB52E : baseColor;
+            filter = append(filter, gradient(top, bottom));
+        }
+        if (outlineEnabled) {
             var outline = G.create("h2d.filter.Outline", [null, null, null, null]);
             G.call("h2d.filter.Outline", "set_size", outline, [2.0]);
             G.call("h2d.filter.Outline", "set_quality", outline, [0.5]);
@@ -25,13 +41,14 @@ class FancyDamageNumbers {
             // Apply it last so the gradient never recolors the border.
             filter = append(filter, outline);
         }
-        if (config.damageNumberGradient || config.damageNumberOutline) {
+        if (config.damageNumberGradient || outlineEnabled) {
             G.call("domkit.Properties", "initStyle", dom, ["filter", filter]);
             G.call("h2d.Object", "set_filter", counter, [filter]);
         }
 
-        var color = config.damageNumberGradient ? 0xFFFFFF
-            : config.damageNumberRed ? 0xF04424 : 0xF060D0;
+        // An outline alone must not replace the native fill of non-critical hits.
+        if (!critical && !config.damageNumberGradient) return;
+        var color = config.damageNumberGradient ? 0xFFFFFF : 0xF060D0;
         // Inline styles survive subsequent native affinity/crit CSS refreshes.
         // DamageDisplay.init creates a fresh counter, so each option affects new hits.
         G.call("domkit.Properties", "initStyle", dom, ["color", color]);
@@ -46,15 +63,21 @@ class FancyDamageNumbers {
         return group;
     }
 
-    static function gradient(red:Bool):Dynamic {
+    static function shade(color:Int):Int {
+        return (Math.round(((color >> 16) & 255) * 0.55) << 16)
+            | (Math.round(((color >> 8) & 255) * 0.55) << 8)
+            | Math.round((color & 255) * 0.55);
+    }
+
+    static function gradient(top:Int, bottom:Int):Dynamic {
         // Reuse the game's masked two-matrix screen shader. UVs cover the whole
         // rendered counter, not the unrelated positions of digits in the font atlas.
         var shader = G.create("h3d.pass.ColorMatrixShader", []);
         for (name in ["useAlpha", "useMask", "hasSecondMatrix"])
             G.call("h3d.pass.ColorMatrixShader", "set_" + name, shader, [true]);
         G.call("h3d.pass.ColorMatrixShader", "set_maskInvert", shader, [false]);
-        G.call("h3d.pass.ColorMatrixShader", "set_matrix", shader, [tint(red ? 0xF04424 : 0xD92565)]);
-        G.call("h3d.pass.ColorMatrixShader", "set_matrix2", shader, [tint(red ? 0xFFB52E : 0xEF8DEB)]);
+        G.call("h3d.pass.ColorMatrixShader", "set_matrix", shader, [tint(top)]);
+        G.call("h3d.pass.ColorMatrixShader", "set_matrix2", shader, [tint(bottom)]);
         G.call("h3d.pass.ColorMatrixShader", "set_mask", shader, [getRamp()]);
         G.call("h3d.pass.ColorMatrixShader", "set_maskPower", shader, [1.0]);
         vector(G.field(shader, "maskMatA__"), 1, 0, 0);

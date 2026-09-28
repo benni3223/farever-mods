@@ -6,7 +6,6 @@ typedef MoreSettingsConfig = {
     var fancyDamageNumbers:Bool;
     var damageNumberOutline:Bool;
     var damageNumberGradient:Bool;
-    var damageNumberRed:Bool;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
@@ -34,7 +33,6 @@ class SettingsData {
         fancyDamageNumbers: false,
         damageNumberOutline: false,
         damageNumberGradient: false,
-        damageNumberRed: false,
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
