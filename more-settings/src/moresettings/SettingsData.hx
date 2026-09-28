@@ -5,6 +5,7 @@ typedef MoreSettingsConfig = {
     var disableTargetLockCameraMovement:Bool;
     var fancyDamageNumbers:Bool;
     var blueMagic:Bool;
+    var flipGradient:Bool;
     var fancyBorder:Bool;
     var borderThickness:Float;
     var disableProfanityFilter:Bool;
@@ -33,6 +34,7 @@ class SettingsData {
         disableTargetLockCameraMovement: false,
         fancyDamageNumbers: false,
         blueMagic: false,
+        flipGradient: false,
         fancyBorder: false,
         borderThickness: 2,
         disableProfanityFilter: true,

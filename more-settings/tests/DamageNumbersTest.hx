@@ -27,6 +27,7 @@ class DamageNumbersTest {
         var config = SettingsData.defaults();
         eq(config.fancyDamageNumbers, false, "Fancy damage numbers remains opt-in");
         eq(config.blueMagic, false, "Magic damage keeps its existing orange palette by default");
+        eq(config.flipGradient, false, "Gradients retain their original direction by default");
         eq(config.fancyBorder, false, "Fancy border is opt-in to preserve the existing black outline");
         eq(config.borderThickness, 2.0, "Border thickness preserves the existing two-pixel layers");
         for (sample in [
@@ -40,6 +41,7 @@ class DamageNumbersTest {
         }
         config.borderThickness = 2;
         config.blueMagic = true;
+        config.flipGradient = true;
         for (fancyBorder in [false, true]) for (critical in [false, true]) {
             config.fancyBorder = fancyBorder;
             var disabled = display(critical);
@@ -49,6 +51,7 @@ class DamageNumbersTest {
             eq(G.textures.length, 0, "Disabled feature allocates no GPU texture");
         }
         config.fancyDamageNumbers = true;
+        config.flipGradient = false;
         for (blueMagic in [false, true]) for (fancyBorder in [false, true]) for (critical in [false, true]) for (kind in [
             {magic: false, raw: false}, {magic: true, raw: false}, {magic: true, raw: true}
         ]) {
@@ -94,6 +97,17 @@ class DamageNumbersTest {
                 near(opacity * alpha, alpha, "Opacity survives both palettes");
                 near(shader.matrix__._41 + shader.matrix2__._41, 0, "Black shadow pixels receive no additive tint");
             }
+            config.flipGradient = true;
+            var flipped = display(critical, kind.magic, kind.raw);
+            FancyDamageNumbers.apply(flipped, config);
+            var flippedShader = filters(flipped.counter.filter)[0].shader;
+            for (channel in ["_11", "_22", "_33"]) {
+                near(Reflect.field(flippedShader.matrix__, channel), Reflect.field(shader.matrix2__, channel),
+                    "Flip gradient moves the original bottom color to the top for every palette");
+                near(Reflect.field(flippedShader.matrix2__, channel), Reflect.field(shader.matrix__, channel),
+                    "Flip gradient moves the original top color to the bottom for every palette");
+            }
+            config.flipGradient = false;
         }
         for (fancyBorder in [false, true]) for (thickness in [0.5, 2.0, 3.5, 6.0]) {
             config.fancyBorder = fancyBorder;

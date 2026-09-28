@@ -29,6 +29,11 @@ class FancyDamageNumbers {
         var magicBottom = config.blueMagic ? 0x9FA8FF : 0xFFB52E;
         var top = critical ? 0xA80C2C : magic ? magicTop : shade(baseColor);
         var bottom = critical ? 0xEF8DEB : magic ? magicBottom : baseColor;
+        if (config.flipGradient) {
+            var originalTop = top;
+            top = bottom;
+            bottom = originalTop;
+        }
         var filter:Dynamic = G.field(counter, "filter");
         filter = append(filter, gradient(top, bottom));
         // Outline after tinting to keep both borders free of the gradient.

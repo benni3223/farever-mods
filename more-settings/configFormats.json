@@ -56,6 +56,11 @@
       "label": "Blue magic"
     },
     {
+      "key": "flipGradient",
+      "type": "checkbox",
+      "label": "Flip gradient"
+    },
+    {
       "key": "fancyBorder",
       "type": "checkbox",
       "label": "Fancy border"

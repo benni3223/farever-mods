@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Blue magic; Fancy border; Border thickness | Toggles off; border thickness 2 px; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
+| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Blue magic; Flip gradient; Fancy border; Border thickness | Toggles off; border thickness 2 px; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -28,6 +28,8 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it always includes the outlines and gradients; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
 **Blue magic** switches non-critical magic damage from orange to a lavender-blue gradient, fading from a darker blue to the reference color `#9FA8FF`. It is off by default; critical magic hits keep their pink gradient.
+
+**Flip gradient** reverses the top and bottom colors of every damage gradient, including critical hits, magic, physical, and raw damage. It is off by default and keeps both border colors unchanged.
 
 **Fancy border** adds a white inner outline inside the black outer outline on all damage numbers. It is off by default. **Border thickness** adjusts each outline layer from 0.5 to 6 px in 0.5 px steps, defaulting to the existing 2 px. It controls the black outline and, when Fancy border is enabled, the white inner outline too.
 
