@@ -891,31 +891,49 @@ class MinimapView {
     }
 
     function loadNextTile():Void {
-        for (entry in pending) {
-            var tile = entry.loading.take();
-            if (tile == null) continue;
+        // The HUD stays on a small budget. The expanded map should fill on open,
+        // including tiles that were already decoded for the minimap.
+        var finishBudget = expanded ? 32 : 1;
+        var attachBudget = expanded ? 48 : 1;
+        var startBudget = expanded ? 8 : 1;
+        var inFlight = expanded ? 16 : 2;
+        var finished = 0;
+        var index = 0;
+        while (index < pending.length && finished < finishBudget) {
+            var entry = pending[index];
+            var tile = entry.loading == null ? null : entry.loading.take();
+            if (tile == null) { index++; continue; }
             entry.tile = tile; entry.loading = null;
-            cached.push(entry); pending.remove(entry);
-            trimCache();
-            break; // Bound foreground finalization too.
+            cached.push(entry);
+            pending.remove(entry);
+            finished++;
         }
+        if (finished > 0) trimCache();
+        var started = 0;
+        var attached = 0;
         for (entry in wanted) {
             var key = tileKey(entry.x, entry.y);
             if (sprites.exists(key)) continue;
             if (entry.tile == null) {
-                if (entry.loading == null && pending.length < 2) { requestTile(entry); return; }
+                if (entry.loading == null && pending.length < inFlight && started < startBudget) {
+                    requestTile(entry);
+                    started++;
+                }
                 continue;
             }
+            if (attached >= attachBudget) continue;
             var bitmap = G.create("h2d.Bitmap", [entry.tile, tileLayer]);
             G.call("h2d.Bitmap", "set_width", bitmap, [tileWorldWidth]);
             G.call("h2d.Bitmap", "set_height", bitmap, [tileWorldWidth]);
             position(bitmap, entry.x * tileWorldWidth, entry.y * tileWorldWidth);
             sprites[key] = bitmap;
-            trimCache();
-            return; // At most one bitmap attachment per game update.
+            attached++;
         }
-        if (pending.length < 2) for (entry in prefetch) if (entry.tile == null && entry.loading == null) {
-            requestTile(entry); return;
+        if (attached > 0) trimCache();
+        if (started > 0 || pending.length >= inFlight) return;
+        for (entry in prefetch) if (entry.tile == null && entry.loading == null) {
+            requestTile(entry);
+            return;
         }
     }
 
