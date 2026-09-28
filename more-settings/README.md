@@ -27,7 +27,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it includes outlines for all damage and gradients for non-Raw damage; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
-**Red criticals** switches physical and magic critical hits to a crimson gradient sampled from the reference (`#98233C` to `#C2274B`). It is off by default and works with Flip gradient and both border styles. Raw critical hits keep their solid white fill.
+**Red criticals** switches physical and magic critical hits to a gradient from the reference's dark crimson (`#98233C`) to pale red (`#FF9A9A`). It is off by default and works with Flip gradient and both border styles. Raw critical hits keep their solid white fill.
 
 **Blue magic** switches non-critical magic damage from orange to a lavender-blue gradient, fading from a darker blue to pale lavender-blue (`#BCC2FF`). It is off by default; critical magic hits use the selected critical palette.
 

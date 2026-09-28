@@ -44,7 +44,7 @@ class FancyDamageNumbers {
         var physicalTop = orangePhysical ? (config.lightOrangePhysical ? 0xF18745 : 0xF04424) : shade(baseColor);
         var physicalBottom = orangePhysical ? (config.lightOrangePhysical ? 0xFEC59E : 0xFFCB6D) : baseColor;
         var criticalTop = config.redCriticals ? 0x98233C : 0xA80C2C;
-        var criticalBottom = config.redCriticals ? 0xC2274B : 0xEF8DEB;
+        var criticalBottom = config.redCriticals ? 0xFF9A9A : 0xEF8DEB;
         var top = critical ? criticalTop : magic ? magicTop : physicalTop;
         var bottom = critical ? criticalBottom : magic ? magicBottom : physicalBottom;
         if (config.flipGradient) {
