@@ -7,6 +7,7 @@ import moresettings.SettingsData.MoreSettingsConfig;
 class FancyDamageNumbers {
     static var ramp:Dynamic;
     static var rampPixels:Dynamic;
+    static var gradientOwners = new haxe.ds.ObjectMap<Dynamic, {counter:Dynamic, shader:Dynamic}>();
 
     public static function apply(display:Dynamic, config:MoreSettingsConfig):Void {
         if (!config.fancyDamageNumbers) return;
@@ -43,8 +44,8 @@ class FancyDamageNumbers {
         var orangePhysical = config.orangePhysical && damage != null;
         var physicalTop = orangePhysical ? (config.lightOrangePhysical ? 0xF18745 : 0xF04424) : shade(baseColor);
         var physicalBottom = orangePhysical ? (config.lightOrangePhysical ? 0xFEC59E : 0xFFCB6D) : baseColor;
-        var criticalTop = config.redCriticals ? 0xD22D39 : 0xA80C2C;
-        var criticalBottom = config.redCriticals ? 0xFFFFFF : 0xEF8DEB;
+        var criticalTop = config.redCriticals ? 0x9C120D : 0xA80C2C;
+        var criticalBottom = config.redCriticals ? 0xFA4B34 : 0xEF8DEB;
         var top = critical ? criticalTop : magic ? magicTop : physicalTop;
         var bottom = critical ? criticalBottom : magic ? magicBottom : physicalBottom;
         if (config.flipGradient) {
@@ -108,6 +109,46 @@ class FancyDamageNumbers {
         return G.create("h2d.filter.Shader", [shader, "texture"]);
     }
 
+    public static function bindGradient(filter:Dynamic, counter:Dynamic):Void {
+        if (ramp == null) return;
+        var shader = G.field(G.field(filter, "pass"), "shader");
+        if (shader != null && G.field(shader, "mask__") == ramp)
+            gradientOwners.set(filter, {counter: counter, shader: shader});
+    }
+
+    public static function unbindGradient(filter:Dynamic):Void {
+        gradientOwners.remove(filter);
+    }
+
+    /** Map the actual render tile to glyph bounds, excluding border padding. */
+    public static function syncGradient(filter:Dynamic, context:Dynamic, input:Dynamic):Void {
+        var owner = gradientOwners.get(filter);
+        if (owner == null) return;
+        // Text and font styles are finalized after DamageDisplay.init. Read the
+        // live bounds at draw time, also covering resized text and clipped tiles.
+        G.call("h2d.Text", "updateSize", owner.counter);
+        var yMin:Float = G.field(owner.counter, "calcYMin");
+        var height:Float = G.field(owner.counter, "calcHeight");
+        var root = G.field(owner.counter, "filter");
+        var scale = number(root, "resolutionScale", 1);
+        if (G.field(root, "useScreenResolution") == true)
+            scale *= number(G.field(context, "scene"), "viewportScaleY", 1);
+        var tileHeight = number(input, "height", 0);
+        var tileY = number(input, "dy", 0);
+        if (!Math.isFinite(height) || height <= 0 || !Math.isFinite(yMin)
+            || !Math.isFinite(scale) || scale <= 0 || tileHeight <= 0) return;
+        // Sample texel centers in the 64-row ramp for an even linear blend.
+        var span = 63.0 / 64.0;
+        vector(G.field(owner.shader, "maskMatB__"), 0,
+            span * tileHeight / (scale * height),
+            0.5 / 64.0 + span * (tileY - yMin) / height);
+    }
+
+    static function number(object:Dynamic, field:String, fallback:Float):Float {
+        var value:Dynamic = G.field(object, field);
+        return value == null ? fallback : cast value;
+    }
+
     static function vector(value:Dynamic, x:Float, y:Float, z:Float):Void {
         G.set(value, "x", x); G.set(value, "y", y); G.set(value, "z", z);
     }
@@ -145,6 +186,7 @@ class FancyDamageNumbers {
     }
 
     public static function dispose():Void {
+        gradientOwners.clear();
         if (ramp != null) {
             G.set(ramp, "realloc", null);
             G.call("h3d.mat.Texture", "dispose", ramp);

@@ -77,6 +77,22 @@ class MoreSettingsMod {
         try FancyDamageNumbers.apply(instance, config) catch (error:Dynamic) damageNumberError(error);
     }
 
+    @:hlx.postfix(h2d.filter.Filter.bind)
+    static function afterDamageFilterBind(instance:Dynamic, s:Dynamic, result:Void):Void {
+        try FancyDamageNumbers.bindGradient(instance, s) catch (error:Dynamic) damageNumberError(error);
+    }
+
+    @:hlx.postfix(h2d.filter.Filter.unbind)
+    static function afterDamageFilterUnbind(instance:Dynamic, s:Dynamic, result:Void):Void {
+        FancyDamageNumbers.unbindGradient(instance);
+    }
+
+    @:hlx.prefix(h2d.filter.Shader.draw)
+    static function beforeDamageGradientDraw(instance:Dynamic, ctx:Dynamic, input:Dynamic):HlxPrefixResult<Dynamic> {
+        try FancyDamageNumbers.syncGradient(instance, ctx, input) catch (error:Dynamic) damageNumberError(error);
+        return Continue;
+    }
+
     static function damageNumberError(error:Dynamic):Void {
         if (!reportedDamageNumberError) {
             reportedDamageNumberError = true;

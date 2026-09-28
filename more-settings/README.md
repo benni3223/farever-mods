@@ -27,7 +27,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it includes outlines for all damage and gradients for non-Raw damage; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
-**Red criticals** switches physical and magic critical hits to a gradient from the reference red (`#D22D39`) to pure white (`#FFFFFF`). It is off by default and works with Flip gradient and both border styles. Raw critical hits keep their solid white fill.
+**Red criticals** switches physical and magic critical hits to a gradient between the two reference reds (`#9C120D` and `#FA4B34`). It is off by default and works with Flip gradient and both border styles. Raw critical hits keep their solid white fill.
 
 **Blue magic** switches non-critical magic damage from orange to a lavender-blue gradient, fading from a darker blue to pale lavender-blue (`#BCC2FF`). It is off by default; critical magic hits use the selected critical palette.
 
@@ -38,6 +38,8 @@ The option is off by default and preserves your existing Fancy damage numbers pr
 **Fancy border** adds a white inner outline inside the black outer outline on all damage numbers, including Raw. It is off by default. **Border thickness** adjusts each outline layer from 0.5 to 6 px in 0.5 px steps, defaulting to the existing 2 px. It controls the black outline and, when Fancy border is enabled, the white inner outline too.
 
 These options require Fancy damage numbers to be enabled and affect newly displayed numbers immediately.
+
+Gradients span the damage text itself, excluding the surrounding border padding. Their endpoints stay aligned with the glyph bounds as border thickness, font size, or rendering resolution changes.
 
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 

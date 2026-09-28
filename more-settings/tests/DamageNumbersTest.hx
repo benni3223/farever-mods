@@ -123,8 +123,8 @@ class DamageNumbersTest {
             eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");
             eq(shader.maskMatB__.y, 1.0, "Ramp follows screen-quad vertical coordinate");
             eq(shader.maskChannel__.w, 0.0, "Opaque mask alpha must not bias interpolation");
-            var top = critical ? (redCriticals ? 0xD22D39 : 0xA80C2C) : coloredMagic ? (blueMagic ? 0x5963C4 : 0xF04424) : physical.top;
-            var bottom = critical ? (redCriticals ? 0xFFFFFF : 0xEF8DEB) : coloredMagic ? (blueMagic ? 0xBCC2FF : 0xFFCB6D) : physical.bottom;
+            var top = critical ? (redCriticals ? 0x9C120D : 0xA80C2C) : coloredMagic ? (blueMagic ? 0x5963C4 : 0xF04424) : physical.top;
+            var bottom = critical ? (redCriticals ? 0xFA4B34 : 0xEF8DEB) : coloredMagic ? (blueMagic ? 0xBCC2FF : 0xFFCB6D) : physical.bottom;
             near(shader.matrix__._22, ((top >> 8) & 255) / 255.0,
                 "Critical palette overrides physical and magic palettes only on critical hits");
             near(shader.matrix2__._33, (bottom & 255) / 255.0, "Gradient ends in the selected palette");
@@ -160,6 +160,7 @@ class DamageNumbersTest {
             for (filter in stack) if (filter.kind == "outline")
                 eq(filter.size, thickness, "Slider controls every border layer, including fractional sizes");
         }
+        var mappingFilter = gradientMapping();
         eq(G.textures.length, 1, "All hits and palettes reuse one ramp texture");
         var texture = G.textures[0];
         eq(texture.pixels.colors[0], 0xFF000000, "Gradient top selects first color");
@@ -167,6 +168,9 @@ class DamageNumbersTest {
         var reload:Void->Void = texture.realloc;
         reload(); eq(texture.uploads, 2, "Device reset can restore the mask from retained pixels");
         FancyDamageNumbers.dispose();
+        mappingFilter.shader.maskMatB__.y = 123.0;
+        FancyDamageNumbers.syncGradient(mappingFilter, null, null);
+        eq(mappingFilter.shader.maskMatB__.y, 123.0, "Scene disposal clears gradient owners");
         eq(texture.disposed && texture.pixels.disposed, true, "Scene disposal releases GPU and CPU ramp resources");
         eq(texture.realloc, null, "Disposed texture cannot retain the restore callback");
         FancyDamageNumbers.dispose();
@@ -174,5 +178,65 @@ class DamageNumbersTest {
         eq(G.textures.length, 2, "Next scene creates a fresh valid ramp");
         FancyDamageNumbers.dispose();
         Sys.println('Fancy damage numbers: $checks checks passed.');
+    }
+
+    static function gradientMapping():Dynamic {
+        var config = SettingsData.defaults();
+        config.fancyDamageNumbers = true;
+        config.redCriticals = true;
+        var lastFilter:Dynamic = null;
+        for (fancyBorder in [false, true]) for (thickness in [0.5, 2.0, 6.0]) {
+            if (lastFilter != null) FancyDamageNumbers.unbindGradient(lastFilter);
+            config.fancyBorder = fancyBorder;
+            config.borderThickness = thickness;
+            var d = display(true);
+            FancyDamageNumbers.apply(d, config);
+            var filter = filters(d.counter.filter)[0];
+            var shader = filter.shader;
+            // Native Group.bind forwards the owning text to every child filter.
+            FancyDamageNumbers.bindGradient(filter, d.counter);
+            for (glyphHeight in [16.0, 37.5]) for (resolution in [1.0, 2.0])
+            for (screenScale in [1.0, 1.5]) for (clipped in [false, true]) {
+                d.counter.calcYMin = 4.25;
+                d.counter.calcHeight = glyphHeight;
+                d.counter.filter.resolutionScale = resolution;
+                d.counter.filter.useScreenResolution = screenScale != 1;
+                var context:Dynamic = {scene: {viewportScaleY: screenScale}};
+                var scale = resolution * screenScale;
+                var padding = thickness * 2 * (fancyBorder ? 2 : 1);
+                // Same bounds expansion/rounding as native Object.drawFilters.
+                var pixelTop = Math.floor(4.25 * scale - padding);
+                var pixelBottom = Math.ceil((4.25 + glyphHeight) * scale + padding);
+                if (clipped) pixelTop += Math.floor(glyphHeight * scale / 3);
+                var tile:Dynamic = {dy: pixelTop / scale, height: pixelBottom - pixelTop};
+                FancyDamageNumbers.syncGradient(filter, context, tile);
+                var slope:Float = shader.maskMatB__.y, offset:Float = shader.maskMatB__.z;
+                for (fraction in [0.0, 0.25, 0.5, 0.75, 1.0]) {
+                    var pixelY = (4.25 + glyphHeight * fraction) * scale;
+                    var uv = (pixelY - pixelTop) / (pixelBottom - pixelTop);
+                    if (uv < 0 || uv > 1) continue;
+                    var maskUV = slope * uv + offset;
+                    // Bilinear sampling of a 64-row ramp at its texel centers.
+                    var blend = (maskUV * 64 - 0.5) / 63;
+                    near(blend, fraction, "Gradient spans glyphs despite border padding, font size, scale, or clipping");
+                    var r0:Float = shader.matrix__._11, r1:Float = shader.matrix2__._11;
+                    near(r0 * (1-blend) + r1 * blend, (156 * (1-fraction) + 250 * fraction) / 255,
+                        "Rendered red blend reaches both sampled endpoints with an even transition");
+                }
+            }
+            FancyDamageNumbers.unbindGradient(filter);
+            shader.maskMatB__.y = 123.0;
+            FancyDamageNumbers.syncGradient(filter, null, null);
+            eq(shader.maskMatB__.y, 123.0, "Unbinding releases the counter and disables further updates");
+            FancyDamageNumbers.bindGradient(filter, d.counter);
+            FancyDamageNumbers.syncGradient(filter, {scene: {viewportScaleY: 1.5}}, {dy: 0.0, height: 100.0});
+            eq(shader.maskMatB__.y == 123.0, false, "Rebinding restores gradient tracking");
+            lastFilter = filter;
+        }
+        var other:Dynamic = {pass: {shader: {mask__: {}, maskMatB__: {y: 321.0}}}};
+        FancyDamageNumbers.bindGradient(other, {});
+        FancyDamageNumbers.syncGradient(other, null, null);
+        eq(other.pass.shader.maskMatB__.y, 321.0, "Unrelated native shaders are not tracked or modified");
+        return lastFilter;
     }
 }

@@ -9,7 +9,7 @@ class GameAccess {
     public static function create(type:String, args:Array<Dynamic>):Dynamic return switch type {
         case "h3d.MatrixImpl": {};
         case "h3d.pass.ColorMatrixShader": {maskMatA__: {}, maskMatB__: {}, maskChannel__: {}};
-        case "h2d.filter.Shader": {kind: "gradient", shader: args[0]};
+        case "h2d.filter.Shader": {kind: "gradient", shader: args[0], pass: {shader: args[0]}};
         case "h2d.filter.Outline": {kind: "outline", color: 0, alpha: 1.0};
         case "h2d.filter.Group": {kind: "group", filters: new Array<Dynamic>()};
         default: throw "Unexpected native constructor: " + type;
@@ -23,6 +23,7 @@ class GameAccess {
         throw "Unexpected static call: " + type + "." + name;
     }
     public static function call(type:String, name:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic {
+        if (type == "h2d.Text" && name == "updateSize") return null;
         if (type == "st.skill.DamageResult" && name == "get_isMagic") return o.magic;
         if (type == "h3d.pass.ColorMatrixShader" && StringTools.startsWith(name, "set_")) {
             set(o, name.substr(4) + "__", args[0]); return args[0];
