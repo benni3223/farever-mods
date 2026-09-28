@@ -79,8 +79,8 @@ class DamageNumbersTest {
             eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");
             eq(shader.maskMatB__.y, 1.0, "Ramp follows screen-quad vertical coordinate");
             eq(shader.maskChannel__.w, 0.0, "Opaque mask alpha must not bias interpolation");
-            var top = critical ? 0xA80C2C : coloredMagic ? (blueMagic ? 0x2464F0 : 0xF04424) : 0x8C8C8C;
-            var bottom = critical ? 0xEF8DEB : coloredMagic ? (blueMagic ? 0x75DCFF : 0xFFB52E) : 0xFFFFFF;
+            var top = critical ? 0xA80C2C : coloredMagic ? (blueMagic ? 0x5963C4 : 0xF04424) : 0x8C8C8C;
+            var bottom = critical ? 0xEF8DEB : coloredMagic ? (blueMagic ? 0x9FA8FF : 0xFFB52E) : 0xFFFFFF;
             near(shader.matrix__._22, ((top >> 8) & 255) / 255.0,
                 "Only normal magic switches between the flame and blue palettes");
             near(shader.matrix2__._33, (bottom & 255) / 255.0, "Gradient ends in the selected palette");

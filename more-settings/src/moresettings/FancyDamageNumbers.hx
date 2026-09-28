@@ -25,8 +25,8 @@ class FancyDamageNumbers {
         var nativeColor:Dynamic = G.field(G.field(display, "affinity"), "damageColor");
         if (nativeColor == null) nativeColor = G.field(counter, "textColor");
         var baseColor:Int = nativeColor == null ? 0xFFFFFF : cast nativeColor;
-        var magicTop = config.blueMagic ? 0x2464F0 : 0xF04424;
-        var magicBottom = config.blueMagic ? 0x75DCFF : 0xFFB52E;
+        var magicTop = config.blueMagic ? 0x5963C4 : 0xF04424;
+        var magicBottom = config.blueMagic ? 0x9FA8FF : 0xFFB52E;
         var top = critical ? 0xA80C2C : magic ? magicTop : shade(baseColor);
         var bottom = critical ? 0xEF8DEB : magic ? magicBottom : baseColor;
         var filter:Dynamic = G.field(counter, "filter");

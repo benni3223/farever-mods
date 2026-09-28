@@ -27,7 +27,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it always includes the outlines and gradients; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
-**Blue magic** switches non-critical magic damage from orange to a deep-blue-to-light-blue gradient. It is off by default; critical magic hits keep their pink gradient.
+**Blue magic** switches non-critical magic damage from orange to a lavender-blue gradient, fading from a darker blue to the reference color `#9FA8FF`. It is off by default; critical magic hits keep their pink gradient.
 
 **Fancy border** adds a white inner outline inside the black outer outline on all damage numbers. It is off by default. **Border thickness** adjusts each outline layer from 0.5 to 6 px in 0.5 px steps, defaulting to the existing 2 px. It controls the black outline and, when Fancy border is enabled, the white inner outline too.
 
