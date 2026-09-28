@@ -889,7 +889,14 @@ class BetterModSettingsMod {
                 if (input != null) {
                     // Bound the editable viewport so long strings scroll inside
                     // the field instead of pushing the settings row out of view.
-                    applyInlineStyle(HlxRuntime.resolveField(input, "dom"), "width", 200);
+                    var inputProperties = HlxRuntime.resolveField(input, "dom");
+                    applyInlineStyle(inputProperties, "width", 200);
+                    // Keep entered text and empty-field hints readable on the
+                    // native dark input background, including after CSS refreshes.
+                    applyInlineStyle(inputProperties, "color", 0xF5F0E8);
+                    var hint = HlxRuntime.resolveField(box, "inputHint");
+                    if (hint != null)
+                        applyInlineStyle(HlxRuntime.resolveField(hint, "dom"), "color", 0xE0D8CD);
                     var setText = HlxRuntime.resolveMember(HlxRuntime.resolveType("h2d.TextInput"), "set_text");
                     HlxRuntime.callResolved(setText, [input,
                         TextSetting.storedValue(Reflect.field(Reflect.field(mod, "values"), key))]);
