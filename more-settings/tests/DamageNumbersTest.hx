@@ -27,41 +27,27 @@ class DamageNumbersTest {
         var config = SettingsData.defaults();
         eq(config.fancyDamageNumbers, false, "Fancy damage numbers remains opt-in");
         eq(config.redCriticals, false, "Criticals keep their existing pink palette by default");
-        eq(config.blueMagic, false, "Magic damage keeps its existing orange palette by default");
-        eq(config.orangePhysical, false, "Orange physical is opt-in");
-        eq(config.lightOrangePhysical, false, "Light orange physical is opt-in");
-        eq(config.flipGradient, false, "Gradients retain their original direction by default");
-        eq(config.fancyBorder, false, "Fancy border is opt-in to preserve the existing black outline");
-        eq(config.borderThickness, 2.0, "Border thickness preserves the existing two-pixel layers");
-        for (sample in [
-            {value: -10.0, expected: 0.5}, {value: 10.0, expected: 6.0},
-            {value: Math.NaN, expected: 2.0}, {value: Math.POSITIVE_INFINITY, expected: 2.0},
-            {value: 0.5, expected: 0.5}, {value: 3.5, expected: 3.5}, {value: 6.0, expected: 6.0}
-        ]) {
-            config.borderThickness = sample.value;
-            SettingsData.normalize(config);
-            eq(config.borderThickness, sample.expected, "Thickness stays within the supported range");
-        }
-        config.borderThickness = 2;
+        eq(config.criticalDarkColour, "", "Existing dark preset is retained on upgrade");
+        eq(config.criticalLightColour, "", "Existing light preset is retained on upgrade");
+        // Leftover preferences from older builds cannot override the fixed style.
+        var legacy:Dynamic = config;
+        for (key in ["blueMagic", "orangePhysical", "flipGradient"])
+            Reflect.setField(legacy, key, false);
+        Reflect.setField(legacy, "lightOrangePhysical", true);
+        Reflect.setField(legacy, "fancyBorder", true);
+        Reflect.setField(legacy, "borderThickness", 6.0);
         config.redCriticals = true;
-        config.blueMagic = true;
-        config.flipGradient = true;
-        config.orangePhysical = true;
-        config.lightOrangePhysical = true;
-        for (fancyBorder in [false, true]) for (critical in [false, true]) for (raw in [false, true]) {
-            config.fancyBorder = fancyBorder;
+        config.criticalDarkColour = "#123456";
+        config.criticalLightColour = "#ABCDEF";
+        for (critical in [false, true]) for (raw in [false, true]) {
             var disabled = display(critical, false, raw);
             FancyDamageNumbers.apply(disabled, config);
             eq(disabled.counter.textColor, 0xABCDEF, "Master toggle gates every style option");
-            eq(disabled.counter.filter, null, "Fancy border cannot style numbers with the master disabled");
+            eq(disabled.counter.filter, null, "Custom colours and borders cannot style numbers with the master disabled");
             eq(G.textures.length, 0, "Disabled feature allocates no GPU texture");
         }
         config.fancyDamageNumbers = true;
-        for (critical in [false, true]) for (magic in [false, true])
-        for (fancyBorder in [false, true]) for (flip in [false, true]) for (thickness in [0.5, 2.0, 6.0]) {
-            config.fancyBorder = fancyBorder;
-            config.flipGradient = flip;
-            config.borderThickness = thickness;
+        for (critical in [false, true]) for (magic in [false, true]) {
             var raw = display(critical, magic, true);
             raw.counter.filter = {kind: "native"};
             raw.counter.dropShadow = {color: 0, alpha: 1.0, dx: 1.0, dy: 1.0};
@@ -69,12 +55,11 @@ class DamageNumbersTest {
             eq(raw.counter.textColor, 0xFFFFFF, "Raw hits stay pure white, including criticals");
             eq(raw.counter.dom.styles.color, 0xFFFFFF, "CSS cannot restore a crit color on Raw hits");
             var stack = filters(raw.counter.filter);
-            eq(stack.length, fancyBorder ? 2 : 1, "Raw uses only the chosen border layers");
+            eq(stack.length, 1, "Raw uses one black border layer");
             for (filter in stack) {
                 eq(filter.kind, "outline", "Raw acquires no gradient or native color filter");
-                eq(filter.size, thickness, "Raw respects the border thickness slider");
+                eq(filter.size, 1.0, "Raw uses a fixed 1 px border");
             }
-            if (fancyBorder) eq(stack[0].color, 0xFFFFFF, "Fancy Raw border has a white inner layer");
             eq(stack[stack.length - 1].color, 0, "Raw always has a black outer border");
             eq(raw.counter.dom.styles.filter, raw.counter.filter, "Raw border survives CSS refreshes");
             eq(raw.counter.dropShadow, null, "Raw hits have no native text shadow");
@@ -82,52 +67,34 @@ class DamageNumbersTest {
             eq(raw.counter.text, "123,456", "Raw styling preserves the damage value");
             eq(G.textures.length, 0, "Raw-only hits allocate no gradient texture");
         }
-        config.flipGradient = false;
-        config.borderThickness = 2;
-        for (redCriticals in [false, true]) for (physical in [
-            {orange: false, light: false, top: 0x8C8C8C, bottom: 0xFFFFFF},
-            {orange: false, light: true, top: 0x8C8C8C, bottom: 0xFFFFFF},
-            {orange: true, light: false, top: 0xF04424, bottom: 0xFFCB6D},
-            {orange: true, light: true, top: 0xF18745, bottom: 0xFEC59E}
-        ])
-        for (blueMagic in [false, true]) for (fancyBorder in [false, true]) for (critical in [false, true]) for (kind in [
-            {magic: false, raw: false}, {magic: true, raw: false}
-        ]) {
+        config.criticalDarkColour = "";
+        config.criticalLightColour = "";
+        for (redCriticals in [false, true]) for (critical in [false, true]) for (magic in [false, true]) {
             config.redCriticals = redCriticals;
-            config.orangePhysical = physical.orange;
-            config.lightOrangePhysical = physical.light;
-            config.fancyBorder = fancyBorder;
-            config.blueMagic = blueMagic;
-            var d = display(critical, kind.magic, kind.raw);
+            var d = display(critical, magic);
             var nativeFilter:Dynamic = {kind: "native"};
             d.counter.filter = nativeFilter;
             FancyDamageNumbers.apply(d, config);
             var stack = filters(d.counter.filter);
             eq(stack[0], nativeFilter, "Existing native filter survives every combination");
             eq(d.counter.text, "123,456", "Styling never rewrites damage text");
-            var coloredMagic = !critical && kind.magic && !kind.raw;
+            var coloredMagic = !critical && magic;
             eq(d.counter.textColor, 0xFFFFFF, "Every damage type gets the gradient fill");
-            eq(stack.length, fancyBorder ? 4 : 3, "Fancy border adds exactly one outline layer");
-            if (fancyBorder) {
-                eq(stack[2].kind, "outline", "White inner border follows the gradient");
-                eq(stack[2].color, 0xFFFFFF, "Inner border stays white");
-                eq(stack[2].size, 2.0, "White inner border thickness");
-            }
+            eq(stack.length, 3, "Only the gradient and one outline follow the native filter");
             var outer = stack[stack.length - 1];
             eq(outer.kind, "outline", "Black outline wraps the fully styled number");
-            eq(outer.color, 0, "Outer border stays black in both modes");
-            eq(outer.size, 2.0, "Black outer border keeps its existing thickness");
-            eq(d.counter.dom.styles.filter, d.counter.filter, "Both outline modes survive CSS refreshes");
+            eq(outer.color, 0, "Border stays black");
+            eq(outer.size, 1.0, "Black border is fixed at 1 px despite legacy preferences");
+            eq(d.counter.dom.styles.filter, d.counter.filter, "Outline survives CSS refreshes");
             var shader = stack[1].shader;
             eq(shader.useAlpha__, true, "Native filter preserves source alpha");
             eq(shader.hasSecondMatrix__ && shader.useMask__, true, "Uses both gradient endpoints");
             eq(shader.maskMatB__.y, 1.0, "Ramp follows screen-quad vertical coordinate");
             eq(shader.maskChannel__.w, 0.0, "Opaque mask alpha must not bias interpolation");
-            var top = critical ? (redCriticals ? 0x9C120D : 0xA80C2C) : coloredMagic ? (blueMagic ? 0x5963C4 : 0xF04424) : physical.top;
-            var bottom = critical ? (redCriticals ? 0xFA4B34 : 0xEF8DEB) : coloredMagic ? (blueMagic ? 0xBCC2FF : 0xFFCB6D) : physical.bottom;
-            near(shader.matrix__._22, ((top >> 8) & 255) / 255.0,
-                "Critical palette overrides physical and magic palettes only on critical hits");
-            near(shader.matrix2__._33, (bottom & 255) / 255.0, "Gradient ends in the selected palette");
+            var top = critical ? (redCriticals ? 0xFA4B34 : 0xEF8DEB) : coloredMagic ? 0xBCC2FF : 0xFFCB6D;
+            var bottom = critical ? (redCriticals ? 0x9C120D : 0xA80C2C) : coloredMagic ? 0x5963C4 : 0xF04424;
+            assertRGB(shader.matrix__, top, "All palettes start with their light endpoint at the top");
+            assertRGB(shader.matrix2__, bottom, "All palettes end with their dark endpoint at the bottom");
             var topRed:Float = shader.matrix__._11, bottomRed:Float = shader.matrix2__._11;
             var opacity:Float = shader.matrix__._44;
             for (y in [0.0, 0.5, 1.0]) for (alpha in [0.0, 0.25, 1.0]) {
@@ -138,28 +105,8 @@ class DamageNumbersTest {
                 near(opacity * alpha, alpha, "Opacity survives both palettes");
                 near(shader.matrix__._41 + shader.matrix2__._41, 0, "Black shadow pixels receive no additive tint");
             }
-            config.flipGradient = true;
-            var flipped = display(critical, kind.magic, kind.raw);
-            FancyDamageNumbers.apply(flipped, config);
-            var flippedShader = filters(flipped.counter.filter)[0].shader;
-            for (channel in ["_11", "_22", "_33"]) {
-                near(Reflect.field(flippedShader.matrix__, channel), Reflect.field(shader.matrix2__, channel),
-                    "Flip gradient moves the original bottom color to the top for every palette");
-                near(Reflect.field(flippedShader.matrix2__, channel), Reflect.field(shader.matrix__, channel),
-                    "Flip gradient moves the original top color to the bottom for every palette");
-            }
-            config.flipGradient = false;
         }
-        for (fancyBorder in [false, true]) for (thickness in [0.5, 2.0, 3.5, 6.0]) {
-            config.fancyBorder = fancyBorder;
-            config.borderThickness = thickness;
-            var d = display(false, true);
-            FancyDamageNumbers.apply(d, config);
-            var stack = filters(d.counter.filter);
-            eq(stack.length, fancyBorder ? 3 : 2, "Thickness adds no extra filter passes");
-            for (filter in stack) if (filter.kind == "outline")
-                eq(filter.size, thickness, "Slider controls every border layer, including fractional sizes");
-        }
+        customCriticalColours();
         var mappingFilter = gradientMapping();
         eq(G.textures.length, 1, "All hits and palettes reuse one ramp texture");
         var texture = G.textures[0];
@@ -180,63 +127,124 @@ class DamageNumbersTest {
         Sys.println('Fancy damage numbers: $checks checks passed.');
     }
 
+    static function customCriticalColours():Void {
+        for (sample in [
+            {text: "#9C120D", expected: 0x9C120D},
+            {text: "FA4B34", expected: 0xFA4B34},
+            {text: "  #aBcDeF \t", expected: 0xABCDEF},
+            {text: "0x1234aB", expected: 0x1234AB},
+            {text: "0XFFFFFF", expected: 0xFFFFFF},
+            {text: "#000000", expected: 0x000000}
+        ]) eq(SettingsData.hexColour(sample.text, 0x102030), sample.expected,
+            "RGB hex input accepts optional prefix, case and surrounding whitespace");
+        for (invalid in [null, "", " \t", "#", "#F00", "12345", "1234567", "#FF0000FF",
+            "#FA4B3Z", "FA4B34junk", "FA4B34\n12", "-123456", "0x", "1.23456", "FF FF FF", "red"])
+            eq(SettingsData.hexColour(invalid, 0x102030), 0x102030,
+                "Invalid and partially typed RGB values fall back without partial parsing");
+
+        var config = SettingsData.defaults();
+        config.fancyDamageNumbers = true;
+        config.criticalDarkColour = "  #1234aB ";
+        config.criticalLightColour = "0xFeDcBa";
+        config = cast haxe.Json.parse(haxe.Json.stringify(config));
+        SettingsData.normalize(config);
+        eq(config.criticalDarkColour, "  #1234aB ", "Config round-trip preserves raw text and whitespace");
+        eq(config.criticalLightColour, "0xFeDcBa", "Config normalization preserves prefix and case");
+        for (red in [false, true]) for (magic in [false, true]) {
+            config.redCriticals = red;
+            var d = display(true, magic);
+            FancyDamageNumbers.apply(d, config);
+            var shader = filters(d.counter.filter)[0].shader;
+            assertRGB(shader.matrix__, 0xFEDCBA, "Custom light endpoint reaches the top of the shader exactly");
+            assertRGB(shader.matrix2__, 0x1234AB, "Custom dark endpoint reaches the bottom of the shader exactly");
+
+            var normal = display(false, magic);
+            FancyDamageNumbers.apply(normal, config);
+            var normalShader = filters(normal.counter.filter)[0].shader;
+            var top = magic ? 0xBCC2FF : 0xFFCB6D;
+            var bottom = magic ? 0x5963C4 : 0xF04424;
+            assertRGB(normalShader.matrix__, top, "Custom critical colours leave normal hits unchanged");
+            assertRGB(normalShader.matrix2__, bottom, "Normal light endpoint is unchanged");
+            var raw = display(true, magic, true);
+            FancyDamageNumbers.apply(raw, config);
+            eq(raw.counter.textColor, 0xFFFFFF, "Custom critical colours cannot tint Raw damage");
+            eq(filters(raw.counter.filter)[0].kind, "outline", "Raw has no custom gradient");
+        }
+        for (red in [false, true]) for (invalid in ["", "#FA4B3", "#GGGGGG"]) {
+            config.redCriticals = red;
+            config.criticalDarkColour = "#000000";
+            config.criticalLightColour = invalid;
+            var darkOnly = display(true);
+            FancyDamageNumbers.apply(darkOnly, config);
+            var shader = filters(darkOnly.counter.filter)[0].shader;
+            assertRGB(shader.matrix2__, 0, "Black is a valid custom endpoint");
+            assertRGB(shader.matrix__, red ? 0xFA4B34 : 0xEF8DEB, "Invalid light end falls back independently");
+            config.criticalDarkColour = invalid;
+            config.criticalLightColour = "#FFFFFF";
+            var lightOnly = display(true);
+            FancyDamageNumbers.apply(lightOnly, config);
+            shader = filters(lightOnly.counter.filter)[0].shader;
+            assertRGB(shader.matrix2__, red ? 0x9C120D : 0xA80C2C, "Invalid dark end falls back independently");
+            assertRGB(shader.matrix__, 0xFFFFFF, "White is a valid custom endpoint");
+        }
+    }
+
+    static function assertRGB(matrix:Dynamic, colour:Int, message:String):Void {
+        near(matrix._11, ((colour >> 16) & 255) / 255.0, message + " (red)");
+        near(matrix._22, ((colour >> 8) & 255) / 255.0, message + " (green)");
+        near(matrix._33, (colour & 255) / 255.0, message + " (blue)");
+    }
+
     static function gradientMapping():Dynamic {
         var config = SettingsData.defaults();
         config.fancyDamageNumbers = true;
         config.redCriticals = true;
-        var lastFilter:Dynamic = null;
-        for (fancyBorder in [false, true]) for (thickness in [0.5, 2.0, 6.0]) {
-            if (lastFilter != null) FancyDamageNumbers.unbindGradient(lastFilter);
-            config.fancyBorder = fancyBorder;
-            config.borderThickness = thickness;
-            var d = display(true);
-            FancyDamageNumbers.apply(d, config);
-            var filter = filters(d.counter.filter)[0];
-            var shader = filter.shader;
-            // Native Group.bind forwards the owning text to every child filter.
-            FancyDamageNumbers.bindGradient(filter, d.counter);
-            for (glyphHeight in [16.0, 37.5]) for (resolution in [1.0, 2.0])
-            for (screenScale in [1.0, 1.5]) for (clipped in [false, true]) {
-                d.counter.calcYMin = 4.25;
-                d.counter.calcHeight = glyphHeight;
-                d.counter.filter.resolutionScale = resolution;
-                d.counter.filter.useScreenResolution = screenScale != 1;
-                var context:Dynamic = {scene: {viewportScaleY: screenScale}};
-                var scale = resolution * screenScale;
-                var padding = thickness * 2 * (fancyBorder ? 2 : 1);
-                // Same bounds expansion/rounding as native Object.drawFilters.
-                var pixelTop = Math.floor(4.25 * scale - padding);
-                var pixelBottom = Math.ceil((4.25 + glyphHeight) * scale + padding);
-                if (clipped) pixelTop += Math.floor(glyphHeight * scale / 3);
-                var tile:Dynamic = {dy: pixelTop / scale, height: pixelBottom - pixelTop};
-                FancyDamageNumbers.syncGradient(filter, context, tile);
-                var slope:Float = shader.maskMatB__.y, offset:Float = shader.maskMatB__.z;
-                for (fraction in [0.0, 0.25, 0.5, 0.75, 1.0]) {
-                    var pixelY = (4.25 + glyphHeight * fraction) * scale;
-                    var uv = (pixelY - pixelTop) / (pixelBottom - pixelTop);
-                    if (uv < 0 || uv > 1) continue;
-                    var maskUV = slope * uv + offset;
-                    // Bilinear sampling of a 64-row ramp at its texel centers.
-                    var blend = (maskUV * 64 - 0.5) / 63;
-                    near(blend, fraction, "Gradient spans glyphs despite border padding, font size, scale, or clipping");
-                    var r0:Float = shader.matrix__._11, r1:Float = shader.matrix2__._11;
-                    near(r0 * (1-blend) + r1 * blend, (156 * (1-fraction) + 250 * fraction) / 255,
-                        "Rendered red blend reaches both sampled endpoints with an even transition");
-                }
+        var d = display(true);
+        FancyDamageNumbers.apply(d, config);
+        var filter = filters(d.counter.filter)[0];
+        var shader = filter.shader;
+        // Native Group.bind forwards the owning text to every child filter.
+        FancyDamageNumbers.bindGradient(filter, d.counter);
+        for (glyphHeight in [16.0, 37.5]) for (resolution in [1.0, 2.0])
+        for (screenScale in [1.0, 1.5]) for (clipped in [false, true]) {
+            d.counter.calcYMin = 4.25;
+            d.counter.calcHeight = glyphHeight;
+            d.counter.filter.resolutionScale = resolution;
+            d.counter.filter.useScreenResolution = screenScale != 1;
+            var context:Dynamic = {scene: {viewportScaleY: screenScale}};
+            var scale = resolution * screenScale;
+            var padding = 2.0; // Native bounds padding for the fixed 1 px outline.
+            // Same bounds expansion/rounding as native Object.drawFilters.
+            var pixelTop = Math.floor(4.25 * scale - padding);
+            var pixelBottom = Math.ceil((4.25 + glyphHeight) * scale + padding);
+            if (clipped) pixelTop += Math.floor(glyphHeight * scale / 3);
+            var tile:Dynamic = {dy: pixelTop / scale, height: pixelBottom - pixelTop};
+            FancyDamageNumbers.syncGradient(filter, context, tile);
+            var slope:Float = shader.maskMatB__.y, offset:Float = shader.maskMatB__.z;
+            for (fraction in [0.0, 0.25, 0.5, 0.75, 1.0]) {
+                var pixelY = (4.25 + glyphHeight * fraction) * scale;
+                var uv = (pixelY - pixelTop) / (pixelBottom - pixelTop);
+                if (uv < 0 || uv > 1) continue;
+                var maskUV = slope * uv + offset;
+                // Bilinear sampling of a 64-row ramp at its texel centers.
+                var blend = (maskUV * 64 - 0.5) / 63;
+                near(blend, fraction, "Gradient spans glyphs despite border padding, font size, scale, or clipping");
+                var r0:Float = shader.matrix__._11, r1:Float = shader.matrix2__._11;
+                near(r0 * (1-blend) + r1 * blend, (250 * (1-fraction) + 156 * fraction) / 255,
+                    "Rendered red blend reaches both sampled endpoints with an even transition");
             }
-            FancyDamageNumbers.unbindGradient(filter);
-            shader.maskMatB__.y = 123.0;
-            FancyDamageNumbers.syncGradient(filter, null, null);
-            eq(shader.maskMatB__.y, 123.0, "Unbinding releases the counter and disables further updates");
-            FancyDamageNumbers.bindGradient(filter, d.counter);
-            FancyDamageNumbers.syncGradient(filter, {scene: {viewportScaleY: 1.5}}, {dy: 0.0, height: 100.0});
-            eq(shader.maskMatB__.y == 123.0, false, "Rebinding restores gradient tracking");
-            lastFilter = filter;
         }
+        FancyDamageNumbers.unbindGradient(filter);
+        shader.maskMatB__.y = 123.0;
+        FancyDamageNumbers.syncGradient(filter, null, null);
+        eq(shader.maskMatB__.y, 123.0, "Unbinding releases the counter and disables further updates");
+        FancyDamageNumbers.bindGradient(filter, d.counter);
+        FancyDamageNumbers.syncGradient(filter, {scene: {viewportScaleY: 1.5}}, {dy: 0.0, height: 100.0});
+        eq(shader.maskMatB__.y == 123.0, false, "Rebinding restores gradient tracking");
         var other:Dynamic = {pass: {shader: {mask__: {}, maskMatB__: {y: 321.0}}}};
         FancyDamageNumbers.bindGradient(other, {});
         FancyDamageNumbers.syncGradient(other, null, null);
         eq(other.pass.shader.maskMatB__.y, 321.0, "Unrelated native shaders are not tracked or modified");
-        return lastFilter;
+        return filter;
     }
 }

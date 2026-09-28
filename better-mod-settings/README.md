@@ -34,7 +34,8 @@ Declare your settings with `@:hlx.config` and call `config.save()` on startup to
 {
   "enabled": true,
   "volume": 50,
-  "actionHotkey": 0
+  "actionHotkey": 0,
+  "customText": "Hello"
 }
 ```
 
@@ -70,6 +71,12 @@ Create `configFormats.json` beside the mod's `.hl` file and describe the titles 
       "key": "actionHotkey",
       "type": "keybinding",
       "label": "Action hotkey"
+    },
+    {
+      "key": "customText",
+      "type": "text",
+      "label": "Custom text",
+      "placeholder": "Enter text"
     }
   ]
 }
@@ -98,7 +105,7 @@ A title displays larger, bold text on its own row, without a separator or contro
 | Option | Required | Type | Behavior and limitations |
 | --- | --- | --- | --- |
 | `key` | Yes | String | Exact top-level property name in the settings JSON, or the action identifier for a button. An empty key is ignored; nested paths are not supported. Button keys must be unique within the mod. |
-| `type` | Yes | String | Must be exactly `checkbox`, `slider`, `keybinding`, or `button` for a control. Use `title` for a display-only title row as described above. |
+| `type` | Yes | String | Must be exactly `checkbox`, `slider`, `text`, `keybinding`, or `button` for a control. Use `title` for a display-only title row as described above. |
 | `label` | No | String | Text displayed beside the control. Defaults to `key`. |
 
 #### Control types
@@ -107,12 +114,15 @@ A title displays larger, bold text on its own row, without a separator or contro
 | --- | --- | --- | --- |
 | `checkbox` | Boolean (`true` or `false`) | None | Represents a boolean only. A missing value is displayed as `false`. |
 | `slider` | Number | `min` (default `0`), `max` (default `100`), and `step` (default `1`), all numbers | Supply sensible bounds with `min <= max` and a positive `step`. A missing value starts at `min`. |
+| `text` | String | `placeholder` (default `""`) | Native single-line text field. Saves on each edit, including clearing to `""`, and publishes the usual config-change notification. BMS preserves the text exactly: no trimming, parsing, validation, or conversion to numbers/booleans. Missing/null values display as empty. Long text scrolls within the field. Placeholder text is only a hint and is never saved. |
 | `keybinding` | Integer key code | None | Left-click to assign one `hxd.Key`-compatible key; right-click the assignment button to unbind it immediately. Modifier combinations and multi-key chords are not supported. `0` means **Not set**. Escape cancels capture and cannot be assigned through the UI. All hotkey activation is suppressed during assignment, including held input and release events. |
 | `button` | None | `buttonText`, `colour`, `warning` | Sends an action event. No matching settings JSON property is needed or written. See below. |
 
 Key capture consumes keyboard and mouse-button events centrally, before `hxd.Key.onEvent` publishes them. BMS clears the previously published key state when the picker opens and keeps assignment input private. Native game actions and mods polling `hxd.Key.isPressed`, `isDown`, or `isReleased` (including inlined reads) therefore see no assignment input; they do not need individual capture guards. After assignment or Escape cancellation, protection remains until all keys/buttons are released and a quiet frame passes. The assigned key must be pressed again to activate its action. Closing the settings window cancels an unfinished assignment; leaving the game clears capture state. This covers Farever's key-state API, not separate operating-system or ImGui input backends.
 
-The current format does not provide text inputs, dropdowns, color pickers, nested settings values, collapsible groups, conditional controls, or settings that span multiple JSON properties.
+Mods interpret and validate text values themselves; for example, a mod can expose a hex colour as a string setting. Opening the settings window does not save or normalize text values.
+
+The current format does not provide dropdowns, color pickers, nested settings values, collapsible groups, conditional controls, or settings that span multiple JSON properties.
 
 #### Action buttons
 

@@ -25,9 +25,9 @@ class FancyDamageNumbers {
         G.call("h2d.Text", "set_textColor", counter, [0xFFFFFF]);
 
         var damage = G.field(display, "dmg");
-        // Raw keeps a white fill and the chosen border, without a gradient.
+        // Raw keeps a white fill and black border, without a gradient.
         if (G.field(damage, "affinity") == "Raw") {
-            applyBorder(counter, dom, null, config);
+            applyBorder(counter, dom, null);
             G.call("domkit.Properties", "initStyle", dom, ["text-shadow", null]);
             G.set(counter, "dropShadow", null);
             return;
@@ -39,40 +39,31 @@ class FancyDamageNumbers {
         if (!critical && damage != null)
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
 
-        var magicTop = config.blueMagic ? 0x5963C4 : 0xF04424;
-        var magicBottom = config.blueMagic ? 0xBCC2FF : 0xFFCB6D;
-        var orangePhysical = config.orangePhysical && damage != null;
-        var physicalTop = orangePhysical ? (config.lightOrangePhysical ? 0xF18745 : 0xF04424) : shade(baseColor);
-        var physicalBottom = orangePhysical ? (config.lightOrangePhysical ? 0xFEC59E : 0xFFCB6D) : baseColor;
-        var criticalTop = config.redCriticals ? 0x9C120D : 0xA80C2C;
-        var criticalBottom = config.redCriticals ? 0xFA4B34 : 0xEF8DEB;
-        var top = critical ? criticalTop : magic ? magicTop : physicalTop;
-        var bottom = critical ? criticalBottom : magic ? magicBottom : physicalBottom;
-        if (config.flipGradient) {
-            var originalTop = top;
-            top = bottom;
-            bottom = originalTop;
-        }
+        // Light at the top, dark at the bottom (formerly Flip gradient).
+        var top = critical
+            ? SettingsData.hexColour(config.criticalLightColour, config.redCriticals ? 0xFA4B34 : 0xEF8DEB)
+            : magic ? 0xBCC2FF : damage != null ? 0xFFCB6D : baseColor;
+        var bottom = critical
+            ? SettingsData.hexColour(config.criticalDarkColour, config.redCriticals ? 0x9C120D : 0xA80C2C)
+            : magic ? 0x5963C4 : damage != null ? 0xF04424 : shade(baseColor);
         var filter:Dynamic = G.field(counter, "filter");
         filter = append(filter, gradient(top, bottom));
-        applyBorder(counter, dom, filter, config);
+        applyBorder(counter, dom, filter);
     }
 
-    static function applyBorder(counter:Dynamic, dom:Dynamic, filter:Dynamic, config:MoreSettingsConfig):Void {
-        // Outline after tinting to keep both borders free of the gradient.
-        // The black pass surrounds the white pass, forming the outer layer.
-        if (config.fancyBorder) filter = append(filter, outline(0xFFFFFF, config.borderThickness));
-        filter = append(filter, outline(0x000000, config.borderThickness));
+    static function applyBorder(counter:Dynamic, dom:Dynamic, filter:Dynamic):Void {
+        // A single 1 px black outline after tinting keeps the border uncoloured.
+        filter = append(filter, outline());
         G.call("domkit.Properties", "initStyle", dom, ["filter", filter]);
         G.call("h2d.Object", "set_filter", counter, [filter]);
     }
 
-    static function outline(color:Int, thickness:Float):Dynamic {
+    static function outline():Dynamic {
         var filter = G.create("h2d.filter.Outline", [null, null, null, null]);
-        G.call("h2d.filter.Outline", "set_size", filter, [thickness]);
+        G.call("h2d.filter.Outline", "set_size", filter, [1.0]);
         G.call("h2d.filter.Outline", "set_quality", filter, [0.5]);
-        G.call("h2d.filter.Outline", "set_color", filter, [color]);
-        // Keep native opaque, premultiplied-alpha rendering for both layers.
+        G.call("h2d.filter.Outline", "set_color", filter, [0x000000]);
+        // Keep native opaque, premultiplied-alpha rendering.
         return filter;
     }
 
