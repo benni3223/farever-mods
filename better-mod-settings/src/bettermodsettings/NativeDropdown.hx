@@ -9,6 +9,9 @@ class NativeDropdown {
     static var initIndex:hlx.runtime.ResolvedMember;
     static var isOpen:hlx.runtime.ResolvedMember;
     static var close:hlx.runtime.ResolvedMember;
+    static var baseUI:hl.Bytes;
+    static var topElement:hlx.runtime.ResolvedMember;
+    static var contains:hlx.runtime.ResolvedMember;
 
     public static function configure(control:Dynamic, setting:DropdownSetting, value:Dynamic, save:String->Bool):Void {
         if (arraySlice == null) arraySlice = member("hl.types.ArrayObj", "slice");
@@ -17,6 +20,9 @@ class NativeDropdown {
         if (initIndex == null) initIndex = member("ui.comp.Dropdown", "initSelectedIndex");
         if (isOpen == null) isOpen = member("ui.comp.Dropdown", "isOpen");
         if (close == null) close = member("ui.comp.Dropdown", "close");
+        if (baseUI == null) baseUI = HlxRuntime.resolveType("ui.BaseUI");
+        if (topElement == null) topElement = member("ui.BaseUI", "getTopInteractiveElement");
+        if (contains == null) contains = member("h2d.Object", "contains");
         // The constructor's items array is native ArrayObj. A local
         // Array<Dynamic> would be ArrayDyn and cannot be passed to set_options.
         var items = HlxRuntime.resolveField(control, "items");
@@ -41,6 +47,34 @@ class NativeDropdown {
         });
         controls.push(control);
     }
+
+    /** Run after native hit testing, without consuming or changing the click. */
+    public static function onPointerEvent(event:Dynamic):Void {
+        if (controls.length == 0
+            || Type.enumConstructor(HlxRuntime.resolveField(event, "kind")) != "EPush") return;
+        var target:Dynamic = null;
+        var targetResolved = false;
+        for (control in controls) try {
+            if (HlxRuntime.callResolved(isOpen, [control]) != true) continue;
+            if (!targetResolved) {
+                var ui = HlxRuntime.resolveStaticField(baseUI, "current");
+                if (ui == null) return;
+                target = HlxRuntime.callResolved(topElement, [ui, null]);
+                targetResolved = true;
+            }
+            var list = HlxRuntime.resolveField(control, "listWindow");
+            // The list is a separate window, not a descendant of its button.
+            // Native ancestry checks also account for UI scaling and scrolling.
+            if (inside(control, target) || inside(list, target)) continue;
+            HlxRuntime.callResolved(close, [control, null]);
+        } catch (error:Dynamic) {
+            trace("[BetterModSettings] Could not dismiss dropdown: " + Std.string(error));
+        }
+    }
+
+    static function inside(root:Dynamic, target:Dynamic):Bool
+        return root != null && target != null
+            && (root == target || HlxRuntime.callResolved(contains, [root, target]) == true);
 
     public static function closeAll(clear:Bool = false):Void {
         for (control in controls) try {

@@ -149,6 +149,13 @@ class BetterModSettingsMod {
         return Continue;
     }
 
+    @:hlx.postfix(hxd.SceneEvents.emitEvent)
+    static function dismissDropdownsOnClick(instance:Dynamic, event:Dynamic, result:Void):Void {
+        // The native scene has now refreshed the hit target for this press.
+        // Release still selects an option or toggles the dropdown normally.
+        NativeDropdown.onPointerEvent(event);
+    }
+
     @:hlx.prefix(GameApp.dispose)
     static function resetKeyCapture(instance:Dynamic):HlxPrefixResult<Void> {
         NativeDropdown.closeAll(true);
