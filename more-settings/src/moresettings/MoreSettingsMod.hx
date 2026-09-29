@@ -77,11 +77,6 @@ class MoreSettingsMod {
         try FancyDamageNumbers.apply(instance, config) catch (error:Dynamic) damageNumberError(error);
     }
 
-    @:hlx.postfix(ui.comp.DamageDisplay.updateDamage)
-    static function afterDamageDisplayUpdate(instance:Dynamic, result:Void):Void {
-        try FancyDamageNumbers.updateCriticalText(instance, config) catch (error:Dynamic) damageNumberError(error);
-    }
-
     @:hlx.postfix(h2d.filter.Filter.bind)
     static function afterDamageFilterBind(instance:Dynamic, s:Dynamic, result:Void):Void {
         try FancyDamageNumbers.bindGradient(instance, s) catch (error:Dynamic) damageNumberError(error);

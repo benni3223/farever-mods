@@ -51,55 +51,34 @@
       "label": "Fancy damage numbers"
     },
     {
-      "key": "pinkCrits",
-      "type": "checkbox",
-      "label": "Pink crits"
-    },
-    {
-      "key": "exclamationMarkCrits",
-      "type": "checkbox",
-      "label": "Exclamation mark crits"
-    },
-    {
-      "key": "threeColourCriticals",
-      "type": "checkbox",
-      "label": "Three-colour crit gradients"
-    },
-    {
-      "key": "criticalLightColour",
+      "key": "rawTopColour",
       "type": "text",
-      "label": "Physical crit top colour (hex)",
-      "placeholder": "Preset colour"
+      "label": "Raw top colour (hex)",
+      "placeholder": "FFFFFF"
     },
     {
-      "key": "criticalMiddleColour",
+      "key": "rawBottomColour",
       "type": "text",
-      "label": "Physical crit middle colour (hex)",
+      "label": "Raw bottom colour (hex)",
+      "placeholder": "FFFFFF"
+    },
+    {
+      "key": "rawCriticalTopColour",
+      "type": "text",
+      "label": "Raw crit top colour (hex)",
+      "placeholder": "FFFFFF"
+    },
+    {
+      "key": "rawCriticalMiddleColour",
+      "type": "text",
+      "label": "Raw crit middle colour (hex)",
       "placeholder": "Top/bottom midpoint"
     },
     {
-      "key": "criticalDarkColour",
+      "key": "rawCriticalBottomColour",
       "type": "text",
-      "label": "Physical crit bottom colour (hex)",
-      "placeholder": "Preset colour"
-    },
-    {
-      "key": "magicalCriticalLightColour",
-      "type": "text",
-      "label": "Magical crit top colour (hex)",
-      "placeholder": "Preset colour"
-    },
-    {
-      "key": "magicalCriticalMiddleColour",
-      "type": "text",
-      "label": "Magical crit middle colour (hex)",
-      "placeholder": "Top/bottom midpoint"
-    },
-    {
-      "key": "magicalCriticalDarkColour",
-      "type": "text",
-      "label": "Magical crit bottom colour (hex)",
-      "placeholder": "Preset colour"
+      "label": "Raw crit bottom colour (hex)",
+      "placeholder": "FFFFFF"
     },
     {
       "type": "title",

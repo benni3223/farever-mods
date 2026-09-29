@@ -4,15 +4,11 @@ typedef MoreSettingsConfig = {
     var quickCast:Bool;
     var disableTargetLockCameraMovement:Bool;
     var fancyDamageNumbers:Bool;
-    var pinkCrits:Bool;
-    var exclamationMarkCrits:Bool;
-    var threeColourCriticals:Bool;
-    var criticalLightColour:String;
-    var criticalMiddleColour:String;
-    var criticalDarkColour:String;
-    var magicalCriticalLightColour:String;
-    var magicalCriticalMiddleColour:String;
-    var magicalCriticalDarkColour:String;
+    var rawTopColour:String;
+    var rawBottomColour:String;
+    var rawCriticalTopColour:String;
+    var rawCriticalMiddleColour:String;
+    var rawCriticalBottomColour:String;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
@@ -38,17 +34,11 @@ class SettingsData {
         quickCast: false,
         disableTargetLockCameraMovement: false,
         fancyDamageNumbers: false,
-        pinkCrits: false,
-        exclamationMarkCrits: false,
-        threeColourCriticals: false,
-        criticalLightColour: "",
-        criticalMiddleColour: "",
-        criticalDarkColour: "",
-        // Null identifies a missing preference on the first load after splitting
-        // crit colours. normalize copies the former shared colours once.
-        magicalCriticalLightColour: null,
-        magicalCriticalMiddleColour: null,
-        magicalCriticalDarkColour: null,
+        rawTopColour: "",
+        rawBottomColour: "",
+        rawCriticalTopColour: "",
+        rawCriticalMiddleColour: "",
+        rawCriticalBottomColour: "",
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
@@ -78,18 +68,12 @@ class SettingsData {
     }
 
     public static function normalize(config:MoreSettingsConfig):Void {
-        // Keep the old shared keys for physical crits. Seed only missing magical
-        // fields from them; an explicitly blank field must stay on its preset.
         // Inspect raw fields before typed String access to recover damaged input.
-        for (stop in ["Light", "Middle", "Dark"]) {
-            var key = "critical" + stop + "Colour";
-            var magicalKey = "magicalCritical" + stop + "Colour";
+        // New Raw fields are independent of the retired physical/magical inputs.
+        for (key in ["rawTopColour", "rawBottomColour", "rawCriticalTopColour",
+            "rawCriticalMiddleColour", "rawCriticalBottomColour"]) {
             if (!Std.isOfType(Reflect.field(config, key), String))
                 Reflect.setField(config, key, "");
-            if (Reflect.field(config, magicalKey) == null)
-                Reflect.setField(config, magicalKey, Reflect.field(config, key));
-            else if (!Std.isOfType(Reflect.field(config, magicalKey), String))
-                Reflect.setField(config, magicalKey, "");
         }
         // Same single-key range as Better Mod Settings; zero means unassigned.
         if (config.hideUiKey < 0 || config.hideUiKey >= 512 || config.hideUiKey == 27) config.hideUiKey = 113;

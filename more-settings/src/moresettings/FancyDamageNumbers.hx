@@ -27,31 +27,31 @@ class FancyDamageNumbers {
         G.call("h2d.Text", "set_textColor", counter, [0xFFFFFF]);
 
         var damage = G.field(display, "dmg");
-        // Raw keeps a white fill and black border, without a gradient.
-        if (G.field(damage, "affinity") == "Raw") {
-            applyBorder(counter, dom, null);
+        var raw = G.field(damage, "affinity") == "Raw";
+        var filter:Dynamic = G.field(counter, "filter");
+        if (raw) {
+            // Raw starts from an unshadowed white fill so its experimental
+            // gradient is not tinted by the game's native affinity filter.
+            filter = null;
             G.call("domkit.Properties", "initStyle", dom, ["text-shadow", null]);
             G.set(counter, "dropShadow", null);
-            return;
         }
 
-        // Exclamation mode keeps the ordinary physical/magic palette, including
-        // when custom crit colours, Pink crits, or three-colour crits are enabled.
-        var critical = G.field(display, "isCrit") == true && !config.exclamationMarkCrits;
-        // Criticals must use their damage affinity too, so each set of colour
-        // overrides follows the actual hit rather than the skill or crit flag.
+        var critical = G.field(display, "isCrit") == true;
+        // Use the actual hit's affinity, including for skills with mixed damage.
         var magic = false;
-        if (damage != null)
+        if (!raw && damage != null)
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
 
-        var criticalPrefix = magic ? "magicalCritical" : "critical";
-        var top = critical ? SettingsData.hexColour(Reflect.field(config, criticalPrefix + "LightColour"), config.pinkCrits ? 0xEF8DEB : 0xFF7F66)
+        var top = raw ? SettingsData.hexColour(Reflect.field(config, critical ? "rawCriticalTopColour" : "rawTopColour"), 0xFFFFFF)
+            : critical ? (magic ? 0xEF8DE8 : 0xFFCB6D)
             : magic ? 0xBCC2FF : damage != null ? 0xFFCB6D : baseColor;
-        var bottom = critical ? SettingsData.hexColour(Reflect.field(config, criticalPrefix + "DarkColour"), config.pinkCrits ? 0xA80C2C : 0xFF0000)
+        var bottom = raw ? SettingsData.hexColour(Reflect.field(config, critical ? "rawCriticalBottomColour" : "rawBottomColour"), 0xFFFFFF)
+            : critical ? (magic ? 0x5963C4 : 0xFF0000)
             : magic ? 0x5963C4 : damage != null ? 0xF04424 : shade(baseColor);
-        var filter:Dynamic = G.field(counter, "filter");
-        if (critical && config.threeColourCriticals) {
-            var middle = SettingsData.hexColour(Reflect.field(config, criticalPrefix + "MiddleColour"), midpoint(top, bottom));
+        if (critical) {
+            var middle = raw ? SettingsData.hexColour(Reflect.field(config, "rawCriticalMiddleColour"), midpoint(top, bottom))
+                : magic ? 0xC08DEF : 0xF04424;
             // Encode the original white/black intensity in R and height in G.
             // A second native matrix pass selects a linear segment at half height.
             // This supports arbitrary stops (including black) without dividing by
@@ -60,18 +60,6 @@ class FancyDamageNumbers {
             filter = append(filter, matrixGradient(segment(top, middle, false), segment(middle, bottom, true), getHalfMask()));
         } else filter = append(filter, gradient(top, bottom));
         applyBorder(counter, dom, filter);
-    }
-
-    /** Run after the game's formatter, both at creation and on number updates. */
-    public static function updateCriticalText(display:Dynamic, config:MoreSettingsConfig):Void {
-        if (!config.fancyDamageNumbers || !config.exclamationMarkCrits
-            || G.field(display, "isCrit") != true || G.isA(display, "ui.comp.HealDisplay")) return;
-        var counter = G.field(display, "counter");
-        if (counter == null) return;
-        var text = G.text(G.field(counter, "text"));
-        if (text.length == 0 || StringTools.endsWith(text, "!")) return;
-        // Use the native setter so layout and glyphs rebuild to include the !.
-        G.call("ui.comp.FmtText", "set_text", counter, [text + "!"]);
     }
 
     static function applyBorder(counter:Dynamic, dom:Dynamic, filter:Dynamic):Void {
