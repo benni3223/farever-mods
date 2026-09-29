@@ -56,6 +56,11 @@
       "label": "Pink crits"
     },
     {
+      "key": "exclamationMarkCrits",
+      "type": "checkbox",
+      "label": "Exclamation mark crits"
+    },
+    {
       "key": "threeColourCriticals",
       "type": "checkbox",
       "label": "Three-colour crit gradients"

@@ -122,6 +122,7 @@ class DamageNumbersTest {
         FancyDamageNumbers.dispose();
         threeColourGradients();
         formattedGradientMapping();
+        exclamationCrits();
         Sys.println('Fancy damage numbers: $checks checks passed.');
     }
 
@@ -175,6 +176,77 @@ class DamageNumbersTest {
         var physicalHit = display(true);
         FancyDamageNumbers.apply(physicalHit, separate);
         assertRGB(filters(physicalHit.counter.filter)[0].shader.matrix__, 0xFFBBAA, "Changing magical overrides leaves physical crits unchanged");
+    }
+
+    static function exclamationCrits():Void {
+        var config = SettingsData.defaults();
+        eq(config.exclamationMarkCrits, false, "Exclamation crits are opt-in");
+        // Strongly distinct custom colours and both crit options must all yield
+        // to the ordinary damage-type palette when the new option is enabled.
+        config.pinkCrits = true;
+        config.threeColourCriticals = true;
+        config.criticalLightColour = config.magicalCriticalLightColour = "00ff00";
+        config.criticalMiddleColour = config.magicalCriticalMiddleColour = "ffffff";
+        config.criticalDarkColour = config.magicalCriticalDarkColour = "ff00ff";
+        for (fancy in [false, true]) for (enabled in [false, true])
+        for (critical in [false, true]) for (magic in [false, true]) for (raw in [false, true]) {
+            config.fancyDamageNumbers = fancy;
+            config.exclamationMarkCrits = enabled;
+            var hit = display(critical, magic, raw);
+            hit.counter.text = "500";
+            hit.dmg.amount = 500.0;
+            // Native init writes the number via updateDamage before its postfix
+            // installs styling. Test the same hook order used by both clients.
+            FancyDamageNumbers.updateCriticalText(hit, config);
+            FancyDamageNumbers.apply(hit, config);
+            var marked = fancy && enabled && critical;
+            eq(hit.counter.text, marked ? "500!" : "500", "Only enabled critical damage receives the suffix");
+            eq(hit.dmg.amount, 500.0, "Presentation never modifies the actual damage amount");
+            if (marked) eq(hit.counter.needsRebuild, true, "Native setter rebuilds glyphs and width to include punctuation");
+            var stack = filters(hit.counter.filter);
+            if (!fancy) {
+                eq(stack.length, 0, "Master switch gates the new mode and all styling");
+            } else if (raw) {
+                eq(stack.length, 1, "Raw crits keep their white fill and black border");
+                eq(hit.counter.textColor, 0xFFFFFF, "Raw stays white even when marked");
+            } else if (enabled || !critical) {
+                eq(stack.length, 2, "Exclamation mode skips the three-colour critical pass");
+                assertRGB(stack[0].shader.matrix__, magic ? 0xBCC2FF : 0xFFCB6D,
+                    "Marked crits use the ordinary physical/magic top colour");
+                assertRGB(stack[0].shader.matrix2__, magic ? 0x5963C4 : 0xF04424,
+                    "Marked crits use the ordinary physical/magic bottom colour");
+                eq(stack[1].color, 0, "Exclamation mode preserves the black outline");
+            } else eq(stack.length, 3, "Disabling exclamation mode restores the saved three-colour critical style");
+        }
+        config.fancyDamageNumbers = true;
+        config.exclamationMarkCrits = true;
+        var update = display(true);
+        for (text in ["500", "123,456", "500.25", "1\u202f234", "500 (10%)"]) {
+            update.counter.text = text;
+            FancyDamageNumbers.updateCriticalText(update, config);
+            eq(update.counter.text, text + "!", "Append after native formatting, including updated values");
+            FancyDamageNumbers.updateCriticalText(update, config);
+            eq(update.counter.text, text + "!", "Repeated decoration cannot accumulate exclamation marks");
+        }
+        config.exclamationMarkCrits = false;
+        update.counter.text = "600";
+        FancyDamageNumbers.updateCriticalText(update, config);
+        eq(update.counter.text, "600", "Native updates after disabling no longer receive punctuation");
+        eq(config.criticalLightColour, "00ff00", "The mode preserves saved custom colours");
+        eq(config.threeColourCriticals, true, "The mode preserves the saved three-colour preference");
+        config.exclamationMarkCrits = true;
+        var heal = display(true);
+        heal.nativeType = "ui.comp.HealDisplay";
+        FancyDamageNumbers.updateCriticalText(heal, config);
+        FancyDamageNumbers.apply(heal, config);
+        eq(heal.counter.text, "123,456", "Critical healing does not receive damage punctuation");
+        eq(heal.counter.filter, null, "Healing keeps native styling despite sharing DamageDisplay hooks");
+        update.counter.text = "";
+        FancyDamageNumbers.updateCriticalText(update, config);
+        eq(update.counter.text, "", "An empty counter does not become a standalone exclamation mark");
+        update.counter = null;
+        FancyDamageNumbers.updateCriticalText(update, config);
+        FancyDamageNumbers.dispose();
     }
 
     static function criticalColourMigration():Void {

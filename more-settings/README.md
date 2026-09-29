@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Pink crits; Three-colour crit gradients; Physical and magical crit top/middle/bottom colour (hex) | Toggles off; blank colours use the preset; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
+| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Pink crits; Exclamation mark crits; Three-colour crit gradients; Physical and magical crit top/middle/bottom colour (hex) | Toggles off; blank colours use the preset; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -28,6 +28,8 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 The option is off by default and preserves your existing Fancy damage numbers preference. Enabling it includes outlines for all damage and gradients for non-Raw damage; the former Number outline, Gradient, and Red settings no longer affect styling. Changes affect newly displayed numbers immediately. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
 **Pink crits**, directly below **Fancy damage numbers**, switches the critical preset to `#EF8DEB` at the top and `#A80C2C` at the bottom. It is off by default and requires Fancy damage numbers.
+
+**Exclamation mark crits** adds `!` to critical damage numbers, for example `500!`, while using the ordinary orange physical or blue magical gradient. It takes priority over Pink crits, both sets of custom crit colours, and Three-colour crit gradients without changing their saved settings. Raw criticals stay white and also gain `!`; normal hits and healing receive no suffix. The native number formatting is preserved, including when the game updates a counter. This option is off by default, requires Fancy damage numbers, and affects newly displayed hits.
 
 **Physical crit top/middle/bottom colour (hex)** and **Magical crit top/middle/bottom colour (hex)** provide independent gradient stops for physical and magical critical hits. Each hit uses its actual damage type, even when one ability deals both types. Enter six RGB hex digits, optionally prefixed with `#` or `0x` (for example, `ff0000`). Blank or invalid top/bottom fields fall back to the red or Pink crits preset; a blank or invalid middle field uses the average of that damage type's resolved top and bottom colours. Valid overrides take priority over Pink crits.
 

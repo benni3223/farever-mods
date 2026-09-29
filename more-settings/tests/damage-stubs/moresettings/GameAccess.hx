@@ -5,6 +5,10 @@ class GameAccess {
     public static var textures:Array<Dynamic> = [];
     public static function field(o:Dynamic, name:String):Dynamic return o == null ? null : Reflect.field(o, name);
     public static function set(o:Dynamic, name:String, value:Dynamic):Void Reflect.setField(o, name, value);
+    public static function text(value:Dynamic, fallback:String = ""):String
+        return value == null ? fallback : Std.string(value);
+    public static function isA(o:Dynamic, type:String):Bool
+        return o != null && field(o, "nativeType") == type;
     public static function array(value:Dynamic, proxy:Bool = false):Array<Dynamic>
         return value == null ? [] : cast value;
     public static function enumeration(type:String, name:String):Dynamic return type + "." + name;
@@ -25,6 +29,11 @@ class GameAccess {
         throw "Unexpected static call: " + type + "." + name;
     }
     public static function call(type:String, name:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic {
+        if (type == "ui.comp.FmtText" && name == "set_text") {
+            o.text = args[0];
+            o.needsRebuild = true;
+            return args[0];
+        }
         if (type == "h2d.Text" && name == "updateSize") return null;
         if (type == "st.skill.DamageResult" && name == "get_isMagic") return o.magic;
         if (type == "h3d.pass.ColorMatrixShader" && StringTools.startsWith(name, "set_")) {

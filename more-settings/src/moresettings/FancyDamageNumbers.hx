@@ -12,7 +12,7 @@ class FancyDamageNumbers {
     static var gradientOwners = new haxe.ds.ObjectMap<Dynamic, {counter:Dynamic, shader:Dynamic}>();
 
     public static function apply(display:Dynamic, config:MoreSettingsConfig):Void {
-        if (!config.fancyDamageNumbers) return;
+        if (!config.fancyDamageNumbers || G.isA(display, "ui.comp.HealDisplay")) return;
         var counter = G.field(display, "counter");
         var dom = G.field(counter, "dom");
         if (dom == null) return;
@@ -35,7 +35,9 @@ class FancyDamageNumbers {
             return;
         }
 
-        var critical = G.field(display, "isCrit") == true;
+        // Exclamation mode keeps the ordinary physical/magic palette, including
+        // when custom crit colours, Pink crits, or three-colour crits are enabled.
+        var critical = G.field(display, "isCrit") == true && !config.exclamationMarkCrits;
         // Criticals must use their damage affinity too, so each set of colour
         // overrides follows the actual hit rather than the skill or crit flag.
         var magic = false;
@@ -58,6 +60,18 @@ class FancyDamageNumbers {
             filter = append(filter, matrixGradient(segment(top, middle, false), segment(middle, bottom, true), getHalfMask()));
         } else filter = append(filter, gradient(top, bottom));
         applyBorder(counter, dom, filter);
+    }
+
+    /** Run after the game's formatter, both at creation and on number updates. */
+    public static function updateCriticalText(display:Dynamic, config:MoreSettingsConfig):Void {
+        if (!config.fancyDamageNumbers || !config.exclamationMarkCrits
+            || G.field(display, "isCrit") != true || G.isA(display, "ui.comp.HealDisplay")) return;
+        var counter = G.field(display, "counter");
+        if (counter == null) return;
+        var text = G.text(G.field(counter, "text"));
+        if (text.length == 0 || StringTools.endsWith(text, "!")) return;
+        // Use the native setter so layout and glyphs rebuild to include the !.
+        G.call("ui.comp.FmtText", "set_text", counter, [text + "!"]);
     }
 
     static function applyBorder(counter:Dynamic, dom:Dynamic, filter:Dynamic):Void {

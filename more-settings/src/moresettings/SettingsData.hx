@@ -5,6 +5,7 @@ typedef MoreSettingsConfig = {
     var disableTargetLockCameraMovement:Bool;
     var fancyDamageNumbers:Bool;
     var pinkCrits:Bool;
+    var exclamationMarkCrits:Bool;
     var threeColourCriticals:Bool;
     var criticalLightColour:String;
     var criticalMiddleColour:String;
@@ -38,6 +39,7 @@ class SettingsData {
         disableTargetLockCameraMovement: false,
         fancyDamageNumbers: false,
         pinkCrits: false,
+        exclamationMarkCrits: false,
         threeColourCriticals: false,
         criticalLightColour: "",
         criticalMiddleColour: "",
