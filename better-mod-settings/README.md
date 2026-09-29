@@ -77,6 +77,12 @@ Create `configFormats.json` beside the mod's `.hl` file and describe the titles 
       "type": "text",
       "label": "Custom text",
       "placeholder": "Enter text"
+    },
+    {
+      "key": "clockTimerMode",
+      "type": "dropdown",
+      "label": "Show clock/timer",
+      "options": ["None", "Rift timer", "Clock"]
     }
   ]
 }
@@ -105,8 +111,8 @@ A title displays larger, bold text on its own row, without a separator or contro
 | Option | Required | Type | Behavior and limitations |
 | --- | --- | --- | --- |
 | `key` | Yes | String | Exact top-level property name in the settings JSON, or the action identifier for a button. An empty key is ignored; nested paths are not supported. Button keys must be unique within the mod. |
-| `type` | Yes | String | Must be exactly `checkbox`, `slider`, `text`, `keybinding`, or `button` for a control. Use `title` for a display-only title row as described above. |
-| `label` | No | String | Text displayed beside the control. Defaults to `key`. |
+| `type` | Yes | String | Must be exactly `checkbox`, `slider`, `text`, `dropdown`, `keybinding`, or `button` for a control. Use `title` for a display-only title row as described above. |
+| `label` | For dropdowns | String | Text displayed beside the control. Dropdowns require a non-empty label; other controls default to `key`. |
 
 #### Control types
 
@@ -115,6 +121,7 @@ A title displays larger, bold text on its own row, without a separator or contro
 | `checkbox` | Boolean (`true` or `false`) | None | Represents a boolean only. A missing value is displayed as `false`. |
 | `slider` | Number | `min` (default `0`), `max` (default `100`), and `step` (default `1`), all numbers | Supply sensible bounds with `min <= max` and a positive `step`. A missing value starts at `min`. |
 | `text` | String | `placeholder` (default `""`) | Native single-line text field. Saves on each edit, including clearing to `""`, and publishes the usual config-change notification. BMS preserves the text exactly: no trimming, parsing, validation, or conversion to numbers/booleans. Missing or non-string values display as empty. Long text scrolls within the field. Placeholder text is only a hint and is never saved. |
+| `dropdown` | String | `options` (required, non-empty array of strings) | Native dropdown displaying options in the supplied order. Selecting an option saves its exact string, not its index, and publishes the usual config-change notification. A missing or unrecognized value displays the first option without writing the config merely by opening settings. Invalid descriptors are skipped and logged. |
 | `keybinding` | Integer key code | None | Left-click to assign one `hxd.Key`-compatible key; right-click the assignment button to unbind it immediately. Modifier combinations and multi-key chords are not supported. `0` means **Not set**. Escape cancels capture and cannot be assigned through the UI. All hotkey activation is suppressed during assignment, including held input and release events. |
 | `button` | None | `buttonText`, `colour`, `warning` | Sends an action event. No matching settings JSON property is needed or written. See below. |
 
@@ -124,7 +131,9 @@ Mods interpret and validate text values themselves; for example, a mod can expos
 
 Native text is wrapped in a mod-local String before JSON serialization. The initial text-input build saved game String internals as `{ "bytes": "???", "length": ... }`; these damaged entries display as empty and need re-entry because their original characters were not stored.
 
-The current format does not provide dropdowns, color pickers, nested settings values, collapsible groups, conditional controls, or settings that span multiple JSON properties.
+Dropdown lists use the game's separate list window so they are not clipped by the settings panel. Switching mod tabs or closing settings also closes an open list. Reordering the descriptor's options preserves the saved choice because selections are stored as strings.
+
+The current format does not provide color pickers, nested settings values, collapsible groups, conditional controls, or settings that span multiple JSON properties.
 
 #### Action buttons
 

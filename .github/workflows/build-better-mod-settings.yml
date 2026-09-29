@@ -40,7 +40,7 @@ jobs:
       - uses: krdlab/setup-haxe@v1
         with:
           haxe-version: 4.3.7
-      - name: Test hotkey capture and release protection
+      - name: Test settings controls and hotkey capture
         working-directory: better-mod-settings
         run: haxe test.hxml
       - uses: actions/checkout@v4
@@ -51,7 +51,7 @@ jobs:
           persist-credentials: false
       - name: Build the HashLink text test runtime
         run: make -C .text-hashlink -j2 hl
-      - name: Test native text conversion and JSON round trips on HashLink
+      - name: Test native text conversion and string settings on HashLink
         working-directory: better-mod-settings
         env:
           LD_LIBRARY_PATH: ${{ github.workspace }}/.text-hashlink
@@ -59,6 +59,8 @@ jobs:
           mkdir -p build
           haxe -cp src -cp tests -main TextSettingTest -hl build/text-setting-test.hl
           ../.text-hashlink/hl build/text-setting-test.hl
+          haxe -cp src -cp tests -main DropdownSettingTest -hl build/dropdown-setting-test.hl
+          ../.text-hashlink/hl build/dropdown-setting-test.hl
 
   build:
     needs: test
