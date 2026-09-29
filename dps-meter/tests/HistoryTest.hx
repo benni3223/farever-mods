@@ -9,6 +9,7 @@ import dpsmeter.GameAccess;
 import dpsmeter.HistoryRequests;
 import dpsmeter.SnapshotLayout;
 import dpsmeter.SnapshotTexture;
+import dpsmeter.SnapshotViewport;
 import dpsmeter.HistoryOptions;
 import dpsmeter.BossRecords;
 import dpsmeter.LiteralText;
@@ -54,7 +55,7 @@ class HistoryTest {
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
         clientSkillCompatibility(); archivePolicy(); targetDummies();
-        lifecycle(); chakram(); outcomes(); recapSummary(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); historyOptions(); literalLabels(); bossRecords();
+        lifecycle(); chakram(); outcomes(); recapSummary(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); snapshotViewports(); historyOptions(); literalLabels(); bossRecords();
         Sys.println('Fight history: $checks checks passed');
     }
     static function archivePolicy():Void {
@@ -1002,6 +1003,67 @@ class HistoryTest {
         failed = false;
         try SnapshotTexture.readBgra(texture) catch (_:Dynamic) failed = true;
         check(failed, "Failed GPU readback reports an error instead of accessing a null pixel buffer");
+    }
+    // Farever's RenderContext.setRZ transforms masks with Scene.viewport*,
+    // even though drawTo renders geometry directly in target-texture pixels.
+    static function nativeClipOrigin(scene:Dynamic, engine:Dynamic, x:Float, y:Float):{x:Int, y:Int} {
+        return {
+            x: Std.int(x * (scene.viewportA * engine.width / 2)
+                + (scene.viewportX + 1) * engine.width / 2 + 1e-10),
+            y: Std.int(y * (scene.viewportD * engine.height / 2)
+                + (scene.viewportY + 1) * engine.height / 2 + 1e-10)
+        };
+    }
+    static function snapshotViewports():Void {
+        for (resolution in [[2560, 1440], [2560, 1600], [1920, 1080], [3840, 2160]]) {
+            var engine = {width: resolution[0], height: resolution[1]};
+            GameAccess.globals["h3d.Engine.CURRENT"] = engine;
+            for (scale in [1., 1.25, 1.5, 2.]) {
+                var scene:Dynamic = {viewportA: 2 * scale / engine.width, viewportD: 2 * scale / engine.height,
+                    viewportX: -1., viewportY: -1.};
+                if (scale == 1.25) {
+                    var clipped = nativeClipOrigin(scene, engine, 32, 216);
+                    check(clipped.x == 40 && clipped.y == 270,
+                        "Reproduces the customer's left crop and missing first name at 125% viewport scale");
+                }
+                // Also exercise letterboxing offsets and different X/Y scales.
+                scene.viewportD *= 1.1;
+                scene.viewportX += 2 * 37.0 / engine.width;
+                scene.viewportY += 2 * 19.0 / engine.height;
+                var original = Json.stringify(scene);
+                var window = {scene: scene};
+                // Full image, full strip, and short final strip must all use
+                // engine dimensions for the native mask conversion.
+                for (stripHeight in [1368, 2048, 560]) {
+                    var texture = {width: 1768, height: stripHeight};
+                    GameAccess.globals["drawSnapshot"] = function(target:Dynamic):Void {
+                        check(target == texture, "The requested texture receives the draw");
+                        var top = nativeClipOrigin(scene, engine, 32, 216);
+                        var bottom = nativeClipOrigin(scene, engine, 1736, stripHeight - 16);
+                        check(top.x == 32 && top.y == 216 && bottom.x == 1736 && bottom.y == stripHeight - 16,
+                            "Native clipping matches image pixels at every display scale, offset and strip size");
+                    };
+                    SnapshotViewport.drawTo(window, texture);
+                    check(Json.stringify(scene) == original, "Successful capture restores all live viewport fields");
+                }
+                var failure = {message: "Simulated renderer failure"};
+                GameAccess.globals["drawSnapshot"] = function(_:Dynamic):Void { throw failure; };
+                var caught:Dynamic = null;
+                try SnapshotViewport.drawTo(window, {}) catch (error:Dynamic) caught = error;
+                check(caught == failure && Json.stringify(scene) == original,
+                    "Failed capture restores the viewport and preserves the original error");
+            }
+        }
+        GameAccess.globals.remove("h3d.Engine.CURRENT");
+        var drew = false;
+        GameAccess.globals["drawSnapshot"] = function(_:Dynamic):Void { drew = true; };
+        var scene:Dynamic = {viewportA: 1., viewportD: 1., viewportX: 0., viewportY: 0.};
+        var before = Json.stringify(scene);
+        var failed = false;
+        try SnapshotViewport.drawTo({scene: scene}, {}) catch (_:Dynamic) failed = true;
+        check(failed && !drew && Json.stringify(scene) == before,
+            "Unavailable renderer fails before modifying the live scene");
+        GameAccess.globals.remove("drawSnapshot");
     }
     static function breakdown():Void {
         var skill = new SkillStats(); skill.damage = 4500; skill.casts = 13; skill.hits = 15; skill.crits = 7;

@@ -39,7 +39,7 @@ class NativeFightSnapshot {
                 var point = localPoint(parent, -SnapshotLayout.BODY_INSET * SnapshotLayout.SCALE,
                     -SnapshotLayout.BODY_INSET * SnapshotLayout.SCALE - top);
                 position(window, point.x, point.y);
-                G.call("h2d.Object", "drawTo", window, [texture]);
+                SnapshotViewport.drawTo(window, texture);
                 pixels = SnapshotTexture.readBgra(texture);
                 var bytes = G.field(pixels, "bytes");
                 var offset = G.integer(G.field(pixels, "offset"));

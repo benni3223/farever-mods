@@ -151,7 +151,9 @@ along with the space reserved for them. The capture keeps the window's width and
 grows vertically when needed to include every row, independently of scroll
 position. It renders at twice the resolution in each direction, cropped to the
 native body with no added border or surround. The body's rendered colours are
-preserved. The window and scroll position are restored immediately afterward.
+preserved. Scrollable chart clipping uses image-pixel coordinates during capture,
+independently of the display's viewport scaling. The window, scroll position, and
+display viewport are restored immediately afterward, including on capture failure.
 Paste into a chat or image
 editor; a short message confirms successful copying.
 
