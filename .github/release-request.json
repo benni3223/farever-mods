@@ -1,7 +1,7 @@
 {
   "project": "more-settings",
-  "version": "1.11.0",
-  "commit": "612f9260773f476d72df2ca60dd4567ebd5684e0",
-  "notes": "- Added a new \"Fancy damage numbers\" option that changes the appearance of damage numbers\n- Magic damage is blue, physical damage is orange, crits are red, and raw damage is white\n- Added a new \"Pink crits\" option which turns crits pink when fancy damage numbers is enabled",
+  "version": "1.11.1",
+  "commit": "6938f896907726bcf843da375891c6cf8ed0a615",
+  "notes": "Finalized fancy damage numbers",
   "dry_run": false
 }
