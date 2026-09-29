@@ -1,7 +1,7 @@
 {
-  "project": "better-mod-settings",
-  "version": "1.4.0",
-  "commit": "dc3edf84db85f2b0b30f0121e9b158558bf42429",
-  "notes": "Added support for dropdown menus",
+  "project": "minimap",
+  "version": "1.7.3",
+  "commit": "604253c469bb3ae2cc201181b318025dfd263e51",
+  "notes": "Added option to display clock instead of rift timer",
   "dry_run": false
 }
