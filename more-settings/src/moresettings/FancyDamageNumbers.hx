@@ -30,7 +30,7 @@ class FancyDamageNumbers {
         var raw = G.field(damage, "affinity") == "Raw";
         var filter:Dynamic = G.field(counter, "filter");
         if (raw) {
-            // Raw starts from an unshadowed white fill so its experimental
+            // Raw starts from an unshadowed white fill so its
             // gradient is not tinted by the game's native affinity filter.
             filter = null;
             G.call("domkit.Properties", "initStyle", dom, ["text-shadow", null]);
@@ -43,14 +43,14 @@ class FancyDamageNumbers {
         if (!raw && damage != null)
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
 
-        var top = raw ? SettingsData.hexColour(Reflect.field(config, critical ? "rawCriticalTopColour" : "rawTopColour"), 0xFFFFFF)
+        var top = raw ? (critical ? 0xF5E149 : 0xFFFFFF)
             : critical ? (magic ? 0xEF8DE8 : 0xFFCB6D)
             : magic ? 0xBCC2FF : damage != null ? 0xFFCB6D : baseColor;
-        var bottom = raw ? SettingsData.hexColour(Reflect.field(config, critical ? "rawCriticalBottomColour" : "rawBottomColour"), 0xFFFFFF)
+        var bottom = raw ? (critical ? 0xEBEBEB : 0xB8B8B8)
             : critical ? (magic ? 0x5963C4 : 0xFF0000)
             : magic ? 0x5963C4 : damage != null ? 0xF04424 : shade(baseColor);
         if (critical) {
-            var middle = raw ? SettingsData.hexColour(Reflect.field(config, "rawCriticalMiddleColour"), midpoint(top, bottom))
+            var middle = raw ? 0xFFFFFF
                 : magic ? 0xC08DEF : 0xF04424;
             // Encode the original white/black intensity in R and height in G.
             // A second native matrix pass selects a linear segment at half height.
@@ -94,13 +94,6 @@ class FancyDamageNumbers {
 
     static function gradient(top:Int, bottom:Int):Dynamic {
         return matrixGradient(tint(top), tint(bottom), getRamp());
-    }
-
-    static function midpoint(top:Int, bottom:Int):Int {
-        var result = 0;
-        for (shift in [0, 8, 16])
-            result |= Math.round((((top >> shift) & 255) + ((bottom >> shift) & 255)) / 2) << shift;
-        return result;
     }
 
     /** Transform intensity * [1, height, 1] into either half of the RGB gradient. */

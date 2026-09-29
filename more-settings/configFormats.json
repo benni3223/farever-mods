@@ -38,47 +38,17 @@
     {
       "key": "quickCast",
       "type": "checkbox",
-      "label": "Enable quick cast"
+      "label": "(PTR) Enable quick cast"
     },
     {
       "key": "disableTargetLockCameraMovement",
       "type": "checkbox",
-      "label": "Disable target-lock camera movement"
+      "label": "(PTR) Disable target-lock camera movement"
     },
     {
       "key": "fancyDamageNumbers",
       "type": "checkbox",
       "label": "Fancy damage numbers"
-    },
-    {
-      "key": "rawTopColour",
-      "type": "text",
-      "label": "Raw top colour (hex)",
-      "placeholder": "FFFFFF"
-    },
-    {
-      "key": "rawBottomColour",
-      "type": "text",
-      "label": "Raw bottom colour (hex)",
-      "placeholder": "FFFFFF"
-    },
-    {
-      "key": "rawCriticalTopColour",
-      "type": "text",
-      "label": "Raw crit top colour (hex)",
-      "placeholder": "FFFFFF"
-    },
-    {
-      "key": "rawCriticalMiddleColour",
-      "type": "text",
-      "label": "Raw crit middle colour (hex)",
-      "placeholder": "Top/bottom midpoint"
-    },
-    {
-      "key": "rawCriticalBottomColour",
-      "type": "text",
-      "label": "Raw crit bottom colour (hex)",
-      "placeholder": "FFFFFF"
     },
     {
       "type": "title",

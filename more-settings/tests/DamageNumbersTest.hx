@@ -36,7 +36,8 @@ class DamageNumbersTest {
         config.fancyDamageNumbers = true;
         // Retired experiments cannot override the decided palettes or add text.
         for (key in ["criticalLightColour", "criticalMiddleColour", "criticalDarkColour",
-            "magicalCriticalLightColour", "magicalCriticalMiddleColour", "magicalCriticalDarkColour"])
+            "magicalCriticalLightColour", "magicalCriticalMiddleColour", "magicalCriticalDarkColour",
+            "rawTopColour", "rawBottomColour", "rawCriticalTopColour", "rawCriticalMiddleColour", "rawCriticalBottomColour"])
             Reflect.setField(config, key, "00ff00");
         Reflect.setField(config, "borderThickness", 6.0);
         for (oldToggle in [false, true]) {
@@ -66,7 +67,7 @@ class DamageNumbersTest {
                 eq(outer.kind, "outline", "Black outline wraps the fully styled number");
                 eq(outer.color, 0, "Border stays black");
                 eq(outer.size, 1.0, "Border stays 1 px despite legacy settings");
-                var palette = raw ? (critical ? [0xFFFFFF, 0xFFFFFF, 0xFFFFFF] : [0xFFFFFF, 0xFFFFFF])
+                var palette = raw ? (critical ? [0xF5E149, 0xFFFFFF, 0xEBEBEB] : [0xFFFFFF, 0xB8B8B8])
                     : critical ? (magic ? [0xEF8DE8, 0xC08DEF, 0x5963C4] : [0xFFCB6D, 0xF04424, 0xFF0000])
                     : magic ? [0xBCC2FF, 0x5963C4] : [0xFFCB6D, 0xF04424];
                 checkPalette(hit, palette);
@@ -76,8 +77,6 @@ class DamageNumbersTest {
         heal.nativeType = "ui.comp.HealDisplay";
         FancyDamageNumbers.apply(heal, config);
         eq(heal.counter.filter, null, "Healing retains its native appearance");
-        FancyDamageNumbers.dispose();
-        rawColourInputs();
         FancyDamageNumbers.dispose();
         var before = G.textures.length;
         var mappingFilter = gradientMapping();
@@ -97,7 +96,7 @@ class DamageNumbersTest {
         FancyDamageNumbers.apply(display(false), config);
         eq(G.textures.length, before + 2, "Next scene creates a fresh valid ramp");
         FancyDamageNumbers.dispose();
-        threeColourGradients();
+        gradientResources();
         formattedGradientMapping();
         Sys.println('Fancy damage numbers: $checks checks passed.');
     }
@@ -125,66 +124,6 @@ class DamageNumbersTest {
                     'Rendered gradient: palette=$palette y=$fraction channel=$channel expected=$expected got=${out[channel]}');
             }
             near(out[3], alpha, "Gradient preserves fades and premultiplied antialiasing");
-        }
-    }
-
-    static function rawColourInputs():Void {
-        var keys = ["rawTopColour", "rawBottomColour", "rawCriticalTopColour", "rawCriticalMiddleColour", "rawCriticalBottomColour"];
-        for (text in ["ff0003", "#FF0003", "0Xff0003", "  #ff0003 "])
-            eq(SettingsData.hexColour(text, 0), 0xFF0003, "Supported hex notation parses the entire RGB value");
-        for (bad in (["", "#FFF", "ff0003junk", "gg0000", "12345678", 123456, {bytes: "???", length: 6}, null]:Array<Dynamic>))
-            eq(SettingsData.hexColour(bad, 0xABCDEF), 0xABCDEF, "Incomplete or malformed input safely uses the preset");
-        for (value in (["#123456", "", {bytes: "???", length: 6}, 123456, null]:Array<Dynamic>)) {
-            var config = SettingsData.defaults();
-            for (key in keys) Reflect.setField(config, key, value);
-            config = cast haxe.Json.parse(haxe.Json.stringify(config));
-            SettingsData.normalize(config);
-            for (key in keys) eq(Reflect.field(config, key), Std.isOfType(value, String) ? value : "",
-                "Saved strings survive; corrupted native String objects reset before typed access");
-            config.fancyDamageNumbers = true;
-            for (critical in [false, true]) {
-                var hit = display(critical, false, true);
-                FancyDamageNumbers.apply(hit, config);
-                var colour = value == "#123456" ? 0x123456 : 0xFFFFFF;
-                checkPalette(hit, critical ? [colour, colour, colour] : [colour, colour]);
-            }
-        }
-        var config = SettingsData.defaults();
-        for (key in keys) Reflect.deleteField(config, key);
-        Reflect.setField(config, "criticalLightColour", "123456");
-        Reflect.setField(config, "magicalCriticalDarkColour", "654321");
-        SettingsData.normalize(config);
-        for (key in keys) eq(Reflect.field(config, key), "", "Missing Raw settings stay white without inheriting retired inputs");
-        config.fancyDamageNumbers = true;
-        config.rawTopColour = " #012345 ";
-        config.rawBottomColour = "0xABCDEF";
-        config.rawCriticalTopColour = "FE1020";
-        config.rawCriticalMiddleColour = "20fe10";
-        config.rawCriticalBottomColour = "1020FE";
-        config = cast haxe.Json.parse(haxe.Json.stringify(config));
-        SettingsData.normalize(config);
-        eq(config.rawTopColour, " #012345 ", "Saving preserves input text exactly");
-        for (magic in [false, true]) for (critical in [false, true]) {
-            var hit = display(critical, magic, true);
-            FancyDamageNumbers.apply(hit, config);
-            checkPalette(hit, critical ? [0xFE1020, 0x20FE10, 0x1020FE] : [0x012345, 0xABCDEF]);
-        }
-        config.rawCriticalTopColour = "000000";
-        config.rawCriticalMiddleColour = "invalid";
-        config.rawCriticalBottomColour = "";
-        config = cast haxe.Json.parse(haxe.Json.stringify(config));
-        SettingsData.normalize(config);
-        var fallback = display(true, false, true);
-        FancyDamageNumbers.apply(fallback, config);
-        checkPalette(fallback, [0x000000, 0x808080, 0xFFFFFF]);
-        var normal = display(false, false, true);
-        FancyDamageNumbers.apply(normal, config);
-        checkPalette(normal, [0x012345, 0xABCDEF]);
-        for (magic in [false, true]) for (critical in [false, true]) {
-            var hit = display(critical, magic);
-            FancyDamageNumbers.apply(hit, config);
-            checkPalette(hit, critical ? (magic ? [0xEF8DE8, 0xC08DEF, 0x5963C4] : [0xFFCB6D, 0xF04424, 0xFF0000])
-                : magic ? [0xBCC2FF, 0x5963C4] : [0xFFCB6D, 0xF04424]);
         }
     }
 
@@ -225,18 +164,14 @@ class DamageNumbersTest {
         return rgba;
     }
 
-    static function threeColourGradients():Void {
+    static function gradientResources():Void {
         FancyDamageNumbers.dispose();
         var before = G.textures.length;
         var config = SettingsData.defaults();
         config.fancyDamageNumbers = true;
         var tracked:Array<Dynamic> = [];
-        for (magic in [false, true])
-        for (palette in [[0xFF0000, 0x00FF00, 0x0000FF], [0x000000, 0xFFFFFF, 0x000000], [0xFFFFFF, 0x000000, 0xFFFFFF], [0xEF8DEB, 0xFF0003, 0xA80C2C]]) {
-            config.rawCriticalTopColour = StringTools.hex(palette[0], 6);
-            config.rawCriticalMiddleColour = StringTools.hex(palette[1], 6);
-            config.rawCriticalBottomColour = StringTools.hex(palette[2], 6);
-            var hit = display(true, magic, true);
+        for (raw in [false, true]) for (magic in [false, true]) {
+            var hit = display(true, magic, raw);
             FancyDamageNumbers.apply(hit, config);
             var stack = filters(hit.counter.filter);
             eq(stack.length, 3, "Three stops use two native matrix passes and one outline");
@@ -248,33 +183,7 @@ class DamageNumbersTest {
                 FancyDamageNumbers.syncGradient(filter, null, {dy: 0.0, height: 40.0});
                 tracked.push(filter);
             }
-            for (fraction in [0.0, 0.25, 0.499, 0.5, 0.501, 0.75, 1.0]) for (alpha in [0.0, 0.25, 1.0]) for (intensity in [0.0, 0.6, 1.0]) {
-                var out = render(stack, fraction, intensity, alpha);
-                var low = fraction < 0.5 ? palette[0] : palette[1];
-                var high = fraction < 0.5 ? palette[1] : palette[2];
-                var weight = fraction < 0.5 ? fraction * 2 : fraction * 2 - 1;
-                for (channel in 0...3) {
-                    var shift = (2-channel)*8;
-                    var expected = (((low >> shift) & 255) * (1-weight) + ((high >> shift) & 255) * weight) / 255.0 * alpha * intensity;
-                    eq(Math.abs(out[channel] - expected) <= 1.01 / 255.0, true, 'Rendered gradient stop: palette=$palette y=$fraction channel=$channel intensity=$intensity alpha=$alpha expected=$expected got=${out[channel]}');
-                }
-                near(out[3], alpha, "Three-colour interpolation preserves alpha");
-            }
         }
-        // Clearing the middle input keeps the current top-to-bottom appearance.
-        config.rawCriticalTopColour = "ff7f66";
-        config.rawCriticalBottomColour = "ff0000";
-        config.rawCriticalMiddleColour = "";
-        var fallback = display(true, false, true);
-        FancyDamageNumbers.apply(fallback, config);
-        for (f in filters(fallback.counter.filter)) if (f.kind == "gradient") {
-            FancyDamageNumbers.bindGradient(f, fallback.counter);
-            fallback.counter.calcYMin = 0.0; fallback.counter.calcHeight = 40.0;
-            FancyDamageNumbers.syncGradient(f, null, {dy: 0.0, height: 40.0});
-        }
-        var middle = render(filters(fallback.counter.filter), 0.5, 1, 1);
-        near(middle[0], 1.0, "Default middle keeps red fully saturated");
-        eq(Math.abs(middle[1] - 64 / 255.0) < 1.01 / 255, true, "Empty middle uses the average endpoint colour");
         eq(G.textures.length, before + 2, "All three-colour palettes share two masks without per-hit allocations");
         for (texture in G.textures.slice(before)) {
             var reload:Void->Void = texture.realloc;
@@ -296,21 +205,12 @@ class DamageNumbersTest {
         }
     }
 
-    static function assertRGB(matrix:Dynamic, colour:Int, message:String):Void {
-        near(matrix._11, ((colour >> 16) & 255) / 255.0, message + " (red)");
-        near(matrix._22, ((colour >> 8) & 255) / 255.0, message + " (green)");
-        near(matrix._33, (colour & 255) / 255.0, message + " (blue)");
-    }
-
     static function formattedGradientMapping():Void {
         var config = SettingsData.defaults();
         config.fancyDamageNumbers = true;
-        config.rawCriticalTopColour = config.rawCriticalBottomColour = "F04424";
-        config.rawCriticalMiddleColour = "EF8DEB";
-        SettingsData.normalize(config);
         for (raw in [false, true]) for (magic in [false, true]) for (runs in [false, true]) for (resolution in [1.0, 2.0]) {
             var hit = display(true, magic, raw);
-            var palette = raw ? [0xF04424, 0xEF8DEB, 0xF04424]
+            var palette = raw ? [0xF5E149, 0xFFFFFF, 0xEBEBEB]
                 : magic ? [0xEF8DE8, 0xC08DEF, 0x5963C4] : [0xFFCB6D, 0xF04424, 0xFF0000];
             hit.counter.text = "66";
             // HtmlText reserves its font's entire line height, but these glyphs

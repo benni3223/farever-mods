@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | Enable quick cast; Disable target-lock camera movement; Fancy damage numbers; Raw top/bottom colour (hex); Raw crit top/middle/bottom colour (hex) | Toggles off; Raw colours default to white; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
+| Combat | (PTR) Enable quick cast; (PTR) Disable target-lock camera movement; Fancy damage numbers | Toggles off; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -19,9 +19,9 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Dungeon Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Overworld Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 
-**Combat** appears directly below **General**. **Enable quick cast** lets you hold a ground-targeted skill's bound key or gamepad button to aim, then release it to cast. It uses the native ground indicator, confirmation, and cancellation paths and works without a target lock. A quick tap is retained through the native first-frame aiming delay. Disabling the option while aiming restores the game's usual confirmation behavior.
+**Combat** appears directly below **General**. **(PTR) Enable quick cast** lets you hold a ground-targeted skill's bound key or gamepad button to aim, then release it to cast. It uses the native ground indicator, confirmation, and cancellation paths and works without a target lock. A quick tap is retained through the native first-frame aiming delay. Disabling the option while aiming restores the game's usual confirmation behavior.
 
-**Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
+**(PTR) Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
 
 **Fancy damage numbers** adds a 1 px black outline to all damage numbers. Normal physical damage uses an orange gradient and normal magic damage uses a blue gradient. Critical hits always use three colours, with the middle stop halfway down the number:
 
@@ -31,14 +31,12 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Physical crit | `#FFCB6D` | `#F04424` | `#FF0000` |
 | Magical | `#BCC2FF` | — | `#5963C4` |
 | Magical crit | `#EF8DE8` | `#C08DEF` | `#5963C4` |
-| Raw | Configurable (default `#FFFFFF`) | — | Configurable (default `#FFFFFF`) |
-| Raw crit | Configurable (default `#FFFFFF`) | Configurable (default midpoint) | Configurable (default `#FFFFFF`) |
+| Raw | `#FFFFFF` | — | `#B8B8B8` |
+| Raw crit | `#F5E149` | `#FFFFFF` | `#EBEBEB` |
 
-The option remains off by default and preserves your existing Fancy damage numbers preference. Physical and magical palettes are fixed; the former Pink crits, Exclamation mark crits, Three-colour crit gradients, and physical/magical colour inputs are removed and their saved values no longer affect styling. Critical hits keep native number formatting, with no added exclamation mark. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
+The option remains off by default and preserves your existing Fancy damage numbers preference. All palettes are fixed; the former Pink crits, Exclamation mark crits, Three-colour crit gradients, and physical/magical/Raw colour inputs are removed and their saved values no longer affect styling. Critical hits keep native number formatting, with no added exclamation mark. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
 
-**Raw top/bottom colour (hex)** controls normal Raw damage independently of **Raw crit top/middle/bottom colour (hex)**. These fields require Fancy damage numbers and affect newly displayed numbers immediately. Raw uses its own settings regardless of the skill's physical or magical classification. Raw retains the black outline and has no native text shadow.
-
-Enter six RGB hex digits, optionally prefixed with `#` or `0x` (for example, `ff0000`). Blank or invalid top/bottom fields use white. A blank or invalid Raw crit middle field uses the average of its resolved top and bottom colours. All five inputs start blank, preserving white Raw numbers until customised. Missing or malformed saved text values safely reset; Raw fields never inherit retired crit colours. Text inputs require Better Mod Settings 1.3.0 or newer.
+**Fancy damage numbers** is the only damage-number setting. Its fixed palettes apply to newly displayed numbers immediately. Raw uses its own palette regardless of the skill's physical or magical classification, retains the black outline, and has no native text shadow.
 
 Gradients span the placed glyph geometry, excluding the formatted text's blank line space and the surrounding border padding. Their endpoints stay aligned with the digits as font size or rendering resolution changes; a three-colour gradient reaches its middle colour halfway between the glyph edges.
 
