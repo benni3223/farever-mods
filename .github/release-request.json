@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.11.1",
-  "commit": "6938f896907726bcf843da375891c6cf8ed0a615",
-  "notes": "Finalized fancy damage numbers",
+  "project": "better-mod-settings",
+  "version": "1.4.0",
+  "commit": "dc3edf84db85f2b0b30f0121e9b158558bf42429",
+  "notes": "Added support for dropdown menus",
   "dry_run": false
 }
