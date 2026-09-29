@@ -1,7 +1,7 @@
 {
-  "project": "minimap",
-  "version": "1.7.3",
-  "commit": "604253c469bb3ae2cc201181b318025dfd263e51",
-  "notes": "Added option to display clock instead of rift timer",
+  "project": "dps-meter",
+  "version": "1.5.3",
+  "commit": "247af8b77b88c4eb3cbcf30040bfce43c0e01bfc",
+  "notes": "Fixed an issue that sometimes caused snapshots to have unexpected scaling",
   "dry_run": false
 }
