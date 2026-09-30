@@ -1,6 +1,6 @@
 {
-  "project": "more-settings",
-  "version": "1.11.2",
+  "project": "dps-meter",
+  "version": "1.5.4",
   "commit": "148c174990f0324425d4c41f88730e7559c72367",
   "notes": "Call to Glory compatibility",
   "dry_run": false
