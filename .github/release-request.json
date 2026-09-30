@@ -1,7 +1,7 @@
 {
-  "project": "dps-meter",
-  "version": "1.5.3",
-  "commit": "247af8b77b88c4eb3cbcf30040bfce43c0e01bfc",
-  "notes": "Fixed an issue that sometimes caused snapshots to have unexpected scaling",
+  "project": "minimap",
+  "version": "1.7.4",
+  "commit": "148c174990f0324425d4c41f88730e7559c72367",
+  "notes": "Call to Glory compatibility",
   "dry_run": false
 }
