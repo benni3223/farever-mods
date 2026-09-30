@@ -10,7 +10,7 @@ class AppearanceSwatches {
         if (tile == null || G.number(G.field(tile, "width")) < 1 || G.number(G.field(tile, "height")) < 1)
             throw "This appearance color's texture is unavailable.";
         // Native ColorSelector/ColorPickButton captures the entire texture to
-        // read this one pixel, on both live and PTR. A sub-tile only creates UV
+        // read this one pixel. A sub-tile only creates UV
         // coordinates; Bitmap samples the same pixel in the normal UI draw.
         var sample = G.call("h2d.Tile", "sub", tile, [0.0, 0.0, 1.0, 1.0, null, null]);
         var bitmap = G.create("h2d.Bitmap", [sample, button]);

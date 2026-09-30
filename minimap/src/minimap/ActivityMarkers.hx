@@ -25,6 +25,8 @@ class ActivityMarkers {
         if (kind == "dungeon") return config.hideDungeons;
         // Repeatable destinations do not need a completion lookup at all.
         return config.hideCompletedActivities && progress != null
-            && G.call("st.player.Progress", "hasActivityCompleted", progress, [G.field(inf, "id")]) == true;
+            // A null difficulty asks whether this activity was completed at any
+            // difficulty, matching ordinary world-activity marker visibility.
+            && G.call("st.player.Progress", "hasActivityCompleted", progress, [G.field(inf, "id"), null]) == true;
     }
 }

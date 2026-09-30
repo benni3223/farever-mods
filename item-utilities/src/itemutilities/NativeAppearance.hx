@@ -72,7 +72,7 @@ class NativeAppearance {
         for (rule in rules()) {
             // Native checks include slot compatibility, class aptitudes, and
             // collection ownership. The boolean wrapper avoids enum indices
-            // that differ between live and PTR. It does not execute changes.
+            // and does not execute changes.
             if (call("st.Loadout", "canSetAppearance", loadout, [choices.get(rule.slot), rule.slot]) != true)
                 throw "A saved appearance is unavailable or cannot be used by this character.";
         }

@@ -14,12 +14,6 @@ typedef TargetLockConfig = {
     var quickCast:Bool;
 }
 
-private typedef GroundAimInput = {
-    var controller:Dynamic;
-    var key:String;
-    var released:Bool;
-}
-
 @:build(hlx.runtime.Mod.build())
 class FixTargetLockMod {
     @:hlx.config
@@ -39,9 +33,6 @@ class FixTargetLockMod {
     static var unitControllerType:hl.Bytes;
     static var gameCameraType:hl.Bytes;
     static var gameObjectType:hl.Bytes;
-    static var baseSkillType:hl.Bytes;
-    static var skillScriptType:hl.Bytes;
-    static var skillTargetType:hl.Bytes;
     static var constType:hl.Bytes;
     static var isPressedMember:hlx.runtime.ResolvedMember;
     static var lockAutoTargetMember:hlx.runtime.ResolvedMember;
@@ -50,20 +41,15 @@ class FixTargetLockMod {
     static var getLockedTargetMember:hlx.runtime.ResolvedMember;
     static var isDeadMember:hlx.runtime.ResolvedMember;
     static var lockTargetMember:hlx.runtime.ResolvedMember;
-    static var getStepByTypeMember:hlx.runtime.ResolvedMember;
-    static var allowAimingMember:hlx.runtime.ResolvedMember;
-    static var isReleasedMember:hlx.runtime.ResolvedMember;
-    static var activeGroundAim:GroundAimInput;
-    static var updatingController:Dynamic;
     static var lastController:Dynamic;
     static var originalTargetLock:Null<Bool>;
-    static var lastAppliedTargetLock:Null<Bool>;
-    static var cameraUpdateTargetLock:Null<Bool>;
+    static var targeting = new LockedTargeting();
     static var lastStatus:String = "Waiting for Farever";
 
     static function main():Void {
         if (ConfigMigration.importLegacy()) loadConfig();
         config.save();
+        CombatHooks.configure(config);
         Bus.subscribe(
             SETTINGS_CHANGED_TOPIC_PREFIX + HlxRuntime.moduleName(),
             onBetterModSettingsChanged
@@ -93,10 +79,15 @@ class FixTargetLockMod {
                 return;
             }
 
+            // updateInputs runs before this frame's updatePicked. Select using
+            // the current view so an initial lock/swap cannot reuse a stale target.
+            var onlyEnemies = true;
+            var aimedTarget = GameAccess.call("client.UnitController", "getAutoTarget", instance,
+                [hl.Ref.make(onlyEnemies)]);
+            GameAccess.set(instance, "autoTarget", aimedTarget);
             var inLock:Dynamic = HlxRuntime.resolveField(instance, "inLock");
             if (inLock == true) {
                 var swapped = false;
-                var aimedTarget:Dynamic = HlxRuntime.resolveField(instance, "autoTarget");
                 if (config.quickSwapTarget && aimedTarget != null) {
                     var lockedTarget = getLockedTarget(instance);
                     if (lockedTarget != aimedTarget) {
@@ -145,175 +136,48 @@ class FixTargetLockMod {
             && lockTargetMember != null;
     }
 
-    // Farever normally refreshes autoTarget inside startSkillAim and can pass a
-    // newly looked-at enemy to the attack despite Hero.lockedTarget. Every skill
-    // that immediately submits Target(autoTarget), including basic attacks, is
-    // redirected to the hard lock. Skills entering manual point/ground aiming
-    // continue through Farever's original targeting path.
+    @:hlx.prefix(GameApp.update)
+    static function beforeFrame(instance:Dynamic, dt:Float):HlxPrefixControl {
+        CombatHooks.beginFrame();
+        targeting.reset();
+        return Continue;
+    }
+
+    // Keep native skill replacement, virtual allowAiming dispatch, and ground
+    // targeting. Only the auto-target chosen within instant skill aim is pinned.
     @:hlx.prefix(client.UnitController.startSkillAim)
-    static function forceLockedAttackTarget(instance:Dynamic, skill:Dynamic, callback:Dynamic, input:String):HlxPrefixControl {
-        if (!config.enabled || instance != lastController)
-            return Continue;
-
+    static function beforeSkillAim(instance:Dynamic, skill:Dynamic, callback:Dynamic, input:String):HlxPrefixControl {
+        var target:Dynamic = null;
         try {
-            var inLock:Dynamic = HlxRuntime.resolveField(instance, "inLock");
-            if (inLock != true)
-                return Continue;
-
-            var lockedTarget = getLockedTarget(instance);
-            if (lockedTarget == null)
-                return Continue;
-
-            if (baseSkillType == null)
-                baseSkillType = HlxRuntime.resolveType("st.skill.BaseSkill");
-            if (baseSkillType == null)
-                return Continue;
-            if (getStepByTypeMember == null)
-                getStepByTypeMember = HlxRuntime.resolveMember(baseSkillType, "getStepByType");
-            if (getStepByTypeMember == null)
-                return Continue;
-
-            // Step type 25 is Farever's explicit aiming step. startSkillAim only
-            // enters manual targeting when that step exists and the skill script
-            // allows aiming; every other branch immediately emits Target(autoTarget).
-            var aimingStep:Dynamic = HlxRuntime.callResolved(getStepByTypeMember, [skill, 25]);
-            if (aimingStep != null) {
-                if (skillScriptType == null)
-                    skillScriptType = HlxRuntime.resolveType("script.SkillScript");
-                if (skillScriptType == null)
-                    return Continue;
-                if (allowAimingMember == null)
-                    allowAimingMember = HlxRuntime.resolveMember(skillScriptType, "allowAiming");
-                if (allowAimingMember == null)
-                    return Continue;
-
-                var script:Dynamic = HlxRuntime.resolveField(skill, "script");
-                if (script == null)
-                    return Continue;
-                var usesManualAim:Dynamic = HlxRuntime.callResolved(allowAimingMember, [script]);
-                if (usesManualAim == true)
-                    return Continue;
+            if (config.enabled && instance == lastController
+                && GameAccess.field(instance, "inLock") == true) {
+                target = getLockedTarget(instance);
+                if (target != null && (GameAccess.call("ent.GameObject", "canBeLocked", target) != true
+                    || GameAccess.call("ent.GameObject", "isDead", target) == true)) target = null;
             }
-
-            if (skillTargetType == null)
-                skillTargetType = HlxRuntime.resolveType("st.skill.SkillTarget");
-            if (skillTargetType == null)
-                return Continue;
-
-            var forcedTarget:Dynamic = HlxRuntime.constructEnum(skillTargetType, "Target", [lockedTarget]);
-            if (forcedTarget == null)
-                return Continue;
-
-            Reflect.callMethod(null, callback, [forcedTarget]);
-            return Skip;
-        } catch (e:Dynamic) {
-            // Preserve normal combat if a game update changes any target types.
-            trace("[FixTargetLock] strict target fallback: " + Std.string(e));
-            return Continue;
-        }
-    }
-
-    @:hlx.postfix(client.UnitController.startTargetMode)
-    static function afterStartTargetMode(instance:Dynamic, skill:Dynamic, callback:Dynamic,
-        input:Dynamic, result:Dynamic):Void {
-        try {
-            if (config.enabled && config.quickCast && instance == lastController && input != null) {
-                // Keep hook arguments dynamic and convert the input inside the hook.
-                if (Std.isOfType(input, String)) {
-                    var key:String = cast input;
-                    activeGroundAim = { controller: instance, key: key, released: false };
-                }
-            }
-        } catch (_:Dynamic) {
-            activeGroundAim = null;
-        }
-    }
-
-    @:hlx.prefix(client.UnitController.update)
-    static function beforeControllerUpdate(instance:Dynamic, dt:Float):HlxPrefixControl {
-        updatingController = instance;
-        return Continue;
-    }
-
-    @:hlx.postfix(client.UnitController.update)
-    static function afterControllerUpdate(instance:Dynamic, dt:Float, result:Void):Void {
-        updatingController = null;
-        // Native aiming skips confirmation on its first frame. Capture a quick
-        // tap's release here so the following aiming update can still confirm it.
-        if (activeGroundAim != null && activeGroundAim.controller == instance)
-            updateGroundAimRelease();
-    }
-
-    @:hlx.postfix(client.UnitController.setJob)
-    static function afterControllerJobChanged(instance:Dynamic, job:Dynamic, update:Dynamic,
-        onStop:Dynamic, result:Dynamic):Dynamic {
-        if (activeGroundAim != null && activeGroundAim.controller == instance)
-            activeGroundAim = null;
-        return result;
-    }
-
-    @:hlx.postfix(client.UnitController.onEnd)
-    static function afterControllerEnd(instance:Dynamic, result:Void):Void {
-        if (activeGroundAim != null && activeGroundAim.controller == instance)
-            activeGroundAim = null;
-    }
-
-    @:hlx.prefix(lib.Input.isPressedWithoutMode)
-    static function confirmGroundAimOnRelease(input:String):HlxPrefixResult<Bool> {
-        if (activeGroundAim != null && activeGroundAim.controller == updatingController
-            && input == activeGroundAim.key) {
-            updateGroundAimRelease();
-            if (activeGroundAim != null)
-                return SkipWith(activeGroundAim.released);
-        }
-        return Continue;
-    }
-
-    static function updateGroundAimRelease():Void {
-        try {
-            if (!config.enabled || !config.quickCast || activeGroundAim.controller != lastController) {
-                activeGroundAim = null;
-            } else {
-                if (!resolveGroundAimInput() || !aimInputActive()) {
-                    activeGroundAim.released = false;
-                } else if (!activeGroundAim.released) {
-                    activeGroundAim.released = readAimInput(isReleasedMember, activeGroundAim.key);
-                }
-            }
-        } catch (_:Dynamic) {
-            activeGroundAim = null;
-        }
-    }
-
-    static function resolveGroundAimInput():Bool {
-        if (inputType == null)
-            inputType = HlxRuntime.resolveType("lib.Input");
-        if (inputType == null)
-            return false;
-        if (isReleasedMember == null)
-            isReleasedMember = HlxRuntime.resolveStaticMember(inputType, "isReleased");
-        return isReleasedMember != null;
-    }
-
-    static function aimInputActive():Bool {
-        var checkActive:Dynamic = HlxRuntime.resolveStaticField(inputType, "checkActive");
-        return checkActive != null && Reflect.callMethod(null, checkActive, [null]) == true;
-    }
-
-    static function readAimInput(member:hlx.runtime.ResolvedMember, input:String):Bool {
-        // Target mode blocks ordinary skill inputs. Match the native
-        // isPressedWithoutMode query while retaining binding and focus handling.
-        var previous:Dynamic = HlxRuntime.resolveStaticField(inputType, "_noCheckMode");
-        HlxRuntime.setStaticField(inputType, "_noCheckMode", true);
-        var result:Dynamic;
-        try {
-            result = HlxRuntime.callResolved(member, [input]);
         } catch (error:Dynamic) {
-            HlxRuntime.setStaticField(inputType, "_noCheckMode", previous);
-            throw error;
+            trace("[FixTargetLock] target lookup: " + Std.string(error));
         }
-        HlxRuntime.setStaticField(inputType, "_noCheckMode", previous);
-        return result == true;
+        targeting.begin(instance, target);
+        return Continue;
+    }
+
+    @:hlx.postfix(client.UnitController.startSkillAim)
+    static function afterSkillAim(instance:Dynamic, skill:Dynamic, callback:Dynamic, input:String, result:Void):Void
+        targeting.end();
+
+    @:hlx.prefix(client.UnitController.getAutoTarget)
+    static function lockedSkillTarget(instance:Dynamic, onlyEnemies:hl.Ref<Bool>):HlxPrefixResult<Dynamic> {
+        var target = targeting.target(instance);
+        return target == null ? Continue : SkipWith(target);
+    }
+
+    @:hlx.prefix(GameApp.dispose)
+    static function beforeDispose(instance:Dynamic):HlxPrefixControl {
+        CombatHooks.dispose();
+        targeting.reset();
+        lastController = null;
+        return Continue;
     }
 
     static function resolveDeathCheckMembers():Bool {
@@ -393,51 +257,10 @@ class FixTargetLockMod {
         // Keep Farever's lock mode enabled outside the camera update. Other
         // systems use this flag for locked sensitivity and targeting behavior.
         var desired = config.enabled ? true : originalTargetLock;
-        if (lastAppliedTargetLock == desired)
+        if (Reflect.field(camera, "TargetLock") == desired)
             return;
 
         Reflect.setField(camera, "TargetLock", desired);
-        lastAppliedTargetLock = desired;
-    }
-
-    @:hlx.prefix(client.GameCamera.postUpdate)
-    static function beforeCameraPostUpdate(instance:Dynamic, dt:Float):HlxPrefixControl {
-        cameraUpdateTargetLock = null;
-        if (!config.enabled || !config.disableCameraMovement)
-            return Continue;
-
-        try {
-            if (constType == null)
-                constType = HlxRuntime.resolveType("Const");
-            if (constType == null)
-                return Continue;
-            var camera:Dynamic = HlxRuntime.resolveStaticField(constType, "Camera");
-            if (camera == null)
-                return Continue;
-
-            var current:Dynamic = Reflect.field(camera, "TargetLock");
-            if (current == null)
-                return Continue;
-            cameraUpdateTargetLock = cast current;
-            Reflect.setField(camera, "TargetLock", false);
-        } catch (_:Dynamic) {
-            cameraUpdateTargetLock = null;
-        }
-        return Continue;
-    }
-
-    @:hlx.postfix(client.GameCamera.postUpdate)
-    static function afterCameraPostUpdate(instance:Dynamic, dt:Float, result:Void):Void {
-        if (cameraUpdateTargetLock == null)
-            return;
-        try {
-            if (constType != null) {
-                var camera:Dynamic = HlxRuntime.resolveStaticField(constType, "Camera");
-                if (camera != null)
-                    Reflect.setField(camera, "TargetLock", cameraUpdateTargetLock);
-            }
-        } catch (_:Dynamic) {}
-        cameraUpdateTargetLock = null;
     }
 
     static function updateStatus(controller:Dynamic):Void {
@@ -452,17 +275,16 @@ class FixTargetLockMod {
         if (lastController != null && resolveMembers()) {
             try HlxRuntime.callResolved(leaveLockMember, [lastController]) catch (_:Dynamic) {}
         }
-        lastAppliedTargetLock = null;
         applyFeatureFlag();
     }
 
     static function onBetterModSettingsChanged(_:Dynamic):Void {
         var wasEnabled = config.enabled;
         loadConfig();
+        CombatHooks.configure(config);
         if (wasEnabled && !config.enabled)
             disableAndUnlock();
         else if (!wasEnabled && config.enabled) {
-            lastAppliedTargetLock = null;
             applyFeatureFlag();
         }
     }

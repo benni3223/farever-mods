@@ -25,7 +25,7 @@ class TalentPresetTest {
     }
 
     static function rules():Array<TalentRule> {
-        // The live/PTR tree shape: shared root, three branches, thresholds
+        // The native tree shape: shared root, three branches, thresholds
         // [0, 1, 2, 4, 8], and up to two ranks in the middle tiers.
         var result:Array<TalentRule> = [
             {skill: "root", root: "root", tier: 0, branch: 0, maxRank: 1, threshold: 0}

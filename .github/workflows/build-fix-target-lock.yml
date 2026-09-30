@@ -32,7 +32,37 @@ concurrency:
   cancel-in-progress: ${{ github.ref_type != 'tag' && inputs.source-ref == '' }}
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ inputs.source-ref || github.sha }}
+      - uses: krdlab/setup-haxe@v1
+        with:
+          haxe-version: 4.3.7
+      - name: Test targeting, quick cast, and camera scopes
+        working-directory: fix-target-lock
+        run: haxe test.hxml
+      - uses: actions/checkout@v4
+        with:
+          repository: HaxeFoundation/hashlink
+          ref: 04a207d73816132b9f742867e8643f58b02a5afa
+          path: .combat-hashlink
+          persist-credentials: false
+      - name: Test combat scopes on HashLink
+        working-directory: fix-target-lock
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
+        run: |
+          make -C ../.combat-hashlink -j2 hl
+          mkdir -p build
+          haxe -cp src -cp tests/stubs -cp tests -main CombatTest -hl build/combat-test.hl
+          ../.combat-hashlink/hl build/combat-test.hl
+
   build:
+    needs: test
     uses: ./.github/workflows/_build-mod.yml
     with:
       source-ref: ${{ inputs.source-ref }}

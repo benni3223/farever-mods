@@ -106,6 +106,7 @@ class MinimapMarkers {
     var landmarkSources:Map<String, Dynamic> = [];
     var landmarkCounts:Map<String, Int> = [];
     static var reportedError:Bool = false;
+    static final DRAW_ORDER = ["player", "party", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "vaultChest", "recipeChest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal"].concat(NpcMarkers.KINDS);
 
     public function new(parent:Dynamic, foreground:Dynamic, overlay:Dynamic, level:String) {
         this.level = level;
@@ -445,6 +446,7 @@ class MinimapMarkers {
             for (definition in definitions) {
                 if (G.text(G.field(definition, "mapId")) != level) continue;
                 var inf = G.field(definition, "inf");
+                if (kind == "npc" && !NpcMarkers.availableDefinition(inf)) continue;
                 // Obelisks are also in respawnPoints; draw each location once.
                 if (kind == "respawn" && G.integer(G.field(inf, "type")) == 13) continue;
                 var prefab = G.field(definition, "prefab");
@@ -597,6 +599,7 @@ class MinimapMarkers {
                 default: config.showNpcs;
             };
             if (show && near(point.x, point.y, x, y, radius)) {
+                if (isNpc(point.kind) && !NpcMarkers.eventVisible(point.inf, G.field(layer, "worldEvents"), worldEvents)) continue;
                 // Definitions are cached, but unlocks belong to the current
                 // character and must refresh after activating a respawn point.
                 if (point.kind == "respawn") point.respawnUnlocked = RespawnMarkers.unlocked(point.inf, progress);
@@ -851,10 +854,10 @@ class MinimapMarkers {
 
     static function markerRadius(kind:String):Float return switch kind {
         case "party": 10;
-        case "bank", "demon", "player", "activity", "ascension", "companion": 7;
+        case "bank", "player", "activity", "ascension", "companion": 7;
         case "plant", "ore", "boss": 5;
         case "obelisk", "dungeon", "soulstone", "secretOrb", "glory", "chest", "vaultChest", "recipeChest": 8;
-        case "targetDummy", "upcomingRift", "infusion", "craft", "recycler", "respawn": 9;
+        case "targetDummy", "upcomingRift", "infusion", "craft", "recycler", "respawn", "demon": 9;
         case "riftPortal": 11;
         case "inactiveRift", "nextRift", "upgrade", "soulWell": 10;
         default: 3.5;
@@ -992,7 +995,7 @@ class MinimapMarkers {
         hitPoints = [];
         // All Rift states draw above enemies; services retain top priority.
         // Sparkling elites use his ring and are painted after plain red markers.
-        for (kind in ["player", "party", "activity", "ascension", "dungeon", "plant", "ore", "secretOrb", "chest", "vaultChest", "recipeChest", "companion", "enemy", "boss", "targetDummy", "respawn", "obelisk", "soulstone", "inactiveRift", "nextRift", "upcomingRift", "riftPortal", "npc", "bank", "demon", "recycler", "upgrade", "craft", "glory", "infusion", "soulWell"]) {
+        for (kind in DRAW_ORDER) {
             if (kind == "enemy" || kind == "boss") {
                 take(points, kind, 1);
                 take(points, kind, 2);
@@ -1099,7 +1102,7 @@ class MinimapMarkers {
         if (kind == "obelisk" || kind == "dungeon" || kind == "soulstone" || kind == "secretOrb" || kind == "targetDummy"
             || kind == "riftPortal" || kind == "upcomingRift" || kind == "inactiveRift" || kind == "nextRift"
             || kind == "glory" || kind == "infusion" || kind == "craft" || kind == "upgrade" || kind == "recycler"
-            || kind == "soulWell") {
+            || kind == "soulWell" || kind == "demon") {
             LandmarkIcons.draw(graphics, kind, markerRadius(kind));
             return;
         }
@@ -1111,7 +1114,6 @@ class MinimapMarkers {
             case "enemy", "boss": 0xff6860;
             case "npc": 0xffdf78;
             case "bank": 0xffdc42;
-            case "demon": 0xe8a1ff;
             case "party": PlayerMarkers.COLOR;
             default: 0x70d8ff;
         };
@@ -1193,13 +1195,6 @@ class MinimapMarkers {
                     -0.7, 0.55, -0.7, 0.85, 0.4, 0.85, 0.75, 0.55, 0.75, 0.1,
                     0.4, -0.15, -0.3, -0.15, -0.4, -0.25, -0.4, -0.4, -0.3, -0.5, 0.7, -0.5]);
                 G.call("h2d.Graphics", "drawRect", graphics, [x - 0.13 * r, y - 1.05 * r, 0.26 * r, 2.15 * r]);
-            case "demon":
-                // Keep the face and horns convex so both sides triangulate
-                // independently at world-map coordinates.
-                polygon(point, r, [-0.8, -0.35, 0.8, -0.35, 0.8, 0.25,
-                    0.45, 0.75, 0, 1, -0.45, 0.75, -0.8, 0.25]);
-                polygon(point, r, [-0.9, -1, -0.2, -0.3, -0.8, 0.05]);
-                polygon(point, r, [0.9, -1, 0.8, 0.05, 0.2, -0.3]);
             case "npc":
                 G.call("h2d.Graphics", "drawCircle", graphics, [x, y, r, 32]);
             default:
@@ -1251,9 +1246,6 @@ class MinimapMarkers {
                 polygon(point, r, [-0.55, -0.5, -0.4, -0.6, -0.1, -0.1, -0.3, 0]);
                 polygon(point, r, [-0.3, -0.15, -0.1, -0.1, -0.65, 0.45, -0.8, 0.35]);
                 polygon(point, r, [-0.1, -0.1, 0.65, -0.1, 0.7, 0.1, -0.1, 0.1]);
-            case "demon":
-                polygon(point, r, [-0.6, -0.05, -0.15, 0.1, -0.2, 0.3, -0.5, 0.25]);
-                polygon(point, r, [0.6, -0.05, 0.15, 0.1, 0.2, 0.3, 0.5, 0.25]);
             default:
         }
     }

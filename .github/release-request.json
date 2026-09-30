@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.11.0",
-  "commit": "612f9260773f476d72df2ca60dd4567ebd5684e0",
-  "notes": "- Added a new \"Fancy damage numbers\" option that changes the appearance of damage numbers\n- Magic damage is blue, physical damage is orange, crits are red, and raw damage is white\n- Added a new \"Pink crits\" option which turns crits pink when fancy damage numbers is enabled",
+  "project": "dps-meter",
+  "version": "1.5.4",
+  "commit": "148c174990f0324425d4c41f88730e7559c72367",
+  "notes": "Call to Glory compatibility",
   "dry_run": false
 }

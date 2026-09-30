@@ -1,7 +1,7 @@
-package moresettings;
+package fixtargetlock;
 
 import hlx.runtime.HlxPrefixResult;
-import moresettings.SettingsData.MoreSettingsConfig;
+import fixtargetlock.FixTargetLockMod.TargetLockConfig;
 
 /** Optional combat controls; native lock input and skill targets are never replaced. */
 class CombatHooks {
@@ -9,9 +9,9 @@ class CombatHooks {
     static var camera = new TargetLockCamera();
     static var reportedError:Bool = false;
 
-    public static function configure(config:MoreSettingsConfig):Void {
-        quickCast.enabled = config.quickCast;
-        camera.enabled = config.disableTargetLockCameraMovement;
+    public static function configure(config:TargetLockConfig):Void {
+        quickCast.enabled = config.enabled && config.quickCast;
+        camera.enabled = config.enabled && config.disableCameraMovement;
     }
 
     public static function beginFrame():Void {
@@ -78,7 +78,7 @@ class CombatHooks {
     static function report(error:Dynamic):Void {
         if (!reportedError) {
             reportedError = true;
-            trace("[More Settings] Combat: " + Std.string(error));
+            trace("[Fix Target Lock] Combat: " + Std.string(error));
         }
     }
 }

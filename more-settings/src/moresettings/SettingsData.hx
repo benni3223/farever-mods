@@ -1,10 +1,7 @@
 package moresettings;
 
 typedef MoreSettingsConfig = {
-    var quickCast:Bool;
-    var disableTargetLockCameraMovement:Bool;
     var fancyDamageNumbers:Bool;
-    var pinkCrits:Bool;
     var classColoredNames:Bool;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
@@ -28,10 +25,7 @@ typedef MoreSettingsConfig = {
 
 class SettingsData {
     public static function defaults():MoreSettingsConfig return {
-        quickCast: false,
-        disableTargetLockCameraMovement: false,
         fancyDamageNumbers: false,
-        pinkCrits: false,
         classColoredNames: true,
         disableProfanityFilter: true,
         showBossHealth: false,

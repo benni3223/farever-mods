@@ -90,7 +90,7 @@ class HistoryCategory {
         if (difficulty >= 0) {
             var label = catalog != null && catalog.difficulties != null ? catalog.difficulties[difficulty] : null;
             if (label == null || label == "") label = switch (difficulty) {
-                case 0: "Normal"; case 1: "Hard"; case 2: "Heroic";
+                case 0: "Normal"; case 1: "Veteran"; case 2: "Heroic";
                 default: "Difficulty " + difficulty;
             };
             return name + " - " + label;

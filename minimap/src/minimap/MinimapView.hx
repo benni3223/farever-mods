@@ -255,7 +255,7 @@ class MinimapView {
         markers.update(hero, config, viewCenterX, viewCenterY, radius, scale, rotation, rifts);
         markers.updateAlerts(config, viewCenterX, viewCenterY, size, scale, rotation, rifts, circular, mapHeight);
         compass.update(size, circular, rotation, markerScale / 100, config.showNorthIndicator, mapHeight);
-        updateRiftTimer(config);
+        updateClockTimer(config);
         show(true);
         var toggleLabel = "";
         if (controls != null) {
@@ -658,8 +658,8 @@ class MinimapView {
         return y + G.number(G.call("h2d.Text", "get_textHeight", text)) * textScale;
     }
 
-    function updateRiftTimer(config:MinimapSettings):Void {
-        var caption = config.showRiftTimer ? RiftTiming.caption(rifts.remaining) : "";
+    function updateClockTimer(config:MinimapSettings):Void {
+        var caption = ClockTimer.caption(config.clockTimerMode, rifts.remaining);
         if (caption != "" && riftFontSource == null) {
             var dom = G.field(G.field(owner, "gameRoot"), "dom");
             if (dom == null) return;
@@ -701,6 +701,7 @@ class MinimapView {
                 riftHeight = G.number(G.call("h2d.Text", "get_textHeight", riftText)) * riftFontScale;
             }
         }
+        // Both the clock and countdown use the same native Rift alert state.
         var color = config.riftAlerts && rifts.alertActive() ? LandmarkIcons.RIFT_ALERT_COLOR : (expanded ? INK : 0xfff3d6);
         if (color != riftColor) {
             riftColor = color;

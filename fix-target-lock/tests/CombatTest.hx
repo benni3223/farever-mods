@@ -1,8 +1,7 @@
-import moresettings.QuickCast;
-import moresettings.TargetLockCamera;
-import moresettings.CombatSettings;
-import moresettings.SettingsData;
-import moresettings.GameAccess as G;
+import fixtargetlock.QuickCast;
+import fixtargetlock.TargetLockCamera;
+import fixtargetlock.LockedTargeting;
+import fixtargetlock.GameAccess as G;
 
 class CombatTest {
     static var checks = 0;
@@ -110,26 +109,32 @@ class CombatTest {
         camera.begin(); camera.end();
         eq(G.data.Camera.TargetLock, true, "Missing optional steering field leaves native behavior intact");
 
-        var c = SettingsData.defaults();
-        eq(c.quickCast, false, "Quick cast default");
-        eq(c.disableTargetLockCameraMovement, false, "Camera setting default");
-        CombatSettings.migrate(c, {}, {enabled: true, quickCast: true, disableCameraMovement: true});
-        eq(c.quickCast, true, "Import quick cast preference");
-        eq(c.disableTargetLockCameraMovement, true, "Import renamed camera preference");
-        c = SettingsData.defaults();
-        CombatSettings.migrate(c, {quickCast: false, disableTargetLockCameraMovement: false},
-            {quickCast: true, disableCameraMovement: true});
-        eq(c.quickCast, false, "Existing More Settings choice wins");
-        eq(c.disableTargetLockCameraMovement, false, "False is a saved camera choice, not a missing value");
-        CombatSettings.migrate(c, {}, {enabled: false, quickCast: true, disableCameraMovement: true});
-        eq(c.quickCast, false, "Disabled legacy mod does not unexpectedly enable quick cast");
-        eq(c.disableTargetLockCameraMovement, false, "Disabled legacy mod does not unexpectedly change camera");
-        CombatSettings.migrate(c, {}, {quickCast: "true", disableCameraMovement: 1});
-        eq(c.quickCast, false, "Ignore malformed legacy values");
-        CombatSettings.migrate(c, {}, null);
-        eq(c.quickCast, false, "Clean installations retain defaults");
-        CombatSettings.migrate(c, {}, {quickCast: true});
-        eq(c.quickCast, true, "Older config without a master toggle imports its explicit choice");
+        var targeting = new LockedTargeting();
+        var locked = {name: "locked"};
+        var aimed = {name: "crosshair"};
+        player.autoTarget = aimed;
+        targeting.begin(player, locked);
+        eq(player.autoTarget, locked, "Instant skills without a fresh target query use the lock");
+        eq(targeting.target(player), locked, "Native skill target query stays on the lock");
+        eq(targeting.target(other), null, "Another controller keeps native targeting");
+        targeting.begin(other, null);
+        eq(targeting.target(player), null, "Nested skill aiming cannot borrow the outer lock");
+        targeting.end();
+        eq(targeting.target(player), locked, "Nested call restores the outer aim scope");
+        targeting.begin(player, locked);
+        targeting.end();
+        eq(player.autoTarget, locked, "Nested same-controller scope keeps the outer target");
+        targeting.end();
+        eq(player.autoTarget, aimed, "Native crosshair target restored after skill callback");
+        eq(targeting.target(player), null, "Ordinary target picking is never pinned");
+        targeting.begin(player, null);
+        player.autoTarget = other;
+        targeting.end();
+        eq(player.autoTarget, other, "Unlocked skill keeps native auto-target changes");
+        targeting.begin(player, locked);
+        targeting.reset();
+        eq(player.autoTarget, other, "Interrupted skill scope restores the prior target next frame");
+        eq(targeting.target(player), null, "Interrupted scope cannot affect later skills");
         Sys.println('Combat tests passed ($checks checks)');
     }
 }

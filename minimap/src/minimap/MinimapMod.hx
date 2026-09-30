@@ -17,6 +17,8 @@ typedef MinimapSettings = {
     var leftCorner:Bool;
     var showNorthIndicator:Bool;
     var showCategoryButtons:Bool;
+    var clockTimerMode:String;
+    // Retained only to import older configs; no longer exposed as a setting.
     var showRiftTimer:Bool;
     var riftAlerts:Bool;
     var xOffset:Float;
@@ -65,7 +67,7 @@ class MinimapMod {
         enabled: true, transparency: 0, zoom: 30, size: 250, markerScale: 100, rotateMap: true, followCamera: true,
         circular: true, leftCorner: false, showNorthIndicator: true, showCategoryButtons: true, xOffset: 0, yOffset: 0,
         expandHotkey: 0,
-        showRiftTimer: true, riftAlerts: true,
+        clockTimerMode: null, showRiftTimer: true, riftAlerts: true,
         showPlayers: true, hideNonPartyPlayers: false, partyDirectionArrows: true,
         showPlants: true, showOre: true, showEnemies: true, alwaysShowEliteEnemies: true,
         hideCompletedCodexEnemies: false, hideMasteredCodexEnemies: false, hideTargetDummies: false,
@@ -95,6 +97,8 @@ class MinimapMod {
     }
 
     static function normalize():Void {
+        // A null initial default lets old false preferences migrate to None.
+        config.clockTimerMode = ClockTimer.mode(Reflect.field(config, "clockTimerMode"), config.showRiftTimer);
         config.transparency = Std.int(Math.max(0, Math.min(100, config.transparency)));
         config.zoom = Math.isFinite(config.zoom) ? Math.max(10, Math.min(300, config.zoom)) : 30;
         config.size = Std.int(Math.max(160, Math.min(400, config.size)));

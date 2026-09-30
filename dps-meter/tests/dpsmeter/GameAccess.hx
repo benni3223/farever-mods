@@ -7,6 +7,11 @@ class GameAccess {
     public static function field(object:Dynamic, name:String):Dynamic return object == null ? null : Reflect.field(object, name);
     public static function text(value:Dynamic, fallback:String = ""):String return value == null ? fallback : Std.string(value);
     public static function integer(value:Dynamic, fallback:Int = 0):Int return value == null ? fallback : Std.int(value);
+    public static function number(value:Dynamic, fallback:Float = 0):Float {
+        var number = value == null ? Math.NaN : Std.parseFloat(Std.string(value));
+        return Math.isFinite(number) ? number : fallback;
+    }
+    public static function set(object:Dynamic, name:String, value:Dynamic):Void Reflect.setField(object, name, value);
     public static function current(type:String, name:String):Dynamic return globals[type + "." + name];
     public static function enumeration(type:String, name:String):Dynamic return current(type, name);
     public static function create(type:String, args:Array<Dynamic>):Dynamic return switch (type) {
@@ -27,6 +32,12 @@ class GameAccess {
         case "haxe.ds._StringMap.StringMapKeysIterator.hasNext": object.hasNext();
         case "haxe.ds._StringMap.StringMapKeysIterator.next": object.next();
         case "st.Player.getActivityContext": field(object, "context");
+        case "h2d.Object.getScene": field(object, "scene");
+        case "h2d.Object.drawTo":
+            var draw:Dynamic->Void = globals["drawSnapshot"];
+            if (draw == null) throw "Missing snapshot draw expectation";
+            draw(args[0]);
+            null;
         case "h3d.mat.Texture.capturePixels":
             if (object.format != "RGBA") throw "Unsupported texture format " + object.format;
             globals["capturedPixels"];

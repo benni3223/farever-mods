@@ -17,3 +17,8 @@
 -cp tests
 -main TextSettingTest
 --interp
+--next
+-cp src
+-cp tests
+-main DropdownSettingTest
+--interp

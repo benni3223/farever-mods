@@ -7,10 +7,12 @@ import moresettings.SettingsData.MoreSettingsConfig;
 class FancyDamageNumbers {
     static var ramp:Dynamic;
     static var rampPixels:Dynamic;
+    static var halfMask:Dynamic;
+    static var halfPixels:Dynamic;
     static var gradientOwners = new haxe.ds.ObjectMap<Dynamic, {counter:Dynamic, shader:Dynamic}>();
 
     public static function apply(display:Dynamic, config:MoreSettingsConfig):Void {
-        if (!config.fancyDamageNumbers) return;
+        if (!config.fancyDamageNumbers || G.isA(display, "ui.comp.HealDisplay")) return;
         var counter = G.field(display, "counter");
         var dom = G.field(counter, "dom");
         if (dom == null) return;
@@ -25,27 +27,38 @@ class FancyDamageNumbers {
         G.call("h2d.Text", "set_textColor", counter, [0xFFFFFF]);
 
         var damage = G.field(display, "dmg");
-        // Raw keeps a white fill and black border, without a gradient.
-        if (G.field(damage, "affinity") == "Raw") {
-            applyBorder(counter, dom, null);
+        var raw = G.field(damage, "affinity") == "Raw";
+        var filter:Dynamic = G.field(counter, "filter");
+        if (raw) {
+            // Raw starts from an unshadowed white fill so its
+            // gradient is not tinted by the game's native affinity filter.
+            filter = null;
             G.call("domkit.Properties", "initStyle", dom, ["text-shadow", null]);
             G.set(counter, "dropShadow", null);
-            return;
         }
 
         var critical = G.field(display, "isCrit") == true;
-        // Physical and magic criticals share the selected red or pink palette.
+        // Use the actual hit's affinity, including for skills with mixed damage.
         var magic = false;
-        if (!critical && damage != null)
+        if (!raw && damage != null)
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
 
-        // Light at the top, dark at the bottom (formerly Flip gradient).
-        var top = critical ? (config.pinkCrits ? 0xEF8DEB : 0xFF7F66)
+        var top = raw ? (critical ? 0xF5E149 : 0xFFFFFF)
+            : critical ? (magic ? 0xEF8DE8 : 0xFFCB6D)
             : magic ? 0xBCC2FF : damage != null ? 0xFFCB6D : baseColor;
-        var bottom = critical ? (config.pinkCrits ? 0xA80C2C : 0xFF0000)
+        var bottom = raw ? (critical ? 0xEBEBEB : 0xB8B8B8)
+            : critical ? (magic ? 0x5963C4 : 0xFF0000)
             : magic ? 0x5963C4 : damage != null ? 0xF04424 : shade(baseColor);
-        var filter:Dynamic = G.field(counter, "filter");
-        filter = append(filter, gradient(top, bottom));
+        if (critical) {
+            var middle = raw ? 0xFFFFFF
+                : magic ? 0xC08DEF : 0xF04424;
+            // Encode the original white/black intensity in R and height in G.
+            // A second native matrix pass selects a linear segment at half height.
+            // This supports arbitrary stops (including black) without dividing by
+            // a colour channel, tinting shadows, or allocating textures per hit.
+            filter = append(filter, gradient(0xFF00FF, 0xFFFFFF));
+            filter = append(filter, matrixGradient(segment(top, middle, false), segment(middle, bottom, true), getHalfMask()));
+        } else filter = append(filter, gradient(top, bottom));
         applyBorder(counter, dom, filter);
     }
 
@@ -80,15 +93,32 @@ class FancyDamageNumbers {
     }
 
     static function gradient(top:Int, bottom:Int):Dynamic {
+        return matrixGradient(tint(top), tint(bottom), getRamp());
+    }
+
+    /** Transform intensity * [1, height, 1] into either half of the RGB gradient. */
+    static function segment(start:Int, end:Int, lower:Bool):Dynamic {
+        var matrix = tint(0);
+        for (column in 1...4) {
+            var shift = (3 - column) * 8;
+            var a = ((start >> shift) & 255) / 255.0;
+            var b = ((end >> shift) & 255) / 255.0;
+            G.set(matrix, "_1" + column, lower ? 2 * a - b : a);
+            G.set(matrix, "_2" + column, 2 * (b - a));
+        }
+        return matrix;
+    }
+
+    static function matrixGradient(first:Dynamic, second:Dynamic, mask:Dynamic):Dynamic {
         // Reuse the game's masked two-matrix screen shader. UVs cover the whole
         // rendered counter, not the unrelated positions of digits in the font atlas.
         var shader = G.create("h3d.pass.ColorMatrixShader", []);
         for (name in ["useAlpha", "useMask", "hasSecondMatrix"])
             G.call("h3d.pass.ColorMatrixShader", "set_" + name, shader, [true]);
         G.call("h3d.pass.ColorMatrixShader", "set_maskInvert", shader, [false]);
-        G.call("h3d.pass.ColorMatrixShader", "set_matrix", shader, [tint(top)]);
-        G.call("h3d.pass.ColorMatrixShader", "set_matrix2", shader, [tint(bottom)]);
-        G.call("h3d.pass.ColorMatrixShader", "set_mask", shader, [getRamp()]);
+        G.call("h3d.pass.ColorMatrixShader", "set_matrix", shader, [first]);
+        G.call("h3d.pass.ColorMatrixShader", "set_matrix2", shader, [second]);
+        G.call("h3d.pass.ColorMatrixShader", "set_mask", shader, [mask]);
         G.call("h3d.pass.ColorMatrixShader", "set_maskPower", shader, [1.0]);
         vector(G.field(shader, "maskMatA__"), 1, 0, 0);
         vector(G.field(shader, "maskMatB__"), 0, 1, 0);
@@ -101,7 +131,7 @@ class FancyDamageNumbers {
     public static function bindGradient(filter:Dynamic, counter:Dynamic):Void {
         if (ramp == null) return;
         var shader = G.field(G.field(filter, "pass"), "shader");
-        if (shader != null && G.field(shader, "mask__") == ramp)
+        if (shader != null && (G.field(shader, "mask__") == ramp || (halfMask != null && G.field(shader, "mask__") == halfMask)))
             gradientOwners.set(filter, {counter: counter, shader: shader});
     }
 
@@ -109,15 +139,41 @@ class FancyDamageNumbers {
         gradientOwners.remove(filter);
     }
 
-    /** Map the actual render tile to glyph bounds, excluding border padding. */
+    /** Map the render tile to glyph geometry, excluding line height and borders. */
     public static function syncGradient(filter:Dynamic, context:Dynamic, input:Dynamic):Void {
         var owner = gradientOwners.get(filter);
         if (owner == null) return;
-        // Text and font styles are finalized after DamageDisplay.init. Read the
-        // live bounds at draw time, also covering resized text and clipped tiles.
+        // Text and font styles are finalized after DamageDisplay.init. FmtText
+        // inherits HtmlText, whose calcHeight is the full line box, not the ink.
+        // TileLayerContent records the placed glyph quads, including their font
+        // offsets. Read those live so resizing/rebuilding text stays aligned.
         G.call("h2d.Text", "updateSize", owner.counter);
-        var yMin:Float = G.field(owner.counter, "calcYMin");
-        var height:Float = G.field(owner.counter, "calcHeight");
+        var content = G.field(G.field(owner.counter, "glyphs"), "content");
+        var yMin = number(content, "yMin", Math.POSITIVE_INFINITY);
+        var yMax = number(content, "yMax", Math.NEGATIVE_INFINITY);
+        if (!Math.isFinite(yMin) || !Math.isFinite(yMax) || yMax <= yMin) {
+            yMin = Math.POSITIVE_INFINITY;
+            yMax = Math.NEGATIVE_INFINITY;
+        }
+        // HtmlText can place a differently styled run in another TileGroup.
+        // Its glyph coordinates are also in the text's local space. Ignore
+        // images and interactive boxes, which do not have glyph content bounds.
+        var elements = G.field(owner.counter, "elements");
+        if (number(elements, "length", 0) > 0) for (element in G.array(elements)) {
+            if (G.field(element, "visible") == false) continue;
+            var run = G.field(element, "content");
+            var runMin = number(run, "yMin", Math.NaN);
+            var runMax = number(run, "yMax", Math.NaN);
+            if (!Math.isFinite(runMin) || !Math.isFinite(runMax) || runMax <= runMin) continue;
+            yMin = Math.min(yMin, runMin);
+            yMax = Math.max(yMax, runMax);
+        }
+        var height = yMax - yMin;
+        // Keep a safe mapping while an empty counter has no built glyphs yet.
+        if (!Math.isFinite(height) || height <= 0) {
+            yMin = number(owner.counter, "calcYMin", 0);
+            height = number(owner.counter, "calcHeight", 0);
+        }
         var root = G.field(owner.counter, "filter");
         var scale = number(root, "resolutionScale", 1);
         if (G.field(root, "useScreenResolution") == true)
@@ -174,8 +230,38 @@ class FancyDamageNumbers {
         return ramp;
     }
 
+    static function getHalfMask():Dynamic {
+        if (halfMask != null && G.call("h3d.mat.Texture", "isDisposed", halfMask) != true) return halfMask;
+        if (halfMask != null) G.set(halfMask, "realloc", null);
+        if (halfPixels != null) G.call("hxd.Pixels", "dispose", halfPixels);
+        // Same texel-center mapping as the linear ramp, with an exact split at
+        // 50%. Nearest avoids blending the two line equations near the middle.
+        var format = G.enumeration("hxd.PixelFormat", "RGBA");
+        halfPixels = G.staticCall("hxd.Pixels", "alloc", [1, 64, format]);
+        for (y in 0...64)
+            G.call("hxd.Pixels", "setPixel", halfPixels, [0, y, y < 32 ? 0xFF000000 : 0xFFFFFFFF]);
+        halfMask = G.staticCall("h3d.mat.Texture", "fromPixels", [halfPixels, format]);
+        G.call("h3d.mat.Texture", "set_filter", halfMask, [G.enumeration("h3d.mat.Filter", "Nearest")]);
+        G.call("h3d.mat.Texture", "set_wrap", halfMask, [G.enumeration("h3d.mat.Wrap", "Clamp")]);
+        G.call("h3d.mat.Texture", "preventAutoDispose", halfMask);
+        var texture = halfMask, pixels = halfPixels;
+        G.set(texture, "realloc", function():Void {
+            G.call("h3d.mat.Texture", "uploadPixels", texture, [pixels, null, null]);
+        });
+        return halfMask;
+    }
+
     public static function dispose():Void {
         gradientOwners.clear();
+        if (halfMask != null) {
+            G.set(halfMask, "realloc", null);
+            G.call("h3d.mat.Texture", "dispose", halfMask);
+            halfMask = null;
+        }
+        if (halfPixels != null) {
+            G.call("hxd.Pixels", "dispose", halfPixels);
+            halfPixels = null;
+        }
         if (ramp != null) {
             G.set(ramp, "realloc", null);
             G.call("h3d.mat.Texture", "dispose", ramp);

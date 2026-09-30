@@ -47,13 +47,13 @@ class AudioControl {
     function audioReady():Bool return G.current("fmod.Api", "initialized") == true;
 
     function nativeMuted():Bool {
-        // Missing on the live client. Reading the option never changes or
+        // Reading the native option never changes or
         // persists the player's native focus preference.
         return !focused && G.current("Options", "audioRequireFocus") == true;
     }
 
     function configuredMaster(fallback:Float):Float {
-        // PTR applyAudio writes zero while unfocused. Recover its configured
+        // Native applyAudio writes zero while unfocused. Recover its configured
         // baseline rather than saving that temporary mute as the master level.
         var options = G.field(G.current("Data", "option"), "byId");
         var inf = options == null ? null : G.call("haxe.ds.StringMap", "get", options, ["AudioMaster"]);

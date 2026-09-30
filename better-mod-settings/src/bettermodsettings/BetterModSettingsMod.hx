@@ -136,18 +136,29 @@ class BetterModSettingsMod {
     @:hlx.prefix(GameApp.update)
     static function beforeGameAppUpdate(instance:Dynamic, dt:Float):HlxPrefixResult<Void> {
         // Closing the settings window also cancels its pending assignment.
-        if (capturingKeybind != null && (nativeSettingsWindow == null
-            || HlxRuntime.resolveField(nativeSettingsWindow, "allocated") != true)) {
-            capturingKeybind = null;
-            captureInput.finish();
+        if (nativeSettingsWindow == null
+            || HlxRuntime.resolveField(nativeSettingsWindow, "allocated") != true) {
+            NativeDropdown.closeAll(true);
+            if (capturingKeybind != null) {
+                capturingKeybind = null;
+                captureInput.finish();
+            }
         }
         if (captureInput.blocking && !captureInput.capturing)
             captureInput.update(keyFrame());
         return Continue;
     }
 
+    @:hlx.postfix(hxd.SceneEvents.emitEvent)
+    static function dismissDropdownsOnClick(instance:Dynamic, event:Dynamic, result:Void):Void {
+        // The native scene has now refreshed the hit target for this press.
+        // Release still selects an option or toggles the dropdown normally.
+        NativeDropdown.onPointerEvent(event);
+    }
+
     @:hlx.prefix(GameApp.dispose)
     static function resetKeyCapture(instance:Dynamic):HlxPrefixResult<Void> {
+        NativeDropdown.closeAll(true);
         capturingKeybind = null;
         captureInput.reset();
         nativeSettingsWindow = null;
@@ -340,6 +351,7 @@ class BetterModSettingsMod {
                 return;
             }
 
+            NativeDropdown.closeAll(true);
             // TitleWindow auto-displays before its constructor returns. The
             // prefix above must be active during that call so BaseUI keeps the
             // EscapeMenu beside this companion window.
@@ -383,6 +395,7 @@ class BetterModSettingsMod {
 
         } catch (error:Dynamic) {
             openingNativeSettingsWindow = false;
+            NativeDropdown.closeAll(true);
             nativeSettingsWindow = null;
             trace("[BetterModSettings] Could not open native settings window: " + Std.string(error));
         }
@@ -798,6 +811,8 @@ class BetterModSettingsMod {
         tabButtons:Array<Dynamic>,
         selectedIndex:Int
     ):Void {
+        // The native dropdown list lives in a separate window, outside its tab.
+        NativeDropdown.closeAll();
         if (h2dObjectType == null)
             h2dObjectType = HlxRuntime.resolveType("h2d.Object");
         if (h2dObjectType != null && setVisibleMember == null)
@@ -835,6 +850,16 @@ class BetterModSettingsMod {
             if (key.length == 0)
                 continue;
 
+            var dropdownDefinition:DropdownSetting = null;
+            if (type == "dropdown") {
+                dropdownDefinition = DropdownSetting.parse(definition);
+                if (dropdownDefinition == null) {
+                    trace("[BetterModSettings] Skipping dropdown " + key
+                        + ": requires a non-empty label and a non-empty options list of strings.");
+                    continue;
+                }
+                label = dropdownDefinition.label;
+            }
             var settingParent = createOptionRow(parentProperties, label, index);
 
             if (type == "checkbox") {
@@ -878,6 +903,22 @@ class BetterModSettingsMod {
                     HlxRuntime.setField(slider, "onChange", function(newValue:Float):Void {
                         saveSetting(targetMod, targetKey, newValue);
                     });
+                }
+            } else if (type == "dropdown") {
+                var properties:Dynamic = HlxRuntime.callResolved(createNewMember, [
+                    "dropdown", settingParent, [false, false, "options-dropdown-list"],
+                    {id: "setting" + index}
+                ]);
+                prepareSettingControl(settingParent, properties, false);
+                var control = properties == null ? null : HlxRuntime.resolveField(properties, "obj");
+                if (control != null) {
+                    var targetMod = mod;
+                    var targetKey = key;
+                    try NativeDropdown.configure(control, dropdownDefinition,
+                        Reflect.field(Reflect.field(mod, "values"), key),
+                        function(value:String):Bool return saveSetting(targetMod, targetKey, value))
+                    catch (error:Dynamic)
+                        trace("[BetterModSettings] Could not configure dropdown " + key + ": " + Std.string(error));
                 }
             } else if (type == "text") {
                 var properties:Dynamic = HlxRuntime.callResolved(createNewMember, [

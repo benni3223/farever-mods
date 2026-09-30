@@ -34,7 +34,7 @@ class SettingsTest {
         eq(BossHealth.format("50% (+ 20%)", 500), "500 (50%) (+ 20%)", "shield stays outside health percentage");
         eq(BossHealth.format("50,5 %", 505), "505 (50,5 %)", "preserves localized percentage text");
         eq(BossHealth.format("123,456 (100%)", 123456), "123,456 (100%)", "does not decorate twice");
-        eq(BossHealth.format("500 / 1000 (+ 200)", 500), "500 / 1000 (+ 200)", "PTR numeric resource labels stay native");
+        eq(BossHealth.format("500 / 1000 (+ 200)", 500), "500 / 1000 (+ 200)", "Native numeric resource labels stay native");
         eq(BossHealth.format("100%", Math.NaN), "100%", "missing HP does not invent zero");
         eq(BossHealth.format("100%", Math.POSITIVE_INFINITY), "100%", "invalid HP is ignored");
 
@@ -106,13 +106,13 @@ class SettingsTest {
 
     static function nativeFocusAudio():Void {
         var config = SettingsData.defaults(); config.backgroundVolume = 20;
-        // PTR native applyAudio has already muted the VCA on focus loss.
+        // The native applyAudio has already muted the VCA on focus loss.
         G.data = {audioRequireFocus: true, audioMaster: 80,
             option: {byId: {AudioMaster: {props: {maxVal: 100}}}}};
         G.master = 0; G.focused = false;
         var audio = new AudioControl(config);
         audio.update(null);
-        close(G.master, 0.2, "PTR background override recovers the configured master from a native mute");
+        close(G.master, 0.2, "Native background override recovers the configured master from a native mute");
         G.data.audioMaster = 10; G.master = 0; audio.masterChanged();
         close(G.master, 0.1, "background override never boosts a quieter native master");
         G.data.audioMaster = 70; G.master = 0; audio.masterChanged();

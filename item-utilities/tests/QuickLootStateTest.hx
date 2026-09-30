@@ -106,7 +106,7 @@ class QuickLootStateTest {
     }
 
     static function bufferedPress():Void {
-        // PTR's isPressed buffers the initial key-down, then returns true on
+        // Native isPressed buffers the initial key-down, then returns true on
         // the next frame. An early synthetic pulse used to set lastInteract
         // while filtering out the NPC, blocking the subsequent real press.
         for (fps in [20, 60, 240]) for (target in ["npc", "station", "loot"]) {

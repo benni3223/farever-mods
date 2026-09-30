@@ -8,7 +8,7 @@ Look at an enemy and press Farever's existing Lock Target binding to lock it. Pr
 
 The mod uses Farever's existing `lockedTarget`, `SkillTarget`, and `hard-lock` HUD systems rather than implementing a separate combat targeting system.
 
-For every attack that Farever immediately submits as `Target(autoTarget)`, including normal staff attacks, the mod replaces the last-second `autoTarget` choice with a native `SkillTarget.Target` containing the locked enemy. This prevents another enemy under the crosshair from stealing the attack. Skills that enter Farever's manual point/ground-targeting mode continue through the original targeting path
+The mod pins the locked enemy only while Farever resolves a skill's target. Native skill replacement and manual ground/point aiming continue normally; the crosshair target is restored when that skill-aim call ends.
 
 ## Installation
 
@@ -45,7 +45,7 @@ Settings are saved to `Farever\hlx\config\fix-target-lock\config.json`.
 
 Farever contains a nearly complete target-lock implementation, but `PlayerController.updateInputs()` does not check the `LockTarget` input action. The mod adds that missing toggle behavior:
 
-- unlocked + Lock Target: calls Farever's `lockAutoTarget()` using the enemy currently selected by its normal auto-targeting code;
+- unlocked + Lock Target: refreshes Farever's auto-target for the current view, then calls its `lockAutoTarget()`;
 - locked + Lock Target: calls Farever's `leaveLock()`;
 - enabled: keeps Farever's `Const.Camera.TargetLock` feature flag active.
 
@@ -65,6 +65,8 @@ haxe compile.hxml
 Output: `build/fix-target-lock/fix-target-lock.hl`
 
 ## Compatibility
+
+Targets the September 30 Live client. Quick cast and camera controls live here; More Settings no longer hooks those systems.
 
 This mod relies on Farever's internal HashLink layout. Game updates can require a rebuild or adjustment.
 

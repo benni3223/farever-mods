@@ -1,6 +1,6 @@
-package moresettings;
+package fixtargetlock;
 
-import moresettings.GameAccess as G;
+import fixtargetlock.GameAccess as G;
 
 /** Confirm native ground aiming when its bound action is released. */
 class QuickCast {

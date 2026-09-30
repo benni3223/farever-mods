@@ -4,9 +4,11 @@ import minimap.GameAccess as G;
 
 /** Service roles from resolved world definitions, shared by static and live markers. */
 class NpcMarkers {
+    // Shared by classification and drawing: every recognized service is drawn.
+    public static final KINDS:Array<String> = ["npc", "bank", "demon", "recycler", "upgrade", "craft", "glory", "infusion", "soulWell"];
+
     public static function stationKind(type:Int):String return switch type {
-        // Data.Element_type; InfusionStation is appended in the new client.
-        // Older clients never produce type 33; no optional native type is resolved.
+        // Data.Element_type.
         case 23: "craft";
         case 24: "upgrade";
         case 31: "recycler";
@@ -14,23 +16,44 @@ class NpcMarkers {
         default: "";
     };
 
-    public static function isNpc(kind:String):Bool return switch kind {
-        case "npc", "bank", "demon", "craft", "upgrade", "recycler", "glory", "infusion", "soulWell": true;
-        default: false;
-    };
+    public static function isNpc(kind:String):Bool return KINDS.indexOf(kind) >= 0;
+
+    public static function availableDefinition(inf:Dynamic):Bool {
+        if (inf == null) return false;
+        var props = G.field(inf, "props");
+        // HElement lists include definitions the server never spawns. Match
+        // World.makePrefabServer's release gate, then the initial visibility.
+        // Loaded entities remain authoritative if gameplay enables them later.
+        return G.staticCall("HData", "checkStatus", [G.field(props, "releaseStatus")]) == true
+            && G.field(props, "enabled") != false
+            && G.field(G.field(props, "interactible"), "hidden") != true;
+    }
+
+    public static function eventVisible(inf:Dynamic, events:Dynamic, access:WorldEventAccess):Bool {
+        if (G.text(G.field(G.field(inf, "props"), "event")) == "") return true;
+        // An event-bound prefab alone is insufficient evidence of an active NPC.
+        if (events == null) return false;
+        var status = access.elementStatus(events, G.text(G.field(inf, "id")));
+        return G.text(G.field(status, "status")) != "Disabled";
+    }
 
     public static function kind(inf:Dynamic):String {
         var station = stationKind(G.integer(G.field(inf, "type")));
-        // PTR Element.create uses ScrapStation (31) for both services, then
+        // Element.create uses ScrapStation (31) for both services, then
         // checks Soulwell ancestry before constructing SoulwellStation.
-        // isOfType also exists on live; no PTR-only class needs resolving.
         if (station == "recycler" && G.staticCall("HElement", "isOfType", [inf, "Soulwell"]) == true)
             return "soulWell";
         if (station != "") return station;
         var props = G.field(inf, "props");
         var npc = G.field(props, "npc");
         var unit = G.text(G.field(npc, "unit"));
-        // The PTR adds this distinct UnitKind alongside TODO_WanderingMerchant.
+        // Huntresses can also sell Glory-priced rewards. Their explicit native
+        // identity takes precedence over the generic shop/title heuristics.
+        switch unit {
+            case "DemonHunterMira", "DemonHunterZoey", "DemonHunterRumi": return "demon";
+            default:
+        }
+        // The native data has this distinct UnitKind alongside WanderingMerchant.
         // Match the resolved instance's unit, as Npc.get_uinf does: its shop
         // prices and localized service title need not be present here.
         if (unit == "TODO_MOG_Merchant") return "glory";
@@ -50,8 +73,7 @@ class NpcMarkers {
         // Match Npc.get_uinf: the resolved instance's unit is authoritative.
         // Ancestor templates and inherited dialogue do not identify its role.
         return switch unit {
-            case "TODO_WanderingMerchant": "bank";
-            case "DemonHunterMira", "DemonHunterZoey", "DemonHunterRumi": "demon";
+            case "WanderingMerchant": "bank";
             default: "npc";
         };
     }

@@ -38,18 +38,6 @@ class GameAccess {
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
         return HlxRuntime.callResolved(member(type, name, true), args);
     }
-    public static function hasStaticMethod(type:String, name:String):Bool {
-        // Optional methods are ordinary closure fields on the companion. A
-        // missing field is null; the member resolver instead logs an error.
-        return Reflect.isFunction(current(type, name));
-    }
-    public static function argumentCount(object:Dynamic, name:String):Int {
-        var method = field(object, name);
-        if (method == null) throw "Game method unavailable: " + name;
-        // Reflecting a method produces its bound closure. Inspect that native
-        // function type directly; its argument count excludes the receiver.
-        return hl.Type.getDynamic(method).getArgsCount();
-    }
     public static function current(type:String, name:String):Dynamic {
         var t = HlxRuntime.resolveType(type);
         return t == null ? null : HlxRuntime.resolveStaticField(t, name);

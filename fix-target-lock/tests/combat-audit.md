@@ -1,0 +1,49 @@
+# September 30 Live combat audit
+
+Supplied client: `hlboot(20260930-154724).dat`, HashLink bytecode 6.
+SHA-256: `8bb2ce5180018ebffe0c3f357c77b86bf5ebcecd06aa65b97a69367f2f806e49`.
+Function indices below are investigation references, never runtime constants.
+
+## Lock input
+
+Unlike the earlier PTR, this Live client's `PlayerController.updateInputs`
+(f13250) contains no `LockTarget` input query. It only attempts lock reacquisition
+and handles the admin position shortcuts. Fix Target Lock retains its toggle;
+there is no Live/PTR capability detection or deprecation path.
+
+`PlayerController.update` calls updateInputs before UnitController.updatePicked.
+The mod now refreshes the native auto-target on a lock/swap press rather than
+using the previous frame's target. Native lockTarget (f13246) validates
+canBeLocked and writes Hero.lockedTarget through its normal setter.
+
+## Skill targeting
+
+Native startSkillAim (f13205) first calls getReplacedSkill, then checks the
+replacement's aiming step and virtual script.allowAiming. The former mod
+short-circuit bypassed this sequence and invoked the base script method directly.
+The mod now lets the native skill-aim method execute, pinning autoTarget and its
+getAutoTarget calls only inside that call's scope. Native instant skills submit
+Target(lockedEnemy), while manual aiming still enters the native Point workflow.
+The previous crosshair target is restored afterwards. Nested and interrupted
+scopes cannot leave subsequent target picking pinned.
+
+## Camera and quick cast
+
+The tested quick-cast and camera implementations formerly duplicated in More
+Settings now belong solely to Fix Target Lock. More Settings contains neither
+those settings nor their hooks. Existing Fix Target Lock preferences remain.
+
+GameCamera.postUpdate applies steering through smoothLerp(LockRotateSpeed, dt).
+The camera option scopes that speed to zero and restores it, instead of turning
+off the shared TargetLock flag. All other camera behavior remains native.
+Quick cast latches the skill-button release, respects focus/UI gates, preserves
+native cancellation, and restores temporary input modes after errors.
+
+## Verification limits
+
+CombatTest runs in the interpreter and HashLink (43 checks), covering scopes,
+controller ownership, nested calls, cancellation, first-frame releases, focus,
+and exception recovery. Full compilation and native API signature auditing also
+pass. These checks do not run the game renderer, server, or physical input;
+in-game lock acquisition, attacks, manual aiming, quick cast, and camera feel
+still require play-testing on the supplied Live version.

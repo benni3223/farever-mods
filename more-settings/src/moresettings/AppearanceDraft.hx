@@ -37,7 +37,7 @@ class AppearanceDraft {
         if (G.field(hero, "skinData") != original || signature(original) != originalSignature)
             throw "Your appearance changed while this window was open. Close it and try again.";
         // A fresh object invokes the native @:client property's dirty tracking.
-        // The normal server HeroData.save stores hero.skinData on both clients.
+        // The normal server HeroData.save stores hero.skinData.
         var saved = copy(skin);
         G.call("ent.Unit", "set_skinData", hero, [saved]);
         if (signature(G.field(hero, "skinData")) != signature(saved))
