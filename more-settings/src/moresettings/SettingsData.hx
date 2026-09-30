@@ -3,6 +3,7 @@ package moresettings;
 typedef MoreSettingsConfig = {
     var fancyDamageNumbers:Bool;
     var classColoredNames:Bool;
+    var showNameplateWeapons:Bool;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
@@ -27,6 +28,7 @@ class SettingsData {
     public static function defaults():MoreSettingsConfig return {
         fancyDamageNumbers: false,
         classColoredNames: true,
+        showNameplateWeapons: true,
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,

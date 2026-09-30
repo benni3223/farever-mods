@@ -112,16 +112,15 @@ class InspectWindow {
     function refresh():Void {
         var hero = PlayerInspect.remoteHero(local, target.uid);
         var loadout = G.field(hero, "loadout");
-        var equipment = G.field(loadout, "equipment");
-        var available = hero != null && G.field(hero, "removed") != true
-            && equipment != null && G.field(equipment, "content") != null;
+        var equipment = equipmentOf(hero);
+        var available = hero != null && G.field(hero, "removed") != true && hasGear(hero, equipment);
         var appearanceInventory = G.field(loadout, "appearance");
         var stylesAvailable = available && appearanceInventory != null && G.field(appearanceInventory, "content") != null;
         var styles:Map<String, Dynamic> = [];
         var items:Array<Dynamic> = [];
         var parts:Array<String> = [available ? "ready" : "unavailable"];
         if (available) for (slot in slots) {
-            var item = G.call("st.Equipment", "getSlot", equipment, [slot]);
+            var item = readSlot(hero, equipment, slot);
             items.push(item);
             // Rebuild only when equipment or its displayed state changes.
             parts.push(item == null ? "empty" : [G.uid(item), G.text(G.field(item, "kind")),
@@ -301,6 +300,85 @@ class InspectWindow {
             G.set(button, "showTipOnOver", true);
             style(button, "show-tip-on-over", true);
         }
+        var summary = itemSummary(item);
+        if (summary != "" && appearanceInventory == null) {
+            var text = G.create("h2d.Text", [G.field(headingStyle, "font"), object]);
+            absolute(object, text);
+            G.call("h2d.Text", "set_text", text, [summary]);
+            G.call("h2d.Text", "set_textColor", text, [0x5B4334]);
+            G.call("h2d.Text", "set_textAlign", text, [G.enumeration("h2d.Align", "Center")]);
+            G.call("h2d.Object", "setScale", text, [0.72]);
+            position(text, 0, 78);
+        }
+    }
+
+    static function equipmentOf(hero:Dynamic):Dynamic {
+        var equipment = G.field(G.field(hero, "loadout"), "equipment");
+        if (equipment != null) return equipment;
+        try {
+            return G.call("ent.Hero", "get_equipment", hero);
+        } catch (_:Dynamic) {
+            return null;
+        }
+    }
+
+    static function hasGear(hero:Dynamic, equipment:Dynamic):Bool {
+        if (equipment != null && (G.field(equipment, "content") != null || G.field(equipment, "stacks") != null))
+            return true;
+        return directWeapon(hero, "get_weapon1") != null || directWeapon(hero, "get_weapon2") != null;
+    }
+
+    static function readSlot(hero:Dynamic, equipment:Dynamic, slot:String):Dynamic {
+        if (equipment != null) {
+            try {
+                var item = G.call("st.Equipment", "getSlot", equipment, [slot]);
+                if (item != null) return item;
+            } catch (_:Dynamic) {}
+        }
+        return switch slot {
+            case "Slot_Weapon1": directWeapon(hero, "get_weapon1");
+            case "Slot_Weapon2": directWeapon(hero, "get_weapon2");
+            case "Slot_OffhandWeapon": directWeapon(hero, "get_activeOffhand");
+            default: null;
+        };
+    }
+
+    static function directWeapon(hero:Dynamic, method:String):Dynamic {
+        if (hero == null) return null;
+        try {
+            return G.call("ent.Hero", method, hero);
+        } catch (_:Dynamic) {
+            return null;
+        }
+    }
+
+    static function itemSummary(item:Dynamic):String {
+        if (item == null) return "";
+        var parts:Array<String> = [];
+        var level = G.integer(G.field(item, "level"), 0);
+        if (level > 0) parts.push("Lv " + level);
+        var upgrade = G.integer(G.field(item, "upgradeLevel"), 0);
+        if (upgrade > 0) parts.push("+" + upgrade);
+        var infusion = enchantName(G.field(item, "infusion"));
+        if (infusion != "") parts.push(infusion);
+        var bonus = enchantName(G.field(item, "infusionBonusStat"));
+        if (bonus != "" && bonus != infusion) parts.push(bonus);
+        var sockets = G.field(item, "slots");
+        var listed = sockets == null ? [] : G.array(sockets);
+        if (listed.length == 0 && sockets != null) listed = G.array(sockets, true);
+        for (socket in listed) {
+            var name = enchantName(socket);
+            if (name != "" && parts.indexOf(name) < 0) parts.push(name);
+        }
+        return parts.join(" ");
+    }
+
+    static function enchantName(value:Dynamic):String {
+        if (value == null) return "";
+        var name = G.text(G.field(value, "id"));
+        if (name == "") name = G.text(G.field(value, "kind"));
+        if (name == "") name = G.text(value);
+        return name == "0" || name == "null" ? "" : name;
     }
 
     public function update(ui:Dynamic, local:Dynamic):Bool {

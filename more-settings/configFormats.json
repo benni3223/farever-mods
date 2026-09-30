@@ -61,6 +61,11 @@
       "label": "Color player names by class"
     },
     {
+      "key": "showNameplateWeapons",
+      "type": "checkbox",
+      "label": "Show equipped weapons"
+    },
+    {
       "type": "title",
       "label": "Unfocused Volume"
     },

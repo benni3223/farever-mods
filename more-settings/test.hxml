@@ -40,3 +40,10 @@
 -cp tests
 -main ClassColorsTest
 --interp
+--next
+-cp src
+-cp ../shared/src
+-cp tests/stubs
+-cp tests
+-main NameplateWeaponsTest
+--interp
