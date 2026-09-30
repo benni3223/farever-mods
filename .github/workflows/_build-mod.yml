@@ -28,7 +28,7 @@ on:
         default: false
         type: boolean
       travel-audio:
-        description: Build and package the More Settings event-volume plugin
+        description: Package the prebuilt More Settings event-volume plugin
         default: false
         type: boolean
 
@@ -91,12 +91,12 @@ jobs:
       - name: Compile
         run: haxe compile.hxml
 
-      - name: Build travel music audio plugin
+      - name: Prepare travel music audio plugin
         if: inputs.travel-audio
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y gcc-mingw-w64-x86-64
-          bash native/build.sh
+          (cd native/prebuilt && sha256sum --check SHA256SUMS)
+          mkdir -p build/native
+          cp native/prebuilt/more_settings_audio.hdll build/native/
 
       - name: Package
         env:

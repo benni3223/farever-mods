@@ -19,6 +19,7 @@ class LandmarkIcons {
         else if (kind == "inactiveRift") inactiveRift(graphics, radius);
         else if (kind == "glory") gloryToken(graphics, radius);
         else if (kind == "infusion") infusionCrucible(graphics, radius);
+        else if (kind == "demon") demonHuntress(graphics, radius);
         else if (kind == "soulWell") soulWell(graphics, radius);
         else if (kind == "craft") craftingStation(graphics, radius);
         else if (kind == "upgrade") upgradeStation(graphics, radius);
@@ -313,48 +314,118 @@ class LandmarkIcons {
         polygon(g, r, rotated);
     }
 
-    static function infusionCrucible(g:Dynamic, r:Float):Void {
-        // Wide stone basin, turquoise liquid, copper rim, and floating pink orb.
-        var base = [-0.84, 0.05, -0.67, -0.04, 0.67, -0.04, 0.84, 0.05,
-            0.78, 0.61, 0.96, 0.79, 0.59, 0.95, -0.59, 0.95, -0.96, 0.79, -0.78, 0.61];
-        fill(g, 0x293f3d);
-        polygon(g, r + 1, base);
+    static function demonHuntress(g:Dynamic, r:Float):Void {
+        // Swept plum horns frame the shared pointed burgundy hood.
+        var horn = [0.44, 0.32, 0.82, 0.32, 0.96, 0.16, 1, -0.08,
+            0.94, -0.38, 0.78, -0.62, 0.58, -0.82, 0.79, -1.1,
+            0.46, -0.98, 0.22, -0.79, 0.2, -0.6, 0.38, -0.62,
+            0.48, -0.51, 0.53, -0.32, 0.47, -0.15, 0.29, -0.1];
+        fill(g, 0x171628);
+        for (side in [-1, 1]) polygon(g, r + 0.65, horn, side);
+        polygon(g, r, [0, -0.36, 0.4, -0.15, 0.67, 0.84, 0.38, 1.02,
+            -0.38, 1.02, -0.67, 0.84, -0.4, -0.15]);
         end(g);
-        fill(g, 0x718980);
+        fill(g, 0x3e244a);
+        for (side in [-1, 1]) polygon(g, r, horn, side);
+        end(g);
+        fill(g, 0x795377);
+        for (side in [-1, 1]) polygon(g, r, [0.79, -1.1, 0.46, -0.98,
+            0.22, -0.79, 0.2, -0.6, 0.27, -0.72, 0.51, -0.93], side);
+        end(g);
+        fill(g, 0x8c304e);
+        polygon(g, r, [0, -0.31, 0.34, -0.12, 0.59, 0.81, 0.33, 0.95,
+            -0.33, 0.95, -0.59, 0.81, -0.34, -0.12]);
+        end(g);
+        fill(g, 0xb74f68);
+        polygon(g, r, [0, -0.31, 0.34, -0.12, 0.44, 0.2, 0, -0.12,
+            -0.44, 0.2, -0.34, -0.12]);
+        end(g);
+        fill(g, 0x201a32);
+        polygon(g, r, [0, -0.07, 0.29, 0.12, 0.4, 0.68, 0.23, 0.86,
+            -0.23, 0.86, -0.4, 0.68, -0.29, 0.12]);
+        end(g);
+        fill(g, 0x7351a4);
+        for (side in [-1, 1]) polygon(g, r, [0.26, 0.13, 0.35, 0.62,
+            0.22, 0.78, 0.14, 0.62, 0.21, 0.42], side);
+        end(g);
+        fill(g, 0xd9a6e8);
+        for (side in [-1, 1]) polygon(g, r, [0.055, 0.33, 0.21, 0.27,
+            0.18, 0.39, 0.07, 0.4], side);
+        end(g);
+    }
+
+    static function infusionCrucible(g:Dynamic, r:Float):Void {
+        // Grey stone pedestal, copper dish and hanging rings. The floating
+        // cyan/magenta orb is flat geometry, with no glow.
+        var base = [-0.78, 0.04, 0.78, 0.04, 0.85, 0.48, 1.04, 0.69,
+            0.9, 0.95, 0.53, 0.91, 0.32, 1.03, -0.32, 1.03,
+            -0.53, 0.91, -0.9, 0.95, -1.04, 0.69, -0.85, 0.48];
+        fill(g, 0x293541);
+        polygon(g, r + 0.6, base);
+        end(g);
+        fill(g, 0x71818c);
         polygon(g, r, base);
         end(g);
-        fill(g, 0x9caf9f);
-        polygon(g, r, [-0.8, 0.13, -0.53, 0.21, -0.4, 0.69, -0.6, 0.89, -0.78, 0.61]);
-        polygon(g, r, [0.53, 0.21, 0.8, 0.13, 0.78, 0.61, 0.6, 0.89, 0.4, 0.69]);
+        fill(g, 0x4c5d6c);
+        ellipse(g, r, 0, 0.59, 0.75, 0.29);
+        polygon(g, r, [-0.68, 0.17, 0.68, 0.17, 0.59, 0.58,
+            0.37, 0.74, -0.37, 0.74, -0.59, 0.58]);
         end(g);
-        fill(g, 0x4e6862);
-        polygon(g, r, [-0.5, 0.26, 0.5, 0.26, 0.39, 0.74, 0, 0.9, -0.39, 0.74]);
+        fill(g, 0x8c9aa2);
+        for (side in [-1, 1]) polygon(g, r, [0.49, 0.23, 0.67, 0.18,
+            0.6, 0.57, 0.39, 0.7, 0.35, 0.6], side);
         end(g);
-        fill(g, 0x7d432c);
-        ellipse(g, r, 0, 0.11, 0.88, 0.34);
-        polygon(g, r, [-0.13, 0.45, 0.13, 0.45, 0.2, 0.73, 0.1, 0.87,
-            -0.1, 0.87, -0.2, 0.73]);
+        fill(g, 0x733a29);
+        ellipse(g, r, 0, 0.04, 0.87, 0.38);
         end(g);
-        fill(g, 0xffb65e);
-        ellipse(g, r, 0, 0.06, 0.83, 0.29);
-        polygon(g, r, [-0.1, 0.47, -0.06, 0.72, 0.06, 0.72, 0.1, 0.47,
-            0.16, 0.72, 0.06, 0.81, -0.06, 0.81, -0.16, 0.72]);
+        fill(g, 0xcf8a53);
+        ellipse(g, r, 0, -0.02, 0.85, 0.35);
         end(g);
-        fill(g, 0x18c6c2);
-        ellipse(g, r, 0, 0.06, 0.66, 0.21);
+        fill(g, 0x995331);
+        ellipse(g, r, 0, -0.02, 0.7, 0.255);
         end(g);
-        fill(g, 0x99fff0);
-        polygon(g, r, [-0.51, 0.03, -0.28, -0.08, 0.18, -0.08, 0.37, -0.02,
-            0.03, -0.02, -0.2, 0.06, -0.23, 0.15, -0.4, 0.12]);
+        fill(g, 0xb57146);
+        ellipse(g, r, 0, 0.015, 0.6, 0.19);
         end(g);
-        fill(g, 0x672467);
-        circle(g, 0, -0.68 * r, 0.35 * r);
+        // Engraved spiral on the solid copper surface, rather than liquid.
+        G.call("h2d.Graphics", "lineStyle", g, [r * 0.055, 0x74402e, 1.0]);
+        for (i in 0...29) {
+            var a = i * Math.PI * 3.4 / 28;
+            var curl = 0.4 - i * 0.36 / 28;
+            G.call("h2d.Graphics", i == 0 ? "moveTo" : "lineTo", g,
+                [Math.cos(a) * curl * r, (0.035 + Math.sin(a) * curl * 0.45) * r]);
+        }
+        G.call("h2d.Graphics", "lineStyle", g, [0., 0, 0.]);
+        for (side in [-1, 0, 1]) {
+            var x = side * 0.73, y = side == 0 ? 0.62 : 0.39;
+            fill(g, 0x693824);
+            ellipse(g, r, x, y, 0.21, 0.23);
+            end(g);
+            fill(g, 0xbf7a43);
+            ellipse(g, r, x, y - 0.025, 0.185, 0.205);
+            end(g);
+            fill(g, 0x4c5d6c);
+            ellipse(g, r, x, y - 0.055, 0.12, 0.135);
+            end(g);
+            fill(g, 0x8998a0);
+            polygon(g, r, [x - 0.105, y - 0.37, x + 0.105, y - 0.37,
+                x + 0.135, y - 0.06, x - 0.08, y - 0.04]);
+            end(g);
+        }
+        fill(g, 0x243746);
+        ellipse(g, r, 0, -0.66, 0.35, 0.43);
         end(g);
-        fill(g, 0xf330f4);
-        circle(g, 0, -0.69 * r, 0.29 * r);
+        fill(g, 0x47f3ea);
+        ellipse(g, r, 0, -0.67, 0.31, 0.39);
         end(g);
-        fill(g, 0xffb7ff);
-        circle(g, -0.07 * r, -0.76 * r, 0.11 * r);
+        fill(g, 0xef23df);
+        ellipse(g, r, 0.025, -0.63, 0.23, 0.29);
+        end(g);
+        fill(g, 0xfff7a2);
+        ellipse(g, r, 0.015, -0.63, 0.15, 0.19);
+        end(g);
+        fill(g, 0x6dfff0);
+        polygon(g, r, [-0.07, -1.025, 0.08, -1, 0.15, -0.81, 0.06, -0.85]);
         end(g);
     }
 

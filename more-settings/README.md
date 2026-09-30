@@ -40,8 +40,6 @@ Gradients span the placed glyph geometry, excluding the formatted text's blank l
 
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 
-The quick-cast and camera options are also available in **Fix Target Lock**. On first launch, existing More Settings choices take priority; missing choices are imported from Fix Target Lock's native or mod-local config. A disabled Fix Target Lock does not automatically enable either option. Keep its config file until migration has run. If both mods are installed, enable each of these features in only one mod.
-
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 
 **Show boss health** adds the boss's current HP before its percentage in the top-of-screen boss bar: `123,456 (100%)`. It uses the actual Health attribute, rounded down to a whole number like the game's numeric health display, and updates throughout the fight. The native percentage and shield information are preserved. Toggle it at any time under **General**; disabling it restores the native label. If the native resource-display option already shows numeric HP, that label stays unchanged.
@@ -109,16 +107,18 @@ haxe test.hxml
 haxe compile.hxml
 ```
 
-Output: `build/more-settings/more-settings.hl`. For a complete install, also build the Windows x64 audio plugin with MinGW (`gcc-mingw-w64-x86-64` on Ubuntu):
+Output: `build/more-settings/more-settings.hl`. The complete package also includes the prebuilt Windows x64 audio plugin. Normal builds verify and copy it without downloading a Windows compiler:
 
 ```sh
-bash native/build.sh
-cc -std=c11 -Wall -Wextra -Werror tests/event_volume_test.c -o build/event-volume-test
-build/event-volume-test
+(cd native/prebuilt && sha256sum --check SHA256SUMS)
+mkdir -p build/native
+cp native/prebuilt/more_settings_audio.hdll build/native/
 ```
 
 The plugin output is `build/native/more_settings_audio.hdll`; install it in `hlx/plugins/more-settings/`. It resolves the public FMOD event-volume API from the game's loaded `fmodstudio.dll`; no game or FMOD binaries are bundled. If the plugin is missing or unavailable, an audio error is logged and the mod never falls back to changing a global volume for travel.
 
-Regression tests exercise the production UI binding adapter, boss health formatting and update callbacks, volume controller, region/ability policy, classifier, presentation tracker, worker queue ordering/budgets/error recovery, effects-feed overload behavior, and terrain composition reuse/invalidation/resource lifetime with a simulated native adapter. CI requires those tests plus native bridge tests before compiling and packaging both binaries. Native API and bytecode inspection supplements these tests; actual rendering/audio and performance still require in-game multiplayer testing after game updates.
+Only changes to the native bridge itself require rebuilding with MinGW; see [native/prebuilt/README.md](native/prebuilt/README.md).
+
+Regression tests exercise the production UI binding adapter, boss health formatting and update callbacks, volume controller, region/ability policy, classifier, presentation tracker, worker queue ordering/budgets/error recovery, effects-feed overload behavior, and terrain composition reuse/invalidation/resource lifetime with a simulated native adapter. CI requires those tests plus native bridge tests before compiling the mod and packaging it with the prebuilt audio plugin. Native API and bytecode inspection supplements these tests; actual rendering/audio and performance still require in-game multiplayer testing after game updates.
 
 The mod avoids repeating FMOD writes on unchanged frames. Model membership and adoption of existing effects refresh at most five times per second. Native member lookup and skill classification are cached; disabled filters avoid entity scans. Rendering hooks never skip skill execution or character animation updates.

@@ -81,7 +81,7 @@ class GameAccess {
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
         if (name == "checkStatus") {
             if (type != "HData" || args.length != 1) throw "Unavailable release-status API";
-            return args[0] == null || args[0] == 1;
+            return args[0] == null || args[0] == 3;
         }
         if (type == "st.event.Rift" && name == "getEvent") {
             riftReads++;
