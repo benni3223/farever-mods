@@ -37,7 +37,7 @@ class BossHealth {
 
     public static function format(original:String, health:Float):String {
         // Keep native percentages/localization and any shield suffix. A numeric
-        // label (e.g. PTR's show-resources option) already exposes HP; leave it.
+        // label (e.g. the show-resources option) already exposes HP; leave it.
         if (!Math.isFinite(health) || !percentage.match(original)) return original;
         // Match native whole-HP rounding without overflowing a signed 32-bit Int.
         var hp = Std.string(Math.ffloor(Math.max(0, health)));

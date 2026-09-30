@@ -41,7 +41,7 @@ class QuickLootState {
 
     public function allowRepeat(controller:Dynamic, now:Float):Bool {
         if (controller == null || !Math.isFinite(now)) return false;
-        // PTR buffers the real press until the following frame. A held key
+        // The native input API buffers the real press until the following frame. A held key
         // alone must not synthesize an earlier pulse: that sets lastInteract
         // and makes native tryInteract reject the genuine press as too soon.
         if (controller != pulseController) return false;

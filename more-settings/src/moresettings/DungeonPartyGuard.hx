@@ -25,7 +25,7 @@ class DungeonPartyGuard {
             if (party.length <= 1) return false;
             for (player in party) {
                 // Use native player lookup: lobby entries contain weak IDs,
-                // whose representation differs between the live and PTR clients.
+                // using their native representation.
                 if (player == null || G.call("st.player.InstanceLobby", "getPlayerInfo", lobby, [player]) == null)
                     return true;
             }
@@ -44,7 +44,7 @@ class DungeonPartyGuard {
         if (button == null) return;
         if (G.text(G.field(button, "text")) != WAITING_TEXT)
             G.call("ui.comp.Button", "setText", button, [WAITING_TEXT]);
-        // setText rebuilds the button and clears checkEnable on both clients.
+        // setText rebuilds the button and clears checkEnable.
         // Disable after rebuilding; guard startAction separately for stale clicks.
         G.call("ui.UIElement", "set_enable", button, [false]);
     }

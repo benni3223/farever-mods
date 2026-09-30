@@ -42,7 +42,7 @@ jobs:
       - uses: krdlab/setup-haxe@v1
         with:
           haxe-version: 4.3.7
-      - name: Test appearance, combat, volume, ownership and regional presentation filters
+      - name: Test appearance, volume, ownership and regional presentation filters
         working-directory: more-settings
         run: haxe test.hxml
       - uses: actions/checkout@v4
@@ -53,19 +53,12 @@ jobs:
           persist-credentials: false
       - name: Build the HashLink combat test runtime
         run: make -C .combat-hashlink -j2 hl
-      - name: Test combat behavior and JSON migration on HashLink
-        working-directory: more-settings
-        env:
-          LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
-        run: |
-          mkdir -p build
-          haxe -cp src -cp tests/stubs -cp tests -main CombatTest -hl build/combat-test.hl
-          ../.combat-hashlink/hl build/combat-test.hl
       - name: Test damage-number styling on HashLink
         working-directory: more-settings
         env:
           LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
         run: |
+          mkdir -p build
           haxe -cp src -cp tests/damage-stubs -cp tests -main DamageNumbersTest -hl build/damage-numbers-test.hl
           ../.combat-hashlink/hl build/damage-numbers-test.hl
       - name: Test appearance isolation and saving on HashLink

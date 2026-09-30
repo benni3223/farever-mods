@@ -3,15 +3,7 @@ package minimap;
 /** Native activity, Codex, item and drawing boundaries for interpreter regression tests. */
 class GameAccess {
     public static var nativeCall:(String, String, Dynamic, Array<Dynamic>)->Dynamic;
-    public static var statusOwner:String = "Config";
-    public static var eventArguments:Int = 1;
     public static var eventStatusCalls:Int = 0;
-    public static function hasStaticMethod(type:String, name:String):Bool
-        return type == statusOwner && name == "checkStatus";
-    public static function argumentCount(object:Dynamic, name:String):Int {
-        if (object == null || name != "getEventStatus") throw "Unexpected signature lookup";
-        return eventArguments;
-    }
     public static var definitions:Map<String, Dynamic> = [];
     public static var completionReads:Int = 0;
     public static var items:Map<String, Dynamic> = [];
@@ -88,7 +80,7 @@ class GameAccess {
 
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
         if (name == "checkStatus") {
-            if (type != statusOwner || args.length != 1) throw "Unavailable release-status API";
+            if (type != "HData" || args.length != 1) throw "Unavailable release-status API";
             return args[0] == null || args[0] == 1;
         }
         if (type == "st.event.Rift" && name == "getEvent") {
@@ -126,12 +118,9 @@ class GameAccess {
         if (nativeCall != null) return nativeCall(type, name, object, args == null ? [] : args);
         if (type == "st.event.WorldEvents" && name == "getEventStatus") {
             eventStatusCalls++;
-            if (args.length != eventArguments) throw "Incorrect native argument count";
-            var element:String;
-            if (eventArguments == 3) {
-                if (args[0] != null || args[2] != null) throw "Element lookup must leave activity/selector empty";
-                element = args[1];
-            } else element = args[0];
+            if (args.length != 3) throw "Incorrect native argument count";
+            if (args[0] != null || args[2] != null) throw "Element lookup must leave activity/selector empty";
+            var element:String = args[1];
             return {status: element == object.disabled ? "Disabled" : "Active"};
         }
         if (type == "st.GameLayer" && name == "get_time") return object._time._time;
@@ -174,6 +163,7 @@ class GameAccess {
             return object == null ? null : (cast object:haxe.ds.StringMap<Dynamic>).get(args[0]);
         }
         if (type != "st.player.Progress" || name != "hasActivityCompleted") throw "Unexpected native call";
+        if (args.length != 2 || args[1] != null) throw "Completion query must include any-difficulty argument";
         completionReads++;
         return object.completed == args[0];
     }

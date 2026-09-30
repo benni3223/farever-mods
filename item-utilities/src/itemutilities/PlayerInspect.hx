@@ -5,7 +5,7 @@ import hlx.runtime.PatchTargetKey;
 import itemutilities.InspectAccess as G;
 import itemutilities.InspectMenuContext.InspectTarget;
 
-/** Optional PTR hook. Live clients without the social menu are left untouched. */
+/** Add Inspect to the native player interaction menu. */
 class PlayerInspect {
     static final menuKey = new PatchTargetKey("ui.GameUI", "openPlayerInteractionMenu");
     static final contextKey = new PatchTargetKey("ui.BaseUI", "displayContextMenu");
@@ -20,16 +20,12 @@ class PlayerInspect {
     public static function initialize(enabled:Void->Bool):Void {
         isEnabled = enabled;
         try {
-            // main() runs BEFORE HLX's modsLoaded/module recovery. A live type
-            // lookup here returns null, permanently disabling the feature. Read
-            // bytecode metadata now and let the loader resolve/install these
-            // normal, cooperative hooks after recovery, alongside all others.
-            active = InspectSupport.registerForClient(InspectSupport.clientPath(), () -> {
-                HlxRuntime.registerPrefix(menuKey, beginMenu, receiveMenu);
-                HlxRuntime.registerPostfix(menuKey, endMenu, receiveMenu);
-                HlxRuntime.registerPrefix(contextKey, extendMenu, receiveContext);
-                HlxRuntime.registerPostfix(tooltipKey, fitInspectTooltip, receiveTooltip);
-            });
+            // Register now; HLX resolves these hooks after module recovery.
+            HlxRuntime.registerPrefix(menuKey, beginMenu, receiveMenu);
+            HlxRuntime.registerPostfix(menuKey, endMenu, receiveMenu);
+            HlxRuntime.registerPrefix(contextKey, extendMenu, receiveContext);
+            HlxRuntime.registerPostfix(tooltipKey, fitInspectTooltip, receiveTooltip);
+            active = true;
         } catch (error:Dynamic) trace("[Item Utilities] Inspect unavailable: " + error);
     }
     static function receiveMenu(ui:Dynamic, uid:String, name:String, position:Dynamic):Dynamic

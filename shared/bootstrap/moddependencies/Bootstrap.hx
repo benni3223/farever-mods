@@ -13,7 +13,7 @@ class Bootstrap {
     static function imguiVersion():hl.Bytes { return null; }
     #end
 
-    // Farever ships this native desktop dialog on both live and PTR. It needs
+    // Farever ships this native desktop dialog. It needs
     // neither the game UI nor ImGui; a missing UI library still leaves a log.
     @:hlNative("?ui", "ui_dialog")
     static function dialog(title:hl.Bytes, text:hl.Bytes, flags:Int):Int { return 0; }

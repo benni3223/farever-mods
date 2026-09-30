@@ -349,7 +349,7 @@ class ItemUtilitiesMod {
                 return result;
             }
 
-            // Wait for a genuine native press before repeating. PTR may buffer
+            // Wait for a genuine native press before repeating. The native input API may buffer
             // it for one frame even while isDown already reports the key held.
             // False frames reset the hold delay; repeats stay capped at 20/sec.
             if (!quickLootState.allowRepeat(controller, haxe.Timer.stamp()))
@@ -599,7 +599,7 @@ class ItemUtilitiesMod {
 
     @:hlx.prefix(st.Inventory.canRequestDropIndex)
     static function preventLockedDrop(instance:Dynamic, index:Int, count:Bool,
-        force:hl.Ref<Bool>, unknown:Null<Int>):HlxPrefixResult<Bool> {
+        unknown:Null<Int>):HlxPrefixResult<Bool> {
         var item = itemAt(instance, index);
         return isItemLocked(item) ? SkipWith(false) : Continue;
     }
@@ -607,7 +607,7 @@ class ItemUtilitiesMod {
     // InventorySlot's discard actions call requestDropIndex directly.
     @:hlx.prefix(st.Inventory.requestDropIndex)
     static function preventLockedDropRequest(instance:Dynamic, index:Int, count:Bool,
-        force:hl.Ref<Bool>, unknown:Null<Int>, callback:Dynamic):HlxPrefixResult<Dynamic> {
+        unknown:Null<Int>, callback:Dynamic):HlxPrefixResult<Dynamic> {
         var item = itemAt(instance, index);
         if (!isItemLocked(item))
             return Continue;
@@ -3289,8 +3289,7 @@ class ItemUtilitiesMod {
             fingerprintValue(fieldOrNull(item, "upgradeLevel")),
             fingerprintValue(fieldOrNull(item, "rarity")),
             fingerprintValue(fieldOrNull(definition, "rarity")),
-            // Absent on the live client; normalize null and empty to the
-            // same identity as uninfused PTR gear.
+            // Normalize absent and empty infusions to the same uninfused identity.
             infusionIdentity(fieldOrNull(item, "infusion")),
             infusionIdentity(fieldOrNull(item, "infusionBonusStat"))
         ];

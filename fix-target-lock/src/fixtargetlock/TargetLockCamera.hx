@@ -1,6 +1,6 @@
-package moresettings;
+package fixtargetlock;
 
-import moresettings.GameAccess as G;
+import fixtargetlock.GameAccess as G;
 
 /** Suppress only the native lock steering speed, scoped to camera postUpdate. */
 class TargetLockCamera {
@@ -16,7 +16,7 @@ class TargetLockCamera {
         var speed = G.field(settings, "LockRotateSpeed");
         if (!Math.isFinite(G.number(speed, Math.NaN))) return;
         frames[frames.length - 1] = {settings: settings, speed: speed};
-        // Both clients multiply yaw/pitch correction by smoothLerp(speed, dt),
+        // The native camera multiplies yaw/pitch correction by smoothLerp(speed, dt),
         // which is zero at speed 0. TargetLock, the target, locked sensitivity,
         // manual camera input, water avoidance and BaseCamera updates stay native.
         G.set(settings, "LockRotateSpeed", 0.0);

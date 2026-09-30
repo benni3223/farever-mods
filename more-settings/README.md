@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | (PTR) Enable quick cast; (PTR) Disable target-lock camera movement; Fancy damage numbers | Toggles off; imports enabled Fix Target Lock preferences for the first two options when no More Settings choice exists |
+| Combat | Fancy damage numbers | Off |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -19,9 +19,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Dungeon Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Overworld Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 
-**Combat** appears directly below **General**. **(PTR) Enable quick cast** lets you hold a ground-targeted skill's bound key or gamepad button to aim, then release it to cast. It uses the native ground indicator, confirmation, and cancellation paths and works without a target lock. A quick tap is retained through the native first-frame aiming delay. Disabling the option while aiming restores the game's usual confirmation behavior.
-
-**(PTR) Disable target-lock camera movement** keeps camera rotation under your control while an enemy is locked. It suppresses the native yaw/pitch steering during the camera update while preserving the locked target, native attack targeting, locked sensitivity, and the rest of the camera update. Both options can be changed while playing and support the live and PTR clients.
+**Combat** appears directly below **General** and contains **Fancy damage numbers**. Quick cast and target-lock camera controls are available in **Fix Target Lock**.
 
 **Fancy damage numbers** adds a 1 px black outline to all damage numbers. Normal physical damage uses an orange gradient and normal magic damage uses a blue gradient. Critical hits always use three colours, with the middle stop halfway down the number:
 
@@ -34,7 +32,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Raw | `#FFFFFF` | — | `#B8B8B8` |
 | Raw crit | `#F5E149` | `#FFFFFF` | `#EBEBEB` |
 
-The option remains off by default and preserves your existing Fancy damage numbers preference. All palettes are fixed; the former Pink crits, Exclamation mark crits, Three-colour crit gradients, and physical/magical/Raw colour inputs are removed and their saved values no longer affect styling. Critical hits keep native number formatting, with no added exclamation mark. Healing, damage values, fonts, and animations keep their native behavior. Supports both Live and PTR.
+The option remains off by default and preserves your existing Fancy damage numbers preference. All palettes are fixed; the former Pink crits, Exclamation mark crits, Three-colour crit gradients, and physical/magical/Raw colour inputs are removed and their saved values no longer affect styling. Critical hits keep native number formatting, with no added exclamation mark. Healing, damage values, fonts, and animations keep their native behavior.
 
 **Fancy damage numbers** is the only damage-number setting. Its fixed palettes apply to newly displayed numbers immediately. Raw uses its own palette regardless of the skill's physical or magical classification, retains the black outline, and has no native text shadow.
 
@@ -46,7 +44,7 @@ The quick-cast and camera options are also available in **Fix Target Lock**. On 
 
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 
-**Show boss health** adds the boss's current HP before its percentage in the top-of-screen boss bar: `123,456 (100%)`. It uses the actual Health attribute, rounded down to a whole number like the game's numeric health display, and updates throughout the fight. The native percentage and shield information are preserved. Toggle it at any time under **General**; disabling it restores the native label. If the new/PTR client's resource-display option already shows numeric HP, that label stays unchanged.
+**Show boss health** adds the boss's current HP before its percentage in the top-of-screen boss bar: `123,456 (100%)`. It uses the actual Health attribute, rounded down to a whole number like the game's numeric health display, and updates throughout the fight. The native percentage and shield information are preserved. Toggle it at any time under **General**; disabling it restores the native label. If the native resource-display option already shows numeric HP, that label stays unchanged.
 
 **Performance improvements** is an optional checkbox under **General**, off by default. It can be changed while playing. It addresses specific findings from the static performance review:
 
@@ -54,7 +52,7 @@ The profanity option applies to displayed player text and keeps HTML escaping. C
 - The incoming-effects feed removes its oldest damage/healing rows when needed to make room within a 32-row target. Pending display times are brought forward so a sustained burst cannot keep extending the same delayed numeric tail. Combat transitions, game-beat messages, and other text notifications are retained, even when that requires exceeding the target. This affects the HUD's recent numeric feed only; damage, healing, floating combat numbers, and DPS Meter logs continue normally.
 - Terrain normal/height textures reuse their last native composition while the camera neighborhood, chunks, buffer bindings, source textures, and destination resources remain unchanged. This avoids repeated clears/copies and temporary rendering-object creation on reusable passes. Native chunk lookups and renderer bindings still run; pixel refreshes, arriving/departing chunks, resource recreation, context loss, and camera neighborhood changes force the original rebuild. Source textures retain the native recent-use lifetime. Cache references are bounded and released on terrain disposal or when the option is disabled.
 
-Disabling the option restores native handling for subsequent work, feed entries, and terrain compositions; already removed HUD rows are not recreated. These routines were checked in both the live and PTR clients. Automated tests validate reuse and invalidation behavior, not in-game frame-time gains. Terrain job subdivision, entity initialization recovery, widget pooling, map construction, and other GPU pass costs still need profiling or engine changes. The option does not reduce graphics quality or skip world/network updates.
+Disabling the option restores native handling for subsequent work, feed entries, and terrain compositions; already removed HUD rows are not recreated. Automated tests validate reuse and invalidation behavior, not in-game frame-time gains. Terrain job subdivision, entity initialization recovery, widget pooling, map construction, and other GPU pass costs still need profiling or engine changes. The option does not reduce graphics quality or skip world/network updates.
 
 This feature does not implement shader compilation, pipeline prewarming, or a disk cache and does not patch graphics-driver functions. [Shader Persistent Cache](https://github.com/laymain/farever-mods/tree/main/shader-persistent-cache) remains responsible for DX12 pipeline persistence; terrain texture reuse works at a separate game-rendering stage. Both mods can be installed, though in-game testing together is still needed for this terrain change.
 
@@ -67,8 +65,7 @@ cancellation, and the game's difficulty/access checks retain their normal behavi
 Toggling the option takes effect while the menu is open. This protects starts
 made by the player running the mod; it does not control another player's client.
 
-The same build supports the live and new/PTR clients (use HLX Core 0.0.8 or newer
-on PTR). Hit/heal effect attribution accepts both client skill-field layouts.
+Targets the September 30 Live client with HLX Core 0.0.8 or newer.
 When **Adjust unfocused volume** is enabled, its level takes precedence over the
 new client's native unfocused mute without changing that saved game preference.
 Disabling the adjustment restores native audio behavior.

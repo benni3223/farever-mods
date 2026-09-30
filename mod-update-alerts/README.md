@@ -38,8 +38,7 @@ on Nexus. The reminder checkbox always applies to the full update list.
 
 ## Installation
 
-Requires HLX Core 0.0.8 or newer for the new/PTR client. Also supports the current
-live client. No ImGui or Better Mod Settings dependency, Nexus login, API key,
+Requires HLX Core 0.0.8 or newer for the September 30 Live client. No ImGui or Better Mod Settings dependency, Nexus login, API key,
 Premium subscription, or external executable.
 
 Install the build ZIP with Vortex or extract it into the Farever game directory.

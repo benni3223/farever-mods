@@ -27,18 +27,14 @@ class MoreSettingsMod {
         var previous = ModConfig.load(HlxRuntime.moduleName(), {
             enabled: config.adjustUnfocusedVolume,
             adjustUnfocusedVolume: (null:Null<Bool>),
-            disableProfanityFilter: (null:Null<Bool>),
-            quickCast: (null:Null<Bool>),
-            disableTargetLockCameraMovement: (null:Null<Bool>)
+            disableProfanityFilter: (null:Null<Bool>)
         });
         if (previous.adjustUnfocusedVolume == null) config.adjustUnfocusedVolume = previous.enabled;
         if (previous.disableProfanityFilter == null) {
             // Preserve the standalone mod's preference when combining installs.
             config.disableProfanityFilter = previousProfanityPreference();
         }
-        CombatSettings.migrate(config, previous, CombatSettings.previous());
         SettingsData.normalize(config);
-        CombatHooks.configure(config);
         BossHealth.enabled = config.showBossHealth;
         PerformanceHooks.enabled = config.performanceOptimization;
         DungeonPartyGuard.enabled = config.waitForParty;
@@ -51,7 +47,6 @@ class MoreSettingsMod {
         Bus.subscribe("better-mod-settings/config-changed/" + HlxRuntime.moduleName(), (_:Dynamic) -> {
             config = ModConfig.load(HlxRuntime.moduleName(), config);
             SettingsData.normalize(config);
-            CombatHooks.configure(config);
             BossHealth.enabled = config.showBossHealth;
             PerformanceHooks.enabled = config.performanceOptimization;
             DungeonPartyGuard.enabled = config.waitForParty;
@@ -132,7 +127,6 @@ class MoreSettingsMod {
 
     @:hlx.prefix(GameApp.update)
     static function beforeUpdate(instance:Dynamic, dt:Float):HlxPrefixResult<Void> {
-        CombatHooks.beginFrame();
         app = instance;
         AppearanceEditor.update(instance);
         AllyEffects.update(instance);
@@ -155,7 +149,6 @@ class MoreSettingsMod {
 
     @:hlx.prefix(GameApp.dispose)
     static function dispose(instance:Dynamic):HlxPrefixResult<Void> {
-        CombatHooks.dispose();
         try FancyDamageNumbers.dispose() catch (error:Dynamic) damageNumberError(error);
         AppearanceEditor.close();
         if (audio != null) try audio.dispose() catch (e:Dynamic) audioError(e);

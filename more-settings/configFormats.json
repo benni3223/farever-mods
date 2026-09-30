@@ -36,16 +36,6 @@
       "label": "Combat"
     },
     {
-      "key": "quickCast",
-      "type": "checkbox",
-      "label": "(PTR) Enable quick cast"
-    },
-    {
-      "key": "disableTargetLockCameraMovement",
-      "type": "checkbox",
-      "label": "(PTR) Disable target-lock camera movement"
-    },
-    {
       "key": "fancyDamageNumbers",
       "type": "checkbox",
       "label": "Fancy damage numbers"

@@ -4,9 +4,7 @@
 
 A compact overworld minimap with a centered player arrow.
 
-The same download supports the current live and new/PTR clients by detecting
-release-status and activity-event APIs at runtime. Use HLX Core 0.0.8 or newer
-with the new client.
+Targets the September 30 Live client. Requires HLX Core 0.0.8 or newer.
 
 ## Installation
 
@@ -82,7 +80,7 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Weapon Upgrade | Grey stone forge with gold studs and a bright multicoloured flame |
 | Crafting Station | Boat-shaped wooden workbench with cyan bottles, a scroll, and a hanging rune sign |
 | Infusion Crucible | Stone basin with turquoise liquid, a copper rim, and a floating pink orb |
-| Soul Well (PTR) | Dark stone basin with hooked horns, a magenta spiral, and a floating pink crystal |
+| Soul Well | Dark stone basin with hooked horns, a magenta spiral, and a floating pink crystal |
 | Abandoned chests | Brown wooden chest with dull metal bands and a brass lock |
 | Vault chests | Red chest with gold bands, a keyhole, and a diamond crest |
 | Recipe chests | Burgundy pouch with cream parchment scrolls; hover label **Recipe Chest** |
@@ -96,9 +94,9 @@ Respawn point markers use a broad oval stone platform and a tall shouldered monu
 
 All three chest markers use flat, front-facing geometry without glow. Vault and recipe chests follow the game's native definition ancestry, independent of translated names; other chests use the wooden chest icon. **Show chests** controls all three, with the same opened/hidden checks, distance details, marker scaling, and vertical filtering. Recipe chest hover names always read **Recipe Chest**. Elite enemy rings use the native Elite flag and preserve enemy size and Codex filters; sparkling companion alerts still require the Spark flag.
 
-Glory Merchants are identified by the PTR's dedicated merchant unit (`TODO_MOG_Merchant`), with service-title and Glory-price checks as fallbacks; Infusion Crucibles use the new client's native station type. Both appear automatically wherever those services exist, with the same hover distances, height indicators, and vertical filtering as other NPC markers. A live NPC's resolved definition can replace a generic map definition. Their definitions and icon geometry are cached, and the same build continues to support the current client.
+Glory Merchants are identified by the dedicated merchant unit (`TODO_MOG_Merchant`), with service-title and Glory-price checks as fallbacks; Infusion Crucibles use the new client's native station type. Both appear automatically wherever those services exist, with the same hover distances, height indicators, and vertical filtering as other NPC markers. A live NPC's resolved definition can replace a generic map definition. Their definitions and icon geometry are cached.
 
-PTR Soul Wells use the game's `Soulwell` definition ancestry to distinguish them from Spark Recyclers, which share their station type. Their flat marker matches the horned stone basin and magenta vortex; **Show NPCs** controls them alongside other stations. Rumi (`DemonHunterRumi`) uses the same purple horned Demon Huntress marker as Mira and Zoey, independent of translated names. These markers keep the same hover, height, and scaling behavior and do not require PTR-only APIs on the live client.
+Soul Wells use the game's `Soulwell` definition ancestry to distinguish them from Spark Recyclers, which share their station type. Their flat marker matches the horned stone basin and magenta vortex; **Show NPCs** controls them alongside other stations. Rumi (`DemonHunterRumi`) uses the same purple horned Demon Huntress marker as Mira and Zoey, independent of translated names. These markers keep the same hover, height, and scaling behavior.
 
 Hover details are always enabled. The marker name stays on the first line, with a smaller, dimmer second line such as **↔ 42 m · ↑ 18 m**. The double horizontal arrow marks horizontal distance; the up/down arrow shows height above or below your character. Measurements round to whole metres and refresh five times per second. A height that rounds to zero reads **↕ 0 m**; unknown elevation is omitted. All arrows are drawn geometry, so no font glyph support or language fallback is needed. Arrows and numbers fit the available width together, independently of the name. Rift and sparkling companion guidance arrows show measurements to their destination, not to the edge of the minimap.
 

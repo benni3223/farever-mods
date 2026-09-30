@@ -1,4 +1,4 @@
-package minimap;
+package fixtargetlock;
 
 import hlx.runtime.ResolvedMember;
 
@@ -42,21 +42,10 @@ class GameAccess {
         var t = HlxRuntime.resolveType(type);
         return t == null ? null : HlxRuntime.resolveStaticField(t, name);
     }
-    public static function create(type:String, args:Array<Dynamic>):Dynamic {
+    public static function setCurrent(type:String, name:String, value:Dynamic):Void {
         var t = HlxRuntime.resolveType(type);
         if (t == null) throw "Game type unavailable: " + type;
-        return HlxRuntime.constructInstanceByName(t, args.length, args);
-    }
-    public static function array(value:Dynamic, proxy:Bool = false):Array<Dynamic> {
-        if (proxy) value = field(value, "array");
-        var out:Array<Dynamic> = [];
-        var count = integer(field(value, "length"));
-        if (count <= 0) return out;
-        // Replicated ArrayProxyData lists use ArrayDyn, while hero skill lists
-        // use ArrayObj. Invoke the real array's reader without reinterpreting it.
-        var type = hl.Type.getDynamic(value).getTypeName();
-        for (i in 0...count) out.push(call(type, "getDyn", value, [i]));
-        return out;
+        HlxRuntime.setStaticField(t, name, value);
     }
     public static function set(object:Dynamic, name:String, value:Dynamic):Void {
         if (object != null) HlxRuntime.setField(object, name, value);

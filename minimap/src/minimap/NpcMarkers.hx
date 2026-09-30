@@ -21,16 +21,15 @@ class NpcMarkers {
 
     public static function kind(inf:Dynamic):String {
         var station = stationKind(G.integer(G.field(inf, "type")));
-        // PTR Element.create uses ScrapStation (31) for both services, then
+        // Element.create uses ScrapStation (31) for both services, then
         // checks Soulwell ancestry before constructing SoulwellStation.
-        // isOfType also exists on live; no PTR-only class needs resolving.
         if (station == "recycler" && G.staticCall("HElement", "isOfType", [inf, "Soulwell"]) == true)
             return "soulWell";
         if (station != "") return station;
         var props = G.field(inf, "props");
         var npc = G.field(props, "npc");
         var unit = G.text(G.field(npc, "unit"));
-        // The PTR adds this distinct UnitKind alongside TODO_WanderingMerchant.
+        // The native data has this distinct UnitKind alongside TODO_WanderingMerchant.
         // Match the resolved instance's unit, as Npc.get_uinf does: its shop
         // prices and localized service title need not be present here.
         if (unit == "TODO_MOG_Merchant") return "glory";

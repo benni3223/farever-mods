@@ -31,7 +31,7 @@ Install the **complete archive**, including the `implementation/` subfolder. Mis
 
 ## Features
 
-### Inspect players (PTR social menu)
+### Inspect players
 
 Hold Interact on another player and choose **Inspect**, immediately below
 **Send message**. The native window shows their equipped weapons, armour, and
@@ -49,9 +49,7 @@ The window updates when their equipped gear changes and closes with X or Escape.
 Inspect is read-only and uses equipment already available to your client. If a
 player leaves or their equipment is unavailable, the window says so. It does not
 request private inventory data or provide equip, drag, or transfer actions.
-The option is included whenever Item Utilities is enabled. On clients without
-the new player social menu, its hooks are not registered and other features
-continue to work normally.
+The option is included whenever Item Utilities is enabled.
 
 ### Hold interact to quick-loot
 
@@ -66,7 +64,7 @@ lag does not cause queued presses to fire in a burst. Releasing the button stops
 quick-looting.
 
 Repeats start only after the game delivers the original Interact press. This
-preserves the PTR client's buffered presses, so enabling quick-loot does not
+preserves the native client's buffered presses, so enabling quick-loot does not
 block NPC or station interactions. Opening a window that blocks gameplay input
 also clears the held-repeat state.
 
@@ -111,8 +109,7 @@ Locked items are marked with a small lock icon and are protected from:
 
 Locks follow items as they move between inventory and equipment. They are persisted separately for each character using Farever's unique character ID, with item identity and location tracking to avoid transferring a lock to the wrong identical item.
 
-The same build supports the live and new/PTR clients (PTR requires HLX Core
-0.0.8 or newer). Item identity includes the new infusion and infusion bonus stat.
+Targets the September 30 Live client with HLX Core 0.0.8 or newer. Item identity includes the new infusion and infusion bonus stat.
 Existing saved locks and presets remain readable. A legacy save without infusion
 details will not guess between different infusion variants; select the intended
 item and re-save the preset or re-lock it if its identity is ambiguous.

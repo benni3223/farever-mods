@@ -163,23 +163,21 @@ class HistoryTest {
         GameAccess.globals.remove(key); NativeCombatMetadata.dummyGroup = null;
     }
     static function clientSkillCompatibility():Void {
-        var oldSkill = {kind: "OldStrike"};
-        var newSkill = {kind: "NewStrike"};
+        var firstSkill = {kind: "FirstStrike"};
+        var secondSkill = {kind: "SecondStrike"};
         var reader = GameAccess.field;
-        check(gamecompat.HitSkill.read({baseSkill: oldSkill}, reader) == oldSkill, "live hit keeps its skill");
-        check(gamecompat.HitSkill.read({skill: newSkill}, reader) == newSkill, "PTR hit keeps its skill");
-        check(gamecompat.HitSkill.read({skill: newSkill, baseSkill: oldSkill}, reader) == newSkill, "prefer the new skill field");
-        check(gamecompat.HitSkill.read({skill: null, baseSkill: oldSkill}, reader) == oldSkill, "null field can fall back");
+        check(gamecompat.HitSkill.read({skill: firstSkill}, reader) == firstSkill, "hit retains its skill");
+        check(gamecompat.HitSkill.read({skill: null}, reader) == null, "missing skill is safe");
         check(gamecompat.HitSkill.read(null, reader) == null, "missing hit is safe");
         var fight = new Fight(1);
-        for (data in ([{baseSkill: oldSkill}, {skill: newSkill}]:Array<Dynamic>)) {
+        for (data in [{skill: firstSkill}, {skill: secondSkill}]) {
             var event = hit(1, 25);
             event.skill = GameAccess.text(GameAccess.field(gamecompat.HitSkill.read(data, reader), "kind"));
             fight.add(event, profile());
         }
         var player = fight.players["me"];
-        check(player.damage == 50 && player.skills["OldStrike"].damage == 25
-            && player.skills["NewStrike"].damage == 25, "both client shapes retain totals and breakdown damage");
+        check(player.damage == 50 && player.skills["FirstStrike"].damage == 25
+            && player.skills["SecondStrike"].damage == 25, "skills retain totals and breakdown damage");
     }
     static function literalLabels():Void {
         var record = FightHistory.encode(sample(), "instant"); record.duration = .001;
@@ -771,10 +769,10 @@ class HistoryTest {
         var sharedActivity:Dynamic = {globalCtx: {objectives: {array: sharedObjectives}}};
         player.context.objectives.array = [];
         check(NativeCombatMetadata.activityCategory("TestClassic", false, player, sharedActivity) == "Classic Dungeons", "Shared objectives are read even when a personal context exists but is empty");
-        var icons:Map<String, Dynamic> = ["Dungeon_Default" => {name: "Normal"}, "Dungeon_LevelMax" => {name: "Hard"}, "Dungeon_Heroic" => {name: "Heroic"}];
+        var icons:Map<String, Dynamic> = ["Dungeon_Default" => {name: "Normal"}, "Dungeon_LevelMax" => {name: "Veteran"}, "Dungeon_Heroic" => {name: "Heroic"}];
         GameAccess.globals["Data.icon"] = {byId: icons};
         var catalog = NativeCombatMetadata.catalog();
-        check(catalog.difficulties[0] == "Normal" && catalog.difficulties[1] == "Hard" && catalog.difficulties[2] == "Heroic", "Difficulty values use the native selection-screen icon names");
+        check(catalog.difficulties[0] == "Normal" && catalog.difficulties[1] == "Veteran" && catalog.difficulties[2] == "Heroic", "Difficulty values use the native selection-screen icon names");
         check(catalog.bossCategories["SharedBoss"] == "Classic Dungeons", "Native objective boss IDs populate the history recovery catalog");
     }
     static function historyOptions():Void {
@@ -846,8 +844,8 @@ class HistoryTest {
         }
         var req = request("groups"); req.category = "Boss Dungeons";
         var groups = store.query(req).groups;
-        check(groups.length == 4, "One boss produces distinct Normal, Hard, Heroic, and unknown encounter choices");
-        for (name in ["Normal", "Hard", "Heroic", "Unknown difficulty"]) {
+        check(groups.length == 4, "One boss produces distinct Normal, Veteran, Heroic, and unknown encounter choices");
+        for (name in ["Normal", "Veteran", "Heroic", "Unknown difficulty"]) {
             var req = request("fights", "King Ratsar - " + name); req.category = "Boss Dungeons";
             check(store.query(req).entries.length == 1, "Selecting " + name + " only lists that difficulty");
         }

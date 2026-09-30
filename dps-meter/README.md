@@ -5,9 +5,7 @@
 An HLX combat meter with a movable, resizable native Farever window and boss-kill
 uploads to [Farever Logs](https://fareverlogs.fr/).
 
-The same download supports the current live and new/PTR clients, including
-skill attribution, history, and Rift Recap snapshots. Use HLX Core 0.0.8 or newer
-with the new client.
+Targets the September 30 Live client. Requires HLX Core 0.0.8 or newer.
 
 ## Installation
 
@@ -200,7 +198,7 @@ the programming class names `Boss` and `Dungeon` do not determine the distinctio
 dungeon categories; ordinary combats and elites remain in **Other**.
 
 Encounters are separated by the game's difficulty labels, such as **King Ratsar -
-Normal**, **King Ratsar - Hard**, and **King Ratsar - Heroic**. Older dungeon logs
+Normal**, **King Ratsar - Veteran**, and **King Ratsar - Heroic**. Older dungeon logs
 whose difficulty cannot be recovered appear under **Unknown difficulty**.
 New charts retain their activity ID, category, classification version, and difficulty.
 The browser also uses these observed categories to classify older logs from the
