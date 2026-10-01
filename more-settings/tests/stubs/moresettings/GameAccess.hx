@@ -69,6 +69,8 @@ class GameAccess {
     public static function current(type:String, name:String):Dynamic
         return type == "fmod.Api" && name == "initialized" ? audioReady : field(data, name);
     public static function call(type:String, name:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic return switch name {
+        case "get_myPlayer": field(data, "player");
+        case "set_visible": set(o, "visible", args[0]); args[0];
         case "isOwner": field(o, "isOwner") == true;
         case "get_group": field(o, "group");
         case "getPlayerInfo":

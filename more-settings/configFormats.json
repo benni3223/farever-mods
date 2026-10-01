@@ -27,6 +27,11 @@
       "label": "Wait for party before entering"
     },
     {
+      "key": "leaveDungeonButton",
+      "type": "checkbox",
+      "label": "Leave Dungeon Button"
+    },
+    {
       "key": "hideUiKey",
       "type": "keybinding",
       "label": "Hide UI hotkey"

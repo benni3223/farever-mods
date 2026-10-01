@@ -38,6 +38,7 @@ class MoreSettingsMod {
         BossHealth.enabled = config.showBossHealth;
         PerformanceHooks.enabled = config.performanceOptimization;
         DungeonPartyGuard.enabled = config.waitForParty;
+        DungeonLeaveButton.enabled = config.leaveDungeonButton;
         hideUi.configure(config.hideUiKey);
         config.save();
         audio = new AudioControl(config);
@@ -50,6 +51,7 @@ class MoreSettingsMod {
             BossHealth.enabled = config.showBossHealth;
             PerformanceHooks.enabled = config.performanceOptimization;
             DungeonPartyGuard.enabled = config.waitForParty;
+            DungeonLeaveButton.enabled = config.leaveDungeonButton;
             hideUi.configure(config.hideUiKey);
             AllyEffects.configure(config);
             try audio.configure(config) catch (e:Dynamic) audioError(e);
@@ -106,6 +108,27 @@ class MoreSettingsMod {
         try DungeonPartyGuard.update(instance) catch (e:Dynamic) DungeonPartyGuard.reportError(e);
     }
 
+    @:hlx.postfix(ui.hud.ActivitiesInfo.init)
+    static function afterActivitiesInfoInit(instance:Dynamic, result:Void):Void {
+        try DungeonLeaveButton.attach(instance) catch (e:Dynamic) DungeonLeaveButton.reportError(e);
+    }
+
+    @:hlx.prefix(ui.UIElement.set_visible)
+    static function beforeUiVisibility(instance:Dynamic, value:Bool):HlxPrefixResult<Bool> {
+        try {
+            var visible = DungeonLeaveButton.visibility(instance, value);
+            if (visible != value) {
+                // Re-enter with the final value: this prefix then continues to
+                // the native setter. Unchanged frames never hide then reshow
+                // the button, avoiding repeated layout invalidation.
+                if (G.field(instance, "visible") != visible)
+                    G.call("ui.UIElement", "set_visible", instance, [visible]);
+                return SkipWith(visible);
+            }
+        } catch (e:Dynamic) DungeonLeaveButton.reportError(e);
+        return Continue;
+    }
+
     @:hlx.postfix(ui.win.element.InstanceSelectScreen.update)
     static function afterInstanceSelectUpdate(instance:Dynamic, dt:Float, result:Void):Void {
         try DungeonPartyGuard.update(instance) catch (e:Dynamic) DungeonPartyGuard.reportError(e);
@@ -149,6 +172,7 @@ class MoreSettingsMod {
 
     @:hlx.prefix(GameApp.dispose)
     static function dispose(instance:Dynamic):HlxPrefixResult<Void> {
+        DungeonLeaveButton.clear();
         try FancyDamageNumbers.dispose() catch (error:Dynamic) damageNumberError(error);
         AppearanceEditor.close();
         if (audio != null) try audio.dispose() catch (e:Dynamic) audioError(e);

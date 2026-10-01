@@ -6,6 +6,7 @@ typedef MoreSettingsConfig = {
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
     var waitForParty:Bool;
+    var leaveDungeonButton:Bool;
     var hideUiKey:Int;
     var adjustUnfocusedVolume:Bool;
     var backgroundVolume:Float;
@@ -29,6 +30,7 @@ class SettingsData {
         showBossHealth: false,
         performanceOptimization: false,
         waitForParty: true,
+        leaveDungeonButton: true,
         hideUiKey: 113, // hxd.Key.F2
         adjustUnfocusedVolume: true, backgroundVolume: 0,
         adjustFastTravelVolume: false, fastTravelVolume: 0,

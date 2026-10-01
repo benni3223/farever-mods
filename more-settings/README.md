@@ -10,7 +10,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 | Category | Controls | Defaults |
 | --- | --- | --- |
-| General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
+| General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Leave Dungeon Button; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party and leave dungeon button on; Hide UI defaults to F2 |
 | Combat | Fancy damage numbers | Off |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
@@ -62,6 +62,12 @@ entry menu and is ready. Solo entry, teammates' Ready buttons, countdown
 cancellation, and the game's difficulty/access checks retain their normal behavior.
 Toggling the option takes effect while the menu is open. This protects starts
 made by the player running the mod; it does not control another player's client.
+
+**Leave Dungeon Button** is enabled by default under **General**. It keeps the
+existing Leave button visible while you are in a dungeon and out of combat,
+including when the dungeon has an exit portal. The button hides during combat.
+Disabling the option restores the game's normal visibility rules on the next HUD
+update. Its normal leave action is unchanged; rifts and overworld UI are unaffected.
 
 Targets the September 30 Live client with HLX Core 0.0.8 or newer.
 When **Adjust unfocused volume** is enabled, its level takes precedence over the

@@ -24,6 +24,12 @@
 --interp
 --next
 -cp src
+-cp tests/stubs
+-cp tests
+-main DungeonLeaveButtonTest
+--interp
+--next
+-cp src
 -cp tests/appearance-stubs
 -cp tests
 -main AppearanceTest
