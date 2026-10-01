@@ -1,7 +1,7 @@
 {
-  "project": "dps-meter",
-  "version": "1.5.4",
-  "commit": "148c174990f0324425d4c41f88730e7559c72367",
-  "notes": "Call to Glory compatibility",
+  "project": "more-settings",
+  "version": "1.12.0",
+  "commit": "1abe5cf61718191588d9d68f140869a1b0f6cb93",
+  "notes": "Added setting to keep the \"Leave dungeon\" button visible as long as you are not in combat in a dungeon",
   "dry_run": false
 }
