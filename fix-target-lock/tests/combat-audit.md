@@ -47,3 +47,21 @@ and exception recovery. Full compilation and native API signature auditing also
 pass. These checks do not run the game renderer, server, or physical input;
 in-game lock acquisition, attacks, manual aiming, quick cast, and camera feel
 still require play-testing on the supplied Live version.
+
+## October 1 evening client update
+
+Supplied client: `hlboot(20261001-232103).dat`, HashLink bytecode 6.
+SHA-256: `617f602066c762869d5c15a01c83714664b0026868f0d24b129bbcc850da88d8`.
+
+`UnitController.getAutoTarget` now invokes `canBeLocked` virtually. The new
+`ent.boss.Cleodora.canBeLocked` rejects an attached Cleodora before delegating to
+the base implementation. The mod's skill-aim eligibility check previously called
+the base implementation directly, bypassing that restriction for an existing
+lock. It now resolves the method on the target's actual runtime type, preserving
+native overrides and inherited behavior. If eligibility lookup throws, the mod
+leaves skill target selection to the game instead of pinning an unvalidated target.
+
+Native hook signatures remain compatible. The 43 combat regression checks and
+full mod/bootstrap compilation pass. The override was verified through bytecode
+and HLX resolver inspection; an actual Cleodora encounter still needs in-game
+validation.

@@ -152,10 +152,13 @@ class FixTargetLockMod {
             if (config.enabled && instance == lastController
                 && GameAccess.field(instance, "inLock") == true) {
                 target = getLockedTarget(instance);
-                if (target != null && (GameAccess.call("ent.GameObject", "canBeLocked", target) != true
+                // The native picker uses virtual dispatch: bosses can become
+                // temporarily un-lockable (e.g. Cleodora while attached).
+                if (target != null && (GameAccess.callInstance(target, "canBeLocked") != true
                     || GameAccess.call("ent.GameObject", "isDead", target) == true)) target = null;
             }
         } catch (error:Dynamic) {
+            target = null;
             trace("[FixTargetLock] target lookup: " + Std.string(error));
         }
         targeting.begin(instance, target);

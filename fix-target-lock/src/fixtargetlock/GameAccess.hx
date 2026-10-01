@@ -35,6 +35,10 @@ class GameAccess {
         if (args != null) for (a in args) all.push(a);
         return HlxRuntime.callResolved(member(type, name), all);
     }
+    /** Resolve on the receiver's type so native overrides keep their behavior. */
+    public static function callInstance(object:Dynamic, name:String):Dynamic
+        return object == null ? null : call(hl.Type.getDynamic(object).getTypeName(), name, object);
+
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
         return HlxRuntime.callResolved(member(type, name, true), args);
     }
