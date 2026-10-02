@@ -145,10 +145,6 @@ Key capture consumes keyboard and mouse-button events centrally, before `hxd.Key
 
 Mods interpret and validate text values themselves; for example, a mod can expose a hex colour as a string setting. Opening the settings window does not save or normalize text values.
 
-Native text is wrapped in a mod-local String before JSON serialization. The initial text-input build saved game String internals as `{ "bytes": "???", "length": ... }`; these damaged entries display as empty and need re-entry because their original characters were not stored.
-
-Dropdown lists use the game's separate list window so they are not clipped by the settings panel. Clicking outside the list and its button dismisses it without changing the selected value or blocking the clicked control. Switching mod tabs or closing settings also closes an open list. Reordering the descriptor's options preserves the saved choice because selections are stored as strings.
-
 The current format does not provide color pickers, nested settings values, collapsible groups, conditional controls, or settings that span multiple JSON properties.
 
 #### Action buttons
