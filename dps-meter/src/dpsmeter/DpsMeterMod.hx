@@ -118,7 +118,8 @@ class DpsMeterMod {
     @:hlx.postfix(ent.Hero.onLeaveCombat)
     static function onCombatExit(instance:Dynamic, result:Void):Void {
         // This callback runs before set_isInCombat stores false. Observe the
-        // actual exit event instead of polling that field or another party member.
+        // actual exit event; the collector excludes this hero when checking
+        // whether the rest of the party is still fighting.
         if (collector != null && config.enabled) try collector.combatExit(G.uid(instance), haxe.Timer.stamp())
         catch (_:Dynamic) {}
     }

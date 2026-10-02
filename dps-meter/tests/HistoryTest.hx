@@ -6,6 +6,7 @@ import dpsmeter.HistoryCatalog;
 import dpsmeter.SkillBreakdown;
 import dpsmeter.NativeCombatMetadata;
 import dpsmeter.GameAccess;
+import dpsmeter.PartyCombat;
 import dpsmeter.HistoryRequests;
 import dpsmeter.SnapshotLayout;
 import dpsmeter.SnapshotTexture;
@@ -55,7 +56,7 @@ class HistoryTest {
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
         clientSkillCompatibility(); archivePolicy(); targetDummies();
-        lifecycle(); chakram(); outcomes(); recapSummary(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); snapshotViewports(); historyOptions(); literalLabels(); bossRecords();
+        lifecycle(); partyCombat(); chakram(); outcomes(); recapSummary(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); snapshotViewports(); historyOptions(); literalLabels(); bossRecords();
         Sys.println('Fight history: $checks checks passed');
     }
     static function archivePolicy():Void {
@@ -433,6 +434,95 @@ class HistoryTest {
         m.onCombatExit("me", 12); m.update(13, false);
         var passive = FightHistory.entry(FightHistory.encode(m.history[0], "passive"));
         check(passive.personalDps == 0 && passive.playerName == "Shawn", "A known local player who dealt no damage has zero DPS and keeps their name");
+    }
+    static function partyCombat():Void {
+        var layer = {};
+        var player:Dynamic = {};
+        var hero:Dynamic = {__uid: "me", player: player, layer: layer, isInCombat: true};
+        var ally:Dynamic = {__uid: "ally", layer: layer, isInCombat: true, dead: false, removed: false};
+        var member:Dynamic = {hero: ally, removed: false};
+        var group:Dynamic = {players: {array: [player, member]}};
+        player.group = group;
+        check(PartyCombat.active(hero), "A living party member in this instance can prolong combat");
+        check(!PartyCombat.active(hero, "ally"), "A teammate's explicit exit wins over their still-true combat flag");
+        group.players.array = [member, {isMe: true, hero: hero}];
+        check(PartyCombat.active(hero), "Recognize the replicated local-player flag even after other roster entries");
+        var third:Dynamic = {hero: {__uid: "third", layer: layer, isInCombat: true}};
+        group.players.array = [player, member, third];
+        check(PartyCombat.active(hero, "ally"), "Another living teammate keeps fighting when one teammate exits");
+        group.players.array = [player, member];
+        ally.dead = true;
+        check(!PartyCombat.active(hero), "Dead teammates cannot hold a wiped encounter open");
+        ally.dead = false; ally.layer = {};
+        check(!PartyCombat.active(hero), "Party combat in another instance is ignored");
+        ally.layer = layer; ally.removed = true;
+        check(!PartyCombat.active(hero), "Removed heroes cannot keep combat running");
+        ally.removed = false; member.removed = true;
+        check(!PartyCombat.active(hero), "Disconnected players cannot keep combat running");
+        member.removed = false; ally.isInCombat = false;
+        check(!PartyCombat.active(hero), "An idle living teammate cannot hold the fight open");
+        ally.isInCombat = true; group.players.array = [member];
+        check(!PartyCombat.active(hero), "A stale group that no longer contains us is ignored");
+        group.players.array = [player, member]; player.group = null;
+        check(!PartyCombat.active(hero) && !PartyCombat.active(null), "Solo and missing heroes have no party continuation");
+        player.group = group;
+
+        var m = model(); m.onCombatEnter("me", 10); m.record(hit(10, 100));
+        var original = m.current;
+        m.onCombatExit("me", 12, PartyCombat.active(hero, "me"));
+        m.update(12.1, true, true);
+        check(!m.inCombat && m.current == original && m.history.length == 0,
+            "Local death keeps the same party fight without a stale flag undoing the exit");
+        m.record(hit(13, 200, false, false, "ally"));
+        m.record(hit(14, 25)); // The dead player's remaining damage-over-time effect.
+        m.update(30, false, true);
+        check(m.current == original && original.closed == 0 && original.start == 10
+            && original.players["me"].damage == 125 && original.players["ally"].damage == 200 && m.history.length == 0,
+            "Party damage and lingering local damage stay in the same fight through long death/revival delays");
+        m.onCombatEnter("me", 31); m.record(hit(32, 50)); m.update(33, true, false);
+        check(m.current == original && original.players["me"].damage == 175,
+            "Revival resumes the original clock and damage totals even after teammates leave combat");
+        m.onCombatExit("me", 35, false); m.update(36, false, false);
+        check(m.history.length == 1 && m.history[0].duration() == 25
+            && m.history[0].players["me"].damage == 175 && m.history[0].players["ally"].damage == 200,
+            "One complete history includes the death interval and revived damage");
+
+        m = model(); m.onCombatEnter("me", 10);
+        var bossHit = hit(10, 100, false, true, "me", "boss"); bossHit.bossFlags = 0x10;
+        m.record(bossHit); m.onCombatExit("me", 12, true);
+        m.onCombatExit("ally", 20, false);
+        var lethal = hit(20.1, 300, true, true, "ally", "boss"); lethal.bossFlags = 0x10;
+        m.record(lethal); m.onTargetDeath("boss", 20.1); m.update(21, false, false);
+        check(m.history.length == 1 && m.history[0].duration() == 10 && m.history[0].outcome == "Victory"
+            && m.history[0].players["ally"].damage == 300,
+            "A teammate's final blow after their combat-exit callback completes the dead player's existing fight");
+        check(m.completed.length == 1, "The party boss kill still produces exactly one upload");
+
+        m = model(); m.onCombatEnter("me", 10); m.record(hit(10, 100));
+        m.onCombatExit("me", 12, true); m.update(20, false, false); m.update(21, false, false);
+        check(m.history.length == 1 && m.history[0].duration() == 10 && m.history[0].outcome == "Defeat",
+            "Polling still closes a full wipe if the last teammate's exit callback is missing");
+        m.onCombatEnter("me", 30); m.record(hit(30, 7));
+        check(m.current.start == 30 && m.current.players["me"].damage == 7,
+            "The next attempt after a wipe starts a fresh fight");
+
+        m = model(); m.onCombatEnter("me", 10); m.record(hit(10, 100));
+        m.onCombatExit("ally", 11, false);
+        check(m.current != null && m.inCombat, "A teammate's exit cannot end the living local player's combat");
+        m.onCombatExit("me", 12, true); m.onCombatExit("ally", 15, true);
+        m.onCombatExit("stranger", 16, false);
+        check(m.current != null, "Other active teammates prolong the fight; strangers' exits cannot close it");
+        m.reset(20); m.reset(21);
+        check(m.history.length == 1 && m.history[0].duration() == 10 && m.current == null,
+            "Leaving the instance closes a party-held encounter exactly once");
+
+        m = model(); m.record(hit(10, 50, false, false, "ally")); m.update(11, false, true);
+        check(m.current == null && m.history.length == 0 && !m.inCombat,
+            "Party combat does not start the meter for an idle local player");
+        m = model(); m.onCombatEnter("me", 10); m.record(hit(10, 100));
+        m.update(12, false, true); m.record(hit(13, 50, false, false, "ally"));
+        check(m.current != null && m.current.players["ally"].damage == 50,
+            "The local combat polling fallback also preserves a party fight if the death-exit callback was missed");
     }
     static function outcomes():Void {
         var m = model(); m.onCombatEnter("me", 10);

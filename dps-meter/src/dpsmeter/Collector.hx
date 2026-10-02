@@ -68,7 +68,12 @@ class Collector {
         if (inRift) updateRiftState(player, now);
         refreshPhrixes(now);
         // Encounter timing must not depend on optional lobby/report metadata.
-        model.update(now, G.field(hero, "isInCombat") == true);
+        var localInCombat = G.field(hero, "isInCombat") == true;
+        // Check teammates only to prolong an existing encounter, at this
+        // same 4 Hz cadence. Party combat alone cannot start the local meter.
+        var partyInCombat = model.current != null && (!localInCombat || !model.inCombat)
+            && PartyCombat.active(hero);
+        model.update(now, localInCombat, partyInCombat);
         if (group != null && model.activityId != "" && model.difficulty < 0) {
             // Never assign a stale lobby from another dungeon to an open-world boss.
             var lobbies = G.array(G.field(group, "instanceLobbies"), true);
@@ -85,7 +90,8 @@ class Collector {
     }
     public function combatExit(uid:String, now:Float):Void {
         if (uid == model.me) refreshPhrixes(now);
-        model.onCombatExit(uid, now);
+        else if (model.inCombat || model.current == null || !model.party.exists(uid)) return;
+        model.onCombatExit(uid, now, model.current != null && PartyCombat.active(hero, uid));
     }
     function refreshPhrixes(now:Float, observedHit:Bool = false):Void {
         if (phrixes == null) return;

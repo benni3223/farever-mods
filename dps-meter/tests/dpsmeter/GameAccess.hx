@@ -6,6 +6,7 @@ class GameAccess {
     public static var globals:Map<String, Dynamic> = [];
     public static function field(object:Dynamic, name:String):Dynamic return object == null ? null : Reflect.field(object, name);
     public static function text(value:Dynamic, fallback:String = ""):String return value == null ? fallback : Std.string(value);
+    public static function uid(value:Dynamic):String return text(field(value, "__uid"));
     public static function integer(value:Dynamic, fallback:Int = 0):Int return value == null ? fallback : Std.int(value);
     public static function number(value:Dynamic, fallback:Float = 0):Float {
         var number = value == null ? Math.NaN : Std.parseFloat(Std.string(value));
@@ -32,6 +33,7 @@ class GameAccess {
         case "haxe.ds._StringMap.StringMapKeysIterator.hasNext": object.hasNext();
         case "haxe.ds._StringMap.StringMapKeysIterator.next": object.next();
         case "st.Player.getActivityContext": field(object, "context");
+        case "ent.GameObject.isDead": field(object, "dead") == true || field(object, "removed") == true;
         case "h2d.Object.getScene": field(object, "scene");
         case "h2d.Object.drawTo":
             var draw:Dynamic->Void = globals["drawSnapshot"];

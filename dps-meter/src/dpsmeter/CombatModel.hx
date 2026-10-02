@@ -250,18 +250,22 @@ class CombatModel {
         clearPhrixes();
         // Completed reports and recaps remain queued across character/zone changes.
     }
-    public function update(now:Float, localInCombat:Bool):Void {
-        // Poll only the local hero as a backup for native entry/exit callbacks.
+    public function update(now:Float, localInCombat:Bool, partyInCombat:Bool = false):Void {
+        // Poll the local hero as a backup for native entry/exit callbacks.
         // A native exit runs before the game's flag is stored. A stale true
         // must not undo that exit; first observe false, or a new native entry.
         if (!localInCombat) {
-            if (inCombat) onCombatExit(me, now);
+            if (inCombat) onCombatExit(me, now, partyInCombat);
             awaitingExitState = false;
         } else if (!inCombat && !awaitingExitState) onCombatEnter(me, now);
         if (rift != null) {
             rift.drain(now, completed, recaps, false, history);
             return;
         }
+        // A dead/revivable local hero may already have left combat while the
+        // party continues. End only when that continuation also stops; never
+        // let a teammate's combat flag start a new encounter by itself.
+        if (!inCombat && !partyInCombat && current != null && phrixesUid == "") finishCurrent(now);
         expirePendingFight(now);
         drainHistory(now);
         if (boss != null && (phrixesUid == "" || boss.bossUid != phrixesUid) && now - boss.last > 8) {
@@ -274,7 +278,8 @@ class CombatModel {
         inCombat = true;
         awaitingExitState = false;
         if (rift != null) return;
-        if (current != null && phrixesUid != "") return;
+        // Rejoining combat (including revival) resumes the party's same fight.
+        if (current != null) return;
         expirePendingFight(now);
         // Entry alone never starts the clock. Retain an opening hit if its
         // damage notification preceded entry; otherwise wait for first damage.
@@ -299,14 +304,17 @@ class CombatModel {
                 && (latest == null || fight.start > latest.start)) latest = fight;
         return latest;
     }
-    public function onCombatExit(heroUid:String, now:Float):Void {
-        // Ordinary fights end on the local character's exit, even between
-        // polls. A tracked Chakram attempt instead follows its boss lifecycle.
-        if (me == "" || heroUid != me) return;
-        inCombat = false;
-        awaitingExitState = true;
+    public function onCombatExit(heroUid:String, now:Float, partyInCombat:Bool = false):Void {
+        if (me == "") return;
+        if (heroUid == me) {
+            inCombat = false;
+            awaitingExitState = true;
+        } else if (inCombat || current == null || !party.exists(heroUid)) return;
         if (rift != null) return;
-        if (current != null && phrixesUid != "") return;
+        // Preserve an existing party encounter through local death or exit.
+        // The final teammate's exit can close it between polls. Chakram still
+        // follows its own replicated boss/phase lifecycle.
+        if (current != null && (phrixesUid != "" || partyInCombat)) return;
         finishPendingFight();
         if (current != null) finishCurrent(now);
     }
@@ -452,7 +460,7 @@ class CombatModel {
                 lastCombat = rift.last;
                 return;
             }
-            if (inCombat || (current != null && phrixesUid != "")) {
+            if (inCombat || current != null) {
                 if (current == null && e.effect != 1) current = new Fight(e.time);
                 if (current != null) addToFight(current, e, info);
             } else if (e.effect != 1) {

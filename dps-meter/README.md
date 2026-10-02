@@ -231,6 +231,12 @@ is not saved. A qualifying fight still in progress when you leave an area or
 exit normally is also preserved. Completed rift phases
 keep their separate **Rift: Gates** and **Rift: [boss name]** charts.
 
+An ongoing fight continues while a living party member in the same instance is
+still in combat, even if you die. Party damage and the encounter timer continue,
+and being revived resumes the same chart. The fight ends when everyone leaves
+combat or the party wipes. Players in other instances and dead teammates cannot
+keep it open; party combat alone does not start a new fight while you are idle.
+
 New Chakram recordings keep both health bars and the intervening bridge sequence
 in one fight, using his replicated entity and phase state. The first health bar
 does not produce a completed boss report. A reset or wipe ends the attempt;
