@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.12.0",
-  "commit": "1abe5cf61718191588d9d68f140869a1b0f6cb93",
-  "notes": "Added setting to keep the \"Leave dungeon\" button visible as long as you are not in combat in a dungeon",
+  "project": "better-mod-settings",
+  "version": "1.5.0",
+  "commit": "43b5ec5f5080d82d5a53713e2fcb6400a8e93ec6",
+  "notes": "- Added support for tooltips\n- Tooltips appear as a question mark icon after the label of a setting\n- Hovering a tooltip displays a popup containing additional information",
   "dry_run": false
 }
