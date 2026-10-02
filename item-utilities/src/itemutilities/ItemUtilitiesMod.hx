@@ -1692,6 +1692,7 @@ class ItemUtilitiesMod {
                 NativeSkills.runeSkills(current.runes));
             if (changes.length == 0) {
                 skillPresetStatus = "This skill preset is already active.";
+                refreshSkillPresetView(hero);
                 return;
             }
             skillPresetHero = hero;
@@ -1749,10 +1750,26 @@ class ItemUtilitiesMod {
 
     static function finishSkillPreset():Void {
         skillPresetStatus = skillPresetTransfer.error == "" ? "Skill preset applied." : skillPresetTransfer.error;
+        var hero = skillPresetHero;
         skillPresetHero = null;
         skillPresetHost = null;
         skillPresetSpecialization = null;
         skillPresetCharacterId = null;
+        // Completion waits for both the rune reply and replicated state.
+        // Also reflect any applied changes when a later request was rejected.
+        refreshSkillPresetView(hero);
+    }
+
+    static function refreshSkillPresetView(hero:Dynamic):Void {
+        try {
+            var view = activeCharacterUI;
+            if (hero == null || hero != resolveHero() || view == null || !isUiVisible(view)) return;
+            var descriptor = fieldOrNull(view, "skillDesc");
+            if (descriptor == null || !isUiVisible(descriptor)) return;
+            NativeSkills.refreshView(view, hero);
+        } catch (error:Dynamic) {
+            logLockError("refresh skill preset selection", error);
+        }
     }
 
     static function syncSelectedEquipmentPreset():Void {
