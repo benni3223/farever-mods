@@ -79,6 +79,7 @@ class NativeSettingTooltip {
         var body = create("h2d.Text", [field(label, "font"), content]);
         var scale = number(field(label, "scaleX"), 1);
         if (scale <= 0) scale = 1;
+        scale *= 0.9;
         call("h2d.Object", "setScale", body, [scale]);
         call("h2d.Text", "set_maxWidth", body, [360.0 / scale]);
         call("h2d.Text", "set_lineBreak", body, [true]);

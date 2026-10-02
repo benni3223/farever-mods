@@ -44,6 +44,8 @@ class AppearanceWindow {
     var finishRefresh = false;
     var refitPreview = true;
     var rebuildControls = true;
+    var saveRequested = false;
+    var closeRequested = false;
 
     public function new() {}
 
@@ -79,7 +81,7 @@ class AppearanceWindow {
         show(G.field(header, "headerTitle"), false);
         var close = G.field(header, "closeBtn");
         show(close, true); absolute(header, close); size(close, 36, 36); position(close, WIDTH - 52, 12);
-        G.call("ui.UIElement", "set_onClick", close, [dispose]);
+        G.call("ui.UIElement", "set_onClick", close, [requestClose]);
         padding(content, 0); absolute(window, content); size(content, WIDTH - 16, HEIGHT - 68); position(content, 8, 60);
         body = node("options-content", dom, [0], "moreSettingsAppearanceBody");
         var bodyObject = G.field(body, "obj");
@@ -165,12 +167,12 @@ class AppearanceWindow {
         style(scrollBar, "valign", top);
         G.call("h2d.Object", "addChild", viewport, [scrollBar]);
         status = textAt(container, "Loading character preview...", PANEL_X, HEIGHT - 160, PANEL_W);
-        buttonAt(container, "Cancel", PANEL_X + 140, HEIGHT - 118, 140, dispose, false);
+        buttonAt(container, "Cancel", PANEL_X + 140, HEIGHT - 118, 140, requestClose, false);
         saveButton = buttonAt(container, "Save", PANEL_X + 292, HEIGHT - 118, 148, save);
     }
 
     function usable():Bool {
-        return ready && window != null && G.field(window, "parent") != null && G.field(window, "allocated") == true
+        return ready && !saveRequested && !closeRequested && window != null && G.field(window, "parent") != null && G.field(window, "allocated") == true
             && draft != null && draft.valid(currentHero()) && G.current("ui.BaseUI", "current") == ui;
     }
 
@@ -349,8 +351,15 @@ class AppearanceWindow {
     }
 
     public function update(currentUI:Dynamic, hero:Dynamic):Bool {
-        if (window == null || ui != currentUI || !draft.valid(hero) || G.field(window, "removed") == true
+        if (closeRequested || window == null || draft == null || ui != currentUI || !draft.valid(hero) || G.field(window, "removed") == true
             || G.field(window, "parent") == null || G.field(window, "allocated") != true || !bodyIntact(body, container)) return false;
+        // Native input/update traversal may still hold references to these
+        // controls. Commit, tear down GPU previews and rebuild the live model
+        // only here, before the next GameApp update/render traversal.
+        if (saveRequested) {
+            saveRequested = false;
+            return commit(hero);
+        }
         fitWindow();
         view = G.field(preview, "unitView");
         if (view == null || G.call("client.UnitView", "isReady", view) != true) return true;
@@ -416,22 +425,35 @@ class AppearanceWindow {
         return {x: G.number(G.field(result, "x")), y: G.number(G.field(result, "y"))};
     }
 
-    function save():Void {
+    function save():Void saveRequested = true;
+
+    function requestClose():Void {
+        closeRequested = true;
+        saveRequested = false;
+    }
+
+    function commit(hero:Dynamic):Bool {
         // Commit errors leave the draft open; after commit, a preview refresh
         // error must never claim that the replicated change was cancelled.
-        try draft.commit(currentHero()) catch (error:Dynamic) { AppearanceEditor.report(error); return; }
-        var hero = draft.hero;
+        try draft.commit(hero) catch (error:Dynamic) { AppearanceEditor.report(error); return true; }
         dispose();
         try {
             AppearanceDraft.refreshHero(hero);
         } catch (error:Dynamic) AppearanceEditor.report("Appearance saved, but the character model could not refresh: " + Std.string(error));
+        return false;
     }
 
     public function dispose():Void {
         ready = false;
+        saveRequested = false; closeRequested = true;
+        var old = window;
+        if (old != null) {
+            // Detach drawables before releasing textures they reference.
+            show(old, false);
+            if (ui != null) G.call("ui.BaseUI", "removeWindow", ui, [old]);
+        }
+        window = null;
         if (portraits != null) { portraits.dispose(); portraits = null; }
-        var old = window; window = null;
-        if (old != null && ui != null) G.call("ui.BaseUI", "removeWindow", ui, [old]);
         // UnitScene.onRemove disposes its render texture and scene through the
         // native window lifecycle. No restoration of the live hero is needed.
         preview = null; view = null; draft = null; controls = null; container = null; body = null;

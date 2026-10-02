@@ -94,6 +94,14 @@ class AppearancePortraits {
         for (entry in buttons) {
             if (group != null && entry.group != group) { kept.push(entry); continue; }
             var button = entry.button;
+            // Rows can be retired before their DOM children are removed. Never
+            // leave a drawable pointing at a released render target.
+            G.set(button, "stale", true);
+            var icon = G.field(button, "icon");
+            if (icon != null) {
+                show(icon, false);
+                G.call("h2d.Bitmap", "set_tile", icon, [null]);
+            }
             // BodyPreviewButton owns its texture but does not dispose it on
             // removal. Drop the reallocation closure as well as the GPU texture.
             var texture = G.field(button, "tex");

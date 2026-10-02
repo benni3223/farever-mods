@@ -52,13 +52,15 @@ class AppearanceDraft {
     }
 
     public static function refreshHero(hero:Dynamic):Void {
-        // skinData stores the persistent customization; skin selects the active
-        // body model. Both are native client-owned properties. updateSkin only
-        // refreshes when the model changes; explicitly refresh same-model edits
-        // too (hair, gradients, shapes, and template variants).
+        // set_skin already rebuilds the UnitView when resolveModel changes the
+        // body. Rebuilding it a second time retires a just-created model (and
+        // its animation/gear) before the game has updated it. Same-body edits
+        // use displaySkin, just like the native skinData setter for other heroes.
+        var previousModel = G.field(hero, "model");
         G.call("ent.Unit", "set_skin", hero, [G.integer(G.field(G.field(hero, "skinData"), "template"))]);
         var view = G.field(hero, "unitView");
-        if (view != null) G.call("client.UnitView", "applyModelInfo", view, [G.call("ent.Unit", "getSkin", hero)]);
+        if (view != null && G.field(hero, "model") == previousModel)
+            G.call("client.UnitView", "displaySkin", view);
     }
 
     static function signature(source:Dynamic):String {
