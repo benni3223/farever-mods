@@ -1,7 +1,7 @@
 {
-  "project": "minimap",
-  "version": "1.7.5",
+  "project": "fix-target-lock",
+  "version": "1.4.4",
   "commit": "43b5ec5f5080d82d5a53713e2fcb6400a8e93ec6",
-  "notes": "- Updated Glory Merchant marker to match the new Medal of Glory appearance",
+  "notes": "- Added tooltips for some settings",
   "dry_run": false
 }
