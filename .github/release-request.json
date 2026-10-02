@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.12.1",
+  "project": "item-utilities",
+  "version": "1.9.6",
   "commit": "43b5ec5f5080d82d5a53713e2fcb6400a8e93ec6",
-  "notes": "- Fixed an issue where saving an appearance change causes weird visual artifacts that required restarting the game to resolve\n- Added tooltips to some settings",
+  "notes": "- Fixed an issue where locking/unlocking an equipped item caused it to show the equipment-change popup\n- Fixed an issue where depositing Components to the bank didn't include UpgradeComponents\n- Fixed an issue where some skill/rune presets failed to save\n- Added tooltips to some settings",
   "dry_run": false
 }
