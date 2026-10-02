@@ -32,12 +32,8 @@ class NativeSettingTooltip {
         var icon = create("h2d.Object", [parent]);
         absolute(parent, icon);
         var graphics = create("h2d.Graphics", [icon]);
-        call("h2d.Graphics", "beginFill", graphics, [FOREGROUND_COLOR, 1.0]);
-        call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, 11.0, 96]);
-        call("h2d.Graphics", "endFill", graphics);
-        call("h2d.Graphics", "beginFill", graphics, [BACKGROUND_COLOR, 1.0]);
-        call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, 9.4, 96]);
-        call("h2d.Graphics", "endFill", graphics);
+        smoothCircle(graphics, 11.0, FOREGROUND_COLOR);
+        smoothCircle(graphics, 9.4, BACKGROUND_COLOR);
         // More segments alone cannot smooth pixel edges. Supersample only
         // this small circle, then bilinearly downsample through the native
         // filter path; leave the text and window at their normal resolution.
@@ -91,6 +87,11 @@ class NativeSettingTooltip {
         if (scale <= 0) scale = 1;
         scale *= 0.9;
         call("h2d.Object", "setScale", body, [scale]);
+        // Keep a whole-pixel line advance at the tooltip's reduced font size,
+        // with a little extra leading so descenders don't crowd the next row.
+        var fontLineHeight = Math.max(1, number(field(field(label, "font"), "lineHeight"), 20));
+        var lineAdvance = Math.ceil(fontLineHeight * scale) + 2;
+        call("h2d.Text", "set_lineSpacing", body, [lineAdvance / scale - fontLineHeight]);
         call("h2d.Text", "set_maxWidth", body, [360.0 / scale]);
         call("h2d.Text", "set_lineBreak", body, [true]);
         call("h2d.Text", "set_textColor", body, [FOREGROUND_COLOR]);
@@ -142,8 +143,10 @@ class NativeSettingTooltip {
             ink.xMax = ink.xMin + number(field(tile, "width"));
             ink.yMax = ink.yMin + number(field(tile, "height"));
         }
+        // Optical centering: the native question mark's visible strokes sit
+        // slightly left of the center of its glyph tile.
         call("h2d.Object", "setPosition", entry.mark, [
-            (ICON_SIZE - (ink.xMax + ink.xMin) * scale) / 2,
+            (ICON_SIZE - (ink.xMax + ink.xMin) * scale) / 2 + 1,
             (ICON_SIZE - (ink.yMax + ink.yMin) * scale) / 2
         ]);
         positionIcon(entry);
@@ -160,6 +163,23 @@ class NativeSettingTooltip {
     public static function reset():Void {
         hide();
         icons = new ObjectMap();
+    }
+
+    static function smoothCircle(graphics:Dynamic, radius:Float, color:Int):Void {
+        // A one-pixel coverage ramp softens both edges of the ring. Bilinear
+        // downsampling alone samples only a few high-resolution texels and can
+        // still leave steps on a thin, high-contrast outline. Adjust each
+        // layer's opacity so their combined coverage increases linearly.
+        var previousCoverage = 0.0;
+        for (step in 1...9) {
+            var coverage = step / 8.0;
+            var alpha = (coverage - previousCoverage) / (1 - previousCoverage);
+            var edgeRadius = radius + 0.5 - (step - 0.5) / 8.0;
+            call("h2d.Graphics", "beginFill", graphics, [color, alpha]);
+            call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, edgeRadius, 96]);
+            call("h2d.Graphics", "endFill", graphics);
+            previousCoverage = coverage;
+        }
     }
 
     static function panelRect(g:Dynamic, x:Float, y:Float, w:Float, h:Float,
