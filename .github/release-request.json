@@ -1,7 +1,7 @@
 {
-  "project": "better-mod-settings",
-  "version": "1.5.0",
+  "project": "more-settings",
+  "version": "1.12.1",
   "commit": "43b5ec5f5080d82d5a53713e2fcb6400a8e93ec6",
-  "notes": "- Added support for tooltips\n- Tooltips appear as a question mark icon after the label of a setting\n- Hovering a tooltip displays a popup containing additional information",
+  "notes": "- Fixed an issue where saving an appearance change causes weird visual artifacts that required restarting the game to resolve\n- Added tooltips to some settings",
   "dry_run": false
 }
