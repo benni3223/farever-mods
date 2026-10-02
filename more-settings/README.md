@@ -10,7 +10,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 | Category | Controls | Defaults |
 | --- | --- | --- |
-| General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Leave Dungeon Button; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party and leave dungeon button on; Hide UI defaults to F2 |
+| General | Disable profanity filter; Show boss health; Performance improvements; Wait for party to enter dungeon; Leave dungeon button; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party and leave dungeon button on; Hide UI defaults to F2 |
 | Combat | Fancy damage numbers | Off |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
@@ -54,7 +54,7 @@ Disabling the option restores native handling for subsequent work, feed entries,
 
 This feature does not implement shader compilation, pipeline prewarming, or a disk cache and does not patch graphics-driver functions. [Shader Persistent Cache](https://github.com/laymain/farever-mods/tree/main/shader-persistent-cache) remains responsible for DX12 pipeline persistence; terrain texture reuse works at a separate game-rendering stage. Both mods can be installed, though in-game testing together is still needed for this terrain change.
 
-**Wait for party before entering** appears after Performance improvements under
+**Wait for party to enter dungeon** appears after Performance improvements under
 **General** and is enabled by default, including for existing installations.
 When you own a dungeon or rift entry lobby, Start stays disabled and reads
 **Waiting for party members** until every party member has joined that same
@@ -63,7 +63,7 @@ cancellation, and the game's difficulty/access checks retain their normal behavi
 Toggling the option takes effect while the menu is open. This protects starts
 made by the player running the mod; it does not control another player's client.
 
-**Leave Dungeon Button** is enabled by default under **General**. It keeps the
+**Leave dungeon button** is enabled by default under **General**. It keeps the
 existing Leave button visible while you are in a dungeon and out of combat,
 including when the dungeon has an exit portal. The button hides during combat.
 Disabling the option restores the game's normal visibility rules on the next HUD

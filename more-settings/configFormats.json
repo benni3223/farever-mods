@@ -17,23 +17,35 @@
       "label": "Show boss health",
       "tooltip": {
         "enabled": true,
-        "tooltipText": "Boss health bars will show the raw health value alongside percentage. Instead of just \"100%\", you will see \"150,000 (100%)\""
+        "tooltipText": "Boss health bars will show the raw health value alongside percentage. Instead of just \"100%\", you will see \"150,000 (100%)\"."
       }
     },
     {
       "key": "performanceOptimization",
       "type": "checkbox",
-      "label": "Performance improvements"
+      "label": "Performance improvements",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Reduce the frequency and severity of lag and stutters."
+      }
     },
     {
       "key": "waitForParty",
       "type": "checkbox",
-      "label": "Wait for party before entering"
+      "label": "Wait for party to enter dungeon",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Prevents entering a dungeon solo while in a party."
+      }
     },
     {
       "key": "leaveDungeonButton",
       "type": "checkbox",
-      "label": "Leave Dungeon Button"
+      "label": "Leave dungeon button",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Displays a button to leave dungeon while in a dungeon and not in combat."
+      }
     },
     {
       "key": "hideUiKey",
@@ -47,7 +59,11 @@
     {
       "key": "fancyDamageNumbers",
       "type": "checkbox",
-      "label": "Fancy damage numbers"
+      "label": "Fancy damage numbers",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Changes the appearance of damage numbers.\n\nBlue/purple: magic hit\n\nBlue/pink: magic critical hit\n\nOrange: physical hit\n\nRed/orange: physical critical hit\n\nWhite/gray: raw hit\n\nWhite/gold: raw critical hit"
+      }
     },
     {
       "type": "title",

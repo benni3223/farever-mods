@@ -134,7 +134,7 @@ around it.
 
 ### Instant mote conversion
 
-Enable **Instant Mote Conversion** in Better Mod Settings to complete elemental
+Enable **Instant mote conversion** in Better Mod Settings to complete elemental
 motes without the use animation's wait. Each **Complete** action requests one
 conversion using the game's normal recipe (5 motes into 1 fragment). The game
 still checks the ingredients, inventory space, and combat restrictions, and the

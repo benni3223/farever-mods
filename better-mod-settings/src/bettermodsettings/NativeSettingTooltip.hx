@@ -143,10 +143,8 @@ class NativeSettingTooltip {
             ink.xMax = ink.xMin + number(field(tile, "width"));
             ink.yMax = ink.yMin + number(field(tile, "height"));
         }
-        // Optical centering: the native question mark's visible strokes sit
-        // slightly left of the center of its glyph tile.
         call("h2d.Object", "setPosition", entry.mark, [
-            (ICON_SIZE - (ink.xMax + ink.xMin) * scale) / 2 + 1,
+            (ICON_SIZE - (ink.xMax + ink.xMin) * scale) / 2,
             (ICON_SIZE - (ink.yMax + ink.yMin) * scale) / 2
         ]);
         positionIcon(entry);
