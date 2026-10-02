@@ -15,6 +15,7 @@ private typedef HelpIcon = {
 class NativeSettingTooltip {
     static inline var ICON_SIZE = 24;
     static inline var ICON_GAP = 8;
+    static inline var BACKGROUND_COLOR = 0xEBD6CD;
     static var icons:ObjectMap<Dynamic, HelpIcon> = new ObjectMap();
     static var members:Map<String, hlx.runtime.ResolvedMember> = [];
     static var active:{icon:Dynamic, tip:Dynamic, ui:Dynamic};
@@ -33,7 +34,7 @@ class NativeSettingTooltip {
         call("h2d.Graphics", "beginFill", graphics, [0x8A5F46, 1.0]);
         call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, 11.0, 32]);
         call("h2d.Graphics", "endFill", graphics);
-        call("h2d.Graphics", "beginFill", graphics, [0xF6E4C1, 1.0]);
+        call("h2d.Graphics", "beginFill", graphics, [BACKGROUND_COLOR, 1.0]);
         call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, 9.4, 32]);
         call("h2d.Graphics", "endFill", graphics);
         var mark = create("h2d.Text", [field(label, "font"), icon]);
@@ -93,7 +94,7 @@ class NativeSettingTooltip {
         panelRect(background, 0, 4, width + 2, height + 2, 7, 0x332014, 0.10);
         panelRect(background, 2, 4, width, height, 6, 0x332014, 0.18);
         panelRect(background, 0, 0, width, height, 6, 0xB89B73, 1);
-        panelRect(background, 1, 1, width - 2, height - 2, 5, 0xF6E4C1, 1);
+        panelRect(background, 1, 1, width - 2, height - 2, 5, BACKGROUND_COLOR, 1);
         var tip = call("ui.BaseUI", "setTip", ui, [content, icon, null, null]);
         if (tip == null) {
             call("h2d.Object", "remove", content);
@@ -119,6 +120,17 @@ class NativeSettingTooltip {
         var scale = Math.min(13 / Math.max(1, ink.xMax - ink.xMin),
             17 / Math.max(1, ink.yMax - ink.yMin));
         call("h2d.Object", "setScale", entry.mark, [scale]);
+        // Text bounds include the origin and advance width, so positive glyph
+        // bearings leave blank space above/beside a lone question mark. Keep
+        // its size but center its actual glyph tile, including both bearings.
+        var character = call("h2d.Font", "getChar", field(label, "font"), [63]);
+        var tile = field(character, "t");
+        if (tile != null && number(field(tile, "width")) > 0 && number(field(tile, "height")) > 0) {
+            ink.xMin = number(field(tile, "dx"));
+            ink.yMin = number(field(tile, "dy"));
+            ink.xMax = ink.xMin + number(field(tile, "width"));
+            ink.yMax = ink.yMin + number(field(tile, "height"));
+        }
         call("h2d.Object", "setPosition", entry.mark, [
             (ICON_SIZE - (ink.xMax + ink.xMin) * scale) / 2,
             (ICON_SIZE - (ink.yMax + ink.yMin) * scale) / 2
