@@ -129,8 +129,9 @@ A title displays larger, bold text on its own row, without a separator or contro
 
 Tooltips are optional for every control type. They appear only over the help icon;
 the label and setting keep their usual behavior. Text is literal (no markup),
-wraps in a bounded column, and is shown in the native tooltip layer above the
-window, outside its scroll clipping. Positioning uses the icon's current bounds
+wraps in a bounded column, and uses the same brown text as the option labels on
+a cream panel with a subtle border and drop shadow. The panel is shown in the
+foreground overlay above windows and dropdowns, outside scroll clipping. Positioning uses the icon's current bounds
 and keeps the full tooltip inside the screen, including with UI scaling. Scrolling,
 clicking, changing tabs, or closing settings dismisses it. Omitted, disabled,
 empty, or invalid tooltip definitions show no icon and write no config values.

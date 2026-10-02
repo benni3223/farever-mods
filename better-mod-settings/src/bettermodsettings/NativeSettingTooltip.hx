@@ -1,9 +1,21 @@
 package bettermodsettings;
 
 import bettermodsettings.SettingTooltip.TooltipBounds;
+import haxe.ds.ObjectMap;
 
-/** Independent help-icon hit targets, with tips in the native unclipped tooltip layer. */
+private typedef HelpIcon = {
+    var label:Dynamic;
+    var parent:Dynamic;
+    var icon:Dynamic;
+    var mark:Dynamic;
+    var layoutErrorLogged:Bool;
+}
+
+/** Independent help icons with padded, unclipped foreground tooltips. */
 class NativeSettingTooltip {
+    static inline var ICON_SIZE = 24;
+    static inline var ICON_GAP = 8;
+    static var icons:ObjectMap<Dynamic, HelpIcon> = new ObjectMap();
     static var members:Map<String, hlx.runtime.ResolvedMember> = [];
     static var active:{icon:Dynamic, tip:Dynamic, ui:Dynamic};
 
@@ -12,42 +24,35 @@ class NativeSettingTooltip {
         var parent = field(label, "parent");
         var properties = field(parent, "dom");
         if (properties == null) return;
-        // OptionLine's nameContainer already owns the label. Appending here
-        // reserves real layout space immediately after it, before the separator.
-        var horizontal = HlxRuntime.constructEnum(HlxRuntime.resolveType("h2d.FlowLayout"), "Horizontal", []);
-        style(properties, "layout", horizontal);
-        style(properties, "hspacing", 6);
-        var props = staticCall("domkit.Properties", "createNew", [
-            "flow", properties, [], {"class": "bms-tooltip-icon"}
-        ]);
-        var icon = field(props, "obj");
-        style(props, "width", 18);
-        style(props, "height", 18);
-        style(props, "padding", 0);
-        var middle = HlxRuntime.constructEnum(HlxRuntime.resolveType("h2d.FlowAlign"), "Middle", []);
-        for (child in [label, icon]) {
-            var layout = call("h2d.Flow", "getProperties", parent, [child]);
-            HlxRuntime.setField(layout, "verticalAlign", middle);
-        }
+        // Keep the native label's layout, and reserve trailing padding for an
+        // absolute icon. Flow otherwise centers against the font's line box,
+        // not its visible glyphs, and can leave the separator behind the icon.
+        var icon = create("h2d.Object", [parent]);
+        absolute(parent, icon);
         var graphics = create("h2d.Graphics", [icon]);
-        absolute(icon, graphics);
         call("h2d.Graphics", "beginFill", graphics, [0x8A5F46, 1.0]);
-        call("h2d.Graphics", "drawCircle", graphics, [9.0, 9.0, 8.0, 24]);
+        call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, 11.0, 32]);
         call("h2d.Graphics", "endFill", graphics);
         call("h2d.Graphics", "beginFill", graphics, [0xF6E4C1, 1.0]);
-        call("h2d.Graphics", "drawCircle", graphics, [9.0, 9.0, 6.4, 24]);
+        call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, 9.4, 32]);
         call("h2d.Graphics", "endFill", graphics);
         var mark = create("h2d.Text", [field(label, "font"), icon]);
-        absolute(icon, mark);
         call("h2d.Text", "set_text", mark, ["?"]);
-        call("h2d.Text", "set_textColor", mark, [0x71452C]);
-        var width = number(call("h2d.Text", "get_textWidth", mark));
-        var height = number(call("h2d.Text", "get_textHeight", mark));
-        var scale = Math.min(10 / Math.max(1, width), 14 / Math.max(1, height));
-        call("h2d.Object", "setScale", mark, [scale]);
-        call("h2d.Object", "setPosition", mark, [(18 - width * scale) / 2, (18 - height * scale) / 2]);
-        var input = create("h2d.Interactive", [18.0, 18.0, icon, null]);
-        absolute(icon, input);
+        call("h2d.Text", "set_textColor", mark, [0x8A5F46]);
+        var entry:HelpIcon = {label: label, parent: parent, icon: icon, mark: mark, layoutErrorLogged: false};
+        icons.set(label, entry);
+        var previous = field(parent, "onAfterReflow");
+        HlxRuntime.setField(parent, "onAfterReflow", function():Void {
+            if (previous != null) Reflect.callMethod(parent, previous, []);
+            try positionIcon(entry) catch (error:Dynamic) {
+                if (!entry.layoutErrorLogged) {
+                    entry.layoutErrorLogged = true;
+                    trace("[BetterModSettings] Could not align setting tooltip icon: " + error);
+                }
+            }
+        });
+        refreshLabel(label);
+        var input = create("h2d.Interactive", [24.0, 24.0, icon, null]);
         HlxRuntime.setField(input, "propagateEvents", false);
         HlxRuntime.setField(input, "onOver", function(_:Dynamic):Void {
             try show(icon, label, text) catch (error:Dynamic) {
@@ -65,26 +70,80 @@ class NativeSettingTooltip {
         if (!visible(icon)) return;
         var ui = HlxRuntime.resolveStaticField(HlxRuntime.resolveType("ui.BaseUI"), "current");
         if (ui == null) return;
-        var props = staticCall("domkit.Properties", "createNew", ["flow", null, [], null]);
-        var content = field(props, "obj");
+        // This panel owns its fill and padding. The native Tooltip wrapper
+        // supplies anchoring/lifecycle but has no background for this content.
+        var content = create("h2d.Object", [null]);
+        var background = create("h2d.Graphics", [content]);
         // Plain Text treats quotes, angle brackets and ampersands literally.
-        // Never feed a mod author's tooltip into FmtText's markup parser.
         var body = create("h2d.Text", [field(label, "font"), content]);
         var scale = number(field(label, "scaleX"), 1);
         if (scale <= 0) scale = 1;
         call("h2d.Object", "setScale", body, [scale]);
         call("h2d.Text", "set_maxWidth", body, [360.0 / scale]);
         call("h2d.Text", "set_lineBreak", body, [true]);
-        call("h2d.Text", "set_textColor", body, [0xF5F0E8]);
+        call("h2d.Text", "set_textColor", body, [0x8A5F46]);
         call("h2d.Text", "set_text", body, [text]);
+        var ink = bounds(call("h2d.Object", "getBounds", body, [body, null]));
+        var width = (ink.xMax - ink.xMin) * scale + 28;
+        var height = (ink.yMax - ink.yMin) * scale + 24;
+        call("h2d.Object", "setPosition", body, [14 - ink.xMin * scale, 12 - ink.yMin * scale]);
+        // Layered translucent shapes give a soft shadow without a render-target
+        // filter. Its bounds are included in the existing screen-edge clamp.
+        panelRect(background, -2, 3, width + 4, height + 5, 8, 0x332014, 0.06);
+        panelRect(background, 0, 4, width + 2, height + 2, 7, 0x332014, 0.10);
+        panelRect(background, 2, 4, width, height, 6, 0x332014, 0.18);
+        panelRect(background, 0, 0, width, height, 6, 0xB89B73, 1);
+        panelRect(background, 1, 1, width - 2, height - 2, 5, 0xF6E4C1, 1);
         var tip = call("ui.BaseUI", "setTip", ui, [content, icon, null, null]);
         if (tip == null) {
             call("h2d.Object", "remove", content);
             return;
         }
         active = {icon: icon, tip: tip, ui: ui};
-        // BaseUI.setTip attaches to rootTips, above windows and outside the
-        // scrolling panel. Position only after native layout has measured it.
+        // The foreground overlay is above regular windows, dropdowns and tips.
+        // BaseUI still owns removal; placement uses this parent's coordinates.
+        var overlay = field(ui, "rootOverlay");
+        if (overlay != null) {
+            call("h2d.Object", "addChild", overlay, [tip]);
+            absolute(overlay, tip);
+        }
+    }
+
+    /** Reapply after native styles settle, just like the option label itself. */
+    public static function refreshLabel(label:Dynamic):Void {
+        var entry = icons.get(label);
+        if (entry == null) return;
+        call("h2d.Flow", "set_paddingRight", entry.parent, [ICON_GAP + ICON_SIZE]);
+        call("h2d.Text", "set_font", entry.mark, [field(label, "font")]);
+        var ink = bounds(call("h2d.Object", "getBounds", entry.mark, [entry.mark, null]));
+        var scale = Math.min(13 / Math.max(1, ink.xMax - ink.xMin),
+            17 / Math.max(1, ink.yMax - ink.yMin));
+        call("h2d.Object", "setScale", entry.mark, [scale]);
+        call("h2d.Object", "setPosition", entry.mark, [
+            (ICON_SIZE - (ink.xMax + ink.xMin) * scale) / 2,
+            (ICON_SIZE - (ink.yMax + ink.yMin) * scale) / 2
+        ]);
+        positionIcon(entry);
+    }
+
+    static function positionIcon(entry:HelpIcon):Void {
+        var ink = bounds(call("h2d.Object", "getBounds", entry.label, [entry.label, null]));
+        var x = number(field(entry.label, "x")) + ink.xMax * number(field(entry.label, "scaleX"), 1) + ICON_GAP;
+        var y = number(field(entry.label, "y"))
+            + (ink.yMin + ink.yMax) * number(field(entry.label, "scaleY"), 1) / 2 - ICON_SIZE / 2;
+        call("h2d.Object", "setPosition", entry.icon, [x, y]);
+    }
+
+    public static function reset():Void {
+        hide();
+        icons = new ObjectMap();
+    }
+
+    static function panelRect(g:Dynamic, x:Float, y:Float, w:Float, h:Float,
+            radius:Float, color:Int, alpha:Float):Void {
+        call("h2d.Graphics", "beginFill", g, [color, alpha]);
+        call("h2d.Graphics", "drawRoundedRect", g, [x, y, w, h, radius, 8]);
+        call("h2d.Graphics", "endFill", g);
     }
 
     /** Called after native Tooltip.sync; never use screen pixels as local positions. */
@@ -149,8 +208,6 @@ class NativeSettingTooltip {
         var properties = call("h2d.Flow", "getProperties", parent, [child]);
         call("h2d.FlowProperties", "set_isAbsolute", properties, [true]);
     }
-    static function style(properties:Dynamic, name:String, value:Dynamic):Void
-        call("domkit.Properties", "initStyle", properties, [name, value]);
     static function field(object:Dynamic, name:String):Dynamic
         return object == null ? null : HlxRuntime.resolveField(object, name);
     static function number(value:Dynamic, fallback:Float = 0):Float {
@@ -173,6 +230,4 @@ class NativeSettingTooltip {
         if (args != null) for (arg in args) all.push(arg);
         return HlxRuntime.callResolved(member(type, name, false), all);
     }
-    static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic
-        return HlxRuntime.callResolved(member(type, name, true), args);
 }

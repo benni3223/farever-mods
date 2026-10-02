@@ -165,7 +165,7 @@ class BetterModSettingsMod {
     @:hlx.prefix(GameApp.dispose)
     static function resetKeyCapture(instance:Dynamic):HlxPrefixResult<Void> {
         NativeDropdown.closeAll(true);
-        NativeSettingTooltip.hide();
+        NativeSettingTooltip.reset();
         capturingKeybind = null;
         captureInput.reset();
         nativeSettingsWindow = null;
@@ -390,6 +390,7 @@ class BetterModSettingsMod {
             applyNativeOptionsWindowComponent(windowProperties);
             sizeNativeSettingsWindow(windowProperties);
             setNativeWindowTitle(windowProperties);
+            NativeSettingTooltip.reset();
             pendingOptionLabels = [];
             pendingTitleStyles = [];
             pendingOptionRows = [];
@@ -1173,6 +1174,7 @@ class BetterModSettingsMod {
                                 HlxRuntime.setField(label, field, value);
                         } catch (_:Dynamic) {}
                     }
+                    NativeSettingTooltip.refreshLabel(label);
                 }
             }
         } catch (error:Dynamic) {
