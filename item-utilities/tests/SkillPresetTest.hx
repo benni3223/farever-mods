@@ -92,6 +92,10 @@ class SkillPresetTest {
         rejects(function() SkillPresetPlan.decode([{skill: "A"}, empty[1], empty[2], empty[3]]), "missing rune selection rejected");
         rejects(function() SkillPresetPlan.decode([{skill: null, runes: ["A1"]}, empty[1], empty[2], empty[3]]), "runes on empty slot rejected");
         rejects(function() SkillPresetPlan.decode([{skill: 5, runes: []}, empty[1], empty[2], empty[3]]), "malformed skill ID rejected");
+        rejects(function() SkillPresetPlan.decode([{skill: {bytes: null, length: 1}, runes: []}, empty[1], empty[2], empty[3]]),
+            "corrupted serialized skill object is not treated as an ID");
+        rejects(function() SkillPresetPlan.decode([{skill: "A", runes: [{bytes: null, length: 2}]}, empty[1], empty[2], empty[3]]),
+            "corrupted serialized rune object is not treated as an ID");
         rejects(function() SkillPresetPlan.build(current, saved(["A", "A", null, null], []), rules(), owners()), "duplicate skills rejected before changes");
         rejects(function() SkillPresetPlan.build(current, saved(["unknown", null, null, null], []), rules(), owners()), "unknown or locked skill rejected before changes");
         var wrongRune = oneRune.copy();
