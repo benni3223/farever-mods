@@ -14,7 +14,11 @@
     {
       "key": "showBossHealth",
       "type": "checkbox",
-      "label": "Show boss health"
+      "label": "Show boss health",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Boss health bars will show the raw health value alongside percentage. Instead of just \"100%\", you will see \"150,000 (100%)\""
+      }
     },
     {
       "key": "performanceOptimization",

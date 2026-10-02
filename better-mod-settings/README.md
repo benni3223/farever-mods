@@ -113,6 +113,27 @@ A title displays larger, bold text on its own row, without a separator or contro
 | `key` | Yes | String | Exact top-level property name in the settings JSON, or the action identifier for a button. An empty key is ignored; nested paths are not supported. Button keys must be unique within the mod. |
 | `type` | Yes | String | Must be exactly `checkbox`, `slider`, `text`, `dropdown`, `keybinding`, or `button` for a control. Use `title` for a display-only title row as described above. |
 | `label` | For dropdowns | String | Text displayed beside the control. Dropdowns require a non-empty label; other controls default to `key`. |
+| `tooltip` | No | Object | Set `enabled` to `true` and supply a non-empty string `tooltipText` to add a circled question mark immediately after the label. Hover the icon to display the help text. |
+
+```json
+{
+  "key": "showBossHealth",
+  "type": "checkbox",
+  "label": "Show boss health",
+  "tooltip": {
+    "enabled": true,
+    "tooltipText": "Boss health bars will show the raw health value alongside percentage. Instead of just \"100%\", you will see \"150,000 (100%)\""
+  }
+}
+```
+
+Tooltips are optional for every control type. They appear only over the help icon;
+the label and setting keep their usual behavior. Text is literal (no markup),
+wraps in a bounded column, and is shown in the native tooltip layer above the
+window, outside its scroll clipping. Positioning uses the icon's current bounds
+and keeps the full tooltip inside the screen, including with UI scaling. Scrolling,
+clicking, changing tabs, or closing settings dismisses it. Omitted, disabled,
+empty, or invalid tooltip definitions show no icon and write no config values.
 
 #### Control types
 

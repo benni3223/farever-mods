@@ -22,3 +22,8 @@
 -cp tests
 -main DropdownSettingTest
 --interp
+--next
+-cp src
+-cp tests
+-main SettingTooltipTest
+--interp

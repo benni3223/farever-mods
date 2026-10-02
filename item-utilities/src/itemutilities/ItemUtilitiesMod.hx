@@ -70,6 +70,8 @@ private typedef TrackedInventorySlot = {
     var slot:Dynamic;
     var listIndex:Int;
     var overlayId:String;
+    var lockInput:PresetDropdownInput;
+    var lockInputUsed:Bool;
 }
 
 @:build(hlx.runtime.Mod.build())
@@ -243,6 +245,7 @@ class ItemUtilitiesMod {
     static var inventoryComps:Array<Dynamic> = [];
     static var playerInventoryComp:Dynamic;
     static var visibleSlots:Array<TrackedInventorySlot> = [];
+    static var activeLockInputs:Array<TrackedInventorySlot> = [];
     static var slotsByObject:ObjectMap<Dynamic, TrackedInventorySlot> = new ObjectMap();
     static var nextSlotOverlayId:Int = 0;
     static var lockEditMode:Bool = false;
@@ -791,6 +794,9 @@ class ItemUtilitiesMod {
         presetDropdown.beginFrame();
         presetDropdownHost = null;
         windowOccluders = null;
+        var previousLockInputs = activeLockInputs;
+        for (entry in previousLockInputs) entry.lockInputUsed = false;
+        activeLockInputs = [];
         refreshActiveHero();
         updateTalentPreset();
         updateSkillPreset();
@@ -832,6 +838,10 @@ class ItemUtilitiesMod {
                     drawLockSlotOverlays();
                 drawLockedItemBadges();
             }
+        }
+        for (entry in previousLockInputs) {
+            var input:PresetDropdownInput = entry.lockInput;
+            if (input != null && entry.lockInputUsed != true) input.update(null, null);
         }
         presetDropdown.endFrame();
         presetDropdownInput.update(presetDropdownHost, presetDropdown.inputBounds());
@@ -2041,6 +2051,18 @@ class ItemUtilitiesMod {
             if (buttonCovered(x, y, width, height))
                 continue;
 
+            // Equipped slots have native mouse actions underneath the ImGui
+            // toggle. Give the overlay its own native hit target too, so that
+            // the same press/release cannot also open the equipment picker.
+            if (isActiveEquipmentSlot(entry, slot)) {
+                if (entry.lockInput == null)
+                    entry.lockInput = new PresetDropdownInput("item lock");
+                var input:PresetDropdownInput = entry.lockInput;
+                input.update(slot, rect);
+                entry.lockInputUsed = true;
+                activeLockInputs.push(entry);
+            }
+
             ImGui.setNextWindowPos(new ImVec2(x, y));
             ImGui.setNextWindowSize(new ImVec2(width, height));
             ImGui.setNextWindowScroll(new ImVec2(0, 0));
@@ -2711,7 +2733,8 @@ class ItemUtilitiesMod {
     }
 
     static function isCraftingComponent(item:Dynamic):Bool {
-        return isItemType(item, CRAFTING_COMPONENT_TYPE);
+        return isItemType(item, CRAFTING_COMPONENT_TYPE)
+            || isItemType(item, "UpgradeComponent");
     }
 
     static function matchesDepositMode(item:Dynamic):Bool {
@@ -2974,6 +2997,8 @@ class ItemUtilitiesMod {
             index: index,
             slot: slot,
             listIndex: visibleSlots.length,
+            lockInput: null,
+            lockInputUsed: false,
             overlayId: "##item-lock-slot-" + nextSlotOverlayId++
         };
         slotsByObject.set(slot, entry);
@@ -2984,6 +3009,8 @@ class ItemUtilitiesMod {
         var entry = slotsByObject.get(slot);
         if (entry == null)
             return;
+        var input:PresetDropdownInput = entry.lockInput;
+        if (input != null) input.update(null, null);
         slotsByObject.remove(slot);
         // Fill the gap with the last entry, avoiding another list search or shift.
         var last = visibleSlots.pop();
