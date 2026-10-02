@@ -16,6 +16,7 @@ class NativeSettingTooltip {
     static inline var ICON_SIZE = 24;
     static inline var ICON_GAP = 8;
     static inline var BACKGROUND_COLOR = 0xEBD6CD;
+    static inline var FOREGROUND_COLOR = 0x4B2313;
     static var icons:ObjectMap<Dynamic, HelpIcon> = new ObjectMap();
     static var members:Map<String, hlx.runtime.ResolvedMember> = [];
     static var active:{icon:Dynamic, tip:Dynamic, ui:Dynamic};
@@ -31,15 +32,24 @@ class NativeSettingTooltip {
         var icon = create("h2d.Object", [parent]);
         absolute(parent, icon);
         var graphics = create("h2d.Graphics", [icon]);
-        call("h2d.Graphics", "beginFill", graphics, [0x8A5F46, 1.0]);
-        call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, 11.0, 32]);
+        call("h2d.Graphics", "beginFill", graphics, [FOREGROUND_COLOR, 1.0]);
+        call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, 11.0, 96]);
         call("h2d.Graphics", "endFill", graphics);
         call("h2d.Graphics", "beginFill", graphics, [BACKGROUND_COLOR, 1.0]);
-        call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, 9.4, 32]);
+        call("h2d.Graphics", "drawCircle", graphics, [12.0, 12.0, 9.4, 96]);
         call("h2d.Graphics", "endFill", graphics);
+        // More segments alone cannot smooth pixel edges. Supersample only
+        // this small circle, then bilinearly downsample through the native
+        // filter path; leave the text and window at their normal resolution.
+        var antialias = create("h2d.filter.Nothing", []);
+        HlxRuntime.setField(antialias, "smooth", true);
+        HlxRuntime.setField(antialias, "boundsExtend", 1.0);
+        call("h2d.filter.Filter", "set_useScreenResolution", antialias, [true]);
+        call("h2d.filter.Filter", "set_resolutionScale", antialias, [4.0]);
+        call("h2d.Object", "set_filter", graphics, [antialias]);
         var mark = create("h2d.Text", [field(label, "font"), icon]);
         call("h2d.Text", "set_text", mark, ["?"]);
-        call("h2d.Text", "set_textColor", mark, [0x8A5F46]);
+        call("h2d.Text", "set_textColor", mark, [FOREGROUND_COLOR]);
         var entry:HelpIcon = {label: label, parent: parent, icon: icon, mark: mark, layoutErrorLogged: false};
         icons.set(label, entry);
         var previous = field(parent, "onAfterReflow");
@@ -83,7 +93,7 @@ class NativeSettingTooltip {
         call("h2d.Object", "setScale", body, [scale]);
         call("h2d.Text", "set_maxWidth", body, [360.0 / scale]);
         call("h2d.Text", "set_lineBreak", body, [true]);
-        call("h2d.Text", "set_textColor", body, [0x8A5F46]);
+        call("h2d.Text", "set_textColor", body, [FOREGROUND_COLOR]);
         call("h2d.Text", "set_text", body, [text]);
         var ink = bounds(call("h2d.Object", "getBounds", body, [body, null]));
         var width = (ink.xMax - ink.xMin) * scale + 28;
@@ -94,7 +104,7 @@ class NativeSettingTooltip {
         panelRect(background, -2, 3, width + 4, height + 5, 8, 0x332014, 0.06);
         panelRect(background, 0, 4, width + 2, height + 2, 7, 0x332014, 0.10);
         panelRect(background, 2, 4, width, height, 6, 0x332014, 0.18);
-        panelRect(background, 0, 0, width, height, 6, 0xB89B73, 1);
+        panelRect(background, 0, 0, width, height, 6, FOREGROUND_COLOR, 1);
         panelRect(background, 1, 1, width - 2, height - 2, 5, BACKGROUND_COLOR, 1);
         var tip = call("ui.BaseUI", "setTip", ui, [content, icon, null, null]);
         if (tip == null) {
