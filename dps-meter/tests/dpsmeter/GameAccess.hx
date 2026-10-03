@@ -34,6 +34,13 @@ class GameAccess {
         case "haxe.ds._StringMap.StringMapKeysIterator.next": object.next();
         case "st.Player.getActivityContext": field(object, "context");
         case "ent.GameObject.isDead": field(object, "dead") == true || field(object, "removed") == true;
+        // The shipped client retains this server-only method as a throwing stub.
+        case "ent.Unit.isAtDeathDoor": throw "!isServer";
+        case "ent.Unit.get_health": field(object, "health");
+        case "ent.Unit.getName": field(object, "name");
+        case "st.skill.DamageResult.get_source": field(object, "source");
+        case "st.skill.DamageResult.get_isPhysical": field(object, "physical") == true;
+        case "st.skill.DamageResult.get_isMagic": field(object, "magical") == true;
         case "h2d.Object.getScene": field(object, "scene");
         case "h2d.Object.drawTo":
             var draw:Dynamic->Void = globals["drawSnapshot"];
@@ -56,6 +63,7 @@ class GameAccess {
         default: throw "Unexpected native metadata call: " + type + "." + name;
     };
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic return switch (type + "." + name) {
+        case "Config.getVersion": "0.3.0.test";
         case "HActivity.all": [];
         case "data.CodexData.isInCodex": field(args[0], "inCodex") == true;
         case "st.player.Progress.getUnitProgressThreshold": field(args[0], "thresholds");

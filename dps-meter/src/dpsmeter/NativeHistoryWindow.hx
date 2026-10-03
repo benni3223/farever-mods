@@ -359,6 +359,10 @@ class NativeHistoryWindow {
         }
         row.deleteButton = button(G.field(row.obj, "dom"), "Delete log", "dpsHistoryEntryDelete" + i, () -> deleteEntry(row.entry));
         HistoryButtons.red(row.deleteButton);
+        // Share native hover tracking with the row while keeping button
+        // presses/releases local to Delete log.
+        G.set(row.deleteButton, "propagateOver", true);
+        style(row.deleteButton, "propagate-over", true);
         absolute(row.obj, row.deleteButton);
         show(row.deleteButton, false);
         rows.push(row);

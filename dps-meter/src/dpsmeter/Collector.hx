@@ -109,9 +109,10 @@ class Collector {
         var dead = G.call("ent.GameObject", "isDead", phrixes) == true;
         // Phase 2 is playable after surrender; phase 3 covers the bridge. At
         // phase 1's lethal hit the server holds health at 1 before advancing.
+        // isAtDeathDoor() throws !isServer in the shipped client. Use the
+        // replicated health instead so phase-one hits reach model.record().
         var transition = phase == 3 || (phase == 1
-            && (G.call("ent.Unit", "isAtDeathDoor", phrixes) == true
-                || G.number(G.call("ent.Unit", "get_health", phrixes), 2) <= 1));
+            && G.number(G.call("ent.Unit", "get_health", phrixes), 2) <= 1);
         model.updatePhrixes(now, uid, phase, G.field(phrixes, "isInCombat") == true, transition, dead);
         if (!model.trackingPhrixes(uid)) phrixes = null;
     }
