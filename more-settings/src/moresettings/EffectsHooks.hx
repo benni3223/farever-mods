@@ -5,6 +5,10 @@ import moresettings.GameAccess as G;
 
 /** Presentation scopes keep native FX creation, callbacks and skills intact. */
 class EffectsHooks {
+    @:hlx.postfix(st.skill.SkillArea.playTelegraph)
+    static function telegraphAfter(instance:Dynamic, mobile:Bool, result:Void):Void
+        CrabgantuaWarnings.attach(instance);
+
     @:hlx.prefix(st.skill.SkillStep.playVisuals)
     static function stepBefore(instance:Dynamic, force:hl.Ref<Bool>):HlxPrefixResult<Void> {
         AllyEffects.pushSkill(G.field(instance, "baseSkill")); return Continue;
@@ -107,14 +111,22 @@ class EffectsHooks {
         AllyEffects.beforeFxSync(instance, ctx); return Continue;
     }
     @:hlx.postfix(prefab.FXAnimationBase.syncRec)
-    static function fxAfter(instance:Dynamic, ctx:Dynamic, result:Void):Void AllyEffects.afterFxSync(instance);
+    static function fxAfter(instance:Dynamic, ctx:Dynamic, result:Void):Void {
+        AllyEffects.afterFxSync(instance);
+        CrabgantuaWarnings.sync(instance);
+    }
     @:hlx.prefix(prefab.FXAnimationBase.detachFromParent)
     static function detachBefore(instance:Dynamic):HlxPrefixResult<Void> {
         AllyEffects.beforeDetach(instance); return Continue;
     }
     @:hlx.prefix(prefab.FXAnimationBase.reset)
     static function resetBefore(instance:Dynamic):HlxPrefixResult<Void> {
+        CrabgantuaWarnings.forget(instance);
         AllyEffects.forget(instance); return Continue;
+    }
+    @:hlx.prefix(prefab.FXAnimationBase.onRemove)
+    static function removing(instance:Dynamic):HlxPrefixResult<Void> {
+        CrabgantuaWarnings.forget(instance); return Continue;
     }
     @:hlx.postfix(prefab.FXAnimationBase.onRemove)
     static function removed(instance:Dynamic, result:Void):Void AllyEffects.forget(instance);

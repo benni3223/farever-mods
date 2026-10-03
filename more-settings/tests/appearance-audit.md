@@ -14,7 +14,7 @@ Function indices below are evidence only; runtime code resolves names.
 | `UnitSkinData.copySkinData` | 22963 / 24064 | Copies basic fields and allocates a fresh native array and shape records for active blend shapes. |
 | `Unit.set_skinData` | 4682 / 4744 | Client-owned replicated property; a replacement object marks the property dirty. Local owner needs an explicit visual refresh. |
 | `Unit.set_skin` | 4685 / 4747 | Also a client-owned property. Selects the active body model and invokes `updateSkin`. The native character editor uses it for body changes. |
-| `Unit.updateSkin` | 4699 / 4761 | Model-dependent refresh. Same-model customization requires an explicit `UnitView.applyModelInfo` refresh. |
+| `Unit.updateSkin` | 4699 / 4761 | Model-dependent refresh. Same-model customization requires an explicit visual refresh (now `UnitView.displaySkin`; see the October 2 save audit below). |
 | `HeroData.save` | 14839 / 9139 | Stores the hero's current skin data for normal character persistence. The mod does not call server save functions or admin RPCs. |
 | `ColorSelector.createButton` | 25865 / 27072 | Both clients ultimately call `Texture.capturePixels` to sample each swatch (live in ColorPickButton.init; PTR in this factory). The mod now avoids both native picker classes. |
 | `UnitScene.postInitUnitView` | 25758 / 21178 | Native dynamic callback computes bounds and starts an independent idle animation. Preserve rotation around the callback because live adds `viewAngle`. PTR-only `setAnim` is not required. |
@@ -179,3 +179,33 @@ at the viewport size; the content column explicitly participates in normal
 flow, so it contributes to scroll bounds and moves with the scroll position.
 Top alignment, horizontal centering, per-row
 pagination, preview framing and the 800 px window height remain unchanged.
+
+### October 2: save/close rendering lifecycle
+
+Audited against the supplied October 1 live bytecode (SHA-256
+`617f602066c762869d5c15a01c83714664b0026868f0d24b129bbcc850da88d8`).
+The reported screenshot shows persistent trails of world nameplates/health
+bars after saving. The GPU symptom has not been reproduced locally; the
+following concrete lifecycle faults were corrected and still require an
+in-game save/reopen check:
+
+- Save and our Close/Cancel callbacks now queue their action. Commit, preview
+  teardown and live-model refresh run at the next `GameApp.update` prefix,
+  outside the native UI callback/traversal. Character/world ownership is
+  revalidated before committing; Cancel wins over a queued Save.
+- Hide and detach the native window before releasing its thumbnail textures.
+  Page/tab retirement also hides each icon, clears its tile and marks the
+  native button stale before releasing its texture/reallocation callback.
+  This prevents remaining drawable references from sampling disposed targets.
+- `Unit.set_skin` calls `updateSkin`, which already applies the new model when
+  `resolveModel` changes it. The old save code unconditionally applied the
+  model again. That second rebuild is gone. Same-model customization calls
+  `UnitView.displaySkin`, matching the game's `set_skinData` refresh for remote
+  heroes and retaining skin, hair, gear, gradient and shape updates.
+
+The appearance regression harness exercises the actual window Save/Close
+callbacks and queued update path, including double clicks, cancellation,
+world changes, retry after a failed commit and idempotent cleanup. Its texture
+disposal mock rejects any target still referenced by a thumbnail tile, and it
+verifies detach → release → live refresh ordering. The native setter mock
+includes its built-in model refresh so duplicate rebuilding fails the test.

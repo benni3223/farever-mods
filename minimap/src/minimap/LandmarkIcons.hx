@@ -6,6 +6,8 @@ import minimap.GameAccess as G;
 class LandmarkIcons {
     public static inline var RIFT_ALERT_COLOR:Int = 0xc94a9f;
     public static inline var SPARKLING_COLOR:Int = 0xffdc42;
+    public static inline var PLAYER_COLOR:Int = 0x70d8ff;
+    public static inline var PARTY_COLOR:Int = 0xb56cff;
 
     public static function draw(graphics:Dynamic, kind:String, radius:Float):Void {
         if (kind == "obelisk") obelisk(graphics, radius);
@@ -270,48 +272,55 @@ class LandmarkIcons {
     }
 
     static function gloryToken(g:Dynamic, r:Float):Void {
-        // Tilted copper token with a broad gold bevel and an embossed rune.
-        var edge = [-0.57, -0.8, 0.57, -0.8, 0.76, -0.6, 0.76, 0.6,
-            0.57, 0.8, -0.57, 0.8, -0.76, 0.6, -0.76, -0.6];
-        fill(g, 0x513122);
-        tokenPolygon(g, r + 1, edge);
-        end(g);
-        fill(g, 0xf5be68);
-        tokenPolygon(g, r, edge);
-        end(g);
-        fill(g, 0xb96c36);
-        tokenPolygon(g, r, [0.57, -0.8, 0.76, -0.6, 0.76, 0.6, 0.57, 0.8,
-            -0.57, 0.8, -0.76, 0.6, -0.52, 0.54, 0.5, 0.54, 0.52, -0.59]);
-        end(g);
-        fill(g, 0x99532c);
-        tokenPolygon(g, r * 0.8, edge);
-        end(g);
-        fill(g, 0xde9550);
-        tokenPolygon(g, r * 0.69, edge);
-        end(g);
-        fill(g, 0xad632f);
-        tokenPolygon(g, r, [-0.42, 0.35, -0.42, -0.22, -0.05, -0.22,
-            0.35, 0.32, 0.15, 0.39, -0.12, -0.01, -0.23, -0.01, -0.23, 0.35]);
-        tokenPolygon(g, r, [0.1, -0.43, 0.44, -0.43, 0.44, -0.23,
-            0.28, -0.23, 0.28, -0.06, 0.1, -0.2]);
-        end(g);
-        fill(g, 0xffca76);
-        tokenPolygon(g, r, [-0.44, 0.29, -0.44, -0.28, -0.08, -0.28,
-            0.29, 0.25, 0.13, 0.25, -0.16, -0.12, -0.3, -0.12, -0.3, 0.29]);
-        tokenPolygon(g, r, [0.07, -0.47, 0.41, -0.47, 0.41, -0.34,
-            0.2, -0.34, 0.2, -0.15, 0.07, -0.24]);
-        end(g);
-    }
-
-    static function tokenPolygon(g:Dynamic, r:Float, coords:Array<Float>):Void {
-        var rotated:Array<Float> = [];
-        var c = Math.cos(0.36), s = Math.sin(0.36);
-        for (i in 0...Std.int(coords.length / 2)) {
-            var x = coords[i * 2], y = coords[i * 2 + 1];
-            rotated.push(x * c - y * s);
-            rotated.push(x * s + y * c);
+        // Medal of Glory: a round gold medallion cradled by a laurel wreath.
+        // Broad flat shapes keep the leaves and central crest legible at 16 px.
+        fill(g, 0x65411c);
+        ellipse(g, r + 0.6, 0, 0.05, 0.65, 0.77);
+        for (side in [-1, 1]) {
+            polygon(g, r, [0.04, 0.86, 0.40, 0.73, 0.69, 0.41, 0.81, 0.02,
+                0.69, -0.47, 0.84, -0.38, 0.97, 0.06, 0.82, 0.58, 0.45, 0.89, 0.09, 1.0], side);
+            polygon(g, r, [0.57, -0.48, 0.51, -0.75, 0.63, -0.99, 0.78, -0.77, 0.77, -0.48], side);
+            polygon(g, r, [0.72, -0.19, 0.73, -0.55, 0.93, -0.74, 1.00, -0.45, 0.88, -0.13], side);
+            polygon(g, r, [0.70, 0.23, 0.86, -0.09, 1.02, -0.22, 1.02, 0.11, 0.84, 0.40], side);
+            polygon(g, r, [0.47, 0.64, 0.71, 0.33, 0.98, 0.31, 0.86, 0.63, 0.60, 0.77], side);
         }
-        polygon(g, r, rotated);
+        end(g);
+        fill(g, 0xd99525);
+        for (side in [-1, 1]) {
+            polygon(g, r, [0.07, 0.88, 0.45, 0.72, 0.73, 0.37, 0.86, -0.12,
+                0.89, 0.11, 0.76, 0.52, 0.42, 0.83, 0.08, 0.95], side);
+            polygon(g, r, [0.61, -0.49, 0.56, -0.75, 0.63, -0.9, 0.73, -0.74, 0.72, -0.5], side);
+            polygon(g, r, [0.77, -0.20, 0.78, -0.52, 0.90, -0.64, 0.94, -0.44, 0.85, -0.20], side);
+            polygon(g, r, [0.77, 0.22, 0.88, -0.03, 0.96, -0.10, 0.95, 0.12, 0.82, 0.33], side);
+            polygon(g, r, [0.56, 0.65, 0.73, 0.40, 0.88, 0.38, 0.80, 0.59, 0.61, 0.71], side);
+        }
+        end(g);
+        fill(g, 0xffdb73);
+        for (side in [-1, 1]) {
+            polygon(g, r, [0.59, -0.70, 0.63, -0.9, 0.70, -0.72, 0.65, -0.50], side);
+            polygon(g, r, [0.79, -0.49, 0.90, -0.64, 0.89, -0.4, 0.8, -0.2], side);
+            polygon(g, r, [0.86, 0.08, 0.96, -0.1, 0.94, 0.13, 0.81, 0.32], side);
+            polygon(g, r, [0.66, 0.56, 0.87, 0.39, 0.77, 0.59, 0.59, 0.69], side);
+        }
+        ellipse(g, r, 0, 0.01, 0.59, 0.70);
+        end(g);
+        fill(g, 0xb87920);
+        ellipse(g, r, 0.03, 0.06, 0.49, 0.59);
+        end(g);
+        fill(g, 0xf5bb42);
+        ellipse(g, r, 0, 0.015, 0.44, 0.54);
+        end(g);
+        // Angular, curling crest from the medal's embossed center.
+        fill(g, 0xa86716);
+        polygon(g, r, [0.19, -0.39, -0.10, -0.34, -0.30, -0.08, -0.29, 0.19,
+            0.03, 0.4, 0.28, 0.40, 0.00, 0.15, -0.05, -0.04, 0.22, 0.02,
+            0.34, 0.18, 0.32, -0.06, 0.07, -0.24]);
+        end(g);
+        fill(g, 0xffe597);
+        polygon(g, r, [0.13, -0.41, -0.14, -0.34, -0.31, -0.10, -0.32, 0.13,
+            -0.08, 0.31, 0.13, 0.33, -0.09, 0.08, -0.09, -0.12, 0.14, -0.02,
+            0.27, 0.09, 0.23, -0.1, 0.01, -0.27]);
+        end(g);
     }
 
     static function demonHuntress(g:Dynamic, r:Float):Void {
@@ -725,12 +734,17 @@ class LandmarkIcons {
         end(g);
     }
 
-    public static function alertArrow(g:Dynamic, radius:Float, color:Int):Void {
+    public static function alertArrow(g:Dynamic, radius:Float, color:Int, ?outline:Null<Int>):Void {
         // A long shaft and triangular head distinguish alerts from player arrows.
         // Point along +X so the existing destination rotation still applies.
         fill(g, 0x201b1b);
-        alertArrowShape(g, radius, 0.75);
+        alertArrowShape(g, radius, outline == null ? 0.75 : 1.75);
         end(g);
+        if (outline != null) {
+            fill(g, outline);
+            alertArrowShape(g, radius, 1.0);
+            end(g);
+        }
         fill(g, color);
         alertArrowShape(g, radius, 0);
         end(g);
@@ -751,7 +765,7 @@ class LandmarkIcons {
         polygon(g, 1, [tip, 0, shoulder - padding, head, shoulder - padding, -head]);
     }
 
-    public static function partyPlayer(g:Dynamic, radius:Float):Void {
+    public static function outlinedPlayer(g:Dynamic, radius:Float, color:Int):Void {
         // Trace only the arrow's outside contour, including its rear notch.
         // Draw the blue fill last so the outline preserves the ordinary arrow.
         // Start midway along an edge so the stroke joins at every corner,
@@ -759,11 +773,11 @@ class LandmarkIcons {
         var contour:Array<Float> = [0.1, 0.35, -0.8, 0.7, -0.45, 0, -0.8, -0.7, 1, 0];
         G.call("h2d.Graphics", "lineStyle", g, [3.0, 0x201b1b, 1.0]);
         polygon(g, radius, contour);
-        G.call("h2d.Graphics", "lineStyle", g, [2.0, SPARKLING_COLOR, 1.0]);
+        G.call("h2d.Graphics", "lineStyle", g, [2.0, color, 1.0]);
         polygon(g, radius, contour);
         G.call("h2d.Graphics", "lineStyle", g, [0.0, 0, 0.0]);
         // The same two solid triangles as the ordinary blue player arrow.
-        fill(g, 0x70d8ff);
+        fill(g, PLAYER_COLOR);
         polygon(g, radius, [1, 0, -0.45, 0, -0.8, -0.7]);
         polygon(g, radius, [1, 0, -0.8, 0.7, -0.45, 0]);
         end(g);

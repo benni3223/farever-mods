@@ -4,6 +4,7 @@ import dpsmeter.CombatModel.Fight;
 import dpsmeter.FightHistory;
 import dpsmeter.GameAccess as G;
 import dpsmeter.NativeUi.*;
+import dpsmeter.MeterConfig.MeterSettings;
 
 /** One native browser: categories -> encounter names -> attempts -> damage chart. */
 class NativeHistoryWindow {
@@ -61,8 +62,15 @@ class NativeHistoryWindow {
     var width:Int = 0;
     var height:Int = 0;
     var lastRefresh:Float = -1;
+    var config:MeterSettings;
+    var dragSurface:Dynamic;
+    var dragging:Bool = false;
+    var startMouseX:Float = 0;
+    var startMouseY:Float = 0;
+    var startX:Float = 0;
+    var startY:Float = 0;
 
-    public function new() {}
+    public function new(config:MeterSettings) { this.config = config; }
     public function open():Void { requested = true; }
     public function toggle():Void {
         if (requested || (window != null && G.field(window, "removed") != true && G.field(window, "parent") != null)) dispose();
@@ -89,6 +97,7 @@ class NativeHistoryWindow {
             if (response.id == serial) display(response);
             response = writer.receiveHistory();
         }
+        updateDrag();
         layout();
         if (mode == "chart" && !pending && fight != null) chart.update(fight, now);
         if (now - lastRefresh >= 0.20) {
@@ -135,7 +144,9 @@ class NativeHistoryWindow {
         if (deleting) {
             deleting = false;
             if (response.error != "") {
-                status(response.error, true); show(deleteButton, true); show(snapshotButton, true);
+                status(response.error, true);
+                show(deleteButton, mode == "chart"); show(snapshotButton, mode == "chart");
+                for (row in rows) show(row.deleteButton, mode == "fights" && row.entry != null);
             } else navigate("fights", group, fightsPage);
             return;
         }
@@ -159,6 +170,7 @@ class NativeHistoryWindow {
                 var row = rows[i]; show(row.obj, i < count);
                 if (i >= count) continue;
                 row.entry = mode == "fights" ? response.entries[i] : null;
+                show(row.deleteButton, row.entry != null);
                 row.group = names ? response.groups[i].name : "";
                 var parts = names ? {before: response.groups[i].name, player: "", after: ""}
                     : FightHistory.attemptHeadingParts(row.entry);
@@ -186,11 +198,15 @@ class NativeHistoryWindow {
         catch (error:Dynamic) status(Std.string(error), true);
     }
     function deleteLog():Void {
-        if (pending || copying || fight == null || selectedEntry == null) return;
+        if (fight != null) deleteEntry(selectedEntry);
+    }
+    function deleteEntry(entry:HistoryEntry):Void {
+        if (pending || copying || entry == null) return;
         pending = true; deleting = true; serial++;
         show(deleteButton, false); show(snapshotButton, false);
+        for (row in rows) show(row.deleteButton, false);
         status("Moving log to the Recycle Bin...");
-        writer.requestHistory({id: serial, action: "delete", group: group, page: fightsPage, fightId: selectedEntry.id});
+        writer.requestHistory({id: serial, action: "delete", group: group, page: fightsPage, fightId: entry.id});
     }
     function copySnapshot():Void {
         if (pending || copying || fight == null || selectedEntry == null) return;
@@ -258,6 +274,10 @@ class NativeHistoryWindow {
         show(title, true); absolute(header, title);
         close = G.field(header, "closeBtn"); show(close, true); absolute(header, close);
         G.call("ui.UIElement", "set_onClick", close, [() -> dispose()]);
+        dragSurface = G.create("h2d.Interactive", [100.0, 60.0, header, null]);
+        absolute(header, dragSurface);
+        G.set(dragSurface, "onPush", (event:Dynamic) -> beginDrag(event));
+        G.set(dragSurface, "cursor", G.enumeration("hxd.Cursor", "Move"));
         body = node("options-content", dom, [0], "dpsHistoryBody");
         var bodyObject = G.field(body, "obj");
         container = prepareChartBody(body);
@@ -318,7 +338,7 @@ class NativeHistoryWindow {
         width = 0; height = 0; layout();
     }
     function makeRow(i:Int):Void {
-        var row:Dynamic = {obj: null, name: null, player: null, suffix: null, detail: null, entry: null, group: "",
+        var row:Dynamic = {obj: null, name: null, player: null, suffix: null, detail: null, deleteButton: null, entry: null, group: "",
             caption: "", playerCaption: "", suffixCaption: "", playerColor: -1, description: "", width: 0};
         row.obj = button(list, "", "dpsHistoryEntry" + i, () -> {
             if (pending) return;
@@ -337,6 +357,14 @@ class NativeHistoryWindow {
             G.call("h2d.Text", "set_textAlign", text, [left]); style(text, "text-align", left);
             G.call("ui.comp.FmtText", "set_useEllipsis", text, [true]);
         }
+        row.deleteButton = button(G.field(row.obj, "dom"), "Delete log", "dpsHistoryEntryDelete" + i, () -> deleteEntry(row.entry));
+        HistoryButtons.red(row.deleteButton);
+        // Share native hover tracking with the row while keeping button
+        // presses/releases local to Delete log.
+        G.set(row.deleteButton, "propagateOver", true);
+        style(row.deleteButton, "propagate-over", true);
+        absolute(row.obj, row.deleteButton);
+        show(row.deleteButton, false);
         rows.push(row);
     }
     static function colorPlayerName(row:Dynamic, value:Int):Void {
@@ -364,6 +392,8 @@ class NativeHistoryWindow {
             size(window, w, h); if (frame != null) { size(frame, w, h); position(frame, 0, 0); }
             size(header, w - 2, 60); position(header, 0, 0);
             size(close, 36, 36); position(close, w - 52, 12);
+            G.set(dragSurface, "width", Math.max(1, w - 72));
+            position(dragSurface, 8, 0);
             var contentTop = snapshot ? 8 : 60;
             var contentHeight = h - contentTop - 8;
             var inner = w - 48; var bodyHeight = contentHeight - 8;
@@ -393,7 +423,47 @@ class NativeHistoryWindow {
             G.call("ui.comp.FmtText", "set_maxWidthText", title, [w - 112]);
             lastRefresh = -1;
         }
-        position(window, top.x + (bottom.x - top.x - width) / 2, top.y + (bottom.y - top.y - height) / 2);
+        show(dragSurface, config.unlocked && !copying);
+        var x = config.historyX == null ? top.x + (bottom.x - top.x - width) / 2 : config.historyX;
+        var y = config.historyY == null ? top.y + (bottom.y - top.y - height) / 2 : config.historyY;
+        if (!snapshot) {
+            x = Math.max(top.x, Math.min(x, Math.max(top.x, bottom.x - width)));
+            y = Math.max(top.y, Math.min(y, Math.max(top.y, bottom.y - height)));
+        }
+        position(window, x, y);
+    }
+    function beginDrag(event:Dynamic):Void {
+        if (!config.unlocked || copying || G.integer(G.field(event, "button")) != 0) return;
+        G.set(event, "propagate", false);
+        if (options != null) options.closeOpen();
+        var point = mouse(); startMouseX = point.x; startMouseY = point.y;
+        startX = G.number(G.field(window, "x")); startY = G.number(G.field(window, "y"));
+        dragging = true;
+        G.call("h2d.Interactive", "startDrag", dragSurface, [(e:Dynamic) -> {
+            G.set(e, "propagate", false);
+            var kind = Type.enumConstructor(G.field(e, "kind"));
+            if (kind == "ERelease" || kind == "EReleaseOutside") finishDrag();
+        }, () -> finishDrag()]);
+    }
+    function mouse():{x:Float, y:Float} {
+        var scene = G.field(owner, "s2d");
+        return localPoint(G.number(G.call("h2d.Scene", "get_mouseX", scene)), G.number(G.call("h2d.Scene", "get_mouseY", scene)));
+    }
+    function updateDrag():Void {
+        if (!dragging) return;
+        if (!config.unlocked || G.staticCall("hxd.Key", "isDown", [0]) != true) { finishDrag(); return; }
+        var point = mouse();
+        config.historyX = startX + point.x - startMouseX;
+        config.historyY = startY + point.y - startMouseY;
+    }
+    function finishDrag():Void {
+        if (!dragging) return;
+        dragging = false;
+        // Save the clamped, displayed position, rather than an off-screen drag.
+        config.historyX = G.number(G.field(window, "x"));
+        config.historyY = G.number(G.field(window, "y"));
+        if (dragSurface != null) G.call("h2d.Interactive", "stopDrag", dragSurface);
+        DpsMeterMod.saveConfig();
     }
     function alignLabels(snapshot:Bool = false):Void {
         G.call("ui.comp.FmtText", "updateScale", headingStyle);
@@ -428,12 +498,16 @@ class NativeHistoryWindow {
             if (row.width == inner) continue;
             row.width = inner;
             size(row.obj, Std.int(Math.max(1, inner)), 66);
+            var deleteWidth = 138;
+            size(row.deleteButton, deleteWidth, 34);
+            position(row.deleteButton, inner - 12 - deleteWidth, (66 - 34) / 2);
+            var textSpace = inner - 24 - (row.entry == null ? 0 : deleteWidth + 12);
             // Measure each segment with the game's font, so the name is inline
             // and only the end of the heading ellipsizes at smaller widths.
             var used = 0.0;
             for (segment in [{object: row.name, caption: row.caption}, {object: row.player, caption: row.playerCaption},
                 {object: row.suffix, caption: row.suffixCaption}]) {
-                var available = inner - 24 - used;
+                var available = textSpace - used;
                 show(segment.object, segment.caption != "" && available > 0);
                 if (segment.caption == "" || available <= 0) continue;
                 G.call("ui.comp.FmtText", "set_maxWidthText", segment.object, [Std.int(Math.max(1, available))]);
@@ -441,7 +515,7 @@ class NativeHistoryWindow {
                 position(segment.object, 12 + used, 7);
                 used += textWidth(segment.object);
             }
-            G.call("ui.comp.FmtText", "set_maxWidthText", row.detail, [Std.int(Math.max(1, inner - 24))]);
+            G.call("ui.comp.FmtText", "set_maxWidthText", row.detail, [Std.int(Math.max(1, textSpace))]);
             setText(row.detail, row.description); position(row.detail, 12, 35);
         }
     }
@@ -468,6 +542,8 @@ class NativeHistoryWindow {
         return true;
     }
     public function dispose():Void {
+        finishDrag();
+        dragSurface = null;
         if (options != null) { options.close(); options = null; }
         requested = false; serial++;
         selectedEntry = null; deleting = false; copying = false;

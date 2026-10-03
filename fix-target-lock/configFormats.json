@@ -20,12 +20,20 @@
     {
       "key": "quickSwapTarget",
       "type": "checkbox",
-      "label": "Press Lock Target to switch targets"
+      "label": "Press Lock Target to switch targets",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "While a target is locked, press the Lock Target button while looking at another target to switch targets."
+      }
     },
     {
       "key": "disableCameraMovement",
       "type": "checkbox",
-      "label": "Disable automatic camera movement"
+      "label": "Disable automatic camera movement",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Retains camera free-look while a target is locked."
+      }
     },
     {
       "type": "title",
@@ -34,7 +42,11 @@
     {
       "key": "quickCast",
       "type": "checkbox",
-      "label": "Enable quick cast"
+      "label": "Enable quick cast",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Cast ground-targeted abilities by pressing and releasing the ability button. Hold down the ability button to aim."
+      }
     }
   ]
 }

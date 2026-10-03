@@ -21,6 +21,8 @@ typedef MeterSettings = {
     var group:String;
     var x:Float;
     var y:Float;
+    var historyX:Null<Float>;
+    var historyY:Null<Float>;
     var width:Int;
     var height:Int;
     var toggleHotkey:Int;
@@ -49,6 +51,8 @@ class MeterConfig {
         group: "",
         x: 60,
         y: 220,
+        historyX: null,
+        historyY: null,
         width: 440,
         height: 340,
         toggleHotkey: 121,
@@ -57,6 +61,8 @@ class MeterConfig {
     };
 
     public static function normalize(config:MeterSettings):Void {
+        if (config.historyX != null && !Math.isFinite(config.historyX)) config.historyX = null;
+        if (config.historyY != null && !Math.isFinite(config.historyY)) config.historyY = null;
         config.transparency = Std.int(Math.max(0, Math.min(100, config.transparency)));
         config.width = Std.int(Math.max(360, Math.min(1200, config.width)));
         config.height = Std.int(Math.max(MIN_HEIGHT, Math.min(1000, config.height)));

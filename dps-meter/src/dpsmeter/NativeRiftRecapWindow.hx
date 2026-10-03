@@ -208,7 +208,7 @@ class NativeRiftRecapWindow {
             G.call("h2d.Text", "set_textAlign", text, [left]);
             style(text, "text-align", left);
         }
-        var chart = new NativeDamageChart(panel, id + "Rows", "No damage recorded");
+        var chart = new NativeDamageChart(panel, id + "Rows", "No damage recorded", true);
         sections.push({obj: object, heading: headingObject, name: name, time: time,
             chart: chart, fight: fight, width: 0});
     }

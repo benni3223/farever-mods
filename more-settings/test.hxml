@@ -24,6 +24,12 @@
 --interp
 --next
 -cp src
+-cp tests/stubs
+-cp tests
+-main DungeonLeaveButtonTest
+--interp
+--next
+-cp src
 -cp tests/appearance-stubs
 -cp tests
 -main AppearanceTest
@@ -46,4 +52,16 @@
 -cp tests/stubs
 -cp tests
 -main NameplateWeaponsTest
+--interp
+--next
+-cp src
+-cp tests/warning-stubs
+-cp tests
+-main CrabgantuaWarningsTest
+--interp
+--next
+-cp src
+-cp tests/social-stubs
+-cp tests
+-main SocialTest
 --interp

@@ -113,6 +113,22 @@ A title displays larger, bold text on its own row, without a separator or contro
 | `key` | Yes | String | Exact top-level property name in the settings JSON, or the action identifier for a button. An empty key is ignored; nested paths are not supported. Button keys must be unique within the mod. |
 | `type` | Yes | String | Must be exactly `checkbox`, `slider`, `text`, `dropdown`, `keybinding`, or `button` for a control. Use `title` for a display-only title row as described above. |
 | `label` | For dropdowns | String | Text displayed beside the control. Dropdowns require a non-empty label; other controls default to `key`. |
+| `tooltip` | No | Object | Set `enabled` to `true` and supply a non-empty string `tooltipText` to add a circled question mark immediately after the label. Hover the icon to display the help text. |
+
+```json
+{
+  "key": "showBossHealth",
+  "type": "checkbox",
+  "label": "Show boss health",
+  "tooltip": {
+    "enabled": true,
+    "tooltipText": "Boss health bars will show the raw health value alongside percentage. Instead of just \"100%\", you will see \"150,000 (100%)\""
+  }
+}
+```
+
+Tooltips are optional for every control type. They appear only over the help icon;
+the label and setting keep their usual behavior. Text is literal (no markup).
 
 #### Control types
 
@@ -128,10 +144,6 @@ A title displays larger, bold text on its own row, without a separator or contro
 Key capture consumes keyboard and mouse-button events centrally, before `hxd.Key.onEvent` publishes them. BMS clears the previously published key state when the picker opens and keeps assignment input private. Native game actions and mods polling `hxd.Key.isPressed`, `isDown`, or `isReleased` (including inlined reads) therefore see no assignment input; they do not need individual capture guards. After assignment or Escape cancellation, protection remains until all keys/buttons are released and a quiet frame passes. The assigned key must be pressed again to activate its action. Closing the settings window cancels an unfinished assignment; leaving the game clears capture state. This covers Farever's key-state API, not separate operating-system or ImGui input backends.
 
 Mods interpret and validate text values themselves; for example, a mod can expose a hex colour as a string setting. Opening the settings window does not save or normalize text values.
-
-Native text is wrapped in a mod-local String before JSON serialization. The initial text-input build saved game String internals as `{ "bytes": "???", "length": ... }`; these damaged entries display as empty and need re-entry because their original characters were not stored.
-
-Dropdown lists use the game's separate list window so they are not clipped by the settings panel. Clicking outside the list and its button dismisses it without changing the selected value or blocking the clicked control. Switching mod tabs or closing settings also closes an open list. Reordering the descriptor's options preserves the saved choice because selections are stored as strings.
 
 The current format does not provide color pickers, nested settings values, collapsible groups, conditional controls, or settings that span multiple JSON properties.
 

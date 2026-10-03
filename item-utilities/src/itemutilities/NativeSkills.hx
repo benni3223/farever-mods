@@ -114,6 +114,29 @@ class NativeSkills {
         if (field(hero, "isInCombat") == true) throw "Skill presets cannot be applied during combat.";
     }
 
+    public static function refreshView(view:Dynamic, hero:Dynamic):Void {
+        var descriptor = field(view, "skillDesc");
+        var skill = field(descriptor, "skill");
+        if (hero == null || descriptor == null || field(descriptor, "hero") != hero || skill == null) return;
+        // Slot changes may replace the skill instance. Resolve it as
+        // CharacterUI.selectSkill does, without rebuilding the descriptor.
+        var instance = call("ent.GameObject", "getSkill", hero, [field(skill, "id")]);
+        HlxRuntime.setField(view, "selectedSkillInst", instance);
+        HlxRuntime.setField(descriptor, "skillInst", instance);
+        // The native rune-click callback updates these explicitly; the panel
+        // does not watch rune replication. Refresh the existing controls so
+        // the viewed skill, focus, and layout remain unchanged.
+        call("ui.win.HeroSkillDescriptor", "updateMasteries", descriptor, []);
+        var masteries = field(descriptor, "masteries");
+        for (i in 0...arrayLength(masteries)) {
+            var mastery = arrayGet(masteries, i);
+            if (mastery == null) continue;
+            // updateMasteries returns early for an unequipped skill.
+            if (instance == null) call("ui.UIElement", "set_selected", mastery, [false]);
+            call("ui.UIElement", "refreshTip", mastery, []);
+        }
+    }
+
     public static function apply(hero:Dynamic, change:SkillPresetChange, callback:Bool->Void):Void {
         ensureCanApply(hero);
         if (change.slot >= 0) {

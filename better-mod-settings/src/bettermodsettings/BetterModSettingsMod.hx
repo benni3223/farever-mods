@@ -139,6 +139,7 @@ class BetterModSettingsMod {
         if (nativeSettingsWindow == null
             || HlxRuntime.resolveField(nativeSettingsWindow, "allocated") != true) {
             NativeDropdown.closeAll(true);
+            NativeSettingTooltip.hide();
             if (capturingKeybind != null) {
                 capturingKeybind = null;
                 captureInput.finish();
@@ -154,11 +155,17 @@ class BetterModSettingsMod {
         // The native scene has now refreshed the hit target for this press.
         // Release still selects an option or toggles the dropdown normally.
         NativeDropdown.onPointerEvent(event);
+        NativeSettingTooltip.onPointerEvent(event);
     }
+
+    @:hlx.postfix(ui.Tooltip.sync)
+    static function positionSettingTooltip(instance:Dynamic, context:Dynamic, result:Void):Void
+        NativeSettingTooltip.fit(instance);
 
     @:hlx.prefix(GameApp.dispose)
     static function resetKeyCapture(instance:Dynamic):HlxPrefixResult<Void> {
         NativeDropdown.closeAll(true);
+        NativeSettingTooltip.reset();
         capturingKeybind = null;
         captureInput.reset();
         nativeSettingsWindow = null;
@@ -383,6 +390,7 @@ class BetterModSettingsMod {
             applyNativeOptionsWindowComponent(windowProperties);
             sizeNativeSettingsWindow(windowProperties);
             setNativeWindowTitle(windowProperties);
+            NativeSettingTooltip.reset();
             pendingOptionLabels = [];
             pendingTitleStyles = [];
             pendingOptionRows = [];
@@ -813,6 +821,7 @@ class BetterModSettingsMod {
     ):Void {
         // The native dropdown list lives in a separate window, outside its tab.
         NativeDropdown.closeAll();
+        NativeSettingTooltip.hide();
         if (h2dObjectType == null)
             h2dObjectType = HlxRuntime.resolveType("h2d.Object");
         if (h2dObjectType != null && setVisibleMember == null)
@@ -860,7 +869,7 @@ class BetterModSettingsMod {
                 }
                 label = dropdownDefinition.label;
             }
-            var settingParent = createOptionRow(parentProperties, label, index);
+            var settingParent = createOptionRow(parentProperties, label, index, SettingTooltip.text(definition));
 
             if (type == "checkbox") {
                 var checked = boolValue(Reflect.field(mod, "values"), key, false);
@@ -1165,6 +1174,7 @@ class BetterModSettingsMod {
                                 HlxRuntime.setField(label, field, value);
                         } catch (_:Dynamic) {}
                     }
+                    NativeSettingTooltip.refreshLabel(label);
                 }
             }
         } catch (error:Dynamic) {
@@ -1233,7 +1243,8 @@ class BetterModSettingsMod {
     static function createOptionRow(
         parentProperties:Dynamic,
         label:String,
-        index:Int
+        index:Int,
+        tooltipText:String = null
     ):Dynamic {
         try {
             var optionInfo:Dynamic = {
@@ -1252,6 +1263,11 @@ class BetterModSettingsMod {
             setFlowHorizontalSpacing(lineProperties, 12);
             var line:Dynamic = HlxRuntime.resolveField(lineProperties, "obj");
             applyNativeOptionLabelStyle(line);
+            if (tooltipText != null) {
+                try NativeSettingTooltip.attach(findFirstTextObject(line, 4), tooltipText)
+                catch (error:Dynamic)
+                    trace("[BetterModSettings] Could not add setting tooltip: " + Std.string(error));
+            }
             pendingOptionRows.push(line);
             centerOptionRowLabelAndSeparator(line);
             disableOptionRowHover(line);
@@ -1316,7 +1332,7 @@ class BetterModSettingsMod {
             return;
         try {
             // OptionLine installs a full-row Interactive for tooltips and hover
-            // styling. Our generated rows have neither, and its hover style
+            // styling. Our help icons have their own hit targets; the row hover
             // overwrites the copied native label scale. Hide only that overlay;
             // the controls inside the row remain independently interactive.
             var interactive:Dynamic = HlxRuntime.resolveField(line, "interactive");

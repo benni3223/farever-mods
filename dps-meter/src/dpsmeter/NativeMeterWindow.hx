@@ -54,9 +54,10 @@ class NativeMeterWindow {
         if (owner != null && owner != ui) dispose();
         if (window != null && (G.field(window, "removed") == true
             || !chartBodyIntact(body, container))) dispose();
+        var fight = model.displayedFight();
         // A fresh character or instance has no encounter to show or fade out.
         if (!config.visible || !config.enabled || !active || ui == null
-            || (config.hideOutOfCombat && model.displayedFight() == null)) {
+            || (config.hideOutOfCombat && fight == null)) {
             if (window != null) show(window, false);
             outOfCombatSince = -1;
             finishDrag();
@@ -65,7 +66,9 @@ class NativeMeterWindow {
         var opacity:Float = 1;
         // Show the meter when damage starts its timer, not on combat entry alone.
         // One-shot results also get the normal hiding delay before fading.
-        if (!config.hideOutOfCombat || model.current != null || model.displayedFight() != displayed) outOfCombatSince = -1;
+        // An active live-only phase (Chakram's opening bar) also keeps the HUD
+        // visible; saving an encounter is independent of displaying its damage.
+        if (!config.hideOutOfCombat || (fight != null && fight.closed == 0) || fight != displayed) outOfCombatSince = -1;
         else {
             if (outOfCombatSince < 0) outOfCombatSince = now;
             var progress = Math.max(0, Math.min(1, (now - outOfCombatSince - config.hideDelay) / HIDE_FADE_SECONDS));
@@ -97,7 +100,7 @@ class NativeMeterWindow {
             lastRefresh = now;
             refresh(model, now);
         }
-        chart.update(model.displayedFight(), now);
+        chart.update(fight, now);
         alignControls();
     }
 

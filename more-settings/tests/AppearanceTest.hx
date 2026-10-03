@@ -3,8 +3,10 @@ import moresettings.AppearanceCamera;
 import moresettings.AppearancePortraits;
 import moresettings.AppearanceUi;
 import moresettings.AppearanceSwatches;
+import moresettings.AppearanceWindow;
 import moresettings.GameAccess as G;
 
+@:access(moresettings.AppearanceWindow)
 class AppearanceTest {
     static var checks = 0;
     static function eq(a:Dynamic, b:Dynamic, message:String):Void {
@@ -17,7 +19,7 @@ class AppearanceTest {
         eq(failed, true, message);
     }
     static function hero():Dynamic return {
-        ownerPlayer: {isMe: true}, layer: {}, removed: false, unitView: {},
+        ownerPlayer: {isMe: true}, layer: {}, removed: false, unitView: {}, model: 1,
         skinData: {template: 1, skinColor: "Skin1", hair: "Hair1", hairColor: "Red", hairColorSecondary: "Gold",
             shapes: [{name: "BS_Nose1", val: 1.0}, {name: "BS_Face1", val: 0.0}]}
     };
@@ -55,8 +57,10 @@ class AppearanceTest {
         eq(h.skin, 2, "Apply the saved body through the native model setter");
         eq(G.bodyWrites, 1, "Body setter runs only after Save");
         eq(G.refreshes, 1, "Save immediately refreshes visible customization");
+        eq(G.skinDisplays, 0, "Changed body is rebuilt only by the native setter");
         AppearanceDraft.refreshHero(h);
         eq(G.refreshes, 2, "Same-model edits also refresh; native updateSkin alone would skip them");
+        eq(G.skinDisplays, 1, "Same-body edits follow the native skinData refresh path");
         d.skin.shapes[0].val = 0.2;
         eq(h.skinData.shapes[0].val, 1.0, "Late preview changes cannot mutate saved shapes");
         eq(d.valid(h), false, "A committed editor is closed");
@@ -223,6 +227,8 @@ class AppearanceTest {
         portraits.prepare(source, {});
         eq(texture.disposed, true, "Rebuilding pages disposes owned thumbnail textures");
         eq(texture.realloc, null, "Disposed thumbnails release native reallocation closures");
+        eq(G.portraitButtons[0].icon.tile, null, "Retired drawables cannot reference freed GPU textures");
+        eq(G.portraitButtons[0].icon.visible, false, "Retired thumbnails cannot be drawn");
         portraits.update(source);
         eq(G.portraitInputs.length, 2, "Old pages have no pending renders after rebuild");
         portraits.add({}, "template-pick-button", 1, 0, 0, 122, true, () -> true, () -> {});
@@ -280,6 +286,56 @@ class AppearanceTest {
         eq(beardTexture.disposed, true, "Full draft/tab rebuild still retires all groups");
         eq(eyeTexture.disposed, true, "Full rebuild also retires retained eye thumbnails");
         paged.dispose();
+
+        // Exercise the actual window callbacks and update boundary. Native UI
+        // traversal can still hold button/preview references after onClick.
+        var makeWindow = (hero:Dynamic) -> {
+            var window = new AppearanceWindow();
+            window.ui = {};
+            window.window = {parent: {}, allocated: true, visible: true};
+            window.container = {parent: {}};
+            window.body = {obj: {optionsList: {container: window.container}}};
+            window.draft = new AppearanceDraft(hero);
+            window.ready = true;
+            window.portraits = new AppearancePortraits({windows: []}, window.draft.skin, {});
+            window.portraits.add({}, "template-pick-button", 1, 0, 0, 122, true, () -> true, () -> {});
+            return window;
+        };
+        h = hero(); var window = makeWindow(h);
+        var savedDraft = window.draft;
+        savedDraft.skin.hair = "Hair2";
+        var nativeWindow = window.window;
+        var thumbnail = G.portraitButtons[G.portraitButtons.length - 1];
+        var thumbnailTexture = thumbnail.tex;
+        var initialWrites = G.writes, initialRefreshes = G.refreshes;
+        G.lifecycle = [];
+        window.save(); window.save();
+        eq(G.writes, initialWrites, "Save callback never mutates replicated state during UI traversal");
+        eq(thumbnailTexture.disposed, false, "Save callback leaves current-frame GPU resources alive");
+        eq(nativeWindow.parent != null, true, "Save callback does not mutate the UI being traversed");
+        eq(window.update(window.ui, h), false, "Queued save closes at the next update boundary");
+        eq(G.writes, initialWrites + 1, "Repeated Save clicks produce one commit");
+        eq(h.skinData.hair, "Hair2", "Deferred save still persists the selected appearance");
+        eq(G.refreshes, initialRefreshes + 1, "Deferred save refreshes the live model once");
+        eq(G.lifecycle.join(","), "window detached,texture disposed,skin refreshed", "Detach, release, then refresh in order");
+        eq(savedDraft.committed, true, "Save marks its draft committed");
+        window.dispose();
+        eq(G.lifecycle.length, 3, "Editor cleanup after Save is idempotent");
+
+        h = hero(); window = makeWindow(h); initialWrites = G.writes;
+        window.save(); window.requestClose();
+        eq(window.update(window.ui, h), false, "Cancel wins over a queued Save");
+        window.dispose(); eq(G.writes, initialWrites, "Cancel cannot commit a queued appearance");
+        h = hero(); window = makeWindow(h); window.save(); h.layer = {};
+        eq(window.update(window.ui, h), false, "Changing worlds cancels a queued save");
+        window.dispose(); eq(G.writes, initialWrites, "Queued save revalidates the character before writing");
+
+        h = hero(); window = makeWindow(h); window.save(); G.failCopy = true;
+        eq(window.update(window.ui, h), true, "Commit failure keeps the editor open for retry");
+        G.failCopy = false;
+        eq(window.window.visible, true, "Commit failure does not tear down the preview");
+        window.save(); eq(window.update(window.ui, h), false, "Retry succeeds after a failed deferred save");
+        window.dispose();
         Sys.println('Appearance tests passed ($checks checks)');
     }
 }

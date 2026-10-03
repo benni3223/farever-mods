@@ -22,8 +22,9 @@ class NativeSkillTable {
     var id:String;
     var width:Int = 0;
     var columns:Array<SkillColumn> = [];
-    public function new(parent:Dynamic, id:String, back:Void->Void, ?headerParent:Dynamic) {
-        this.id = id; this.back = back;
+    var recap:Bool;
+    public function new(parent:Dynamic, id:String, back:Void->Void, ?headerParent:Dynamic, recap:Bool = false) {
+        this.id = id; this.back = back; this.recap = recap;
         root = node("flow", parent, [], id + "Table", "vertical");
         object = G.field(root, "obj"); padding(object, 0);
         flow(root, "set_verticalSpacing", 0); style(object, "vspacing", 0);
@@ -34,7 +35,7 @@ class NativeSkillTable {
     public function update(player:PlayerStats, duration:Float, width:Int):Void {
         var resized = this.width != width;
         this.width = width;
-        if (resized) { columns = SkillBreakdown.columns(width); size(object, width); }
+        if (resized) { columns = SkillBreakdown.columns(width, recap); size(object, width); }
         show(object, true);
         var ids = [for (id in player.skills.keys()) id];
         ids.sort((a, b) -> {
@@ -116,7 +117,7 @@ class NativeSkillTable {
     function layout(row:Dynamic):Void {
         var heading:Bool = row.index < 0;
         var stacked = false;
-        for (column in columns) if (column.key == "distribution") stacked = column.width - 10 < 105;
+        for (column in columns) if (column.key == "distribution") stacked = !recap && column.width - 10 < 105;
         var height = stacked ? 60 : heading ? 30 : 40;
         if (heading) headerHeight = height;
         size(row.obj, width, height);
@@ -160,7 +161,8 @@ class NativeSkillTable {
                             stacked ? 6 + i * 12 : 6, stacked ? cellWidth : cellWidth / 3, stacked ? 12 : 14);
                     }
                 }
-            } else fit(t, value, x, cellWidth, height, true);
+            } else if (heading && recap) fitDetail(t, value, x, 3, cellWidth, height - 6);
+            else fit(t, value, x, cellWidth, height, true);
         }
     }
     static function fitDetail(text:Dynamic, value:String, x:Float, y:Float, width:Float, height:Int):Void {

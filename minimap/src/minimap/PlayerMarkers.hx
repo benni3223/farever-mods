@@ -62,6 +62,22 @@ class PlayerMarkers {
         return heroes;
     }
 
+    /** Same native group check the world UI uses. */
+    public static function isPartyMember(hero:Dynamic, other:Dynamic):Bool {
+        if (hero == null || other == null || hero == other || G.field(hero, "player") == null) return false;
+        return G.call("ent.Hero", "isSameGroup", hero, [other]) == true;
+    }
+
+    /** Account friendship from the native friend list, not a display-name match. */
+    public static function isFriend(hero:Dynamic, other:Dynamic):Bool {
+        if (hero == null || other == null || hero == other) return false;
+        var friends = G.field(G.field(hero, "player"), "friendList");
+        var uid = G.field(G.field(other, "player"), "uid");
+        // Lists can be unavailable briefly while a character is loading.
+        if (friends == null || G.field(friends, "friends") == null || uid == null) return false;
+        return G.call("st.FriendList", "isFriend", friends, [uid]) == true;
+    }
+
     static function heroUid(value:Dynamic):String
         return G.text(G.field(value, "__uid"));
 }

@@ -68,6 +68,13 @@ jobs:
         run: |
           haxe -cp src -cp tests/appearance-stubs -cp tests -main AppearanceTest -hl build/appearance-test.hl
           ../.combat-hashlink/hl build/appearance-test.hl
+      - name: Test Social settings on HashLink
+        working-directory: more-settings
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
+        run: |
+          haxe -cp src -cp tests/social-stubs -cp tests -main SocialTest -hl build/social-test.hl
+          ../.combat-hashlink/hl build/social-test.hl
       - name: Test native event volume bridge
         working-directory: more-settings
         run: |

@@ -21,6 +21,7 @@ class GameAccess {
         }
     }
     public static function current(t:String, n:String):Dynamic {
+        if (t == "ui.BaseUI") return null;
         if (t != "gfx.PortraitGen") throw "Unexpected global";
         return n == "scene" ? portraitScene : portraitPrefab;
     }
@@ -33,6 +34,9 @@ class GameAccess {
     public static var ignoreWrite = false;
     public static var bodyWrites = 0;
     public static var refreshes = 0;
+    public static var skinDisplays = 0;
+    public static var lifecycle:Array<String> = [];
+    public static function enumeration(t:String, n:String):Dynamic throw "Unexpected enum: " + t + "." + n;
     public static var dialogTitle:String;
     public static var dialogText:String;
     public static var dialogButton:Dynamic;
@@ -66,7 +70,13 @@ class GameAccess {
         }
         if (t == "client.UnitView" && n == "isReady") return field(o, "ready");
         if (t == "hxd.res.Any" && n == "toPrefab") return {};
-        if (t == "h3d.mat.Texture" && n == "dispose") { set(o, "disposed", true); return null; }
+        if (t == "h3d.mat.Texture" && n == "dispose") {
+            for (button in portraitButtons)
+                if (field(field(field(button, "icon"), "tile"), "innerTex") == o)
+                    throw "Disposed a texture still attached to a thumbnail";
+            lifecycle.push("texture disposed");
+            set(o, "disposed", true); return null;
+        }
         if (t == "ui.comp.BodyPreviewButton" && n == "refreshPortrait") {
             portraitRenders.push(o);
             var skin = field(field(o, "view"), "skin");
@@ -95,6 +105,8 @@ class GameAccess {
         }
         if (t == "h2d.FlowProperties" && n == "set_isAbsolute") { set(o, "isAbsolute", args[0]); return args[0]; }
         if (t == "h2d.Object" && n == "setPosition") { set(o, "x", args[0]); set(o, "y", args[1]); return null; }
+        if (t == "h2d.Object" && n == "set_visible") { set(o, "visible", args[0]); return args[0]; }
+        if (t == "h2d.Bitmap" && n == "set_tile") { set(o, "tile", args[0]); return args[0]; }
         if (t == "h2d.Bitmap" && (n == "set_width" || n == "set_height")) { set(o, n.substr(4), args[0]); return args[0]; }
         if (t == "h2d.Graphics" && (n == "lineStyle" || n == "drawRect")) { set(o, n, args.copy()); return null; }
         if (t == "hl.types.ArrayObj" && n == "slice") return array(o).slice(args[0], args[1]);
@@ -104,12 +116,24 @@ class GameAccess {
             dialogButton = {};
             return {buttons: [dialogButton]};
         }
+        if (t == "ui.BaseUI" && n == "removeWindow") {
+            if (field(args[0], "visible") != false) throw "Window must be hidden before removal";
+            lifecycle.push("window detached");
+            set(args[0], "parent", null); return null;
+        }
         if (t == "ui.comp.Button" && n == "setText") { set(o, "text", parseText(args[0])); return null; }
-        if (t == "client.UnitView" && n == "applyModelInfo") { refreshes++; return null; }
+        if (t == "client.UnitView" && n == "displaySkin") {
+            lifecycle.push("skin refreshed"); skinDisplays++; refreshes++; return null;
+        }
         if (t != "ent.Unit") throw "Unexpected native type";
         if (n == "getSkin") return {template: field(o, "skin")};
         if (n == "set_skin") {
-            bodyWrites++; Reflect.setField(o, "skin", args[0]); return args[0];
+            bodyWrites++; Reflect.setField(o, "skin", args[0]);
+            // Live's setter invokes updateSkin and rebuilds only changed models.
+            if (field(o, "model") != args[0]) {
+                set(o, "model", args[0]); refreshes++; lifecycle.push("body rebuilt");
+            }
+            return args[0];
         }
         if (n != "set_skinData") throw "Unexpected native call";
         if (!ignoreWrite) { writes++; Reflect.setField(o, "skinData", args[0]); }
@@ -130,7 +154,7 @@ class GameAccess {
             if (["template-pick-button", "body-part-pick-button", "blend-shape-pick-button"].indexOf(args[0]) >= 0) {
                 var params:Array<Dynamic> = args[2];
                 var object:Dynamic = {view: params[1], tex: {disposed: false, realloc: () -> {}}};
-                object.icon = {parent: {parent: object}, dom: {}};
+                object.icon = {parent: {parent: object}, dom: {}, tile: {innerTex: object.tex}, visible: true};
                 portraitButtons.push(object); return {obj: object};
             }
             if (args[0] != "button") throw "Unexpected component";

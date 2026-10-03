@@ -6,6 +6,7 @@ import dpsmeter.HistoryCatalog;
 import dpsmeter.SkillBreakdown;
 import dpsmeter.NativeCombatMetadata;
 import dpsmeter.GameAccess;
+import dpsmeter.PartyCombat;
 import dpsmeter.HistoryRequests;
 import dpsmeter.SnapshotLayout;
 import dpsmeter.SnapshotTexture;
@@ -55,7 +56,7 @@ class HistoryTest {
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
         clientSkillCompatibility(); archivePolicy(); targetDummies();
-        lifecycle(); chakram(); outcomes(); recapSummary(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); snapshotViewports(); historyOptions(); literalLabels(); bossRecords();
+        lifecycle(); partyCombat(); chakram(); riftCountdown(); gameVersions(); outcomes(); recapSummary(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); snapshotViewports(); historyOptions(); literalLabels(); bossRecords();
         Sys.println('Fight history: $checks checks passed');
     }
     static function archivePolicy():Void {
@@ -282,7 +283,7 @@ class HistoryTest {
         m = model(); m.difficulty = 2; m.record(hit(20, 10, true, true));
         check(BossRecords.request(5, "BossKind", m, 15, 1).before > 1,
             "Instant kills in the pre-combat buffer also exclude themselves");
-        m = model(); m.difficulty = 1; m.enableRift(); m.updateRiftState(10, true, false, "BossKind");
+        m = model(); m.difficulty = 1; m.enableRift(); m.startRiftGates(); m.updateRiftState(10, true, false, "BossKind");
         m.record(hit(10, 100, false, true)); m.updateRiftState(20, true, true, "BossKind");
         check(BossRecords.request(6, "BossKind", m, 5, 1).before == m.lastCombat.startedAt,
             "Rift boss completion uses the boss phase's start, not the gates phase");
@@ -300,85 +301,203 @@ class HistoryTest {
         var m = model(); m.onCombatEnter("me", 10);
         m.updatePhrixes(10, "chakram", 1, true, false, false);
         m.record(chakramHit(10, 100));
+        var intro = m.displayedFight();
+        check(m.inCombat && intro != null && intro.closed == 0 && intro.players["me"].damage == 100,
+            "Opening-bar damage appears immediately in the live HUD while in combat");
+        check(m.bossRecordFight("Phrixes", 1) == null,
+            "The live opening chart is not an eligible encounter for boss records");
+        m.record(hit(11, 50, false, false, "ally", "introAdd"));
         m.updatePhrixes(20, "chakram", 1, false, true, false);
         m.record(chakramHit(20, 200, true));
-        m.onCombatExit("me", 20);
-        m.update(21, false);
-        check(m.history.length == 0 && m.current != null && m.current.players["me"].damage == 300,
-            "Chakram's first health bar and local combat exit do not archive a separate encounter");
-        check(m.completed.length == 0 && m.boss != null && m.boss.players["me"].kills == 0,
-            "A lethal first health bar does not produce a boss kill or upload");
-        m.updatePhrixes(22, "chakram", 2, false, true, false);
-        m.updatePhrixes(60, "chakram", 3, false, true, false);
-        m.update(60, false);
-        check(m.current.duration(60) == 50 && m.boss != null, "The long bridge transition retains both clocks and the uploader aggregate");
+        m.onCombatExit("me", 20); m.update(21, false);
+        check(m.current == null && m.displayedFight() == intro && intro.closed == 0 && m.boss == null
+            && m.history.length == 0 && m.completed.length == 0,
+            "The opening chart stays visible through the surrender animation without a saved encounter or report");
+        check(intro.players["me"].damage == 300 && intro.players["ally"].damage == 50 && intro.duration(21) == 11,
+            "Opening damage, party contributions and elapsed time update in the temporary live chart");
+        check(m.session.players["me"].damage == 300 && m.session.players["me"].kills == 0,
+            "Session totals retain intro damage without inventing a boss kill");
+        m.updatePhrixes(22, "chakram", 2, true, false, false);
+        m.record(chakramHit(22, 200, true));
+        check(m.current == null && m.boss == null && m.displayedFight() == null,
+            "Surrender clears the live intro, and a late first-bar lethal RPC cannot reopen it");
+        m.onCombatEnter("me", 23); m.record(chakramHit(23, 60));
+        check(m.current.start == 23 && m.current.players["me"].damage == 60,
+            "The first post-surrender hit begins a clean encounter");
+        check(m.displayedFight() == m.current && m.current != intro && !m.current.players.exists("ally"),
+            "The HUD switches to the main encounter without importing any opening-phase players or damage");
+        m.updatePhrixes(30, "chakram", 3, false, true, false);
+        m.onCombatExit("me", 30); m.update(60, false);
+        check(m.current.duration(60) == 37 && m.boss != null, "The later bridge retains the post-surrender encounter");
         m.record(hit(61, 50, false, false, "ally", "bridgeAdd"));
         check(m.current.players["ally"].damage == 50, "Party damage during the bridge belongs to the held encounter");
         m.updatePhrixes(70, "chakram", 4, true, false, false);
         m.onCombatEnter("me", 70); m.record(chakramHit(71, 300));
-        check(m.current.start == 10 && m.current.players["me"].damage == 600, "Re-entering combat in demon form preserves first-phase damage and start time");
-        m.updatePhrixes(80, "chakram", 4, false, false, true);
-        m.onCombatExit("me", 80);
+        check(m.current.start == 23 && m.current.players["me"].damage == 360, "Demon form resumes the post-surrender encounter");
+        m.updatePhrixes(80, "chakram", 4, false, false, true); m.onCombatExit("me", 80);
         m.record(chakramHit(80.1, 400, true)); m.update(81, false);
-        check(m.history.length == 1 && m.history[0].players["me"].damage == 1000 && m.history[0].defeated,
-            "Death-before-damage ordering still records one complete two-phase fight");
-        check(m.completed.length == 1 && m.completed[0].players["me"].damage == 1000,
-            "Only the real final kill queues the combined boss report");
-        check(Math.abs(m.history[0].duration() - 70.1) < .000001 && m.history[0].players["me"].kills == 1,
-            "Combined duration includes the bridge, with exactly one boss kill");
+        check(m.history.length == 1 && m.history[0].players["me"].damage == 760 && m.history[0].defeated,
+            "Death-before-damage records one complete post-surrender fight");
+        check(m.completed.length == 1 && m.completed[0].players["me"].damage == 760,
+            "The real final kill uploads only post-surrender damage");
+        check(Math.abs(m.history[0].duration() - 57.1) < .000001 && m.history[0].players["me"].kills == 1,
+            "Duration excludes the opening bar and includes the later bridge");
         m.updatePhrixes(83, "chakram", 1, true, false, false);
         m.onCombatEnter("me", 83); m.record(chakramHit(83, 5));
-        check(m.current.start == 83 && m.boss.players["me"].damage == 5, "A new kill attempt never resumes an already completed Chakram report");
+        check(m.current == null && m.boss == null && m.history.length == 1,
+            "A new opening bar never resumes an already completed report");
+        check(m.displayedFight().start == 83 && m.displayedFight().players["me"].damage == 5,
+            "A new intro replaces the previously completed fight on the HUD with fresh totals");
 
-        // A first-bar wipe is not a transformation; allow one second for native
-        // replication to settle, then freeze the actual exit, not the grace time.
         m = model(); m.onCombatEnter("me", 10);
         m.updatePhrixes(10, "chakram", 1, true, false, false); m.record(chakramHit(10, 10));
         m.updatePhrixes(15, "chakram", 1, false, false, false); m.onCombatExit("me", 15);
         m.updatePhrixes(16, "chakram", 1, false, false, false); m.update(16, false);
-        check(m.history.length == 1 && m.history[0].duration() == 5 && !m.history[0].defeated && m.boss == null,
-            "A first-phase wipe finishes at the local exit and discards the incomplete uploader fight");
+        check(m.history.length == 0 && m.current == null && m.boss == null, "An opening-bar wipe is not archived");
+        check(m.displayedFight().closed == 15 && m.displayedFight().duration(100) == 5,
+            "A wiped intro freezes at the combat end and can use the normal HUD hiding delay");
         m.updatePhrixes(17, "chakram", 1, true, false, false); m.onCombatEnter("me", 17); m.record(chakramHit(17, 7));
-        check(m.current.start == 17 && m.boss.players["me"].damage == 7, "A same-entity wipe and retry stays a separate attempt");
+        check(m.displayedFight().start == 17 && m.displayedFight().players["me"].damage == 7,
+            "An opening-bar retry cannot inherit damage or time from the wiped intro");
+        m.reset(19);
+        check(m.history.length == 0 && m.completed.length == 0 && m.displayedFight() == null,
+            "Leaving during the opening bar discards its temporary chart without saving or uploading");
 
-        m.updatePhrixes(20, "chakram", 4, true, false, false); m.record(chakramHit(20, 8));
-        m.updatePhrixes(22, "chakram", 4, false, false, false); m.onCombatExit("me", 22);
-        m.updatePhrixes(23, "chakram", 4, false, false, false); m.update(23, false);
-        check(m.history.length == 2 && m.current == null && m.completed.length == 0,
-            "A wipe at a demon-form checkpoint ends even when the phase number does not decrease");
-        m.updatePhrixes(24, "chakram", 4, true, false, false); m.onCombatEnter("me", 24); m.record(chakramHit(24, 3));
-        check(m.current.start == 24 && m.boss.players["me"].damage == 3, "Checkpoint retries do not inherit a previous attempt's damage");
+        m = model(); m.onCombatEnter("me", 10);
+        m.updatePhrixes(10, "chakram", 1, true, false, false); m.record(chakramHit(10, 10));
+        m.onCombatExit("me", 12, true); m.updatePhrixes(15, "chakram", 1, true, false, false);
+        m.update(15, false, true); m.record(hit(16, 20, false, false, "ally", "chakram"));
+        check(m.displayedFight().closed == 0 && m.displayedFight().players["ally"].damage == 20,
+            "Local death does not hide the intro while the party continues fighting");
+        m.onCombatEnter("me", 17); m.record(chakramHit(18, 15));
+        check(m.displayedFight().start == 10 && m.displayedFight().players["me"].damage == 25,
+            "Revival resumes the same live intro without creating a saved encounter");
+        m.reset(19);
+        check(m.history.length == 0 && m.completed.length == 0, "A revived opening phase is still never saved");
+
+        // Phase 2 is playable combat, not a permanent transition exemption.
+        m = model(); m.onCombatEnter("me", 20);
+        m.updatePhrixes(20, "chakram", 2, true, false, false); m.record(chakramHit(20, 8));
+        m.updatePhrixes(22, "chakram", 2, false, false, false); m.onCombatExit("me", 22);
+        m.updatePhrixes(23, "chakram", 2, false, false, false); m.update(23, false);
+        check(m.history.length == 1 && m.history[0].duration() == 2 && m.history[0].outcome == "Defeat"
+            && m.current == null && m.completed.length == 0, "A post-surrender wipe ends at the first inactive time");
+        m.updatePhrixes(24, "chakram", 2, true, false, false); m.onCombatEnter("me", 24); m.record(chakramHit(24, 3));
+        check(m.current.start == 24 && m.boss.players["me"].damage == 3, "Checkpoint retries do not inherit prior damage");
         m.updatePhrixes(25, "chakram", 1, true, false, false); m.record(chakramHit(25, 2)); m.update(26, true);
-        check(m.history.length == 3 && m.current.start == 25 && m.boss.players["me"].damage == 2,
-            "A phase regression also splits a reset that occurs between combat polls");
-        m.updatePhrixes(27, "chakram", 2, false, true, false); m.onCombatExit("me", 27); m.reset(40);
-        check(m.history.length == 4 && m.history[3].duration() == 15 && m.current == null,
-            "Leaving the zone during a bridge transition preserves the unfinished fight once");
+        check(m.history.length == 2 && m.current == null && m.boss == null,
+            "A phase regression closes the real attempt without starting an opening-bar encounter");
+        m.updatePhrixes(27, "chakram", 2, true, false, false); m.record(chakramHit(27, 5));
+        m.updatePhrixes(28, "chakram", 3, false, true, false); m.onCombatExit("me", 28); m.reset(40);
+        check(m.history.length == 3 && m.history[2].duration() == 13 && m.current == null,
+            "Leaving during the later bridge preserves the real attempt once");
 
         m = model(); m.onCombatEnter("me", 10);
         m.updatePhrixes(10, "chakram", 4, true, false, false); m.record(chakramHit(10, 11));
         m.updatePhrixes(15, "chakram", 4, false, false, true);
         m.record(chakramHit(15.1, 9, true)); m.update(16, true);
         check(m.history.length == 1 && m.history[0].players["me"].damage == 20 && m.current == null,
-            "Final death before the lethal RPC does not create a one-hit second log when the hero's flag is still true");
-
+            "Final death before lethal RPC does not create a second log with a stale hero combat flag");
         m = model(); m.onCombatEnter("me", 10);
         m.updatePhrixes(10, "chakram", 4, true, false, false); m.record(chakramHit(10, 12));
         m.updatePhrixes(15, "chakram", 4, false, false, true);
         m.updatePhrixes(15.6, "chakram", 4, false, false, true); m.update(16, false);
         check(m.history.length == 1 && m.history[0].duration() == 5 && m.completed.length == 0,
-            "Missing final RPC still closes local history at observed death without inventing an upload");
-
+            "Missing final RPC closes history at observed death without inventing an upload");
         m = model(); m.onCombatEnter("me", 10);
-        m.updatePhrixes(10, "chakram", 1, true, false, false); m.record(chakramHit(10, 10));
-        m.onCombatExit("me", 15);
-        m.updatePhrixes(20, "chakram", 3, false, true, false);
+        m.updatePhrixes(10, "chakram", 2, true, false, false); m.record(chakramHit(10, 10));
+        m.onCombatExit("me", 15); m.updatePhrixes(20, "chakram", 3, false, true, false);
         m.updatePhrixes(40, "chakram", 4, true, false, false);
         m.record(hit(50, 20, false, false, "ally", "chakram"));
         m.updatePhrixes(60, "chakram", 4, false, false, false);
         m.updatePhrixes(61, "chakram", 4, false, false, false); m.update(61, false);
         check(m.history.length == 1 && m.history[0].duration() == 50 && m.history[0].players["ally"].damage == 20,
-            "A later party wipe never rewinds the duration to the local hero's first-phase exit");
+            "A later party wipe never rewinds the encounter to an earlier local death");
+    }
+    static function riftCountdown():Void {
+        var m = model(); m.enableRift(); m.onCombatEnter("me", 10);
+        m.updateRiftState(10, false, false, "BossKind");
+        m.record(hit(10, 100, false, false, "me", "warmup"));
+        m.record(hit(19.9, 200, true, false, "ally", "warmup"));
+        m.update(20, true);
+        var warmup = m.displayedFight();
+        check(m.waitingForRiftGates() && m.current == null && warmup != null && warmup.closed == 0
+            && m.completed.length == 0 && m.history.length == 0,
+            "Countdown damage appears live and keeps the HUD visible without starting the saved gate encounter");
+        check(warmup.players["me"].damage == 100 && warmup.players["ally"].damage == 200 && warmup.duration(20) == 10,
+            "Warm-up charts retain damage, party contributions and elapsed time");
+        m.startRiftGates();
+        check(m.displayedFight() == null, "Countdown completion clears warm-up even before the first gate hit");
+        m.record(hit(20.01, 30, false, false, "me", "warmup"));
+        check(!m.waitingForRiftGates() && m.current.start == 20.01 && m.current.players["me"].damage == 30
+            && !m.current.players.exists("ally"), "Same-mob post-countdown damage starts cleanly without importing warm-up hits");
+        m.startRiftGates(); m.updateRiftState(400, false, false, "BossKind");
+        m.record(hit(400, 40, false, false, "ally", "gate"));
+        check(m.current.start == 20.01 && m.current.players["ally"].damage == 40,
+            "An elapsed wave timer does not discard remaining gate cleanup");
+        m.updateRiftState(410, true, false, "BossKind");
+        m.record(hit(410.1, 10, true, false, "ally", "gate"));
+        m.record(hit(411, 300, false, true));
+        m.updateRiftState(420, true, true, "BossKind"); m.update(421, false);
+        check(m.history.length == 2 && m.completed.length == 2 && m.recaps.length == 1,
+            "Gated countdown tracking preserves both reports, history phases and recap");
+        check(m.recaps[0].gate.players["me"].damage == 30 && m.recaps[0].gate.players["ally"].damage == 50
+            && m.recaps[0].boss.players["me"].damage == 300,
+            "Recap and exports contain only actual gate damage, including late gate kills");
+        m = model(); m.enableRift(); m.record(hit(10, 100, true)); m.reset(20);
+        check(m.history.length == 0 && m.completed.length == 0, "Leaving during countdown never archives a gate attempt");
+        m.me = "me"; m.profiles["me"] = profile(); m.party["me"] = true;
+        m.enableRift(); m.record(hit(21, 20));
+        check(m.waitingForRiftGates() && m.current == null, "A new rift resets its countdown gate");
+        m.updateRiftState(30, true, false, "BossKind"); m.record(hit(31, 70, false, true));
+        m.updateRiftState(40, true, true, "BossKind"); m.update(41, false);
+        check(m.recaps.length == 1 && m.recaps[0].gate == null && m.recaps[0].boss.players["me"].damage == 70,
+            "Joining during the boss still records it without inventing a gate phase");
+
+        m = model(); m.enableRift();
+        m.record(hit(10, 20));
+        check(m.displayedFight().closed == 10, "Damage before replicated combat entry is visible with a frozen clock");
+        m.onCombatEnter("me", 10.1); warmup = m.displayedFight();
+        check(warmup.closed == 0 && warmup.start == 10, "Combat entry resumes the opening hit's warm-up chart");
+        m.onCombatExit("me", 12); m.record(hit(12.1, 30, true)); m.update(13, false);
+        check(warmup.closed == 12 && warmup.duration(99) == 2 && warmup.players["me"].damage == 50,
+            "Combat exit freezes the timer for HUD fading while retaining the late killing blow");
+        m.onCombatEnter("me", 15); m.record(hit(15, 70));
+        check(m.displayedFight() != warmup && m.displayedFight().start == 15 && m.displayedFight().players["me"].damage == 70,
+            "A later pre-countdown fight starts with fresh live totals");
+        m.onCombatExit("me", 16, true); m.update(18, false, true);
+        m.record(hit(18, 40, false, false, "ally"));
+        check(m.displayedFight().closed == 0 && m.displayedFight().players["ally"].damage == 40,
+            "Warm-up remains visible when the local hero dies while party members keep fighting");
+        m.onCombatEnter("me", 19); m.record(hit(20, 10));
+        check(m.displayedFight().start == 15 && m.displayedFight().players["me"].damage == 80,
+            "Revival resumes the same temporary warm-up chart");
+        m.onCombatExit("me", 21); m.reset(22);
+        check(m.history.length == 0 && m.completed.length == 0 && m.recaps.length == 0 && m.displayedFight() == null,
+            "Multiple warm-up combats, deaths and kills produce no saved logs or recap");
+    }
+    static function gameVersions():Void {
+        var version = "0.3.0.30903";
+        var m = new CombatModel(1, version); m.me = "me"; m.profiles["me"] = profile(); m.party["me"] = true;
+        m.onCombatEnter("me", 10); m.record(hit(10, 100, false, true));
+        m.record(hit(20, 50, true, true)); m.onCombatExit("me", 20); m.update(21, false);
+        var archive = FightHistory.encode(m.history[0], "versioned");
+        var report = m.completed[0].json("stamp", 1);
+        check(archive.gameVersion == version && report.game_version == version && m.session.gameVersion == version,
+            "History and upload logs record the native version separately from schema version");
+        var restored = FightHistory.decode(Json.parse(Json.stringify(archive)));
+        check(restored.copy().gameVersion == version && restored.json("later", 2).game_version == version,
+            "Copying or reopening a chart preserves its recorded game version");
+        check(FightHistory.legacy(report, 1000, "imported").gameVersion == version, "Legacy report import retains its original game version");
+        Reflect.deleteField(archive, "gameVersion"); Reflect.deleteField(report, "game_version");
+        check(FightHistory.decode(archive).gameVersion == "" && FightHistory.legacy(report, 1000, "old").gameVersion == "",
+            "Old logs without a version remain readable and never acquire today's version");
+        m.reset(30); m.me = "me"; m.profiles["me"] = profile(); m.party["me"] = true;
+        m.enableRift(); m.startRiftGates(); m.record(hit(40, 10));
+        m.updateRiftState(50, true, false, "BossKind"); m.record(hit(51, 20, false, true));
+        m.updateRiftState(60, true, true, "BossKind"); m.update(61, false);
+        check(m.session.gameVersion == version && m.recaps[0].gate.gameVersion == version
+            && m.recaps[0].boss.gameVersion == version, "Zone resets and both rift snapshots retain the current version");
     }
     static function lifecycle():Void {
         var m = model();
@@ -412,7 +531,7 @@ class HistoryTest {
         m.onCombatEnter("me", 11.1); m.record(hit(11.1, 40)); m.onCombatExit("me", 12); m.update(13, false);
         check(m.history.length == 2 && m.history[0].players["me"].damage == 80
             && m.history[1].players["me"].damage == 40, "Rapid consecutive fights remain separate");
-        m = model(); m.enableRift(); m.updateRiftState(10, false, false, "BossKind");
+        m = model(); m.enableRift(); m.startRiftGates(); m.updateRiftState(10, false, false, "BossKind");
         m.record(hit(10, 10)); m.updateRiftState(20, true, false, "BossKind");
         m.record(hit(21, 100, false, true)); m.updateRiftState(25, true, true, "BossKind");
         m.record(hit(25.1, 200, true, true)); m.update(26, false);
@@ -421,9 +540,9 @@ class HistoryTest {
         check(m.history[1].players["me"].damage == 300, "Late rift killing blow retained");
         m.update(30, false); m.reset(31);
         check(m.history.length == 2, "Completed rift not archived twice on leaving");
-        m = model(); m.enableRift(); m.record(hit(10, 10)); m.reset(15);
+        m = model(); m.enableRift(); m.startRiftGates(); m.record(hit(10, 10)); m.reset(15);
         check(m.history.length == 1 && m.completed.length == 0 && m.recaps.length == 0, "Abandoned rift stays local");
-        m = model(); m.enableRift(); m.updateRiftState(10, false, false, "BossKind");
+        m = model(); m.enableRift(); m.startRiftGates(); m.updateRiftState(10, false, false, "BossKind");
         m.record(hit(10, 10)); m.updateRiftState(20, true, false, "BossKind");
         m.record(hit(21, 70, false, true)); m.reset(24);
         check(m.history.length == 2 && m.completed.length == 1, "Leaving during rift boss preserves both charts, only gates uploaded");
@@ -433,6 +552,95 @@ class HistoryTest {
         m.onCombatExit("me", 12); m.update(13, false);
         var passive = FightHistory.entry(FightHistory.encode(m.history[0], "passive"));
         check(passive.personalDps == 0 && passive.playerName == "Shawn", "A known local player who dealt no damage has zero DPS and keeps their name");
+    }
+    static function partyCombat():Void {
+        var layer = {};
+        var player:Dynamic = {};
+        var hero:Dynamic = {__uid: "me", player: player, layer: layer, isInCombat: true};
+        var ally:Dynamic = {__uid: "ally", layer: layer, isInCombat: true, dead: false, removed: false};
+        var member:Dynamic = {hero: ally, removed: false};
+        var group:Dynamic = {players: {array: [player, member]}};
+        player.group = group;
+        check(PartyCombat.active(hero), "A living party member in this instance can prolong combat");
+        check(!PartyCombat.active(hero, "ally"), "A teammate's explicit exit wins over their still-true combat flag");
+        group.players.array = [member, {isMe: true, hero: hero}];
+        check(PartyCombat.active(hero), "Recognize the replicated local-player flag even after other roster entries");
+        var third:Dynamic = {hero: {__uid: "third", layer: layer, isInCombat: true}};
+        group.players.array = [player, member, third];
+        check(PartyCombat.active(hero, "ally"), "Another living teammate keeps fighting when one teammate exits");
+        group.players.array = [player, member];
+        ally.dead = true;
+        check(!PartyCombat.active(hero), "Dead teammates cannot hold a wiped encounter open");
+        ally.dead = false; ally.layer = {};
+        check(!PartyCombat.active(hero), "Party combat in another instance is ignored");
+        ally.layer = layer; ally.removed = true;
+        check(!PartyCombat.active(hero), "Removed heroes cannot keep combat running");
+        ally.removed = false; member.removed = true;
+        check(!PartyCombat.active(hero), "Disconnected players cannot keep combat running");
+        member.removed = false; ally.isInCombat = false;
+        check(!PartyCombat.active(hero), "An idle living teammate cannot hold the fight open");
+        ally.isInCombat = true; group.players.array = [member];
+        check(!PartyCombat.active(hero), "A stale group that no longer contains us is ignored");
+        group.players.array = [player, member]; player.group = null;
+        check(!PartyCombat.active(hero) && !PartyCombat.active(null), "Solo and missing heroes have no party continuation");
+        player.group = group;
+
+        var m = model(); m.onCombatEnter("me", 10); m.record(hit(10, 100));
+        var original = m.current;
+        m.onCombatExit("me", 12, PartyCombat.active(hero, "me"));
+        m.update(12.1, true, true);
+        check(!m.inCombat && m.current == original && m.history.length == 0,
+            "Local death keeps the same party fight without a stale flag undoing the exit");
+        m.record(hit(13, 200, false, false, "ally"));
+        m.record(hit(14, 25)); // The dead player's remaining damage-over-time effect.
+        m.update(30, false, true);
+        check(m.current == original && original.closed == 0 && original.start == 10
+            && original.players["me"].damage == 125 && original.players["ally"].damage == 200 && m.history.length == 0,
+            "Party damage and lingering local damage stay in the same fight through long death/revival delays");
+        m.onCombatEnter("me", 31); m.record(hit(32, 50)); m.update(33, true, false);
+        check(m.current == original && original.players["me"].damage == 175,
+            "Revival resumes the original clock and damage totals even after teammates leave combat");
+        m.onCombatExit("me", 35, false); m.update(36, false, false);
+        check(m.history.length == 1 && m.history[0].duration() == 25
+            && m.history[0].players["me"].damage == 175 && m.history[0].players["ally"].damage == 200,
+            "One complete history includes the death interval and revived damage");
+
+        m = model(); m.onCombatEnter("me", 10);
+        var bossHit = hit(10, 100, false, true, "me", "boss"); bossHit.bossFlags = 0x10;
+        m.record(bossHit); m.onCombatExit("me", 12, true);
+        m.onCombatExit("ally", 20, false);
+        var lethal = hit(20.1, 300, true, true, "ally", "boss"); lethal.bossFlags = 0x10;
+        m.record(lethal); m.onTargetDeath("boss", 20.1); m.update(21, false, false);
+        check(m.history.length == 1 && m.history[0].duration() == 10 && m.history[0].outcome == "Victory"
+            && m.history[0].players["ally"].damage == 300,
+            "A teammate's final blow after their combat-exit callback completes the dead player's existing fight");
+        check(m.completed.length == 1, "The party boss kill still produces exactly one upload");
+
+        m = model(); m.onCombatEnter("me", 10); m.record(hit(10, 100));
+        m.onCombatExit("me", 12, true); m.update(20, false, false); m.update(21, false, false);
+        check(m.history.length == 1 && m.history[0].duration() == 10 && m.history[0].outcome == "Defeat",
+            "Polling still closes a full wipe if the last teammate's exit callback is missing");
+        m.onCombatEnter("me", 30); m.record(hit(30, 7));
+        check(m.current.start == 30 && m.current.players["me"].damage == 7,
+            "The next attempt after a wipe starts a fresh fight");
+
+        m = model(); m.onCombatEnter("me", 10); m.record(hit(10, 100));
+        m.onCombatExit("ally", 11, false);
+        check(m.current != null && m.inCombat, "A teammate's exit cannot end the living local player's combat");
+        m.onCombatExit("me", 12, true); m.onCombatExit("ally", 15, true);
+        m.onCombatExit("stranger", 16, false);
+        check(m.current != null, "Other active teammates prolong the fight; strangers' exits cannot close it");
+        m.reset(20); m.reset(21);
+        check(m.history.length == 1 && m.history[0].duration() == 10 && m.current == null,
+            "Leaving the instance closes a party-held encounter exactly once");
+
+        m = model(); m.record(hit(10, 50, false, false, "ally")); m.update(11, false, true);
+        check(m.current == null && m.history.length == 0 && !m.inCombat,
+            "Party combat does not start the meter for an idle local player");
+        m = model(); m.onCombatEnter("me", 10); m.record(hit(10, 100));
+        m.update(12, false, true); m.record(hit(13, 50, false, false, "ally"));
+        check(m.current != null && m.current.players["ally"].damage == 50,
+            "The local combat polling fallback also preserves a party fight if the death-exit callback was missed");
     }
     static function outcomes():Void {
         var m = model(); m.onCombatEnter("me", 10);
@@ -504,25 +712,25 @@ class HistoryTest {
         check(FightHistory.entry(legacy).outcome == "", "Legacy exports without explicit outcomes are not guessed from skill kill counts");
         remove(root);
 
-        m = model(); m.enableRift(); m.updateRiftState(10, false, false, "BossKind");
+        m = model(); m.enableRift(); m.startRiftGates(); m.updateRiftState(10, false, false, "BossKind");
         m.record(hit(10, 20, true)); m.updateRiftState(20, true, false, "BossKind");
         var clone = hit(21, 30, true, true); clone.summoned = true;
         m.record(hit(20, 100, false, true)); m.record(clone); m.onTargetDeath("enemy", 21); m.update(22, false);
         check(m.history.length == 1 && m.history[0].outcome == "Victory", "Clearing Rift gates is a phase victory; a boss clone death does not complete the boss phase");
         m.reset(23);
         check(m.history.length == 2 && m.history[1].outcome == "Defeat", "Leaving an unfinished Rift boss records failure despite a lethal clone hit");
-        m = model(); m.enableRift(); m.updateRiftState(10, false, false, "BossKind");
+        m = model(); m.enableRift(); m.startRiftGates(); m.updateRiftState(10, false, false, "BossKind");
         m.record(hit(10, 20, true)); m.updateRiftState(20, true, false, "BossKind");
         m.record(hit(21, 100, false, true)); m.updateRiftState(25, true, true, "BossKind"); m.update(26, false);
         check(m.history.length == 2 && m.history[1].outcome == "Victory", "Rift boss objective completion confirms victory without needing the final damage RPC");
-        m = model(); m.enableRift(); m.record(hit(10, 20, true)); m.reset(20);
+        m = model(); m.enableRift(); m.startRiftGates(); m.record(hit(10, 20, true)); m.reset(20);
         check(m.history[0].outcome == "Defeat", "Leaving Rift gates before their objective finishes is failure even if every observed gate died");
 
         m = model(); m.onCombatEnter("me", 10);
         m.updatePhrixes(10, "chakram", 1, true, false, false); m.record(chakramHit(10, 10));
         m.updatePhrixes(20, "chakram", 2, false, true, false); m.record(chakramHit(20, 20, true));
         m.onCombatExit("me", 20); m.reset(30);
-        check(m.history[0].outcome == "Defeat", "Chakram's first-bar lethal result is not a victory when the full encounter is abandoned");
+        check(m.history.length == 0 && m.completed.length == 0, "An abandoned intro cannot become a false Victory or Defeat encounter");
         check(dpsmeter.MeterConfig.defaults().historyHotkey == 0, "History hotkey starts unbound and cannot collide with an existing binding");
     }
     static function snapshots():Void {
@@ -573,13 +781,13 @@ class HistoryTest {
         var first = store.query(request("fights", "The Guardian"));
         check(first.entries.length == FightHistory.PAGE_SIZE && first.entries[0].id == "boss_18", "Newest-first paged attempts");
         var finalPage = store.query(request("fights", "The Guardian", 999));
-        check(finalPage.page == 2 && finalPage.entries.length == 3, "Page clamping and remainder");
+        check(finalPage.page == 2 && finalPage.entries.length == 5, "Page clamping and remainder");
         var chart = store.query(request("chart", "", 0, "boss_18"));
         check(FightHistory.decode(chart.record).players["me"].damage == 350.5, "Selected chart loaded from its own file");
         store.save(chart.record);
         check(store.query(request("fights", "The Guardian")).total == 19, "Retrying an archive is idempotent");
         for (i in 0...11) { var f = sample(); f.bossName = "Encounter " + i; store.save(FightHistory.encode(f, "group_" + i)); }
-        check(store.query(request("groups")).groups.length == 8 && store.query(request("groups", "", 1)).groups.length == 4, "Encounter names paginate too");
+        check(store.query(request("groups")).groups.length == 7 && store.query(request("groups", "", 1)).groups.length == 5, "Encounter names paginate too");
         var old = sample(); old.startedAt = Date.fromString("2020-01-01 00:00:00").getTime();
         store.save(FightHistory.encode(old, "old"));
         File.saveContent(root + "/history/corrupt.json", "{broken");
@@ -861,7 +1069,7 @@ class HistoryTest {
         var m = model(); m.party["passive"] = true;
         m.onCombatEnter("me", 10); m.record(hit(10, 20)); m.onCombatExit("me", 12); m.update(13, false);
         check(m.history[0].partySize == 3 && Lambda.count(m.history[0].players) == 1, "Party size includes members who never deal damage");
-        m = model(); m.party["passive"] = true; m.enableRift(); m.record(hit(10, 20)); m.reset(12);
+        m = model(); m.party["passive"] = true; m.enableRift(); m.startRiftGates(); m.record(hit(10, 20)); m.reset(12);
         check(m.history[0].partySize == 3, "Rift archive keeps the present-player roster size too");
         // Previous history versions retained activity IDs but dropped difficulty.
         // The original uploader report is matched by its exact session ID.
@@ -889,7 +1097,7 @@ class HistoryTest {
         var source = FightHistory.encode(sample(), "chosen");
         store.save(source); store.save(FightHistory.encode(sample(), "keep"));
         store.query(request("delete", "", 0, "chosen"));
-        check(recycled.length == 1 && recycled[0] == FileSystem.fullPath(root + "/history") + "/chosen.json", "Only the selected archive file is passed to the recycler by absolute path");
+        check(recycled.length == 1 && recycled[0] == FileSystem.fullPath(root + "/history/chosen.json"), "Only the selected archive file is passed to the recycler by absolute path");
         check(File.getContent(root + "/Recycle Bin/chosen.json") == Json.stringify(source), "The recycled log keeps its full original contents for recovery");
         check(store.query(request("fights", "The Guardian")).entries.length == 1, "Successful recycling removes the fight from the index immediately");
         check(FileSystem.exists(root + "/history/keep.json"), "Other combat logs are untouched");
@@ -1087,6 +1295,13 @@ class HistoryTest {
                 && !Lambda.exists(columns, c -> c.key == "dps"), "Core information fits every supported width without a DPS column " + width);
         }
         check(SkillBreakdown.columns(828).length == 9, "Normal history width shows every remaining statistic and the separate distribution");
+        for (width in [280, 360, 408, 430, 454, 580, 790, 852]) {
+            var columns = SkillBreakdown.columns(width, true);
+            check([for (c in columns) c.key].join(",") == "ability,percent,distribution,damage",
+                "Recaps keep the ability inline with only three metrics at every size");
+            check(columns[2].width - 10 >= 75 && columns[3].x + columns[3].width == width,
+                "Compact recap distribution and damage fit inside the panel");
+        }
     }
 }
 

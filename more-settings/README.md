@@ -10,16 +10,19 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 | Category | Controls | Defaults |
 | --- | --- | --- |
-| General | Disable profanity filter; Show boss health; Performance improvements; Wait for party before entering; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party on; Hide UI defaults to F2 |
-| Combat | Fancy damage numbers | Off |
+| General | Disable profanity filter; Show boss health; Performance improvements; Wait for party to enter dungeon; Leave dungeon button; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party and leave dungeon button on; Hide UI defaults to F2 |
+| Combat | Fancy damage numbers; Keep Crabgantua rockfall warnings visible | Fancy numbers off; Crabgantua warnings on |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
+| Social | Hide friend connection notifications; Enable missing slash commands; Sending message closes chat; Enable friend notes | All off |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Dungeon Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Overworld Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 
-**Combat** appears directly below **General** and contains **Fancy damage numbers**. Quick cast and target-lock camera controls are available in **Fix Target Lock**.
+**Combat** appears directly below **General** and contains **Fancy damage numbers** and **Keep Crabgantua rockfall warnings visible**. Quick cast and target-lock camera controls are available in **Fix Target Lock**.
+
+**Keep Crabgantua rockfall warnings visible** moves only the Heroic Avalanche warning circles' colour passes to the native overlay stage, after the water effects, with depth testing disabled for those circles. It retains the native warning position, size, animation, lifetime, and colour. Water, falling rocks, sounds, damage, and other bosses' indicators are unchanged. Turning the option off restores the original passes immediately, including active warnings; effect removal, pooling, and leaving the game also restore the original state. The option is on by default.
 
 **Fancy damage numbers** adds a 1 px black outline to all damage numbers. Normal physical damage uses an orange gradient and normal magic damage uses a blue gradient. Critical hits always use three colours, with the middle stop halfway down the number:
 
@@ -40,6 +43,13 @@ Gradients span the placed glyph geometry, excluding the formatted text's blank l
 
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 
+**Social**, directly below **Appearance**, contains four independent options (off by default):
+
+- **Hide friend connection notifications** hides friends' connected/disconnected system messages while their online status continues updating.
+- **Enable missing slash commands** adds `/invite <player>`, `/leave`, and `/w <player> [message]`. A bare `/w <player>` opens the whisper channel; including a message sends it. Names match exactly, ignoring case, from the current area, party, friends, or recent chat. Quote names containing spaces. Unknown or ambiguous names produce a chat error; failed whispers never fall through into public chat. Invites and leaving use the game's normal permission checks.
+- **Sending message closes chat** closes the textbox after Enter submits a message, returning control of the character. Selecting a whisper recipient without a message keeps the textbox open.
+- **Enable friend notes** adds **Add note** after **Send message** in a friend's gear menu (**Edit note** when a note exists). Notes are limited to **30 characters**, displayed after a hyphen beside the name in smaller text, and saved by your account and the friend's account in `hlx/config/more-settings/friend-notes.json`. They follow character changes. Save an empty note to remove it; Cancel leaves it unchanged. Long rows use an ellipsis, with the full note available on hover. Disabling the setting hides notes without deleting them. Notes are local and are never sent to other players.
+
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 
 **Show boss health** adds the boss's current HP before its percentage in the top-of-screen boss bar: `123,456 (100%)`. It uses the actual Health attribute, rounded down to a whole number like the game's numeric health display, and updates throughout the fight. The native percentage and shield information are preserved. Toggle it at any time under **General**; disabling it restores the native label. If the native resource-display option already shows numeric HP, that label stays unchanged.
@@ -54,7 +64,7 @@ Disabling the option restores native handling for subsequent work, feed entries,
 
 This feature does not implement shader compilation, pipeline prewarming, or a disk cache and does not patch graphics-driver functions. [Shader Persistent Cache](https://github.com/laymain/farever-mods/tree/main/shader-persistent-cache) remains responsible for DX12 pipeline persistence; terrain texture reuse works at a separate game-rendering stage. Both mods can be installed, though in-game testing together is still needed for this terrain change.
 
-**Wait for party before entering** appears after Performance improvements under
+**Wait for party to enter dungeon** appears after Performance improvements under
 **General** and is enabled by default, including for existing installations.
 When you own a dungeon or rift entry lobby, Start stays disabled and reads
 **Waiting for party members** until every party member has joined that same
@@ -62,6 +72,12 @@ entry menu and is ready. Solo entry, teammates' Ready buttons, countdown
 cancellation, and the game's difficulty/access checks retain their normal behavior.
 Toggling the option takes effect while the menu is open. This protects starts
 made by the player running the mod; it does not control another player's client.
+
+**Leave dungeon button** is enabled by default under **General**. It keeps the
+existing Leave button visible while you are in a dungeon and out of combat,
+including when the dungeon has an exit portal. The button hides during combat.
+Disabling the option restores the game's normal visibility rules on the next HUD
+update. Its normal leave action is unchanged; rifts and overworld UI are unaffected.
 
 Targets the September 30 Live client with HLX Core 0.0.8 or newer.
 When **Adjust unfocused volume** is enabled, its level takes precedence over the

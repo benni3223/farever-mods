@@ -6,6 +6,7 @@ class GameAccess {
     public static var globals:Map<String, Dynamic> = [];
     public static function field(object:Dynamic, name:String):Dynamic return object == null ? null : Reflect.field(object, name);
     public static function text(value:Dynamic, fallback:String = ""):String return value == null ? fallback : Std.string(value);
+    public static function uid(value:Dynamic):String return text(field(value, "__uid"));
     public static function integer(value:Dynamic, fallback:Int = 0):Int return value == null ? fallback : Std.int(value);
     public static function number(value:Dynamic, fallback:Float = 0):Float {
         var number = value == null ? Math.NaN : Std.parseFloat(Std.string(value));
@@ -32,6 +33,14 @@ class GameAccess {
         case "haxe.ds._StringMap.StringMapKeysIterator.hasNext": object.hasNext();
         case "haxe.ds._StringMap.StringMapKeysIterator.next": object.next();
         case "st.Player.getActivityContext": field(object, "context");
+        case "ent.GameObject.isDead": field(object, "dead") == true || field(object, "removed") == true;
+        // The shipped client retains this server-only method as a throwing stub.
+        case "ent.Unit.isAtDeathDoor": throw "!isServer";
+        case "ent.Unit.get_health": field(object, "health");
+        case "ent.Unit.getName": field(object, "name");
+        case "st.skill.DamageResult.get_source": field(object, "source");
+        case "st.skill.DamageResult.get_isPhysical": field(object, "physical") == true;
+        case "st.skill.DamageResult.get_isMagic": field(object, "magical") == true;
         case "h2d.Object.getScene": field(object, "scene");
         case "h2d.Object.drawTo":
             var draw:Dynamic->Void = globals["drawSnapshot"];
@@ -54,6 +63,7 @@ class GameAccess {
         default: throw "Unexpected native metadata call: " + type + "." + name;
     };
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic return switch (type + "." + name) {
+        case "Config.getVersion": "0.3.0.test";
         case "HActivity.all": [];
         case "data.CodexData.isInCodex": field(args[0], "inCodex") == true;
         case "st.player.Progress.getUnitProgressThreshold": field(args[0], "thresholds");

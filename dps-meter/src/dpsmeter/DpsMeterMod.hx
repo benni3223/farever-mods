@@ -22,8 +22,7 @@ class DpsMeterMod {
         else if (!ConfigMigration.hasNative()) MeterConfig.importLegacy(config);
         MeterConfig.normalize(config);
         saveConfig();
-        collector = new Collector(config);
-        historyView = new NativeHistoryWindow();
+        historyView = new NativeHistoryWindow(config);
         view = new NativeMeterWindow(config, () -> historyView.open());
         recapView = new NativeRiftRecapWindow();
         kills = new KillNotifications(config);
@@ -118,13 +117,17 @@ class DpsMeterMod {
     @:hlx.postfix(ent.Hero.onLeaveCombat)
     static function onCombatExit(instance:Dynamic, result:Void):Void {
         // This callback runs before set_isInCombat stores false. Observe the
-        // actual exit event instead of polling that field or another party member.
+        // actual exit event; the collector excludes this hero when checking
+        // whether the rest of the party is still fighting.
         if (collector != null && config.enabled) try collector.combatExit(G.uid(instance), haxe.Timer.stamp())
         catch (_:Dynamic) {}
     }
     @:hlx.postfix(GameApp.update)
     static function update(instance:Dynamic, dt:Float, result:Void):Void {
-        if (collector == null) return;
+        // HLX recovers the game's module only AFTER every mod's main() runs.
+        // Collector reads Config.getVersion(), so construct it here once the
+        // native functions and game statics are available, before any fights.
+        if (collector == null) collector = new Collector(config);
         var now = haxe.Timer.stamp();
         try {
             if (G.staticCall("hxd.Key", "isPressed", [config.toggleHotkey]) == true) {

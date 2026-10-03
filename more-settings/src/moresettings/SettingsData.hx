@@ -1,13 +1,19 @@
 package moresettings;
 
 typedef MoreSettingsConfig = {
+    var hideFriendConnectionNotifications:Bool;
+    var enableMissingSlashCommands:Bool;
+    var sendingMessageClosesChat:Bool;
+    var enableFriendNotes:Bool;
     var fancyDamageNumbers:Bool;
     var classColoredNames:Bool;
     var showNameplateWeapons:Bool;
+    var crabgantuaRockfallWarnings:Bool;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
     var waitForParty:Bool;
+    var leaveDungeonButton:Bool;
     var hideUiKey:Int;
     var adjustUnfocusedVolume:Bool;
     var backgroundVolume:Float;
@@ -26,13 +32,19 @@ typedef MoreSettingsConfig = {
 
 class SettingsData {
     public static function defaults():MoreSettingsConfig return {
+        hideFriendConnectionNotifications: false,
+        enableMissingSlashCommands: false,
+        sendingMessageClosesChat: false,
+        enableFriendNotes: false,
         fancyDamageNumbers: false,
         classColoredNames: true,
         showNameplateWeapons: true,
+        crabgantuaRockfallWarnings: true,
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
         waitForParty: true,
+        leaveDungeonButton: true,
         hideUiKey: 113, // hxd.Key.F2
         adjustUnfocusedVolume: true, backgroundVolume: 0,
         adjustFastTravelVolume: false, fastTravelVolume: 0,

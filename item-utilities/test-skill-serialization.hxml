@@ -1,0 +1,12 @@
+-cp tests
+-main SkillPresetSerializationHost
+-D hl-ver=1.16.0
+-dce full
+-hl build/skill-serialization-host.hl
+--next
+-cp src
+-cp tests
+-main SkillPresetSerializationPlugin
+-D hl-ver=1.16.0
+-dce full
+-hl build/skill-serialization-plugin.hl

@@ -7,8 +7,11 @@ class PresetDropdownInput {
     var input:Dynamic;
     var scene:Dynamic;
     var errorLogged = false;
+    var description:String;
 
-    public function new() {}
+    public function new(description:String = "preset dropdown") {
+        this.description = description;
+    }
 
     public function update(host:Dynamic, pixels:OverlayRect):Void {
         try {
@@ -47,7 +50,7 @@ class PresetDropdownInput {
             remove();
             if (!errorLogged) {
                 errorLogged = true;
-                trace("[Item Utilities] Unable to capture preset dropdown input: " + error);
+                trace("[Item Utilities] Unable to capture " + description + " input: " + error);
             }
         }
     }

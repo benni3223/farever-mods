@@ -231,11 +231,37 @@ is not saved. A qualifying fight still in progress when you leave an area or
 exit normally is also preserved. Completed rift phases
 keep their separate **Rift: Gates** and **Rift: [boss name]** charts.
 
-New Chakram recordings keep both health bars and the intervening bridge sequence
-in one fight, using his replicated entity and phase state. The first health bar
-does not produce a completed boss report. A reset or wipe ends the attempt;
-leaving the area still preserves an unfinished chart. Previously saved split
-logs are retained as recorded.
+An ongoing fight continues while a living party member in the same instance is
+still in combat, even if you die. Party damage and the encounter timer continue,
+and being revived resumes the same chart. The fight ends when everyone leaves
+combat or the party wipes. Players in other instances and dead teammates cannot
+keep it open; party combat alone does not start a new fight while you are idle.
+
+Chakram's opening health bar appears in the live meter with its own damage and
+timer, including normal visibility while fighting. This temporary chart is never
+saved or uploaded. New Chakram recordings begin with damage after **Surrendering
+to Darkness** (phase 2), starting fresh without the opening bar's damage or time.
+The later bridge and demon form stay in that same fight. A reset or wipe ends
+the attempt; leaving the area preserves an unfinished chart only after the real
+encounter starts. Previously saved logs remain as recorded.
+
+Rift gate encounters begin only after the game's waiting objective completes.
+Damage to warm-up mobs during the countdown appears in a temporary live chart,
+with normal combat visibility and hiding after combat ends. It is never saved,
+uploaded or included in the recap; the gate phase starts with fresh totals.
+Remaining gate cleanup after the wave timer expires is still included. In the
+recap's ability breakdown, each ability name sits above three columns:
+**Damage %**, **Phys/Magic/Raw**, and **Damage**. The full history breakdown keeps
+its additional statistics, and table headers stay fixed while the rows scroll.
+
+**Lock or unlock window hotkey** controls movement of both the DPS Meter and
+Fight History. Drag the Fight History title bar when unlocked; its position is
+saved separately and kept on screen. **Show or hide meter hotkey** controls the
+meter's visibility.
+
+New history logs include `gameVersion`; uploaded reports include `game_version`.
+Both record the running game's version from `Config.getVersion()`. Reopened
+logs retain their original version, and older logs without it remain readable.
 
 New logs save their outcome. Boss attempts require the boss's actual death;
 defeating adds alone is not a victory. Ordinary fights require all observed foes

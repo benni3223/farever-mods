@@ -9,6 +9,9 @@ class RiftTracker {
     public static inline var GATES_PHASE:String = "Rift: Gates";
     static inline var FINAL_DAMAGE_SECONDS:Float = 0.5;
     var phase:Int = 0; // 0: gates, 1: boss, 2: finished
+    var gatesStarted:Bool = false;
+    public var warmup(default, null):Null<Fight>;
+    var gameVersion:String;
     var targetBossKind:String = "";
     var fights:Array<Null<Fight>> = [null, null];
     var ended:Array<Float> = [-1, -1];
@@ -17,7 +20,18 @@ class RiftTracker {
     public var current(get, never):Null<Fight>;
     public var last(get, never):Null<Fight>;
 
-    public function new() {}
+    public function new(gameVersion:String = "") { this.gameVersion = gameVersion; }
+    public function startGates():Void { gatesStarted = true; warmup = null; }
+    public function waitingForGates():Bool return phase == 0 && !gatesStarted;
+    public function updateWarmup(now:Float, active:Bool):Void {
+        if (!waitingForGates() || warmup == null) return;
+        if (active) {
+            // Damage can arrive just before the combat-entry notification.
+            if (warmup.closed > 0 && now - warmup.closed <= FINAL_DAMAGE_SECONDS) warmup.closed = 0;
+        } else if (warmup.closed == 0) {
+            warmup.last = Math.max(warmup.start, now); warmup.closed = now;
+        }
+    }
 
     function get_current():Null<Fight> return phase < 2 ? fights[phase] : null;
     function get_last():Null<Fight> {
@@ -28,6 +42,7 @@ class RiftTracker {
     public function updateState(now:Float, bossSpawned:Bool, bossDefeated:Bool, ?bossKind:String):Void {
         if (bossKind != null && bossKind != "") targetBossKind = bossKind;
         if (phase == 0 && (bossSpawned || bossDefeated)) {
+            warmup = null;
             finish(0, now);
             phase = 1;
         }
@@ -49,12 +64,31 @@ class RiftTracker {
         fight.outcome = "Victory";
     }
 
-    public function record(e:DamageEvent, info:PlayerInfo, difficulty:Int, activityId:String, me:String, meName:String = "", partySize:Int = 0):Void {
+    public function record(e:DamageEvent, info:PlayerInfo, difficulty:Int, activityId:String, me:String, meName:String = "", partySize:Int = 0, active:Bool = true):Void {
         // Clones can share the boss flag. Only the unit named by KillBoss can
         // start this phase or supply its boss identity; summons remain adds.
         var bossHit = e.effect != 1 && e.summoned != true
             && targetBossKind != "" && e.bossKind == targetBossKind;
         if (phase == 0 && bossHit) updateState(e.time, true, false);
+        // Warm-up mobs exist while EventWait counts down. Never buffer their
+        // damage into the gate phase, even when combat remains active across it.
+        if (waitingForGates()) {
+            // Display ordinary combat before countdown ends, in a chart that
+            // never enters fights[], history, uploads, or the rift recap.
+            if (warmup == null || (warmup.closed > 0 && e.time - warmup.closed > FINAL_DAMAGE_SECONDS)) {
+                if (e.effect == 1) return;
+                warmup = new Fight(e.time, gameVersion);
+                warmup.isBoss = false; warmup.bossName = "Rift: Before gates";
+                warmup.me = me; warmup.meName = meName;
+                warmup.difficulty = difficulty; warmup.activityId = activityId;
+                if (!active) warmup.closed = e.time;
+            }
+            var end = warmup.last;
+            warmup.partySize = Std.int(Math.max(warmup.partySize, partySize));
+            warmup.add(e, info);
+            if (warmup.closed > 0) warmup.last = end;
+            return;
+        }
         var index = phase == 2 ? 1 : phase;
         if (phase >= 1 && !bossHit) {
             // A final gate kill can arrive just after the boss appears.
@@ -73,7 +107,7 @@ class RiftTracker {
         }
         if (fight == null) {
             if (e.effect == 1) return;
-            fight = new Fight(e.time);
+            fight = new Fight(e.time, gameVersion);
             fight.phase = index == 0 ? GATES_PHASE : "";
             fight.isBoss = index == 1;
             fight.bossName = fight.phase;

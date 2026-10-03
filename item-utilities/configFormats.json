@@ -54,7 +54,11 @@
     {
       "key": "instantMoteConversion",
       "type": "checkbox",
-      "label": "Instant Mote Conversion"
+      "label": "Instant mote conversion",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Removes the wait time to convert motes to fragments."
+      }
     },
     {
       "type": "title",

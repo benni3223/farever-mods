@@ -16,18 +16,20 @@ class SkillBreakdown {
         // Match the player chart: each ability uses the whole fight's duration.
         dps: skill.damage / Math.max(1, duration)
     };
-    public static function columns(width:Int):Array<SkillColumn> {
+    public static function columns(width:Int, recap:Bool = false):Array<SkillColumn> {
         // Keep names, total damage, share, and damage types legible in the small live
         // meter too. Wide history windows show every statistic in its own cell.
-        var keys = width >= 800 ? KEYS
+        var keys = recap ? ["ability", "percent", "distribution", "damage"] : width >= 800 ? KEYS
             : width >= 700 ? ["ability", "percent", "distribution", "damage", "casts", "hits", "crit"]
             : ["ability", "percent", "distribution", "damage"];
-        var ratios = width >= 800 ? [.23, .125, .165, .10, .065, .085, .06, .085, .085]
+        // Recaps keep the ability and its three metrics on one line. A compact
+        // damage cell leaves room for the name and keeps totals beside the bar.
+        var ratios = recap ? [.40, .15, .31, .14] : width >= 800 ? [.23, .125, .165, .10, .065, .085, .06, .085, .085]
             : width >= 700 ? [.275, .155, .20, .125, .085, .075, .085]
             : width >= 500 ? [.36, .21, .27, .16]
             : width >= 360 ? [.40, .19, .24, .17] : [.36, .22, .21, .21];
-        var titles = ["ability" => "Ability", "percent" => width < 360 ? "Dmg%" : width < 500 ? "Dmg %" : "Damage (%)",
-            "distribution" => "Phys/Magic/Raw", "damage" => width < 500 ? "Dmg" : "Damage",
+        var titles = ["ability" => "Ability", "percent" => recap ? "Damage %" : width < 360 ? "Dmg%" : width < 500 ? "Dmg %" : "Damage (%)",
+            "distribution" => "Phys/Magic/Raw", "damage" => !recap && width < 500 ? "Dmg" : "Damage",
             "casts" => "Casts", "avgCast" => "Avg cast",
             "hits" => "Hits", "avgHit" => "Avg hit", "crit" => "Crit %"];
         var result:Array<SkillColumn> = [];

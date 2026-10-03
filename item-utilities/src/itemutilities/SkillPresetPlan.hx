@@ -29,8 +29,12 @@ class SkillPresetPlan {
     public static inline var SLOT_COUNT = 4;
 
     public static function saved(state:SkillPresetState, owners:Map<String, String>):Array<SavedSkillSlot> {
-        return [for (skill in state.slots) {skill: skill,
-            runes: skill == null ? [] : [for (rune in state.runes) if (owners.get(rune) == skill) rune]}];
+        // Game-owned strings have a different class identity in HashLink.
+        // Copy both skill and rune IDs so decode accepts them immediately and
+        // JSON saves their text instead of their internal bytes/length fields.
+        return [for (skill in state.slots) {skill: skill == null ? null : Std.string(skill),
+            runes: skill == null ? [] : [for (rune in state.runes)
+                if (owners.get(rune) == skill) Std.string(rune)]}];
     }
 
     public static function decode(value:Dynamic):Array<SavedSkillSlot> {
@@ -42,13 +46,13 @@ class SkillPresetPlan {
             if (record == null || !Reflect.hasField(record, "skill")) throw "Invalid saved skill slot.";
             var skill:Dynamic = Reflect.field(record, "skill");
             if (skill != null && (!Std.isOfType(skill, String) || skill == ""))
-                throw "Invalid saved skill.";
+                throw "Invalid saved skill. Press Set to re-save this preset.";
             var runes:Dynamic = Reflect.field(record, "runes");
             if (!Std.isOfType(runes, Array)) throw "This preset has no saved rune selection.";
             var copied:Array<String> = [];
             for (rune in (cast runes:Array<Dynamic>)) {
                 if (!Std.isOfType(rune, String) || rune == "" || copied.indexOf(rune) >= 0)
-                    throw "Invalid or duplicate saved rune.";
+                    throw "Invalid or duplicate saved rune. Press Set to re-save this preset.";
                 copied.push(cast rune);
             }
             if (skill == null && copied.length > 0) throw "An empty skill slot cannot have runes.";

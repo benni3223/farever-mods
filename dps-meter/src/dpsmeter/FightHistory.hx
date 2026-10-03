@@ -20,7 +20,7 @@ typedef HistoryResponse = {
 
 /** Detached, versioned chart snapshots. No game types or monotonic clocks on disk. */
 class FightHistory {
-    public static inline var PAGE_SIZE = 8;
+    public static inline var PAGE_SIZE = 7;
     public static function encode(fight:Fight, id:String):Dynamic {
         var players:Array<Dynamic> = [for (p in fight.ranked()) {
             var skills:Array<Dynamic> = [for (id => s in p.skills) {id: id, damage: s.damage, hits: s.hits,
@@ -32,7 +32,7 @@ class FightHistory {
                 skills: skills, damageBreakdown: p.damageBreakdown.json(p.damage)
             }
         }];
-        return {version: 1, id: id, name: name(fight), startedAt: fight.startedAt, duration: fight.duration(),
+        return {version: 1, gameVersion: fight.gameVersion, id: id, name: name(fight), startedAt: fight.startedAt, duration: fight.duration(),
             me: fight.me, meName: fight.meName, players: players, category: fight.category, categoryVersion: fight.categoryVersion,
             activityId: fight.activityId, bossKind: fight.bossKind, phase: fight.phase,
             difficulty: fight.difficulty, partySize: fight.partySize, outcome: outcome(fight.outcome), targetDummy: fight.targetDummy};
@@ -63,6 +63,7 @@ class FightHistory {
     public static function decode(record:Dynamic):Fight {
         validate(record);
         var fight = new Fight(1);
+        fight.gameVersion = text(record.gameVersion);
         fight.startedAt = record.startedAt;
         fight.last = 1 + number(record.duration);
         fight.closed = fight.last;
@@ -118,7 +119,7 @@ class FightHistory {
                 skills: skills, damageBreakdown: p.damage_breakdown
             }
         }];
-        return {version: 1, id: id, name: name, startedAt: timestamp - duration * 1000, duration: duration, players: players,
+        return {version: 1, gameVersion: text(report.game_version), id: id, name: name, startedAt: timestamp - duration * 1000, duration: duration, players: players,
             activityId: text(report.activity_id), bossKind: text(report.boss_kind), phase: phase,
             difficulty: difficulty(report.difficulty), partySize: Std.int(number(report.party_size)), outcome: outcome(report.outcome)};
     }

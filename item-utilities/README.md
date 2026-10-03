@@ -134,7 +134,7 @@ around it.
 
 ### Instant mote conversion
 
-Enable **Instant Mote Conversion** in Better Mod Settings to complete elemental
+Enable **Instant mote conversion** in Better Mod Settings to complete elemental
 motes without the use animation's wait. Each **Complete** action requests one
 conversion using the game's normal recipe (5 motes into 1 fragment). The game
 still checks the ingredients, inventory space, and combat restrictions, and the
@@ -302,13 +302,17 @@ Run the quick-loot, lock-restoration, overlay-layout, and preset regression test
 haxe test.hxml
 ```
 
-To test appearance saves with strings owned by a separate game-like module,
+To test appearance and skill saves with strings owned by a separate game-like module,
 use HashLink 1.16 or newer from the same directory:
 
 ```sh
 haxe test-appearance-serialization.hxml
 hl build/appearance-serialization-host.hl
+haxe test-skill-serialization.hxml
+hl build/skill-serialization-host.hl
 ```
 
-This additional test checks cosmetic, hidden, and default appearances after a
-JSON round trip. The Haxe interpreter cannot reproduce cross-module string identity.
+These additional tests check cosmetic, hidden, and default appearances, plus skill
+and rune selections both immediately and after a JSON round trip. The skill test
+also checks rune-only changes without changing skill slots. The Haxe interpreter
+cannot reproduce cross-module string identity.

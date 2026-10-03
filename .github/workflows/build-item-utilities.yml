@@ -45,6 +45,24 @@ jobs:
       - name: Test quick-loot, item locks, overlays, and presets
         working-directory: item-utilities
         run: haxe test.hxml
+      - uses: actions/checkout@v4
+        with:
+          repository: HaxeFoundation/hashlink
+          ref: 04a207d73816132b9f742867e8643f58b02a5afa
+          path: .preset-hashlink
+          persist-credentials: false
+      - name: Build the HashLink preset test runtime
+        run: make -C .preset-hashlink -j2 hl
+      - name: Test cross-module skill and appearance preset serialization
+        working-directory: item-utilities
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.preset-hashlink
+        run: |
+          mkdir -p build
+          haxe test-appearance-serialization.hxml
+          ../.preset-hashlink/hl build/appearance-serialization-host.hl
+          haxe test-skill-serialization.hxml
+          ../.preset-hashlink/hl build/skill-serialization-host.hl
 
   build:
     needs: test

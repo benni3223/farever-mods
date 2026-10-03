@@ -104,6 +104,7 @@ class Fight {
     public var killedTargets:Map<String, Bool> = [];
     public var start:Float;
     public var startedAt:Float;
+    public var gameVersion:String;
     public var last:Float;
     public var closed:Float = 0;
     public var defeated:Bool = false;
@@ -124,7 +125,9 @@ class Fight {
     public var categoryVersion:Int = HistoryCatalog.HistoryCategory.VERSION;
     public var me:String = "";
     public var meName:String = "";
-    public function new(now:Float) { start = now; last = now; startedAt = Date.now().getTime(); }
+    public function new(now:Float, gameVersion:String = "") {
+        start = now; last = now; startedAt = Date.now().getTime(); this.gameVersion = gameVersion;
+    }
     public function add(e:DamageEvent, info:PlayerInfo):Void {
         if (!players.exists(e.source)) players[e.source] = new PlayerStats(info);
         players[e.source].add(e, info);
@@ -154,7 +157,7 @@ class Fight {
         return list;
     }
     public function copy():Fight {
-        var result = new Fight(start);
+        var result = new Fight(start, gameVersion);
         result.startedAt = startedAt;
         result.last = last; result.closed = closed; result.defeated = defeated;
         result.outcome = outcome; result.killedTargets = killedTargets.copy();
@@ -189,7 +192,7 @@ class Fight {
     public function json(timestamp:String, reportId:Int):Dynamic {
         var seconds = duration();
         var result:Dynamic = {session_id: reportKey() + "-" + timestamp + "-" + reportId,
-            duration_sec: SkillStats.rounded(seconds, 3), is_boss: isBoss, boss_kind: bossKind,
+            game_version: gameVersion, duration_sec: SkillStats.rounded(seconds, 3), is_boss: isBoss, boss_kind: bossKind,
             difficulty: difficulty, activity_id: activityId, boss_level: bossLevel, boss_foe_id: bossFoeId,
             players: [for (p in ranked()) if (p.info.name != "") p.json(seconds)]};
         if (phase != "") Reflect.setField(result, "phase", phase);
@@ -225,14 +228,17 @@ class CombatModel {
     var awaitingExitState:Bool = false;
     var pendingFight:Null<Fight>;
     var rift:Null<RiftTracker>;
-    // Chakram keeps the same Phrixes entity through both health bars. Its
-    // bridge transition can clear the hero's combat flag for much longer than
-    // the ordinary late-damage grace period. Track that entity, not its name.
+    // Chakram's opening health bar has a live-only chart. Phase 2 begins the
+    // saved encounter after Surrendering to Darkness, including the later bridge.
+    var phrixesIntro:Null<Fight>;
     var phrixesUid:String = "";
     var phrixesPhase:Int = 0;
     var phrixesInactiveAt:Float = -1;
     var phrixesDeadAt:Float = -1;
-    public function new(now:Float) session = new Fight(now);
+    var gameVersion:String;
+    public function new(now:Float, gameVersion:String = "") {
+        this.gameVersion = gameVersion; session = new Fight(now, gameVersion);
+    }
     public function reset(now:Float):Void {
         if (rift != null) rift.drain(now, completed, recaps, true, history);
         else {
@@ -242,7 +248,7 @@ class CombatModel {
         drainHistory(now, true);
         rift = null;
         profiles = []; party = []; me = ""; current = null; lastCombat = null;
-        session = new Fight(now); boss = null; lastBoss = null;
+        session = new Fight(now, gameVersion); boss = null; lastBoss = null;
         lastKillSource = ""; lastKillAmount = -1; difficulty = -1; activityId = "";
         activityCategory = "Other";
         lastKillTarget = ""; lastKillTime = -1;
@@ -250,18 +256,23 @@ class CombatModel {
         clearPhrixes();
         // Completed reports and recaps remain queued across character/zone changes.
     }
-    public function update(now:Float, localInCombat:Bool):Void {
-        // Poll only the local hero as a backup for native entry/exit callbacks.
+    public function update(now:Float, localInCombat:Bool, partyInCombat:Bool = false):Void {
+        // Poll the local hero as a backup for native entry/exit callbacks.
         // A native exit runs before the game's flag is stored. A stale true
         // must not undo that exit; first observe false, or a new native entry.
         if (!localInCombat) {
-            if (inCombat) onCombatExit(me, now);
+            if (inCombat) onCombatExit(me, now, partyInCombat);
             awaitingExitState = false;
         } else if (!inCombat && !awaitingExitState) onCombatEnter(me, now);
         if (rift != null) {
+            rift.updateWarmup(now, inCombat || partyInCombat);
             rift.drain(now, completed, recaps, false, history);
             return;
         }
+        // A dead/revivable local hero may already have left combat while the
+        // party continues. End only when that continuation also stops; never
+        // let a teammate's combat flag start a new encounter by itself.
+        if (!inCombat && !partyInCombat && current != null && phrixesUid == "") finishCurrent(now);
         expirePendingFight(now);
         drainHistory(now);
         if (boss != null && (phrixesUid == "" || boss.bossUid != phrixesUid) && now - boss.last > 8) {
@@ -273,8 +284,9 @@ class CombatModel {
         if (inCombat) return;
         inCombat = true;
         awaitingExitState = false;
-        if (rift != null) return;
-        if (current != null && phrixesUid != "") return;
+        if (rift != null) { rift.updateWarmup(now, true); return; }
+        // Rejoining combat (including revival) resumes the party's same fight.
+        if (current != null) return;
         expirePendingFight(now);
         // Entry alone never starts the clock. Retain an opening hit if its
         // damage notification preceded entry; otherwise wait for first damage.
@@ -283,10 +295,14 @@ class CombatModel {
         pendingFight = null;
     }
     public function displayedFight():Null<Fight> {
+        if (rift != null && rift.waitingForGates() && rift.warmup != null) return rift.warmup;
+        if (phrixesIntro != null && phrixesIntro.closed == 0) return phrixesIntro;
         if (current != null) return current;
         // One-shots may never produce a replicated combat-entry transition.
         // Show the confirmed kill immediately, with an already-frozen clock.
-        return hasLocalKill(pendingFight) ? pendingFight : lastCombat;
+        if (hasLocalKill(pendingFight)) return pendingFight;
+        if (phrixesIntro != null && (lastCombat == null || phrixesIntro.start >= lastCombat.start)) return phrixesIntro;
+        return lastCombat;
     }
     public function bossRecordFight(kind:String, since:Float):Null<Fight> {
         var latest:Null<Fight> = null;
@@ -299,14 +315,17 @@ class CombatModel {
                 && (latest == null || fight.start > latest.start)) latest = fight;
         return latest;
     }
-    public function onCombatExit(heroUid:String, now:Float):Void {
-        // Ordinary fights end on the local character's exit, even between
-        // polls. A tracked Chakram attempt instead follows its boss lifecycle.
-        if (me == "" || heroUid != me) return;
-        inCombat = false;
-        awaitingExitState = true;
-        if (rift != null) return;
-        if (current != null && phrixesUid != "") return;
+    public function onCombatExit(heroUid:String, now:Float, partyInCombat:Bool = false):Void {
+        if (me == "") return;
+        if (heroUid == me) {
+            inCombat = false;
+            awaitingExitState = true;
+        } else if (inCombat || current == null || !party.exists(heroUid)) return;
+        if (rift != null) { rift.updateWarmup(now, inCombat || partyInCombat); return; }
+        // Preserve an existing party encounter through local death or exit.
+        // The final teammate's exit can close it between polls. Chakram still
+        // follows its own replicated boss/phase lifecycle.
+        if (current != null && (phrixesUid != "" || partyInCombat)) return;
         finishPendingFight();
         if (current != null) finishCurrent(now);
     }
@@ -315,7 +334,7 @@ class CombatModel {
     }
     public function enableRift():Void {
         if (rift != null) return;
-        rift = new RiftTracker();
+        rift = new RiftTracker(gameVersion);
         current = null; lastCombat = null; pendingFight = null;
         boss = null; lastBoss = null;
         clearPhrixes();
@@ -324,6 +343,9 @@ class CombatModel {
     public function updatePhrixes(now:Float, uid:String, phase:Int, active:Bool, transition:Bool, dead:Bool):Void {
         if (rift != null || uid == "" || uid == "0") return;
         if (phrixesUid != "" && (phrixesUid != uid || phase < phrixesPhase)) endPhrixes(now, false);
+        // Drop the live-only chart on surrender or a new attempt. Its totals
+        // never become the main encounter's opening damage or start time.
+        if (phrixesUid == "" || phase >= 2) phrixesIntro = null;
         if (dead) {
             if (uid == phrixesUid) {
                 // Death state may precede the lethal RPC even while the local
@@ -344,10 +366,15 @@ class CombatModel {
         }
     }
     public function trackingPhrixes(uid:String):Bool return phrixesUid == uid && uid != "";
-    function clearPhrixes():Void {
+    function clearPhrixes(keepIntro:Bool = false):Void {
         phrixesUid = ""; phrixesPhase = 0; phrixesInactiveAt = -1; phrixesDeadAt = -1;
+        if (!keepIntro) phrixesIntro = null;
     }
     function endPhrixes(now:Float, defeated:Bool):Void {
+        if (phrixesIntro != null) {
+            phrixesIntro.last = Math.max(phrixesIntro.start, now);
+            phrixesIntro.closed = now;
+        }
         if (current != null && current.targets.exists(phrixesUid)) {
             current.defeated = defeated;
             finishCurrent(now);
@@ -357,7 +384,9 @@ class CombatModel {
             if (boss != null && boss.bossUid == phrixesUid) boss = null;
             if (lastBoss != null && lastBoss.bossUid == phrixesUid) lastBoss = null;
         }
-        clearPhrixes();
+        // Keep a frozen intro result only for the normal HUD fade after a wipe.
+        // It is never placed in history, completed reports, or boss records.
+        clearPhrixes(true);
     }
     public function updateRiftState(now:Float, bossSpawned:Bool, bossDefeated:Bool, bossKind:String):Void {
         if (rift == null) return;
@@ -365,6 +394,8 @@ class CombatModel {
         current = rift.current;
         lastCombat = rift.last;
     }
+    public function startRiftGates():Void { if (rift != null) rift.startGates(); }
+    public function waitingForRiftGates():Bool return rift != null && rift.waitingForGates();
     function finishPendingFight():Void {
         if (hasLocalKill(pendingFight)) {
             lastCombat = pendingFight;
@@ -436,7 +467,9 @@ class CombatModel {
             lastKillSource = e.source; lastKillAmount = e.amount;
             lastKillTarget = e.target; lastKillTime = e.time;
         }
-        if (e.kill && e.target == phrixesUid && phrixesPhase >= 1 && phrixesPhase <= 2) {
+        var intro = phrixesUid != "" && (phrixesPhase < 2
+            || (e.kill && e.target == phrixesUid && phrixesPhase == 2));
+        if (e.kill && e.target == phrixesUid && phrixesPhase <= 2) {
             // Phrixes.canDie explicitly forbids death in these phases. A lethal
             // first-bar result starts the transformation, not a completed report.
             e = Reflect.copy(e); e.kill = false;
@@ -446,14 +479,23 @@ class CombatModel {
         var member = party.exists(e.source) || e.source == me;
         if (member) {
             session.add(e, info);
+            if (intro) {
+                // Track the opening bar visibly without feeding any archive or
+                // uploader. A late first-bar lethal RPC in phase 2 stays excluded.
+                if (phrixesPhase < 2) {
+                    if (phrixesIntro == null && e.effect != 1) phrixesIntro = new Fight(e.time, gameVersion);
+                    if (phrixesIntro != null) addToFight(phrixesIntro, e, info);
+                }
+                return;
+            }
             if (rift != null) {
-                rift.record(e, info, difficulty, activityId, me, profiles.exists(me) ? profiles[me].name : "", Lambda.count(party));
+                rift.record(e, info, difficulty, activityId, me, profiles.exists(me) ? profiles[me].name : "", Lambda.count(party), inCombat);
                 current = rift.current;
                 lastCombat = rift.last;
                 return;
             }
-            if (inCombat || (current != null && phrixesUid != "")) {
-                if (current == null && e.effect != 1) current = new Fight(e.time);
+            if (inCombat || current != null) {
+                if (current == null && e.effect != 1) current = new Fight(e.time, gameVersion);
                 if (current != null) addToFight(current, e, info);
             } else if (e.effect != 1) {
                 expirePendingFight(e.time);
@@ -466,13 +508,13 @@ class CombatModel {
                     addToFight(lastCombat, e, info);
                     lastCombat.last = end;
                 } else {
-                    if (pendingFight == null) pendingFight = new Fight(e.time);
+                    if (pendingFight == null) pendingFight = new Fight(e.time, gameVersion);
                     addToFight(pendingFight, e, info);
                     pendingFight.closed = e.time;
                 }
             }
         }
-        if (rift != null) return;
+        if (rift != null || intro) return;
         if (e.kill && e.target == phrixesUid) endPhrixes(e.time, true);
         // Match the DLL's target.inf.flags mask, including world/elite bosses.
         var bossHit = e.effect != 1 && e.targetDummy != true && (e.bossFlags & 0x38) != 0;
@@ -485,7 +527,7 @@ class CombatModel {
                     || (!previous.defeated && e.time - previous.closed <= 30));
             // Completed reports may still be waiting for the end-of-frame writer.
             // A resumed phase must never mutate a report already queued for export.
-            boss = resume ? previous.copy() : new Fight(e.time);
+            boss = resume ? previous.copy() : new Fight(e.time, gameVersion);
             boss.closed = 0; boss.defeated = false; boss.me = me;
             boss.bossKind = e.bossKind == "" ? "Boss" : e.bossKind;
             boss.bossUid = e.target; boss.bossLevel = e.bossLevel; boss.bossFoeId = e.bossFoeId;

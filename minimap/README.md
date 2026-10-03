@@ -58,7 +58,8 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | --- | --- |
 | Your character | Flat ivory arrow |
 | Other players | Light-blue arrow showing facing direction |
-| Party members | The same light-blue arrow with a yellow outline following its shape |
+| Party members | The same light-blue arrow with a purple outline following its shape |
+| Friends | The same light-blue arrow with a yellow outline following its shape |
 | Off-screen party members | Gold edge arrow pointing toward them |
 | Plants | Green leaf |
 | Ore | Gray stone |
@@ -96,7 +97,7 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 
 **Party direction arrows** is on by default. Each living party member the client has a position for gets one gold guidance arrow on the minimap edge while they are outside the view. The arrow uses the Rift alert shape, points toward that member, and disappears once their marker is on the map, including when **Show other players** is off. Several members produce several arrows. Hover shows that member's name, distance, and height. There is no arrow when the client has no coordinates for them, or when they are removed or dead.
 
-Party member arrows use the same yellow as sparkling markers, outlining the arrow's edges and rear notch. Membership follows the game's native group check and refreshes with the live markers, so joining or leaving a party updates the outline automatically. **Show players** controls both ordinary and party player markers; facing direction, scaling, hover details, and height filtering work the same for both.
+On the map, party member arrows have a purple outline and friends outside the party use the same yellow as sparkling markers. Both outlines follow the arrow's edges and rear notch. Party membership takes priority over friendship. Friends are matched by account ID using the native friend list and refresh with the live markers. **Show other players** controls ordinary and friend markers; party markers follow **Hide players outside your party** and still hide when **Show other players** is off.
 
 Respawn point markers use a broad oval stone platform and a tall shouldered monument with a gold-rimmed purple inset, matching the world model. Their water and hover label follow the current character's unlock progress and update after activation. **Show respawn points** controls both states; marker scaling, hover distances, and vertical filtering apply to both. Obelisks keep their separate icon.
 
