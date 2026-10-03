@@ -22,7 +22,6 @@ class DpsMeterMod {
         else if (!ConfigMigration.hasNative()) MeterConfig.importLegacy(config);
         MeterConfig.normalize(config);
         saveConfig();
-        collector = new Collector(config);
         historyView = new NativeHistoryWindow(config);
         view = new NativeMeterWindow(config, () -> historyView.open());
         recapView = new NativeRiftRecapWindow();
@@ -125,7 +124,10 @@ class DpsMeterMod {
     }
     @:hlx.postfix(GameApp.update)
     static function update(instance:Dynamic, dt:Float, result:Void):Void {
-        if (collector == null) return;
+        // HLX recovers the game's module only AFTER every mod's main() runs.
+        // Collector reads Config.getVersion(), so construct it here once the
+        // native functions and game statics are available, before any fights.
+        if (collector == null) collector = new Collector(config);
         var now = haxe.Timer.stamp();
         try {
             if (G.staticCall("hxd.Key", "isPressed", [config.toggleHotkey]) == true) {
