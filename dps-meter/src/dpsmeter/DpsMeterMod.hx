@@ -23,7 +23,7 @@ class DpsMeterMod {
         MeterConfig.normalize(config);
         saveConfig();
         collector = new Collector(config);
-        historyView = new NativeHistoryWindow();
+        historyView = new NativeHistoryWindow(config);
         view = new NativeMeterWindow(config, () -> historyView.open());
         recapView = new NativeRiftRecapWindow();
         kills = new KillNotifications(config);

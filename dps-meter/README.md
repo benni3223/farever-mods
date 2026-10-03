@@ -237,11 +237,27 @@ and being revived resumes the same chart. The fight ends when everyone leaves
 combat or the party wipes. Players in other instances and dead teammates cannot
 keep it open; party combat alone does not start a new fight while you are idle.
 
-New Chakram recordings keep both health bars and the intervening bridge sequence
-in one fight, using his replicated entity and phase state. The first health bar
-does not produce a completed boss report. A reset or wipe ends the attempt;
-leaving the area still preserves an unfinished chart. Previously saved split
-logs are retained as recorded.
+New Chakram recordings begin with damage after **Surrendering to Darkness**
+(phase 2), excluding his opening health bar from encounters, history and uploads.
+The later bridge and demon form stay in that same fight. A reset or wipe ends
+the attempt; leaving the area preserves an unfinished chart only after the real
+encounter starts. Previously saved logs remain as recorded.
+
+Rift gate encounters begin only after the game's waiting objective completes.
+Damage to warm-up mobs during the countdown is excluded from the gate phase;
+remaining gate cleanup after the wave timer expires is still included. In the
+recap's ability breakdown, each ability name sits above three columns:
+**Damage %**, **Phys/Magic/Raw**, and **Damage**. The full history breakdown keeps
+its additional statistics, and table headers stay fixed while the rows scroll.
+
+**Lock or unlock window hotkey** controls movement of both the DPS Meter and
+Fight History. Drag the Fight History title bar when unlocked; its position is
+saved separately and kept on screen. **Show or hide meter hotkey** controls the
+meter's visibility.
+
+New history logs include `gameVersion`; uploaded reports include `game_version`.
+Both record the running game's version from `Config.getVersion()`. Reopened
+logs retain their original version, and older logs without it remain readable.
 
 New logs save their outcome. Boss attempts require the boss's actual death;
 defeating adds alone is not a victory. Ordinary fights require all observed foes

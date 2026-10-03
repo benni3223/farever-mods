@@ -104,6 +104,7 @@ class Fight {
     public var killedTargets:Map<String, Bool> = [];
     public var start:Float;
     public var startedAt:Float;
+    public var gameVersion:String;
     public var last:Float;
     public var closed:Float = 0;
     public var defeated:Bool = false;
@@ -124,7 +125,9 @@ class Fight {
     public var categoryVersion:Int = HistoryCatalog.HistoryCategory.VERSION;
     public var me:String = "";
     public var meName:String = "";
-    public function new(now:Float) { start = now; last = now; startedAt = Date.now().getTime(); }
+    public function new(now:Float, gameVersion:String = "") {
+        start = now; last = now; startedAt = Date.now().getTime(); this.gameVersion = gameVersion;
+    }
     public function add(e:DamageEvent, info:PlayerInfo):Void {
         if (!players.exists(e.source)) players[e.source] = new PlayerStats(info);
         players[e.source].add(e, info);
@@ -154,7 +157,7 @@ class Fight {
         return list;
     }
     public function copy():Fight {
-        var result = new Fight(start);
+        var result = new Fight(start, gameVersion);
         result.startedAt = startedAt;
         result.last = last; result.closed = closed; result.defeated = defeated;
         result.outcome = outcome; result.killedTargets = killedTargets.copy();
@@ -189,7 +192,7 @@ class Fight {
     public function json(timestamp:String, reportId:Int):Dynamic {
         var seconds = duration();
         var result:Dynamic = {session_id: reportKey() + "-" + timestamp + "-" + reportId,
-            duration_sec: SkillStats.rounded(seconds, 3), is_boss: isBoss, boss_kind: bossKind,
+            game_version: gameVersion, duration_sec: SkillStats.rounded(seconds, 3), is_boss: isBoss, boss_kind: bossKind,
             difficulty: difficulty, activity_id: activityId, boss_level: bossLevel, boss_foe_id: bossFoeId,
             players: [for (p in ranked()) if (p.info.name != "") p.json(seconds)]};
         if (phase != "") Reflect.setField(result, "phase", phase);
@@ -225,14 +228,16 @@ class CombatModel {
     var awaitingExitState:Bool = false;
     var pendingFight:Null<Fight>;
     var rift:Null<RiftTracker>;
-    // Chakram keeps the same Phrixes entity through both health bars. Its
-    // bridge transition can clear the hero's combat flag for much longer than
-    // the ordinary late-damage grace period. Track that entity, not its name.
+    // Ignore Chakram's opening health bar. Phase 2 begins after Surrendering
+    // to Darkness; the later bridge remains part of that same encounter.
     var phrixesUid:String = "";
     var phrixesPhase:Int = 0;
     var phrixesInactiveAt:Float = -1;
     var phrixesDeadAt:Float = -1;
-    public function new(now:Float) session = new Fight(now);
+    var gameVersion:String;
+    public function new(now:Float, gameVersion:String = "") {
+        this.gameVersion = gameVersion; session = new Fight(now, gameVersion);
+    }
     public function reset(now:Float):Void {
         if (rift != null) rift.drain(now, completed, recaps, true, history);
         else {
@@ -242,7 +247,7 @@ class CombatModel {
         drainHistory(now, true);
         rift = null;
         profiles = []; party = []; me = ""; current = null; lastCombat = null;
-        session = new Fight(now); boss = null; lastBoss = null;
+        session = new Fight(now, gameVersion); boss = null; lastBoss = null;
         lastKillSource = ""; lastKillAmount = -1; difficulty = -1; activityId = "";
         activityCategory = "Other";
         lastKillTarget = ""; lastKillTime = -1;
@@ -323,7 +328,7 @@ class CombatModel {
     }
     public function enableRift():Void {
         if (rift != null) return;
-        rift = new RiftTracker();
+        rift = new RiftTracker(gameVersion);
         current = null; lastCombat = null; pendingFight = null;
         boss = null; lastBoss = null;
         clearPhrixes();
@@ -373,6 +378,8 @@ class CombatModel {
         current = rift.current;
         lastCombat = rift.last;
     }
+    public function startRiftGates():Void { if (rift != null) rift.startGates(); }
+    public function waitingForRiftGates():Bool return rift != null && rift.waitingForGates();
     function finishPendingFight():Void {
         if (hasLocalKill(pendingFight)) {
             lastCombat = pendingFight;
@@ -444,7 +451,9 @@ class CombatModel {
             lastKillSource = e.source; lastKillAmount = e.amount;
             lastKillTarget = e.target; lastKillTime = e.time;
         }
-        if (e.kill && e.target == phrixesUid && phrixesPhase >= 1 && phrixesPhase <= 2) {
+        var intro = phrixesUid != "" && (phrixesPhase < 2
+            || (e.kill && e.target == phrixesUid && phrixesPhase == 2));
+        if (e.kill && e.target == phrixesUid && phrixesPhase <= 2) {
             // Phrixes.canDie explicitly forbids death in these phases. A lethal
             // first-bar result starts the transformation, not a completed report.
             e = Reflect.copy(e); e.kill = false;
@@ -454,6 +463,9 @@ class CombatModel {
         var member = party.exists(e.source) || e.source == me;
         if (member) {
             session.add(e, info);
+            // Session totals may include warm-up damage, but no encounter,
+            // archive or uploaded boss report may start on the opening bar.
+            if (intro) return;
             if (rift != null) {
                 rift.record(e, info, difficulty, activityId, me, profiles.exists(me) ? profiles[me].name : "", Lambda.count(party));
                 current = rift.current;
@@ -461,7 +473,7 @@ class CombatModel {
                 return;
             }
             if (inCombat || current != null) {
-                if (current == null && e.effect != 1) current = new Fight(e.time);
+                if (current == null && e.effect != 1) current = new Fight(e.time, gameVersion);
                 if (current != null) addToFight(current, e, info);
             } else if (e.effect != 1) {
                 expirePendingFight(e.time);
@@ -474,13 +486,13 @@ class CombatModel {
                     addToFight(lastCombat, e, info);
                     lastCombat.last = end;
                 } else {
-                    if (pendingFight == null) pendingFight = new Fight(e.time);
+                    if (pendingFight == null) pendingFight = new Fight(e.time, gameVersion);
                     addToFight(pendingFight, e, info);
                     pendingFight.closed = e.time;
                 }
             }
         }
-        if (rift != null) return;
+        if (rift != null || intro) return;
         if (e.kill && e.target == phrixesUid) endPhrixes(e.time, true);
         // Match the DLL's target.inf.flags mask, including world/elite bosses.
         var bossHit = e.effect != 1 && e.targetDummy != true && (e.bossFlags & 0x38) != 0;
@@ -493,7 +505,7 @@ class CombatModel {
                     || (!previous.defeated && e.time - previous.closed <= 30));
             // Completed reports may still be waiting for the end-of-frame writer.
             // A resumed phase must never mutate a report already queued for export.
-            boss = resume ? previous.copy() : new Fight(e.time);
+            boss = resume ? previous.copy() : new Fight(e.time, gameVersion);
             boss.closed = 0; boss.defeated = false; boss.me = me;
             boss.bossKind = e.bossKind == "" ? "Boss" : e.bossKind;
             boss.bossUid = e.target; boss.bossLevel = e.bossLevel; boss.bossFoeId = e.bossFoeId;

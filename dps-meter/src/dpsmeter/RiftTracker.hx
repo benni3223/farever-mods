@@ -9,6 +9,8 @@ class RiftTracker {
     public static inline var GATES_PHASE:String = "Rift: Gates";
     static inline var FINAL_DAMAGE_SECONDS:Float = 0.5;
     var phase:Int = 0; // 0: gates, 1: boss, 2: finished
+    var gatesStarted:Bool = false;
+    var gameVersion:String;
     var targetBossKind:String = "";
     var fights:Array<Null<Fight>> = [null, null];
     var ended:Array<Float> = [-1, -1];
@@ -17,7 +19,9 @@ class RiftTracker {
     public var current(get, never):Null<Fight>;
     public var last(get, never):Null<Fight>;
 
-    public function new() {}
+    public function new(gameVersion:String = "") { this.gameVersion = gameVersion; }
+    public function startGates():Void { gatesStarted = true; }
+    public function waitingForGates():Bool return phase == 0 && !gatesStarted;
 
     function get_current():Null<Fight> return phase < 2 ? fights[phase] : null;
     function get_last():Null<Fight> {
@@ -55,6 +59,9 @@ class RiftTracker {
         var bossHit = e.effect != 1 && e.summoned != true
             && targetBossKind != "" && e.bossKind == targetBossKind;
         if (phase == 0 && bossHit) updateState(e.time, true, false);
+        // Warm-up mobs exist while EventWait counts down. Never buffer their
+        // damage into the gate phase, even when combat remains active across it.
+        if (waitingForGates()) return;
         var index = phase == 2 ? 1 : phase;
         if (phase >= 1 && !bossHit) {
             // A final gate kill can arrive just after the boss appears.
@@ -73,7 +80,7 @@ class RiftTracker {
         }
         if (fight == null) {
             if (e.effect == 1) return;
-            fight = new Fight(e.time);
+            fight = new Fight(e.time, gameVersion);
             fight.phase = index == 0 ? GATES_PHASE : "";
             fight.isBoss = index == 1;
             fight.bossName = fight.phase;

@@ -15,9 +15,14 @@ class Collector {
     var profileRefresh:Map<String, Float> = [];
     var profileWeapons:Map<String, Dynamic> = [];
     var phrixes:Dynamic;
+    var riftWait:Dynamic;
     public function new(config:MeterSettings) {
         this.config = config;
-        model = new CombatModel(haxe.Timer.stamp());
+        var version = "";
+        try version = G.text(G.staticCall("Config", "getVersion", []))
+        catch (error:Dynamic) trace("[DPS Meter] Could not read game version: " + Std.string(error));
+        model = new CombatModel(haxe.Timer.stamp(), version);
+        trace("[DPS Meter] Game version: " + (version == "" ? "unknown" : version));
     }
     public function update(app:Dynamic, now:Float):Void {
         var nextHero = G.field(app, "hero");
@@ -27,6 +32,7 @@ class Collector {
             groupMembers = []; lastGroupSeen = -1; lastRoster = -1;
             profileRefresh = []; profileWeapons = [];
             phrixes = null;
+            riftWait = null;
         }
         if (hero == null) return;
         if (now - lastRoster < 0.25) return;
@@ -99,9 +105,9 @@ class Collector {
         if (!observedHit && !model.trackingPhrixes(uid)) { phrixes = null; return; }
         var phase = G.integer(G.field(phrixes, "phase"));
         var dead = G.call("ent.GameObject", "isDead", phrixes) == true;
-        // Native Phrixes phases 2/3 cover the transformation and bridge. At
+        // Phase 2 is playable after surrender; phase 3 covers the bridge. At
         // phase 1's lethal hit the server holds health at 1 before advancing.
-        var transition = phase == 2 || phase == 3 || (phase == 1
+        var transition = phase == 3 || (phase == 1
             && (G.call("ent.Unit", "isAtDeathDoor", phrixes) == true
                 || G.number(G.call("ent.Unit", "get_health", phrixes), 2) <= 1));
         model.updatePhrixes(now, uid, phase, G.field(phrixes, "isInCombat") == true, transition, dead);
@@ -116,13 +122,14 @@ class Collector {
         var bossKind = "";
         var bossDefeated = false;
         for (objective in G.array(G.field(context, "objectives"), true)) {
+            if (G.text(G.field(objective, "kind")) == "EventWait") riftWait = objective;
             if (G.text(G.field(objective, "kind")) != "KillBoss") continue;
             bossDefeated = G.call("st.Objective", "isCompleted", objective) == true;
             var target = G.field(objective, "target");
             if (target != null && Type.enumConstructor(target) == "Unit")
                 bossKind = G.text(Type.enumParameters(target)[0]);
-            break;
         }
+        refreshRiftGates();
         // Countdown expiry stops new gates, but the remaining gates still need
         // clearing. The real boss only spawns after that cleanup and its delay.
         // RiftContext.boss is server-only; use the replicated objective's unit
@@ -134,6 +141,22 @@ class Collector {
             break;
         }
         model.updateRiftState(now, bossSpawned, bossDefeated, bossKind);
+    }
+    function refreshRiftGates():Void {
+        // EventWait completion is replicated; gatesEndTime is the END of the
+        // wave timer, not the start. Keep counting cleanup after it expires.
+        if (!model.waitingForRiftGates()) return;
+        if (riftWait == null) {
+            // The context may replicate between the roster poll and a hit.
+            // Resolve only the objective here, never scan all rift units.
+            var activity = G.field(layer, "mainActivity");
+            if (activity == null) return;
+            var context = G.call("st.Player", "getActivityContext", G.field(hero, "player"), [activity]);
+            if (context == null) context = G.field(activity, "globalCtx");
+            for (objective in G.array(G.field(context, "objectives"), true))
+                if (G.text(G.field(objective, "kind")) == "EventWait") { riftWait = objective; break; }
+        }
+        if (riftWait != null && G.call("st.Objective", "isCompleted", riftWait) == true) model.startRiftGates();
     }
     public function damage(target:Dynamic, damage:Dynamic, now:Float):Void {
         if (!config.enabled || hero == null || damage == null) return;
@@ -170,6 +193,9 @@ class Collector {
         if (info == null && !model.profiles.exists(uid)) return;
         if (G.field(layer, "isRift") == true) {
             model.enableRift();
+            // Read the cached objective on the first real hit after countdown,
+            // avoiding a 4 Hz polling gap or a full unit scan for each hit.
+            refreshRiftGates();
             // A newly arrived player's hit can precede the next roster refresh.
             if (G.field(source, "layer") == layer) model.party[uid] = true;
         }

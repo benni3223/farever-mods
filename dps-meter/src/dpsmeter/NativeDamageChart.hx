@@ -22,7 +22,7 @@ class NativeDamageChart {
     var skillTable:NativeSkillTable;
     var lastRefresh:Float = -1;
     var empty:Dynamic;
-    public function new(parent:Dynamic, id:String, emptyText:String = "") {
+    public function new(parent:Dynamic, id:String, emptyText:String = "", recap:Bool = false) {
         this.id = id;
         root = node("flow", parent, [], id + "Chart", "vertical");
         padding(G.field(root, "obj"), 0);
@@ -43,7 +43,7 @@ class NativeDamageChart {
         if (emptyText != "") empty = label(rowsRoot, emptyText);
         skillTable = new NativeSkillTable(rowsRoot, id, () -> {
             selectedPlayer = ""; resetScroll(); lastRefresh = -1;
-        }, headerRoot);
+        }, headerRoot, recap);
     }
     public function resize(width:Int, height:Int):Void {
         this.width = width; this.height = height;
