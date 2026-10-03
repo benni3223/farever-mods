@@ -13,6 +13,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party to enter dungeon; Leave dungeon button; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party and leave dungeon button on; Hide UI defaults to F2 |
 | Combat | Fancy damage numbers; Keep Crabgantua rockfall warnings visible | Fancy numbers off; Crabgantua warnings on |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
+| Social | Hide friend connection notifications; Enable missing slash commands; Sending message closes chat; Enable friend notes | All off |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
@@ -41,6 +42,13 @@ The option remains off by default and preserves your existing Fancy damage numbe
 Gradients span the placed glyph geometry, excluding the formatted text's blank line space and the surrounding border padding. Their endpoints stay aligned with the digits as font size or rendering resolution changes; a three-colour gradient reaches its middle colour halfway between the glyph edges.
 
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
+
+**Social**, directly below **Appearance**, contains four independent options (off by default):
+
+- **Hide friend connection notifications** hides friends' connected/disconnected system messages while their online status continues updating.
+- **Enable missing slash commands** adds `/invite <player>`, `/leave`, and `/w <player> [message]`. A bare `/w <player>` opens the whisper channel; including a message sends it. Names match exactly, ignoring case, from the current area, party, friends, or recent chat. Quote names containing spaces. Unknown or ambiguous names produce a chat error; failed whispers never fall through into public chat. Invites and leaving use the game's normal permission checks.
+- **Sending message closes chat** closes the textbox after Enter submits a message, returning control of the character. Selecting a whisper recipient without a message keeps the textbox open.
+- **Enable friend notes** adds **Add note** after **Send message** in a friend's gear menu (**Edit note** when a note exists). Notes are limited to **30 characters**, displayed after a hyphen beside the name in smaller text, and saved by your account and the friend's account in `hlx/config/more-settings/friend-notes.json`. They follow character changes. Save an empty note to remove it; Cancel leaves it unchanged. Long rows use an ellipsis, with the full note available on hover. Disabling the setting hides notes without deleting them. Notes are local and are never sent to other players.
 
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 

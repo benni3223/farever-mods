@@ -87,6 +87,46 @@
     },
     {
       "type": "title",
+      "label": "Social"
+    },
+    {
+      "key": "hideFriendConnectionNotifications",
+      "type": "checkbox",
+      "label": "Hide friend connection notifications",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Hides messages when friends connect or disconnect. Their online status still updates normally."
+      }
+    },
+    {
+      "key": "enableMissingSlashCommands",
+      "type": "checkbox",
+      "label": "Enable missing slash commands",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "/invite <player>: Invite a player to your party.\n/leave: Leave your party.\n/w <player>: Open a whisper to a player. Add a message after their name to send it immediately.\n\nNames are matched from your area, party, friends, or players seen in chat. Use quotes around names containing spaces."
+      }
+    },
+    {
+      "key": "sendingMessageClosesChat",
+      "type": "checkbox",
+      "label": "Sending message closes chat",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Pressing Enter to send a message also closes the chat textbox, returning control of your character."
+      }
+    },
+    {
+      "key": "enableFriendNotes",
+      "type": "checkbox",
+      "label": "Enable friend notes",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Add a private note of up to 30 characters from a friend's settings menu. Notes appear beside their name and are saved on this computer. Save an empty note to remove it."
+      }
+    },
+    {
+      "type": "title",
       "label": "Unfocused Volume"
     },
     {

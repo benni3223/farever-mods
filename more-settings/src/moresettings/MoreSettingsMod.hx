@@ -40,6 +40,7 @@ class MoreSettingsMod {
         DungeonPartyGuard.enabled = config.waitForParty;
         DungeonLeaveButton.enabled = config.leaveDungeonButton;
         CrabgantuaWarnings.configure(config.crabgantuaRockfallWarnings);
+        SocialHooks.configure(config);
         hideUi.configure(config.hideUiKey);
         config.save();
         audio = new AudioControl(config);
@@ -54,6 +55,7 @@ class MoreSettingsMod {
             DungeonPartyGuard.enabled = config.waitForParty;
             DungeonLeaveButton.enabled = config.leaveDungeonButton;
             CrabgantuaWarnings.configure(config.crabgantuaRockfallWarnings);
+            SocialHooks.configure(config);
             hideUi.configure(config.hideUiKey);
             AllyEffects.configure(config);
             try audio.configure(config) catch (e:Dynamic) audioError(e);
@@ -180,6 +182,7 @@ class MoreSettingsMod {
         if (audio != null) try audio.dispose() catch (e:Dynamic) audioError(e);
         AllyEffects.dispose();
         CrabgantuaWarnings.dispose();
+        SocialHooks.dispose();
         app = null;
         return Continue;
     }

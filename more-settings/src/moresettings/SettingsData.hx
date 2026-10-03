@@ -1,6 +1,10 @@
 package moresettings;
 
 typedef MoreSettingsConfig = {
+    var hideFriendConnectionNotifications:Bool;
+    var enableMissingSlashCommands:Bool;
+    var sendingMessageClosesChat:Bool;
+    var enableFriendNotes:Bool;
     var fancyDamageNumbers:Bool;
     var crabgantuaRockfallWarnings:Bool;
     var disableProfanityFilter:Bool;
@@ -26,6 +30,10 @@ typedef MoreSettingsConfig = {
 
 class SettingsData {
     public static function defaults():MoreSettingsConfig return {
+        hideFriendConnectionNotifications: false,
+        enableMissingSlashCommands: false,
+        sendingMessageClosesChat: false,
+        enableFriendNotes: false,
         fancyDamageNumbers: false,
         crabgantuaRockfallWarnings: true,
         disableProfanityFilter: true,
