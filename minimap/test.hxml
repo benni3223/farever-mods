@@ -72,3 +72,8 @@
 -cp tests
 -main MapTileLoadTest
 --interp
+--next
+-cp src
+-cp tests
+-main PlayerMarkersTest
+--interp

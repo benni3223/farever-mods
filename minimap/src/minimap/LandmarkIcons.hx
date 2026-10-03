@@ -6,6 +6,8 @@ import minimap.GameAccess as G;
 class LandmarkIcons {
     public static inline var RIFT_ALERT_COLOR:Int = 0xc94a9f;
     public static inline var SPARKLING_COLOR:Int = 0xffdc42;
+    public static inline var PLAYER_COLOR:Int = 0x70d8ff;
+    public static inline var PARTY_COLOR:Int = 0xb56cff;
 
     public static function draw(graphics:Dynamic, kind:String, radius:Float):Void {
         if (kind == "obelisk") obelisk(graphics, radius);
@@ -732,12 +734,17 @@ class LandmarkIcons {
         end(g);
     }
 
-    public static function alertArrow(g:Dynamic, radius:Float, color:Int):Void {
+    public static function alertArrow(g:Dynamic, radius:Float, color:Int, ?outline:Null<Int>):Void {
         // A long shaft and triangular head distinguish alerts from player arrows.
         // Point along +X so the existing destination rotation still applies.
         fill(g, 0x201b1b);
-        alertArrowShape(g, radius, 0.75);
+        alertArrowShape(g, radius, outline == null ? 0.75 : 1.75);
         end(g);
+        if (outline != null) {
+            fill(g, outline);
+            alertArrowShape(g, radius, 1.0);
+            end(g);
+        }
         fill(g, color);
         alertArrowShape(g, radius, 0);
         end(g);
@@ -758,7 +765,7 @@ class LandmarkIcons {
         polygon(g, 1, [tip, 0, shoulder - padding, head, shoulder - padding, -head]);
     }
 
-    public static function partyPlayer(g:Dynamic, radius:Float):Void {
+    public static function outlinedPlayer(g:Dynamic, radius:Float, color:Int):Void {
         // Trace only the arrow's outside contour, including its rear notch.
         // Draw the blue fill last so the outline preserves the ordinary arrow.
         // Start midway along an edge so the stroke joins at every corner,
@@ -766,11 +773,11 @@ class LandmarkIcons {
         var contour:Array<Float> = [0.1, 0.35, -0.8, 0.7, -0.45, 0, -0.8, -0.7, 1, 0];
         G.call("h2d.Graphics", "lineStyle", g, [3.0, 0x201b1b, 1.0]);
         polygon(g, radius, contour);
-        G.call("h2d.Graphics", "lineStyle", g, [2.0, SPARKLING_COLOR, 1.0]);
+        G.call("h2d.Graphics", "lineStyle", g, [2.0, color, 1.0]);
         polygon(g, radius, contour);
         G.call("h2d.Graphics", "lineStyle", g, [0.0, 0, 0.0]);
         // The same two solid triangles as the ordinary blue player arrow.
-        fill(g, 0x70d8ff);
+        fill(g, PLAYER_COLOR);
         polygon(g, radius, [1, 0, -0.45, 0, -0.8, -0.7]);
         polygon(g, radius, [1, 0, -0.8, 0.7, -0.45, 0]);
         end(g);
