@@ -1297,10 +1297,10 @@ class HistoryTest {
         check(SkillBreakdown.columns(828).length == 9, "Normal history width shows every remaining statistic and the separate distribution");
         for (width in [280, 360, 408, 430, 454, 580, 790, 852]) {
             var columns = SkillBreakdown.columns(width, true);
-            check([for (c in columns) c.key].join(",") == "percent,distribution,damage",
-                "Recaps show only three metrics at every size, including stacked panels");
-            check(columns[1].width - 10 >= 105 && columns[2].x + columns[2].width == width,
-                "Recap distribution fits all three percentages horizontally within its panel");
+            check([for (c in columns) c.key].join(",") == "ability,percent,distribution,damage",
+                "Recaps keep the ability inline with only three metrics at every size");
+            check(columns[2].width - 10 >= 75 && columns[3].x + columns[3].width == width,
+                "Compact recap distribution and damage fit inside the panel");
         }
     }
 }

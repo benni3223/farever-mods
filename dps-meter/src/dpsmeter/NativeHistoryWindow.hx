@@ -144,7 +144,9 @@ class NativeHistoryWindow {
         if (deleting) {
             deleting = false;
             if (response.error != "") {
-                status(response.error, true); show(deleteButton, true); show(snapshotButton, true);
+                status(response.error, true);
+                show(deleteButton, mode == "chart"); show(snapshotButton, mode == "chart");
+                for (row in rows) show(row.deleteButton, mode == "fights" && row.entry != null);
             } else navigate("fights", group, fightsPage);
             return;
         }
@@ -168,6 +170,7 @@ class NativeHistoryWindow {
                 var row = rows[i]; show(row.obj, i < count);
                 if (i >= count) continue;
                 row.entry = mode == "fights" ? response.entries[i] : null;
+                show(row.deleteButton, row.entry != null);
                 row.group = names ? response.groups[i].name : "";
                 var parts = names ? {before: response.groups[i].name, player: "", after: ""}
                     : FightHistory.attemptHeadingParts(row.entry);
@@ -195,11 +198,15 @@ class NativeHistoryWindow {
         catch (error:Dynamic) status(Std.string(error), true);
     }
     function deleteLog():Void {
-        if (pending || copying || fight == null || selectedEntry == null) return;
+        if (fight != null) deleteEntry(selectedEntry);
+    }
+    function deleteEntry(entry:HistoryEntry):Void {
+        if (pending || copying || entry == null) return;
         pending = true; deleting = true; serial++;
         show(deleteButton, false); show(snapshotButton, false);
+        for (row in rows) show(row.deleteButton, false);
         status("Moving log to the Recycle Bin...");
-        writer.requestHistory({id: serial, action: "delete", group: group, page: fightsPage, fightId: selectedEntry.id});
+        writer.requestHistory({id: serial, action: "delete", group: group, page: fightsPage, fightId: entry.id});
     }
     function copySnapshot():Void {
         if (pending || copying || fight == null || selectedEntry == null) return;
@@ -331,7 +338,7 @@ class NativeHistoryWindow {
         width = 0; height = 0; layout();
     }
     function makeRow(i:Int):Void {
-        var row:Dynamic = {obj: null, name: null, player: null, suffix: null, detail: null, entry: null, group: "",
+        var row:Dynamic = {obj: null, name: null, player: null, suffix: null, detail: null, deleteButton: null, entry: null, group: "",
             caption: "", playerCaption: "", suffixCaption: "", playerColor: -1, description: "", width: 0};
         row.obj = button(list, "", "dpsHistoryEntry" + i, () -> {
             if (pending) return;
@@ -350,6 +357,10 @@ class NativeHistoryWindow {
             G.call("h2d.Text", "set_textAlign", text, [left]); style(text, "text-align", left);
             G.call("ui.comp.FmtText", "set_useEllipsis", text, [true]);
         }
+        row.deleteButton = button(G.field(row.obj, "dom"), "Delete log", "dpsHistoryEntryDelete" + i, () -> deleteEntry(row.entry));
+        HistoryButtons.red(row.deleteButton);
+        absolute(row.obj, row.deleteButton);
+        show(row.deleteButton, false);
         rows.push(row);
     }
     static function colorPlayerName(row:Dynamic, value:Int):Void {
@@ -483,12 +494,16 @@ class NativeHistoryWindow {
             if (row.width == inner) continue;
             row.width = inner;
             size(row.obj, Std.int(Math.max(1, inner)), 66);
+            var deleteWidth = 138;
+            size(row.deleteButton, deleteWidth, 34);
+            position(row.deleteButton, inner - 12 - deleteWidth, (66 - 34) / 2);
+            var textSpace = inner - 24 - (row.entry == null ? 0 : deleteWidth + 12);
             // Measure each segment with the game's font, so the name is inline
             // and only the end of the heading ellipsizes at smaller widths.
             var used = 0.0;
             for (segment in [{object: row.name, caption: row.caption}, {object: row.player, caption: row.playerCaption},
                 {object: row.suffix, caption: row.suffixCaption}]) {
-                var available = inner - 24 - used;
+                var available = textSpace - used;
                 show(segment.object, segment.caption != "" && available > 0);
                 if (segment.caption == "" || available <= 0) continue;
                 G.call("ui.comp.FmtText", "set_maxWidthText", segment.object, [Std.int(Math.max(1, available))]);
@@ -496,7 +511,7 @@ class NativeHistoryWindow {
                 position(segment.object, 12 + used, 7);
                 used += textWidth(segment.object);
             }
-            G.call("ui.comp.FmtText", "set_maxWidthText", row.detail, [Std.int(Math.max(1, inner - 24))]);
+            G.call("ui.comp.FmtText", "set_maxWidthText", row.detail, [Std.int(Math.max(1, textSpace))]);
             setText(row.detail, row.description); position(row.detail, 12, 35);
         }
     }
