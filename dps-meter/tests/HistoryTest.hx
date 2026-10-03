@@ -781,13 +781,13 @@ class HistoryTest {
         var first = store.query(request("fights", "The Guardian"));
         check(first.entries.length == FightHistory.PAGE_SIZE && first.entries[0].id == "boss_18", "Newest-first paged attempts");
         var finalPage = store.query(request("fights", "The Guardian", 999));
-        check(finalPage.page == 2 && finalPage.entries.length == 3, "Page clamping and remainder");
+        check(finalPage.page == 2 && finalPage.entries.length == 5, "Page clamping and remainder");
         var chart = store.query(request("chart", "", 0, "boss_18"));
         check(FightHistory.decode(chart.record).players["me"].damage == 350.5, "Selected chart loaded from its own file");
         store.save(chart.record);
         check(store.query(request("fights", "The Guardian")).total == 19, "Retrying an archive is idempotent");
         for (i in 0...11) { var f = sample(); f.bossName = "Encounter " + i; store.save(FightHistory.encode(f, "group_" + i)); }
-        check(store.query(request("groups")).groups.length == 8 && store.query(request("groups", "", 1)).groups.length == 4, "Encounter names paginate too");
+        check(store.query(request("groups")).groups.length == 7 && store.query(request("groups", "", 1)).groups.length == 5, "Encounter names paginate too");
         var old = sample(); old.startedAt = Date.fromString("2020-01-01 00:00:00").getTime();
         store.save(FightHistory.encode(old, "old"));
         File.saveContent(root + "/history/corrupt.json", "{broken");

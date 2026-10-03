@@ -20,7 +20,7 @@ typedef HistoryResponse = {
 
 /** Detached, versioned chart snapshots. No game types or monotonic clocks on disk. */
 class FightHistory {
-    public static inline var PAGE_SIZE = 8;
+    public static inline var PAGE_SIZE = 7;
     public static function encode(fight:Fight, id:String):Dynamic {
         var players:Array<Dynamic> = [for (p in fight.ranked()) {
             var skills:Array<Dynamic> = [for (id => s in p.skills) {id: id, damage: s.damage, hits: s.hits,
