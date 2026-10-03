@@ -237,8 +237,10 @@ and being revived resumes the same chart. The fight ends when everyone leaves
 combat or the party wipes. Players in other instances and dead teammates cannot
 keep it open; party combat alone does not start a new fight while you are idle.
 
-New Chakram recordings begin with damage after **Surrendering to Darkness**
-(phase 2), excluding his opening health bar from encounters, history and uploads.
+Chakram's opening health bar appears in the live meter with its own damage and
+timer, including normal visibility while fighting. This temporary chart is never
+saved or uploaded. New Chakram recordings begin with damage after **Surrendering
+to Darkness** (phase 2), starting fresh without the opening bar's damage or time.
 The later bridge and demon form stay in that same fight. A reset or wipe ends
 the attempt; leaving the area preserves an unfinished chart only after the real
 encounter starts. Previously saved logs remain as recorded.

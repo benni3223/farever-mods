@@ -301,22 +301,31 @@ class HistoryTest {
         var m = model(); m.onCombatEnter("me", 10);
         m.updatePhrixes(10, "chakram", 1, true, false, false);
         m.record(chakramHit(10, 100));
+        var intro = m.displayedFight();
+        check(m.inCombat && intro != null && intro.closed == 0 && intro.players["me"].damage == 100,
+            "Opening-bar damage appears immediately in the live HUD while in combat");
+        check(m.bossRecordFight("Phrixes", 1) == null,
+            "The live opening chart is not an eligible encounter for boss records");
         m.record(hit(11, 50, false, false, "ally", "introAdd"));
         m.updatePhrixes(20, "chakram", 1, false, true, false);
         m.record(chakramHit(20, 200, true));
         m.onCombatExit("me", 20); m.update(21, false);
-        check(m.current == null && m.displayedFight() == null && m.boss == null
+        check(m.current == null && m.displayedFight() == intro && intro.closed == 0 && m.boss == null
             && m.history.length == 0 && m.completed.length == 0,
-            "The opening bar and its adds produce no encounter, timer, history or report");
+            "The opening chart stays visible through the surrender animation without a saved encounter or report");
+        check(intro.players["me"].damage == 300 && intro.players["ally"].damage == 50 && intro.duration(21) == 11,
+            "Opening damage, party contributions and elapsed time update in the temporary live chart");
         check(m.session.players["me"].damage == 300 && m.session.players["me"].kills == 0,
             "Session totals retain intro damage without inventing a boss kill");
         m.updatePhrixes(22, "chakram", 2, true, false, false);
         m.record(chakramHit(22, 200, true));
-        check(m.current == null && m.boss == null,
-            "A first-bar lethal RPC arriving after phase 2 replication is still excluded");
+        check(m.current == null && m.boss == null && m.displayedFight() == null,
+            "Surrender clears the live intro, and a late first-bar lethal RPC cannot reopen it");
         m.onCombatEnter("me", 23); m.record(chakramHit(23, 60));
         check(m.current.start == 23 && m.current.players["me"].damage == 60,
             "The first post-surrender hit begins a clean encounter");
+        check(m.displayedFight() == m.current && m.current != intro && !m.current.players.exists("ally"),
+            "The HUD switches to the main encounter without importing any opening-phase players or damage");
         m.updatePhrixes(30, "chakram", 3, false, true, false);
         m.onCombatExit("me", 30); m.update(60, false);
         check(m.current.duration(60) == 37 && m.boss != null, "The later bridge retains the post-surrender encounter");
@@ -337,15 +346,34 @@ class HistoryTest {
         m.onCombatEnter("me", 83); m.record(chakramHit(83, 5));
         check(m.current == null && m.boss == null && m.history.length == 1,
             "A new opening bar never resumes an already completed report");
+        check(m.displayedFight().start == 83 && m.displayedFight().players["me"].damage == 5,
+            "A new intro replaces the previously completed fight on the HUD with fresh totals");
 
         m = model(); m.onCombatEnter("me", 10);
         m.updatePhrixes(10, "chakram", 1, true, false, false); m.record(chakramHit(10, 10));
         m.updatePhrixes(15, "chakram", 1, false, false, false); m.onCombatExit("me", 15);
         m.updatePhrixes(16, "chakram", 1, false, false, false); m.update(16, false);
         check(m.history.length == 0 && m.current == null && m.boss == null, "An opening-bar wipe is not archived");
+        check(m.displayedFight().closed == 15 && m.displayedFight().duration(100) == 5,
+            "A wiped intro freezes at the combat end and can use the normal HUD hiding delay");
         m.updatePhrixes(17, "chakram", 1, true, false, false); m.onCombatEnter("me", 17); m.record(chakramHit(17, 7));
+        check(m.displayedFight().start == 17 && m.displayedFight().players["me"].damage == 7,
+            "An opening-bar retry cannot inherit damage or time from the wiped intro");
         m.reset(19);
-        check(m.history.length == 0 && m.completed.length == 0, "Leaving during the opening bar creates no encounter");
+        check(m.history.length == 0 && m.completed.length == 0 && m.displayedFight() == null,
+            "Leaving during the opening bar discards its temporary chart without saving or uploading");
+
+        m = model(); m.onCombatEnter("me", 10);
+        m.updatePhrixes(10, "chakram", 1, true, false, false); m.record(chakramHit(10, 10));
+        m.onCombatExit("me", 12, true); m.updatePhrixes(15, "chakram", 1, true, false, false);
+        m.update(15, false, true); m.record(hit(16, 20, false, false, "ally", "chakram"));
+        check(m.displayedFight().closed == 0 && m.displayedFight().players["ally"].damage == 20,
+            "Local death does not hide the intro while the party continues fighting");
+        m.onCombatEnter("me", 17); m.record(chakramHit(18, 15));
+        check(m.displayedFight().start == 10 && m.displayedFight().players["me"].damage == 25,
+            "Revival resumes the same live intro without creating a saved encounter");
+        m.reset(19);
+        check(m.history.length == 0 && m.completed.length == 0, "A revived opening phase is still never saved");
 
         // Phase 2 is playable combat, not a permanent transition exemption.
         m = model(); m.onCombatEnter("me", 20);

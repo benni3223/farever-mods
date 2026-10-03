@@ -228,8 +228,9 @@ class CombatModel {
     var awaitingExitState:Bool = false;
     var pendingFight:Null<Fight>;
     var rift:Null<RiftTracker>;
-    // Ignore Chakram's opening health bar. Phase 2 begins after Surrendering
-    // to Darkness; the later bridge remains part of that same encounter.
+    // Chakram's opening health bar has a live-only chart. Phase 2 begins the
+    // saved encounter after Surrendering to Darkness, including the later bridge.
+    var phrixesIntro:Null<Fight>;
     var phrixesUid:String = "";
     var phrixesPhase:Int = 0;
     var phrixesInactiveAt:Float = -1;
@@ -293,10 +294,13 @@ class CombatModel {
         pendingFight = null;
     }
     public function displayedFight():Null<Fight> {
+        if (phrixesIntro != null && phrixesIntro.closed == 0) return phrixesIntro;
         if (current != null) return current;
         // One-shots may never produce a replicated combat-entry transition.
         // Show the confirmed kill immediately, with an already-frozen clock.
-        return hasLocalKill(pendingFight) ? pendingFight : lastCombat;
+        if (hasLocalKill(pendingFight)) return pendingFight;
+        if (phrixesIntro != null && (lastCombat == null || phrixesIntro.start >= lastCombat.start)) return phrixesIntro;
+        return lastCombat;
     }
     public function bossRecordFight(kind:String, since:Float):Null<Fight> {
         var latest:Null<Fight> = null;
@@ -337,6 +341,9 @@ class CombatModel {
     public function updatePhrixes(now:Float, uid:String, phase:Int, active:Bool, transition:Bool, dead:Bool):Void {
         if (rift != null || uid == "" || uid == "0") return;
         if (phrixesUid != "" && (phrixesUid != uid || phase < phrixesPhase)) endPhrixes(now, false);
+        // Drop the live-only chart on surrender or a new attempt. Its totals
+        // never become the main encounter's opening damage or start time.
+        if (phrixesUid == "" || phase >= 2) phrixesIntro = null;
         if (dead) {
             if (uid == phrixesUid) {
                 // Death state may precede the lethal RPC even while the local
@@ -357,10 +364,15 @@ class CombatModel {
         }
     }
     public function trackingPhrixes(uid:String):Bool return phrixesUid == uid && uid != "";
-    function clearPhrixes():Void {
+    function clearPhrixes(keepIntro:Bool = false):Void {
         phrixesUid = ""; phrixesPhase = 0; phrixesInactiveAt = -1; phrixesDeadAt = -1;
+        if (!keepIntro) phrixesIntro = null;
     }
     function endPhrixes(now:Float, defeated:Bool):Void {
+        if (phrixesIntro != null) {
+            phrixesIntro.last = Math.max(phrixesIntro.start, now);
+            phrixesIntro.closed = now;
+        }
         if (current != null && current.targets.exists(phrixesUid)) {
             current.defeated = defeated;
             finishCurrent(now);
@@ -370,7 +382,9 @@ class CombatModel {
             if (boss != null && boss.bossUid == phrixesUid) boss = null;
             if (lastBoss != null && lastBoss.bossUid == phrixesUid) lastBoss = null;
         }
-        clearPhrixes();
+        // Keep a frozen intro result only for the normal HUD fade after a wipe.
+        // It is never placed in history, completed reports, or boss records.
+        clearPhrixes(true);
     }
     public function updateRiftState(now:Float, bossSpawned:Bool, bossDefeated:Bool, bossKind:String):Void {
         if (rift == null) return;
@@ -463,9 +477,15 @@ class CombatModel {
         var member = party.exists(e.source) || e.source == me;
         if (member) {
             session.add(e, info);
-            // Session totals may include warm-up damage, but no encounter,
-            // archive or uploaded boss report may start on the opening bar.
-            if (intro) return;
+            if (intro) {
+                // Track the opening bar visibly without feeding any archive or
+                // uploader. A late first-bar lethal RPC in phase 2 stays excluded.
+                if (phrixesPhase < 2) {
+                    if (phrixesIntro == null && e.effect != 1) phrixesIntro = new Fight(e.time, gameVersion);
+                    if (phrixesIntro != null) addToFight(phrixesIntro, e, info);
+                }
+                return;
+            }
             if (rift != null) {
                 rift.record(e, info, difficulty, activityId, me, profiles.exists(me) ? profiles[me].name : "", Lambda.count(party));
                 current = rift.current;
