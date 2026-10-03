@@ -265,6 +265,7 @@ class CombatModel {
             awaitingExitState = false;
         } else if (!inCombat && !awaitingExitState) onCombatEnter(me, now);
         if (rift != null) {
+            rift.updateWarmup(now, inCombat || partyInCombat);
             rift.drain(now, completed, recaps, false, history);
             return;
         }
@@ -283,7 +284,7 @@ class CombatModel {
         if (inCombat) return;
         inCombat = true;
         awaitingExitState = false;
-        if (rift != null) return;
+        if (rift != null) { rift.updateWarmup(now, true); return; }
         // Rejoining combat (including revival) resumes the party's same fight.
         if (current != null) return;
         expirePendingFight(now);
@@ -294,6 +295,7 @@ class CombatModel {
         pendingFight = null;
     }
     public function displayedFight():Null<Fight> {
+        if (rift != null && rift.waitingForGates() && rift.warmup != null) return rift.warmup;
         if (phrixesIntro != null && phrixesIntro.closed == 0) return phrixesIntro;
         if (current != null) return current;
         // One-shots may never produce a replicated combat-entry transition.
@@ -319,7 +321,7 @@ class CombatModel {
             inCombat = false;
             awaitingExitState = true;
         } else if (inCombat || current == null || !party.exists(heroUid)) return;
-        if (rift != null) return;
+        if (rift != null) { rift.updateWarmup(now, inCombat || partyInCombat); return; }
         // Preserve an existing party encounter through local death or exit.
         // The final teammate's exit can close it between polls. Chakram still
         // follows its own replicated boss/phase lifecycle.
@@ -487,7 +489,7 @@ class CombatModel {
                 return;
             }
             if (rift != null) {
-                rift.record(e, info, difficulty, activityId, me, profiles.exists(me) ? profiles[me].name : "", Lambda.count(party));
+                rift.record(e, info, difficulty, activityId, me, profiles.exists(me) ? profiles[me].name : "", Lambda.count(party), inCombat);
                 current = rift.current;
                 lastCombat = rift.last;
                 return;

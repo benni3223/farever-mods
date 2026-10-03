@@ -77,7 +77,8 @@ class Collector {
         var localInCombat = G.field(hero, "isInCombat") == true;
         // Check teammates only to prolong an existing encounter, at this
         // same 4 Hz cadence. Party combat alone cannot start the local meter.
-        var partyInCombat = model.current != null && (!localInCombat || !model.inCombat)
+        var displayed = model.displayedFight();
+        var partyInCombat = displayed != null && displayed.closed == 0 && (!localInCombat || !model.inCombat)
             && PartyCombat.active(hero);
         model.update(now, localInCombat, partyInCombat);
         if (group != null && model.activityId != "" && model.difficulty < 0) {
@@ -97,7 +98,8 @@ class Collector {
     public function combatExit(uid:String, now:Float):Void {
         if (uid == model.me) refreshPhrixes(now);
         else if (model.inCombat || model.current == null || !model.party.exists(uid)) return;
-        model.onCombatExit(uid, now, model.current != null && PartyCombat.active(hero, uid));
+        var displayed = model.displayedFight();
+        model.onCombatExit(uid, now, displayed != null && displayed.closed == 0 && PartyCombat.active(hero, uid));
     }
     function refreshPhrixes(now:Float, observedHit:Bool = false):Void {
         if (phrixes == null) return;

@@ -420,10 +420,15 @@ class HistoryTest {
         m.record(hit(10, 100, false, false, "me", "warmup"));
         m.record(hit(19.9, 200, true, false, "ally", "warmup"));
         m.update(20, true);
-        check(m.waitingForRiftGates() && m.current == null && m.displayedFight() == null
+        var warmup = m.displayedFight();
+        check(m.waitingForRiftGates() && m.current == null && warmup != null && warmup.closed == 0
             && m.completed.length == 0 && m.history.length == 0,
-            "Countdown damage, including kills, cannot start the gate encounter");
-        m.startRiftGates(); m.record(hit(20.01, 30, false, false, "me", "warmup"));
+            "Countdown damage appears live and keeps the HUD visible without starting the saved gate encounter");
+        check(warmup.players["me"].damage == 100 && warmup.players["ally"].damage == 200 && warmup.duration(20) == 10,
+            "Warm-up charts retain damage, party contributions and elapsed time");
+        m.startRiftGates();
+        check(m.displayedFight() == null, "Countdown completion clears warm-up even before the first gate hit");
+        m.record(hit(20.01, 30, false, false, "me", "warmup"));
         check(!m.waitingForRiftGates() && m.current.start == 20.01 && m.current.players["me"].damage == 30
             && !m.current.players.exists("ally"), "Same-mob post-countdown damage starts cleanly without importing warm-up hits");
         m.startRiftGates(); m.updateRiftState(400, false, false, "BossKind");
@@ -448,6 +453,28 @@ class HistoryTest {
         m.updateRiftState(40, true, true, "BossKind"); m.update(41, false);
         check(m.recaps.length == 1 && m.recaps[0].gate == null && m.recaps[0].boss.players["me"].damage == 70,
             "Joining during the boss still records it without inventing a gate phase");
+
+        m = model(); m.enableRift();
+        m.record(hit(10, 20));
+        check(m.displayedFight().closed == 10, "Damage before replicated combat entry is visible with a frozen clock");
+        m.onCombatEnter("me", 10.1); warmup = m.displayedFight();
+        check(warmup.closed == 0 && warmup.start == 10, "Combat entry resumes the opening hit's warm-up chart");
+        m.onCombatExit("me", 12); m.record(hit(12.1, 30, true)); m.update(13, false);
+        check(warmup.closed == 12 && warmup.duration(99) == 2 && warmup.players["me"].damage == 50,
+            "Combat exit freezes the timer for HUD fading while retaining the late killing blow");
+        m.onCombatEnter("me", 15); m.record(hit(15, 70));
+        check(m.displayedFight() != warmup && m.displayedFight().start == 15 && m.displayedFight().players["me"].damage == 70,
+            "A later pre-countdown fight starts with fresh live totals");
+        m.onCombatExit("me", 16, true); m.update(18, false, true);
+        m.record(hit(18, 40, false, false, "ally"));
+        check(m.displayedFight().closed == 0 && m.displayedFight().players["ally"].damage == 40,
+            "Warm-up remains visible when the local hero dies while party members keep fighting");
+        m.onCombatEnter("me", 19); m.record(hit(20, 10));
+        check(m.displayedFight().start == 15 && m.displayedFight().players["me"].damage == 80,
+            "Revival resumes the same temporary warm-up chart");
+        m.onCombatExit("me", 21); m.reset(22);
+        check(m.history.length == 0 && m.completed.length == 0 && m.recaps.length == 0 && m.displayedFight() == null,
+            "Multiple warm-up combats, deaths and kills produce no saved logs or recap");
     }
     static function gameVersions():Void {
         var version = "0.3.0.30903";

@@ -246,8 +246,10 @@ the attempt; leaving the area preserves an unfinished chart only after the real
 encounter starts. Previously saved logs remain as recorded.
 
 Rift gate encounters begin only after the game's waiting objective completes.
-Damage to warm-up mobs during the countdown is excluded from the gate phase;
-remaining gate cleanup after the wave timer expires is still included. In the
+Damage to warm-up mobs during the countdown appears in a temporary live chart,
+with normal combat visibility and hiding after combat ends. It is never saved,
+uploaded or included in the recap; the gate phase starts with fresh totals.
+Remaining gate cleanup after the wave timer expires is still included. In the
 recap's ability breakdown, each ability name sits above three columns:
 **Damage %**, **Phys/Magic/Raw**, and **Damage**. The full history breakdown keeps
 its additional statistics, and table headers stay fixed while the rows scroll.
