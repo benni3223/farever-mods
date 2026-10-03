@@ -11,7 +11,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party to enter dungeon; Leave dungeon button; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party and leave dungeon button on; Hide UI defaults to F2 |
-| Combat | Fancy damage numbers | Off |
+| Combat | Fancy damage numbers; Keep Crabgantua rockfall warnings visible | Fancy numbers off; Crabgantua warnings on |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
@@ -19,7 +19,9 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Dungeon Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Overworld Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 
-**Combat** appears directly below **General** and contains **Fancy damage numbers**. Quick cast and target-lock camera controls are available in **Fix Target Lock**.
+**Combat** appears directly below **General** and contains **Fancy damage numbers** and **Keep Crabgantua rockfall warnings visible**. Quick cast and target-lock camera controls are available in **Fix Target Lock**.
+
+**Keep Crabgantua rockfall warnings visible** moves only the Heroic Avalanche warning circles' colour passes to the native overlay stage, after the water effects, with depth testing disabled for those circles. It retains the native warning position, size, animation, lifetime, and colour. Water, falling rocks, sounds, damage, and other bosses' indicators are unchanged. Turning the option off restores the original passes immediately, including active warnings; effect removal, pooling, and leaving the game also restore the original state. The option is on by default.
 
 **Fancy damage numbers** adds a 1 px black outline to all damage numbers. Normal physical damage uses an orange gradient and normal magic damage uses a blue gradient. Critical hits always use three colours, with the middle stop halfway down the number:
 

@@ -66,6 +66,15 @@
       }
     },
     {
+      "key": "crabgantuaRockfallWarnings",
+      "type": "checkbox",
+      "label": "Keep Crabgantua rockfall warnings visible",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Keeps the incoming rockfall circles visible through Crabgantua's water effects on Heroic difficulty."
+      }
+    },
+    {
       "type": "title",
       "label": "Appearance"
     },

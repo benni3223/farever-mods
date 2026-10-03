@@ -40,3 +40,9 @@
 -cp tests
 -main DamageNumbersTest
 --interp
+--next
+-cp src
+-cp tests/warning-stubs
+-cp tests
+-main CrabgantuaWarningsTest
+--interp

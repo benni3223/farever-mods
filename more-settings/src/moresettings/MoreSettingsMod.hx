@@ -39,6 +39,7 @@ class MoreSettingsMod {
         PerformanceHooks.enabled = config.performanceOptimization;
         DungeonPartyGuard.enabled = config.waitForParty;
         DungeonLeaveButton.enabled = config.leaveDungeonButton;
+        CrabgantuaWarnings.configure(config.crabgantuaRockfallWarnings);
         hideUi.configure(config.hideUiKey);
         config.save();
         audio = new AudioControl(config);
@@ -52,6 +53,7 @@ class MoreSettingsMod {
             PerformanceHooks.enabled = config.performanceOptimization;
             DungeonPartyGuard.enabled = config.waitForParty;
             DungeonLeaveButton.enabled = config.leaveDungeonButton;
+            CrabgantuaWarnings.configure(config.crabgantuaRockfallWarnings);
             hideUi.configure(config.hideUiKey);
             AllyEffects.configure(config);
             try audio.configure(config) catch (e:Dynamic) audioError(e);
@@ -177,6 +179,7 @@ class MoreSettingsMod {
         AppearanceEditor.close();
         if (audio != null) try audio.dispose() catch (e:Dynamic) audioError(e);
         AllyEffects.dispose();
+        CrabgantuaWarnings.dispose();
         app = null;
         return Continue;
     }

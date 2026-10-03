@@ -2,6 +2,7 @@ package moresettings;
 
 typedef MoreSettingsConfig = {
     var fancyDamageNumbers:Bool;
+    var crabgantuaRockfallWarnings:Bool;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
@@ -26,6 +27,7 @@ typedef MoreSettingsConfig = {
 class SettingsData {
     public static function defaults():MoreSettingsConfig return {
         fancyDamageNumbers: false,
+        crabgantuaRockfallWarnings: true,
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
