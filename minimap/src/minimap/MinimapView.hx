@@ -34,6 +34,7 @@ class MinimapView {
     static inline var DIALOG_TOGGLE = 46;
 
     var world:Dynamic;
+    var game:Dynamic;
     var owner:Dynamic;
     var root:Dynamic;
     var panel:Dynamic;
@@ -129,6 +130,7 @@ class MinimapView {
     public function new() {}
 
     public function update(app:Dynamic, config:MinimapSettings):Void {
+        game = app;
         var nextWorld = G.field(app, "world");
         var ui = G.current("ui.BaseUI", "current");
         if (nextWorld != world || ui != owner) dispose();
@@ -540,12 +542,6 @@ class MinimapView {
         var y = rawY == null ? mouseY : G.number(rawY);
         if (x < 0 || y < 0 || x > size || y > mapHeight) return;
         var button = G.integer(G.field(event, "button"));
-        if (button == 1) {
-            if (!markers.pinHit(x, y)) return;
-            G.set(event, "propagate", false);
-            PartyPin.clear();
-            return;
-        }
         if (button != 0 || controls != null && controls.caption() != "") return;
         var now = haxe.Timer.stamp();
         var second = PinPlacement.doubleClick(lastClick, x, y, now);
@@ -555,12 +551,7 @@ class MinimapView {
             return;
         }
         dragMoved = false;
-        if (second) {
-            G.set(event, "propagate", false);
-            var spot = PinPlacement.world(x, y, size, viewX, viewY, mapScale, mapRotation, mapHeight);
-            PartyPin.place(spot.x, spot.y, LEVEL);
-            lastClick = null;
-        } else lastClick = {x: x, y: y, time: now};
+        lastClick = second ? null : {x: x, y: y, time: now};
     }
 
     function trackMouse(event:Dynamic):Void {

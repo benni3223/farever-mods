@@ -206,11 +206,6 @@ class MinimapMod {
         if (saveZoomAt != 0 && haxe.Timer.stamp() >= saveZoomAt) saveZoom();
         if (view == null || haxe.Timer.stamp() < retryAt) return;
         try {
-            var line = PartyPin.takeOutgoing();
-            if (line != null) PinChat.send(instance, line);
-            var zone = G.text(G.field(G.field(instance, "world"), "level"));
-            PinChat.poll(G.current("ui.BaseUI", "current"), zone);
-            MapPin.update(instance);
             if (closedByEscape) closedByEscape = false;
             else if (expandPressed(instance)) view.toggleExpanded(instance);
             view.update(instance, config);

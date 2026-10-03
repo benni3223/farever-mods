@@ -67,17 +67,6 @@ class MinimapMarkers {
     var rifts:RiftMarkers;
     var riftArrow:Dynamic;
     var riftAlertPosition:Null<{x:Float, y:Float, point:RiftPoint}>;
-    var pinIcon:Dynamic;
-    var pinArrow:Dynamic;
-    var pinEpoch:Int = 0;
-    var pinIconEpoch:Int = -1;
-    var pinArrowEpoch:Int = -1;
-    var pinMarkX:Float = 0;
-    var pinMarkY:Float = 0;
-    var pinArrowX:Float = 0;
-    var pinArrowY:Float = 0;
-    var pinOnMap = false;
-    var pinArrowOn = false;
     var level:String;
     var layer:Dynamic;
     var lastHero:Dynamic;
@@ -127,9 +116,7 @@ class MinimapMarkers {
         partyElevations = G.create("h2d.Object", [parent]);
     }
 
-    /** The expanded window is removed and reinserted. Pin art must be drawn again after that. */
     public function invalidatePin():Void {
-        pinEpoch++;
     }
 
     /** Refill icons erased when the minimap left the scene. Positions stay as they are. */
@@ -196,7 +183,6 @@ class MinimapMarkers {
         var viewHeight = height > 0 ? height : size;
         updateRiftAlert(config, x, y, size, scale, rotation, rifts, viewHeight);
         updatePartyAlerts(config, x, y, size, scale, rotation, viewHeight);
-        updatePin(x, y, size, scale, rotation, circular, config.showNorthIndicator, viewHeight);
         var count = config.sparklingCompanionAlerts ? alertTargets.length : 0;
         while (alertArrows.length > count) {
             G.call("h2d.Object", "remove", alertArrows.pop().icon);
@@ -314,82 +300,6 @@ class MinimapMarkers {
             G.call("h2d.Object", "set_rotation", arrow, [Math.atan2(sy, sx)]);
             partyPositions.push({x: pos.x, y: pos.y, point: point});
         }
-    }
-
-    function updatePin(heroX:Float, heroY:Float, size:Int, scale:Float, rotation:Float,
-        circular:Bool, showNorth:Bool, height:Int):Void {
-        var pin = PartyPin.current();
-        if (pin == null || !sameZone(pin.zone, level)) {
-            showPin(false, false);
-            return;
-        }
-        var offset = PinPlacement.screen(pin.x, pin.y, heroX, heroY, scale, rotation);
-        var radius = 8 * markerScale;
-        var outside = PinPlacement.offScreen(offset.x, offset.y, size, circular, radius, height);
-        ensurePinIcon();
-        G.call("h2d.Object", "set_visible", pinIcon, [!outside]);
-        // Screen space on the mask overlay, same as the edge arrow. Reattach every
-        // frame so closing the expanded window cannot leave the dot on a detached layer.
-        pinMarkX = size / 2 + offset.x;
-        pinMarkY = height / 2 + offset.y;
-        G.call("h2d.Object", "addChild", alertLayer, [pinIcon]);
-        G.call("h2d.Object", "setPosition", pinIcon, [pinMarkX, pinMarkY]);
-        G.call("h2d.Object", "setScale", pinIcon, [markerScale]);
-        G.call("h2d.Object", "set_rotation", pinIcon, [0.0]);
-        pinOnMap = !outside;
-        var north = showNorth ? MinimapGeometry.north(size, circular, rotation, markerScale, height) : null;
-        var showArrow = outside && offset.x * offset.x + offset.y * offset.y > 0.000001;
-        if (showArrow) {
-            ensurePinArrow();
-            G.call("h2d.Object", "addChild", alertLayer, [pinArrow]);
-            var pos = PinPlacement.edge(offset.x, offset.y, size, circular, markerScale, north, height);
-            G.call("h2d.Object", "setScale", pinArrow, [markerScale]);
-            G.call("h2d.Object", "setPosition", pinArrow, [pos.x, pos.y]);
-            G.call("h2d.Object", "set_rotation", pinArrow, [Math.atan2(offset.y, offset.x)]);
-            pinArrowX = pos.x;
-            pinArrowY = pos.y;
-        }
-        pinArrowOn = showArrow;
-        if (pinArrow != null) G.call("h2d.Object", "set_visible", pinArrow, [showArrow]);
-    }
-
-    static function sameZone(pinZone:String, level:String):Bool {
-        if (pinZone == null || level == null || pinZone == "" || level == "") return false;
-        return pinZone == level || StringTools.startsWith(pinZone, level) || StringTools.startsWith(level, pinZone);
-    }
-
-    public function pinHit(mouseX:Float, mouseY:Float):Bool {
-        var reach = 14 * markerScale;
-        if (pinArrowOn && nearCursor(mouseX, mouseY, pinArrowX, pinArrowY, reach)) return true;
-        return pinOnMap && nearCursor(mouseX, mouseY, pinMarkX, pinMarkY, reach);
-    }
-
-    function showPin(icon:Bool, arrow:Bool):Void {
-        pinOnMap = icon;
-        pinArrowOn = arrow;
-        if (pinIcon != null) G.call("h2d.Object", "set_visible", pinIcon, [icon]);
-        if (pinArrow != null) G.call("h2d.Object", "set_visible", pinArrow, [arrow]);
-    }
-
-    function ensurePinIcon():Void {
-        if (pinIcon != null && G.field(pinIcon, "parent") == alertLayer && pinIconEpoch == pinEpoch) return;
-        if (pinIcon != null) try G.call("h2d.Object", "remove", pinIcon) catch (_:Dynamic) {}
-        pinIcon = G.create("h2d.Graphics", [alertLayer]);
-        G.call("h2d.Graphics", "beginFill", pinIcon, [0x143044, 0.95]);
-        G.call("h2d.Graphics", "drawCircle", pinIcon, [0.0, 0.0, 9.0, 24]);
-        G.call("h2d.Graphics", "endFill", pinIcon);
-        G.call("h2d.Graphics", "beginFill", pinIcon, [0x5ec8ff, 1.0]);
-        G.call("h2d.Graphics", "drawCircle", pinIcon, [0.0, 0.0, 6.0, 24]);
-        G.call("h2d.Graphics", "endFill", pinIcon);
-        pinIconEpoch = pinEpoch;
-    }
-
-    function ensurePinArrow():Void {
-        if (pinArrow != null && G.field(pinArrow, "parent") == alertLayer && pinArrowEpoch == pinEpoch) return;
-        if (pinArrow != null) try G.call("h2d.Object", "remove", pinArrow) catch (_:Dynamic) {}
-        pinArrow = G.create("h2d.Graphics", [alertLayer]);
-        LandmarkIcons.alertArrow(pinArrow, 11, 0x5ec8ff);
-        pinArrowEpoch = pinEpoch;
     }
 
     function refreshLandmarks():Void {
