@@ -1,7 +1,7 @@
 {
-  "project": "minimap",
-  "version": "1.8.0",
-  "commit": "e4d19d3ca6e9a256f7bf4a20ec198b40df24a0c7",
-  "notes": "- Added an arrow pointing towards party members that are outside minimap view\n- Added a new party member marker (blue arrow with purple outline)\n- The old party member marker (blue arrow with yellow outline) is now used for friends",
+  "project": "fix-target-lock",
+  "version": "1.4.5",
+  "commit": "ee73df040ca1e834d552c54a60f64cad0d541bc9",
+  "notes": "Fixed an issue where sometimes quick-cast doesn't trigger on queued abilities",
   "dry_run": false
 }
