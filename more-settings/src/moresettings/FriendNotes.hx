@@ -124,8 +124,10 @@ class FriendNotes {
         Ui.absolute(header, label);
         G.call("h2d.Text", "set_lineBreak", label, [false]);
         G.call("h2d.Text", "set_textColor", label, [0x5b4334]);
-        G.call("ui.UIElement", "set_textTip", card, [Ui.escape(value)]);
+        // A textTip creates an interactive for the whole card, which also
+        // enables its native hover highlight. Notes are display-only here.
         var old = G.field(card, "onAfterReflow");
+        var originalName = G.text(G.field(name, "prevUnformatted"), G.text(G.field(name, "text")));
         var previousWidth = -1;
         var fitting = false;
         var fit = () -> {
@@ -135,8 +137,16 @@ class FriendNotes {
                 var width = G.number(G.field(card, "calculatedWidth"));
                 if (width <= 0) width = G.number(G.call("h2d.Flow", "get_outerWidth", card));
                 var right = classChild(card, "right-cont");
-                var reserved = right == null ? 50.0 : Math.max(50, G.number(G.call("h2d.Flow", "get_outerWidth", right)) + 20);
-                var available = Math.max(0, width - G.number(G.field(header, "x")) - reserved - 5);
+                var available = Math.max(0, width - G.number(G.field(header, "x")) - G.number(G.field(card, "paddingRight"), 5));
+                // The controls are vertically centered on the card, often below
+                // its header. Reserve only their actual overlap with this row.
+                if (right != null && G.field(right, "visible") != false) {
+                    var textBounds = G.call("h2d.Object", "getBounds", name, [header, null]);
+                    var controlBounds = G.call("h2d.Object", "getBounds", right, [header, null]);
+                    if (G.number(G.field(controlBounds, "yMin")) < G.number(G.field(textBounds, "yMax"))
+                        && G.number(G.field(controlBounds, "yMax")) > G.number(G.field(textBounds, "yMin")))
+                        available = Math.max(0, Math.min(available, G.number(G.field(controlBounds, "xMin")) - 5));
+                }
                 if (G.field(label, "font") != G.field(detail, "font"))
                     G.call("h2d.Text", "set_font", label, [G.field(detail, "font")]);
                 var scale = G.number(G.field(detail, "scaleX"), 1) * 0.75;
@@ -160,6 +170,10 @@ class FriendNotes {
                 var nameWidth = Std.int(Math.max(60, available - captionWidth - Math.min(textWidth * scale, available * 0.6)));
                 if (nameWidth != previousWidth) {
                     previousWidth = nameWidth;
+                    // Native ellipsis replaces the text itself. Restore the
+                    // original before refitting so a wider row can show it all.
+                    if (G.text(G.field(name, "text")) != originalName)
+                        G.call("ui.comp.FmtText", "set_text", name, [originalName]);
                     G.call("ui.comp.FmtText", "set_textMultiline", name, [false]);
                     G.call("ui.comp.FmtText", "set_useEllipsis", name, [true]);
                     G.call("ui.comp.FmtText", "set_maxWidthText", name, [nameWidth]);
