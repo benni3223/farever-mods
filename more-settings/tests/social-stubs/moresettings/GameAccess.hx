@@ -65,7 +65,8 @@ class GameAccess {
             case "setPosition": object.x = args[0]; object.y = args[1]; null;
             case "getBounds":
                 var max:Float = field(object, "maxWidthText") == null ? 10000 : object.maxWidthText;
-                {xMin:0.0, xMax:Math.min(text(object.text).length * 7, max), yMin:0.0, yMax:16.0};
+                var x:Float = args[0] == object ? 0 : number(field(object,"x"));
+                {xMin:x, xMax:x + Math.min(text(object.text).length * 7, max), yMin:0.0, yMax:16.0};
             case "calcTextWidth": text(args[0]).length * 7.0;
             case "set_font": object.font = args[0]; args[0];
             case "set_text": object.text = args[0]; args[0];

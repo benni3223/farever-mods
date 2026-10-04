@@ -5,6 +5,7 @@ import moresettings.FriendNotesStore;
 import moresettings.SettingsData;
 import moresettings.GameAccess as G;
 import moresettings.SocialHooks;
+import hlx.runtime.HlxPrefixResult;
 
 class SocialTest {
     static var checks = 0;
@@ -13,7 +14,7 @@ class SocialTest {
         if (actual != expected) throw why + ': expected $expected, got $actual';
     }
     static function main():Void {
-        parse(); notes(); chat(); menu();
+        parse(); notifications(); notes(); chat(); menu();
         Sys.println('Social: $checks checks passed.');
     }
     static function parse():Void {
@@ -33,6 +34,37 @@ class SocialTest {
         for (id in ["PlayerFriendAdded", "PlayerGroup_AlreadyIn", "ErrorDefault"])
             eq(SocialCommands.connectionMessage(id), false, "other notifications unchanged");
         eq(SettingsData.defaults().enableMissingSlashCommands, false, "social changes opt-in");
+    }
+    static function notifications():Void {
+        var config = SettingsData.defaults();
+        var history:Array<Dynamic> = [
+            {notify:"PlayerConnected", args:{player:"Magé"}},
+            {notify:"PlayerDisconnected", args:{player:"Magé"}},
+            {notify:"PlayerFriendAdded", args:{player:"Magé"}},
+            {notify:null, text:"PlayerConnected"},
+            {text:"Magé is connected."},
+            {localTextId:"PlayerDisconnected", text:"ordinary player message"},
+            {notify:"ErrorDefault"}
+        ];
+        // Model the audited client path: server RPC -> localReceiveMessage ->
+        // history -> UI poll -> receiveMessage. sendSystemMessage never runs.
+        config.hideFriendConnectionNotifications = true; SocialHooks.configure(config);
+        var displayed = [];
+        for (message in history) {
+            var result = @:privateAccess SocialHooks.filterConnectionMessage({}, message);
+            if (result == Continue) displayed.push(message);
+        }
+        eq(history.length, 7, "filter does not mutate network/chat history");
+        eq(displayed.length, 5, "both received connection notifications hidden");
+        eq(displayed[0], history[2], "friend-added notification retained");
+        eq(displayed[1], history[3], "notification name in player text remains visible");
+        eq(displayed[2], history[4], "localized-looking player text remains visible");
+        eq(displayed[3], history[5], "localTextId is a text fingerprint, not a notification ID");
+        eq(displayed[4], history[6], "unrelated system errors retained");
+        config.hideFriendConnectionNotifications = false; SocialHooks.configure(config);
+        for (message in history)
+            eq(@:privateAccess SocialHooks.filterConnectionMessage({}, message), Continue, "disabled setting preserves received messages");
+        eq(@:privateAccess SocialHooks.filterConnectionMessage({}, null), Continue, "missing notification metadata ignored");
     }
     static function notes():Void {
         eq(FriendNotesStore.clean("  Friend from Discord  "), "Friend from Discord", "trim saved note");
@@ -170,14 +202,29 @@ class SocialTest {
         name.text="AnExtremelyLongCharacterName"; rebuilt.calculatedWidth=180; rebuilt.onAfterReflow();
         var displayed:String = label.text;
         eq(displayed.indexOf("…")>=0 || displayed=="",true,"narrow rows truncate note instead of covering gear");
-        eq(rebuilt.textTip,"Friend from Discord","full text available on hover");
+        eq(rebuilt.textTip,"Friend from Discord","full note still available on hover");
+        name.text = "Magé"; rebuilt.calculatedWidth = 380;
+        var leader = node("ui.comp.FmtText", header, ["player-status"]);
+        leader.text = "(Leader)"; leader.scaleX = 1.0;
+        var right = node("flow", rebuilt, ["right-cont"]); right.calculatedWidth = 80;
+        leader.x = 33.0; rebuilt.onAfterReflow();
+        eq(label.x,89.0,"note starts after the party leader label");
+        eq(label.text," - Friend from Discord","leader leaves the note legible");
+        eq(G.number(label.x) + Std.string(label.text).length * 7 * 0.75 <= 250,true,"note stays before party controls");
+        name.text = "AnExtremelyLongCharacterName";
+        rebuilt.onAfterReflow();
+        leader.x = G.number(G.field(name,"maxWidthText")) + 5; rebuilt.onAfterReflow();
+        eq(G.number(label.x) >= G.number(leader.x) + 56,true,"long names keep note after the leader label");
+        eq(G.number(label.x) + Std.string(label.text).length * 7 * 0.75 <= 250,true,"long party row fits before controls");
+        leader.visible = false; name.text = "Magé"; rebuilt.onAfterReflow();
+        eq(label.x,28.0,"hidden party label leaves no note-position gap");
         FriendNotes.detach(rebuilt);
         eq(rebuilt.onAfterReflow,original,"rebuild/removal restores original callback");
         actions[1].action(); eq(G.dialog.input.input.text,"Friend from Discord","editor prefills existing note");
         G.saved(""); eq(new FriendNotesStore(path).get("me","friend"),"","saving empty removes note");
         FriendNotes.configure(false);
         eq(view.rebuilds,4,"toggles and saves refresh existing list");
-        eq(SocialHooks.errors.length,0,"no UI adapter errors");
+        eq(@:privateAccess [for (_ in SocialHooks.reported.keys()) true].length,0,"no UI adapter errors");
         for (p in sys.FileSystem.readDirectory(dir)) sys.FileSystem.deleteFile(dir+"/"+p);
         sys.FileSystem.deleteDirectory(dir);
     }

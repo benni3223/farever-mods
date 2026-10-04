@@ -22,11 +22,14 @@ class SocialHooks {
         trace("[More Settings] Social: " + message);
     }
 
-    @:hlx.prefix(st.Player.sendSystemMessage)
-    static function systemMessage(instance:Dynamic, textId:String, args:Dynamic):HlxPrefixResult<Void> {
-        // Suppress only the presentation; FriendList.onFriendMessage still
-        // updates online status, friends, invites and party state normally.
-        return hideConnections && SocialCommands.connectionMessage(textId) ? Skip : Continue;
+    @:hlx.prefix(ui.hud.ChatBox.receiveMessage)
+    static function filterConnectionMessage(instance:Dynamic, message:Dynamic):HlxPrefixResult<Void> {
+        // sendSystemMessage is a server-only stub in the client. Server RPCs
+        // enter ChatClient history directly, then the UI polls that history.
+        // Filter the structured notification ID before creating a chat row;
+        // never suppress friend state updates or match arbitrary player text.
+        if (hideConnections && SocialCommands.connectionMessage(G.text(G.field(message, "notify")))) return Skip;
+        return Continue;
     }
 
     @:hlx.prefix(ui.hud.ChatBox.handleCommand)

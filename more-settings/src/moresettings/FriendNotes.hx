@@ -127,7 +127,20 @@ class FriendNotes {
                     G.call("h2d.Object", "setScale", label, [scale]);
                 var text = " - " + value;
                 var textWidth = G.number(G.call("h2d.Text", "calcTextWidth", label, [text]));
-                var nameWidth = Std.int(Math.max(60, available - Math.min(textWidth * scale, available * 0.6)));
+                // Native party rows append labels such as "(Leader)" to the
+                // name. Keep those in the header's normal flow and place the
+                // note after the complete header, reserving their width too.
+                var captions = [name];
+                var captionWidth = 0.0;
+                var spacing = G.number(G.field(header, "horizontalSpacing"), 5);
+                for (child in Ui.children(header)) {
+                    if (child == name || !G.isA(child, "ui.comp.FmtText") || G.field(child, "visible") == false) continue;
+                    captions.push(child);
+                    var bounds = G.call("h2d.Object", "getBounds", child, [child, null]);
+                    captionWidth += (G.number(G.field(bounds, "xMax")) - G.number(G.field(bounds, "xMin")))
+                        * G.number(G.field(child, "scaleX"), 1) + spacing;
+                }
+                var nameWidth = Std.int(Math.max(60, available - captionWidth - Math.min(textWidth * scale, available * 0.6)));
                 if (nameWidth != previousWidth) {
                     previousWidth = nameWidth;
                     G.call("ui.comp.FmtText", "set_textMultiline", name, [false]);
@@ -136,6 +149,10 @@ class FriendNotes {
                 }
                 var nameBounds = G.call("h2d.Object", "getBounds", name, [header, null]);
                 var x = G.number(G.field(nameBounds, "xMax"));
+                for (caption in captions) {
+                    var bounds = G.call("h2d.Object", "getBounds", caption, [header, null]);
+                    x = Math.max(x, G.number(G.field(bounds, "xMax")));
+                }
                 var room = Math.max(0, available - x);
                 var chars = [for (c in new haxe.iterators.StringIteratorUnicode(value)) String.fromCharCode(c)];
                 while (chars.length > 0 && G.number(G.call("h2d.Text", "calcTextWidth", label, [text])) * scale > room) {
