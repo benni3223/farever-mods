@@ -6,6 +6,10 @@ class GameAccess {
     public static var releasedInput:String;
     public static var releaseReads = 0;
     public static var failRelease = false;
+    public static var heldInputs:Map<String, Bool> = ["Skill1" => true, "Skill2" => true];
+    public static var bindingsAvailable = true;
+    public static var usePad = false;
+    static var sampledInput:String;
     public static function field(o:Dynamic, name:String):Dynamic return o == null ? null : Reflect.field(o, name);
     public static function set(o:Dynamic, name:String, value:Dynamic):Void Reflect.setField(o, name, value);
     public static function current(type:String, name:String):Dynamic return field(data, name);
@@ -15,10 +19,23 @@ class GameAccess {
         return Math.isFinite(n) ? n : fallback;
     }
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
-        if (type != "lib.Input" || name != "isReleased") throw "Unexpected input call";
+        if (type == "hxd.Key" || type == "gamepad.Pad") {
+            if (name != "isDown") throw "Unexpected physical input call";
+            return heldInputs[sampledInput] == true && sampledInput != releasedInput;
+        }
+        if (type != "lib.Input") throw "Unexpected input call";
         releaseReads++;
         if (failRelease) throw "Input failure";
         if (data._noCheckMode != true) throw "Aiming mode was not bypassed";
-        return inputActive && args[0] == releasedInput;
+        if (name == "isReleased") return inputActive && bindingsAvailable && args[0] == releasedInput;
+        if (name != "checkInput") throw "Unexpected input method";
+        if (!bindingsAvailable) return false; // Native UI/cinematic/binding gate skips the readers.
+        sampledInput = args[0];
+        if (usePad) {
+            var readPad:Dynamic->Bool = args[2];
+            return readPad({button:1});
+        }
+        var readKey:Int->Bool = args[1];
+        return readKey(49);
     }
 }

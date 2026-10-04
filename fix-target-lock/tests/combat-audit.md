@@ -65,3 +65,28 @@ Native hook signatures remain compatible. The 43 combat regression checks and
 full mod/bootstrap compilation pass. The override was verified through bytecode
 and HLX resolver inspection; an actual Cleodora encounter still needs in-game
 validation.
+
+## October 4 quick-cast timing fix
+
+Audited the October 1 evening client above. `updateSkillInput` accepts queueable
+skills into `requestedSkillInput`; `tryResolveSkillRequests` retries them during
+`SkillQueueTime`. `requestSkill` does not open `startTargetMode` until `checkUse`
+succeeds. A short press can therefore be released before aiming begins. The old
+mod then polled only `isReleased`, whose edge had expired, leaving the indicator
+waiting for another press/release. A regression reproduces this failure with the
+previous implementation.
+
+Quick cast now samples held state through native `lib.Input.checkInput` instead
+of depending on a one-frame release event. Its readers call native `hxd.Key.isDown`
+and `gamepad.Pad.isDown(code, null)`. Native bindings, modifier matching, active
+gamepad checks, and console/cinematic restrictions stay in the native reader;
+only ground aiming's input-mode restriction is temporarily bypassed. A binding
+skipped by those restrictions is distinguished from a button that is up. Losing
+focus or access to the binding clears the latch and requires a fresh valid hold
+before another release can confirm. Native casting, targeting, queues, and
+cancellation are unchanged.
+
+Regression coverage includes queued taps released before aiming, missed release
+edges, held aiming, keyboard/gamepad paths, first-frame latching, focus and
+blocked-binding recovery, cancellation/job changes, and nested controllers.
+Automated tests simulate input states; physical gameplay still needs validation.

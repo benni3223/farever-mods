@@ -35,7 +35,7 @@ Open **Mod Settings** from Farever's Game Menu to configure the mod.
 - **Auto-unlock when target dies** clears the lock as soon as the locked enemy is defeated or despawns. It is enabled by default.
 - **Press Lock Target to switch targets** changes the lock directly to Farever's current `autoTarget` when another enemy is aimed at. Pressing it without another valid target still unlocks normally. It is disabled by default.
 - **Disable automatic camera movement** prevents Farever from pulling the camera's yaw and pitch toward the locked enemy, leaving camera rotation under manual control while preserving the normal locked-camera sensitivity. It is disabled by default.
-- **Enable quick cast** lets you hold a ground-targeted skill's bound button to aim, then release it to cast. Uses the native ground indicator and cancellation controls. It works without a target lock and is disabled by default.
+- **Enable quick cast** lets you hold a ground-targeted skill's bound button to aim, then release it to cast. Uses the native ground indicator and cancellation controls. Quick taps still cast when the game queues the skill before opening its aiming indicator. Losing focus or blocking input requires a fresh hold and release to prevent an unintended cast. It works without a target lock and is disabled by default.
 - Use Farever's normal **Lock Target** key or controller binding to toggle a target lock.
 - Farever's native animated hard-lock indicator appears above the locked enemy.
 

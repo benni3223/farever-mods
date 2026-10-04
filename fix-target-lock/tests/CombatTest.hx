@@ -83,6 +83,51 @@ class CombatTest {
         eq(q.confirm("Skill1"), null, "An abandoned update scope cannot leak into other input");
         q.reset();
 
+        // Native skill queuing can outlast the one-frame key-up event. The
+        // accepted request opens target mode only after the skill is usable.
+        q.observeController(player); q.beginUpdate(player);
+        G.heldInputs["Skill1"] = false; G.releasedInput = null;
+        q.start(player, "Skill1"); q.endUpdate(player);
+        q.beginUpdate(player);
+        eq(q.confirm("Skill1"), true, "Queued tap already released before aiming still casts");
+        q.stop(player); q.endUpdate(player);
+        G.heldInputs["Skill1"] = true;
+
+        q.beginUpdate(player); q.start(player, "Skill1"); q.endUpdate(player);
+        G.heldInputs["Skill1"] = false; // Release edge passed between controller updates.
+        q.beginUpdate(player);
+        eq(q.confirm("Skill1"), true, "A missed key-up edge cannot leave aiming stuck");
+        G.inputActive = false;
+        eq(q.confirm("Skill1"), false, "Losing focus clears even a latched release");
+        G.inputActive = true;
+        eq(q.confirm("Skill1"), false, "Returning focus with the button up does not cast");
+        G.heldInputs["Skill1"] = true;
+        eq(q.confirm("Skill1"), false, "A fresh valid hold rearms after focus loss");
+        G.heldInputs["Skill1"] = false;
+        eq(q.confirm("Skill1"), true, "Release after refocusing works normally");
+        q.stop(player);
+
+        G.bindingsAvailable = false;
+        q.start(player, "Skill1");
+        eq(q.confirm("Skill1"), false, "Blocked native binding is not a released button");
+        G.bindingsAvailable = true;
+        eq(q.confirm("Skill1"), false, "Closing a blocking UI cannot auto-cast");
+        G.heldInputs["Skill1"] = true;
+        eq(q.confirm("Skill1"), false, "Fresh hold after a blocked binding keeps aiming open");
+        G.heldInputs["Skill1"] = false;
+        eq(q.confirm("Skill1"), true, "Native binding works again after a fresh hold and release");
+        q.stop(player);
+
+        G.usePad = true; G.heldInputs["Skill1"] = true;
+        q.start(player, "Skill1");
+        eq(q.confirm("Skill1"), false, "Holding the gamepad skill keeps aiming open");
+        G.heldInputs["Skill1"] = false;
+        eq(q.confirm("Skill1"), true, "Gamepad release uses current button state too");
+        q.stop(player); q.start(player, "Skill1");
+        eq(q.confirm("Skill1"), true, "Already released queued gamepad tap still casts");
+        q.stop(player); q.endUpdate(player); q.reset();
+        G.usePad = false; G.heldInputs["Skill1"] = true;
+
         var camera = new TargetLockCamera();
         var settings:Dynamic = {LockRotateSpeed: 8.0, TargetLock: true};
         G.data = {Camera: settings};
