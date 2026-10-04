@@ -6,6 +6,7 @@ import moresettings.AppearanceUi as Ui;
 class FriendNotes {
     public static var enabled(default, null) = false;
     static var callbacks = new haxe.ds.ObjectMap<Dynamic, {old:Dynamic, callback:Void->Void}>();
+    static var submitFrame = -1;
     static var store = new FriendNotesStore("hlx/config/more-settings/friend-notes.json");
 
     public static function configure(value:Bool):Void {
@@ -77,12 +78,28 @@ class FriendNotes {
         ]);
         var input = G.field(G.field(dialog, "input"), "input");
         G.set(input, "maxCharacters", FriendNotesStore.LIMIT);
+        var onEnter = G.field(input, "onEnter");
+        G.set(input, "onEnter", () -> {
+            // Closing the dialog removes text-input focus before ChatBox polls
+            // OpenChat. Heaps publishes this key-down on the following frame,
+            // so protect both the event frame and that next polling frame.
+            try submitFrame = G.integer(G.staticCall("hxd.Key", "getFrame", []))
+            catch (e:Dynamic) SocialHooks.report(e);
+            if (onEnter != null) onEnter();
+        });
         // Use the same readable foreground as the settings text inputs.
         Ui.style(input, "color", 0xF5F0E8);
         G.call("h2d.Text", "set_textColor", input, [0xF5F0E8]);
         var buttons = G.array(G.field(dialog, "buttons"));
         for (i in 0...buttons.length)
             G.call("ui.comp.Button", "setText", buttons[i], [i == 0 ? "Save" : "Cancel"]);
+    }
+
+    public static function chatPressed(key:String, result:Bool):Bool {
+        if (key != "OpenChat" || !result || submitFrame < 0) return result;
+        if (G.integer(G.staticCall("hxd.Key", "getFrame", [])) <= submitFrame + 1) return false;
+        submitFrame = -1;
+        return result;
     }
 
     static function classChild(parent:Dynamic, name:String):Dynamic {
@@ -179,6 +196,7 @@ class FriendNotes {
         callbacks.remove(card);
     }
     public static function dispose():Void {
+        submitFrame = -1;
         for (card in [for (card in callbacks.keys()) card]) detach(card);
     }
 

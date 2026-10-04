@@ -22,6 +22,12 @@ class SocialHooks {
         trace("[More Settings] Social: " + message);
     }
 
+    @:hlx.postfix(lib.Input.isPressed)
+    static function noteChatPressed(key:String, result:Bool):Bool {
+        try return FriendNotes.chatPressed(key, result) catch (e:Dynamic) report(e);
+        return result;
+    }
+
     @:hlx.prefix(ui.hud.ChatBox.receiveMessage)
     static function filterConnectionMessage(instance:Dynamic, message:Dynamic):HlxPrefixResult<Void> {
         // sendSystemMessage is a server-only stub in the client. Server RPCs

@@ -33,7 +33,10 @@ class SocialTest {
         eq(SocialCommands.connectionMessage("PlayerDisconnected"), true, "disconnected hidden");
         for (id in ["PlayerFriendAdded", "PlayerGroup_AlreadyIn", "ErrorDefault"])
             eq(SocialCommands.connectionMessage(id), false, "other notifications unchanged");
-        eq(SettingsData.defaults().enableMissingSlashCommands, false, "social changes opt-in");
+        eq(SettingsData.defaults().enableMissingSlashCommands, true, "slash commands enabled by default");
+        eq(SettingsData.defaults().sendingMessageClosesChat, true, "sending closes chat by default");
+        eq(SettingsData.defaults().enableFriendNotes, true, "friend notes enabled by default");
+        eq(SettingsData.defaults().hideFriendConnectionNotifications, false, "connection notifications remain visible by default");
     }
     static function notifications():Void {
         var config = SettingsData.defaults();
@@ -166,7 +169,7 @@ class SocialTest {
         var dir = 'tests/social-menu-tmp-${Std.random(1000000000)}';
         var path = dir + "/notes.json";
         @:privateAccess FriendNotes.store = new FriendNotesStore(path);
-        FriendNotes.configure(false); FriendNotes.attach(card);
+        FriendNotes.configure(false); view.rebuilds = 0; FriendNotes.attach(card);
         eq(card.settingsBtn.boundActions.length,3,"disabled menu unchanged");
         FriendNotes.configure(true); FriendNotes.attach(card);
         eq(card.settingsBtn.boundActions.length,4,"one note action added");
@@ -177,7 +180,18 @@ class SocialTest {
         eq(G.dialog.buttons[0].text,"Save","save explicit");
         eq(G.dialog.buttons[1].text,"Cancel","cancel available");
         eq(sys.FileSystem.exists(path), false, "opening/canceling editor does not save");
-        G.saved("Friend from Discord");
+        eq(@:privateAccess SocialHooks.noteChatPressed("OpenChat", true), true, "opening/canceling notes does not swallow chat input");
+        G.dialog.input.input.text = "Friend from Discord";
+        G.dialog.input.input.onEnter();
+        eq(G.dialog.closed, true, "Enter still calls native confirmation and closes note dialog");
+        eq(@:privateAccess SocialHooks.noteChatPressed("OpenChat", true), false, "note submission cannot open chat in the event frame");
+        eq(@:privateAccess SocialHooks.noteChatPressed("DialogConfirm", true), true, "other actions unchanged");
+        G.keyFrame++;
+        eq(@:privateAccess SocialHooks.noteChatPressed("OpenChat", true), false, "buffered Enter cannot open chat on the next frame");
+        eq(@:privateAccess SocialHooks.noteChatPressed("OpenChat", true), false, "multiple polls cannot consume the protection early");
+        eq(@:privateAccess SocialHooks.noteChatPressed("OpenChat", false), false, "never invent a key press");
+        G.keyFrame++;
+        eq(@:privateAccess SocialHooks.noteChatPressed("OpenChat", true), true, "a subsequent Enter can open chat normally");
         eq(new FriendNotesStore(path).get("me", "friend"), "Friend from Discord", "dialog save persists note");
         var rebuilt = node("ui.win.PlayerCard", view, []);
         rebuilt.pInfo = card.pInfo; rebuilt.settingsBtn = {boundActions:[{name:"Send message"},{name:"Invite to party"},{name:"Remove friend"}]};
@@ -222,6 +236,7 @@ class SocialTest {
         eq(rebuilt.onAfterReflow,original,"rebuild/removal restores original callback");
         actions[1].action(); eq(G.dialog.input.input.text,"Friend from Discord","editor prefills existing note");
         G.saved(""); eq(new FriendNotesStore(path).get("me","friend"),"","saving empty removes note");
+        eq(@:privateAccess SocialHooks.noteChatPressed("OpenChat", true), true, "mouse save does not suppress the next chat key");
         FriendNotes.configure(false);
         eq(view.rebuilds,4,"toggles and saves refresh existing list");
         eq(@:privateAccess [for (_ in SocialHooks.reported.keys()) true].length,0,"no UI adapter errors");

@@ -7,6 +7,7 @@ class GameAccess {
     public static var saved:Dynamic;
     public static var cancel:Dynamic;
     public static var dialog:Dynamic;
+    public static var keyFrame = 100;
     public static var reason = "Ok";
     public static function field(object:Dynamic, name:String):Dynamic return object == null ? null : Reflect.field(object, name);
     public static function text(value:Dynamic, fallback = ""):String return value == null ? fallback : Std.string(value);
@@ -22,6 +23,7 @@ class GameAccess {
     public static function enumValue(type:String, name:String, args:Array<Dynamic>):Dynamic return {type:type, name:name, args:args};
     public static function current(type:String, name:String):Dynamic return type == "Data" ? {byId: {}} : ui;
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
+        if (type == "hxd.Key" && name == "getFrame") return keyFrame;
         if (type == "HText" && name == "reason") return args[0];
         throw type + "." + name;
     }
@@ -76,7 +78,10 @@ class GameAccess {
             case "rebuild": object.rebuilds++; null;
             case "displayTextInputDialog":
                 saved = args[3]; cancel = args[4];
-                dialog = {input:{input:{text:args[2]}},buttons:[{},{}]}; dialog;
+                var created:Dynamic = {input:{input:{text:args[2]}},buttons:[{},{}],closed:false};
+                var confirm:Dynamic = saved;
+                created.input.input.onEnter = () -> { confirm(created.input.input.text); created.closed = true; };
+                dialog = created; dialog;
             default: throw type + "." + name;
         };
     }

@@ -31,9 +31,9 @@ typedef MoreSettingsConfig = {
 class SettingsData {
     public static function defaults():MoreSettingsConfig return {
         hideFriendConnectionNotifications: false,
-        enableMissingSlashCommands: false,
-        sendingMessageClosesChat: false,
-        enableFriendNotes: false,
+        enableMissingSlashCommands: true,
+        sendingMessageClosesChat: true,
+        enableFriendNotes: true,
         fancyDamageNumbers: false,
         crabgantuaRockfallWarnings: true,
         disableProfanityFilter: true,
