@@ -86,6 +86,11 @@ class MoreSettingsMod {
         try FancyDamageNumbers.apply(instance, config) catch (error:Dynamic) damageNumberError(error);
     }
 
+    @:hlx.postfix(ui.hud.EffectsFeed.displayHeal)
+    static function afterReceivedHeal(instance:Dynamic, damage:Dynamic, result:Void):Void {
+        try FancyDamageNumbers.applyHealingFeed(instance, damage, config) catch (error:Dynamic) damageNumberError(error);
+    }
+
     @:hlx.postfix(h2d.filter.Filter.bind)
     static function afterDamageFilterBind(instance:Dynamic, s:Dynamic, result:Void):Void {
         try FancyDamageNumbers.bindGradient(instance, s) catch (error:Dynamic) damageNumberError(error);

@@ -37,7 +37,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Heal | `#B8FF92` | — | `#238C45` |
 | Critical heal | `#FFD966` | `#B8FF92` | `#238C45` |
 
-The option remains off by default and preserves your existing Fancy damage numbers preference. All palettes are fixed; the former Pink crits, Exclamation mark crits, Three-colour crit gradients, and physical/magical/Raw colour inputs are removed and their saved values no longer affect styling. Critical hits keep native number formatting, with no added exclamation mark. Healing skills can crit in the current game; the healing palette uses the native critical flag. Damage/healing values, fonts, visibility rules, and animations keep their native behavior.
+The option remains off by default and preserves your existing Fancy damage numbers preference. All palettes are fixed; the former Pink crits, Exclamation mark crits, Three-colour crit gradients, and physical/magical/Raw colour inputs are removed and their saved values no longer affect styling. Critical hits keep native number formatting, with no added exclamation mark. Healing skills can crit in the current game; the healing palette uses the native critical flag. Both healing received by your character (the `+500` incoming-healing feed) and floating heals on other targets use these palettes. Damage/healing values, fonts, visibility rules, and animations keep their native behavior.
 
 **Fancy damage numbers** is the only damage-number setting. Its fixed palettes apply to newly displayed numbers immediately. Raw uses its own palette regardless of the skill's physical or magical classification, retains the black outline, and has no native text shadow.
 

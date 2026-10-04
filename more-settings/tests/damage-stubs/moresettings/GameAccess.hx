@@ -4,6 +4,8 @@ package moresettings;
 class GameAccess {
     public static var textures:Array<Dynamic> = [];
     public static function field(o:Dynamic, name:String):Dynamic return o == null ? null : Reflect.field(o, name);
+    public static function number(value:Dynamic, fallback:Float = 0):Float return value == null ? fallback : cast value;
+    public static function integer(value:Dynamic, fallback:Int = 0):Int return Std.int(number(value, fallback));
     public static function set(o:Dynamic, name:String, value:Dynamic):Void Reflect.setField(o, name, value);
     public static function isA(o:Dynamic, type:String):Bool
         return o != null && field(o, "nativeType") == type;
@@ -27,6 +29,15 @@ class GameAccess {
         throw "Unexpected static call: " + type + "." + name;
     }
     public static function call(type:String, name:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic {
+        if (type == "st.skill.DamageResult") switch name {
+            case "get_amount": return o.amount;
+            case "getDynamicScalingFactor": return o.scale;
+            case "get_critical": return o.critical;
+        }
+        if (type == "hl.types.ArrayObj" && name == "getDyn") return o[args[0]];
+        if (type == "h2d.Object" && name == "get_numChildren") return o.children.length;
+        if (type == "h2d.Object" && name == "getChildAt") return o.children[args[0]];
+        if (type == "domkit.Properties" && name == "hasClass") return (cast o.classes:Array<String>).indexOf(args[0]) >= 0;
         if (type == "h2d.Text" && name == "updateSize") return null;
         if (type == "st.skill.DamageResult" && name == "get_isMagic") return o.magic;
         if (type == "h3d.pass.ColorMatrixShader" && StringTools.startsWith(name, "set_")) {
