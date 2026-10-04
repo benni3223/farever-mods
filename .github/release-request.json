@@ -1,7 +1,7 @@
 {
-  "project": "fix-target-lock",
-  "version": "1.4.5",
-  "commit": "ee73df040ca1e834d552c54a60f64cad0d541bc9",
-  "notes": "Fixed an issue where sometimes quick-cast doesn't trigger on queued abilities",
+  "project": "more-settings",
+  "version": "1.14.0",
+  "commit": "c1271b01ea060123f78e4af14ac163d20fe2c5cb",
+  "notes": "- Added fancy healing numbers to Fancy Damage Numbers (green = heal, green+gold = crit heal)\n- Added an option to rebind the social interaction hotkey separately from loot/revive/talk to npc\n",
   "dry_run": false
 }
