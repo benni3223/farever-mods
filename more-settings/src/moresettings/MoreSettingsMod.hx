@@ -85,7 +85,20 @@ class MoreSettingsMod {
 
     @:hlx.postfix(ui.comp.DamageDisplay.init)
     static function afterDamageDisplayInit(instance:Dynamic, result:Void):Void {
+        // HealDisplay calls this base initializer, then changes its component.
+        // Style healing once, after the complete subclass initialization.
+        if (G.isA(instance, "ui.comp.HealDisplay")) return;
         try FancyDamageNumbers.apply(instance, config) catch (error:Dynamic) damageNumberError(error);
+    }
+
+    @:hlx.postfix(ui.comp.HealDisplay.init)
+    static function afterHealDisplayInit(instance:Dynamic, result:Void):Void {
+        try FancyDamageNumbers.apply(instance, config) catch (error:Dynamic) damageNumberError(error);
+    }
+
+    @:hlx.postfix(ui.hud.EffectsFeed.displayHeal)
+    static function afterReceivedHeal(instance:Dynamic, damage:Dynamic, result:Void):Void {
+        try FancyDamageNumbers.applyHealingFeed(instance, damage, config) catch (error:Dynamic) damageNumberError(error);
     }
 
     @:hlx.postfix(h2d.filter.Filter.bind)

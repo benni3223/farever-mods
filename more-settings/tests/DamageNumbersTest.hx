@@ -73,10 +73,31 @@ class DamageNumbersTest {
                 checkPalette(hit, palette);
             }
         }
-        var heal = display(true);
-        heal.nativeType = "ui.comp.HealDisplay";
-        FancyDamageNumbers.apply(heal, config);
-        eq(heal.counter.filter, null, "Healing retains its native appearance");
+        for (critical in [false, true]) for (raw in [false, true]) {
+            var heal = display(critical, true, raw);
+            heal.nativeType = "ui.comp.HealDisplay";
+            heal.dmg.amount = 123456.0;
+            heal.counter.filter = {kind: "native"};
+            heal.counter.dropShadow = {color: 0x00FF00};
+            config.fancyDamageNumbers = false;
+            var native = heal.counter.filter;
+            FancyDamageNumbers.apply(heal, config);
+            eq(heal.counter.filter, native, "Disabled fancy numbers preserve healing styling");
+            config.fancyDamageNumbers = true;
+            FancyDamageNumbers.apply(heal, config);
+            var stack = filters(heal.counter.filter);
+            eq(stack.length, critical ? 3 : 2, "Healing uses only its palette and one outline");
+            eq(heal.counter.dropShadow, null, "Native healing tint cannot change gradient endpoints");
+            eq(heal.counter.textColor, 0xFFFFFF, "Healing starts from a white glyph fill");
+            eq(heal.counter.dom.styles.color, 0xFFFFFF, "Healing CSS cannot restore a green tint");
+            eq(heal.counter.dom.styles.filter, heal.counter.filter, "Healing filter survives CSS refresh");
+            eq(heal.counter.text, "123,456", "Healing number formatting is unchanged");
+            eq(heal.dmg.amount, 123456.0, "Healing amount is unchanged");
+            eq(heal.isCrit, critical, "Uses the native heal crit flag without creating crits");
+            eq(stack[stack.length - 1].color, 0, "Healing has a black outline");
+            eq(stack[stack.length - 1].size, 1.0, "Healing has the same 1 px outline as damage");
+            checkPalette(heal, critical ? [0xFFD966, 0xB8FF92, 0x238C45] : [0xB8FF92, 0x238C45]);
+        }
         FancyDamageNumbers.dispose();
         var before = G.textures.length;
         var mappingFilter = gradientMapping();
@@ -96,9 +117,64 @@ class DamageNumbersTest {
         FancyDamageNumbers.apply(display(false), config);
         eq(G.textures.length, before + 2, "Next scene creates a fresh valid ramp");
         FancyDamageNumbers.dispose();
+        healingFeed();
         gradientResources();
         formattedGradientMapping();
         Sys.println('Fancy damage numbers: $checks checks passed.');
+    }
+
+    static function healingFeed():Void {
+        var config = SettingsData.defaults();
+        config.fancyDamageNumbers = true;
+        for (critical in [false, true]) {
+            var counter = display(false).counter;
+            counter.nativeType = "ui.comp.FmtText";
+            counter.text = "+500";
+            counter.filter = {kind: "native"};
+            counter.dropShadow = {color: 0x00FF00};
+            var previous = display(false).counter;
+            previous.nativeType = "ui.comp.FmtText";
+            var oldLine:Dynamic = {elt:{dom:{classes:["heal"]},children:[previous]},elapsed:0.5};
+            var row:Dynamic = {dom:{classes:["heal"]},children:[counter],alpha:0.0};
+            var entry:Dynamic = {elt:row,elapsed:-0.3};
+            var feed:Dynamic = {activeLines:[oldLine,entry]};
+            var heal:Dynamic = {amount:250.0,scale:2.0,critical:critical};
+            config.fancyDamageNumbers = false;
+            var original = counter.filter;
+            FancyDamageNumbers.applyHealingFeed(feed, heal, config);
+            eq(counter.filter, original, "Disabled feature preserves incoming healing");
+            config.fancyDamageNumbers = true;
+            FancyDamageNumbers.applyHealingFeed(feed, heal, config);
+            eq(counter.text, "+500", "Incoming healing preserves the native plus sign and scaled amount");
+            eq(counter.textColor, 0xFFFFFF, "Incoming heal glyphs use the gradient's white source");
+            eq(counter.dropShadow, null, "Incoming heal native tint/shadow is removed");
+            eq(previous.filter, null, "Styling touches only the newly added row");
+            eq(previous.textColor, 0xABCDEF, "Earlier healing keeps its existing appearance");
+            eq(row.alpha, 0.0, "Native reveal/fade is unchanged");
+            eq(entry.elapsed, -0.3, "Native feed schedule is unchanged");
+            eq(heal.amount, 250.0, "Source heal amount is unchanged");
+            var stack = filters(counter.filter);
+            eq(stack.length, critical ? 3 : 2, "Incoming healing uses native critical flag");
+            eq(stack[stack.length-1].size, 1.0, "Incoming heal gets the same 1 px outline");
+            checkPalette({counter:counter}, critical ? [0xFFD966, 0xB8FF92, 0x238C45] : [0xB8FF92, 0x238C45]);
+            // Native displayHeal doesn't add a row when the scaled amount is <1.
+            // The old heal remains at the end and must not get restyled.
+            feed.activeLines = [oldLine];
+            FancyDamageNumbers.applyHealingFeed(feed, {amount:2.0,scale:0.25,critical:true}, config);
+            eq(previous.filter, null, "Suppressed sub-one heal cannot recolour an older row");
+            // Backlog trimming may leave only the just-added row.
+            previous.text = "+1";
+            FancyDamageNumbers.applyHealingFeed(feed, {amount:0.5,scale:2.0,critical:false}, config);
+            eq(previous.filter != null, true, "Scaled one-point heal is styled even with one surviving row");
+        }
+        var notification = display(false).counter;
+        notification.nativeType = "ui.comp.FmtText";
+        var feed:Dynamic = {activeLines:[{elt:{dom:{classes:["combat"]},children:[notification]}}]};
+        FancyDamageNumbers.applyHealingFeed(feed, {amount:500.0,scale:1.0,critical:false}, config);
+        eq(notification.filter, null, "Non-healing notifications are never styled");
+        FancyDamageNumbers.applyHealingFeed({activeLines:[]}, {amount:500.0,scale:1.0,critical:false}, config);
+        FancyDamageNumbers.applyHealingFeed(feed, null, config);
+        FancyDamageNumbers.dispose();
     }
 
     static function checkPalette(hit:Dynamic, palette:Array<Int>):Void {

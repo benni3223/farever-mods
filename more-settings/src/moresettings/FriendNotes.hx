@@ -6,6 +6,7 @@ import moresettings.AppearanceUi as Ui;
 class FriendNotes {
     public static var enabled(default, null) = false;
     static var callbacks = new haxe.ds.ObjectMap<Dynamic, {old:Dynamic, callback:Void->Void}>();
+    static var submitFrame = -1;
     static var store = new FriendNotesStore("hlx/config/more-settings/friend-notes.json");
 
     public static function configure(value:Bool):Void {
@@ -77,12 +78,28 @@ class FriendNotes {
         ]);
         var input = G.field(G.field(dialog, "input"), "input");
         G.set(input, "maxCharacters", FriendNotesStore.LIMIT);
+        var onEnter = G.field(input, "onEnter");
+        G.set(input, "onEnter", () -> {
+            // Closing the dialog removes text-input focus before ChatBox polls
+            // OpenChat. Heaps publishes this key-down on the following frame,
+            // so protect both the event frame and that next polling frame.
+            try submitFrame = G.integer(G.staticCall("hxd.Key", "getFrame", []))
+            catch (e:Dynamic) SocialHooks.report(e);
+            if (onEnter != null) onEnter();
+        });
         // Use the same readable foreground as the settings text inputs.
         Ui.style(input, "color", 0xF5F0E8);
         G.call("h2d.Text", "set_textColor", input, [0xF5F0E8]);
         var buttons = G.array(G.field(dialog, "buttons"));
         for (i in 0...buttons.length)
             G.call("ui.comp.Button", "setText", buttons[i], [i == 0 ? "Save" : "Cancel"]);
+    }
+
+    public static function chatPressed(key:String, result:Bool):Bool {
+        if (key != "OpenChat" || !result || submitFrame < 0) return result;
+        if (G.integer(G.staticCall("hxd.Key", "getFrame", [])) <= submitFrame + 1) return false;
+        submitFrame = -1;
+        return result;
     }
 
     static function classChild(parent:Dynamic, name:String):Dynamic {
@@ -107,8 +124,10 @@ class FriendNotes {
         Ui.absolute(header, label);
         G.call("h2d.Text", "set_lineBreak", label, [false]);
         G.call("h2d.Text", "set_textColor", label, [0x5b4334]);
-        G.call("ui.UIElement", "set_textTip", card, [Ui.escape(value)]);
+        // A textTip creates an interactive for the whole card, which also
+        // enables its native hover highlight. Notes are display-only here.
         var old = G.field(card, "onAfterReflow");
+        var originalName = G.text(G.field(name, "prevUnformatted"), G.text(G.field(name, "text")));
         var previousWidth = -1;
         var fitting = false;
         var fit = () -> {
@@ -118,8 +137,16 @@ class FriendNotes {
                 var width = G.number(G.field(card, "calculatedWidth"));
                 if (width <= 0) width = G.number(G.call("h2d.Flow", "get_outerWidth", card));
                 var right = classChild(card, "right-cont");
-                var reserved = right == null ? 50.0 : Math.max(50, G.number(G.call("h2d.Flow", "get_outerWidth", right)) + 20);
-                var available = Math.max(0, width - G.number(G.field(header, "x")) - reserved - 5);
+                var available = Math.max(0, width - G.number(G.field(header, "x")) - G.number(G.field(card, "paddingRight"), 5));
+                // The controls are vertically centered on the card, often below
+                // its header. Reserve only their actual overlap with this row.
+                if (right != null && G.field(right, "visible") != false) {
+                    var textBounds = G.call("h2d.Object", "getBounds", name, [header, null]);
+                    var controlBounds = G.call("h2d.Object", "getBounds", right, [header, null]);
+                    if (G.number(G.field(controlBounds, "yMin")) < G.number(G.field(textBounds, "yMax"))
+                        && G.number(G.field(controlBounds, "yMax")) > G.number(G.field(textBounds, "yMin")))
+                        available = Math.max(0, Math.min(available, G.number(G.field(controlBounds, "xMin")) - 5));
+                }
                 if (G.field(label, "font") != G.field(detail, "font"))
                     G.call("h2d.Text", "set_font", label, [G.field(detail, "font")]);
                 var scale = G.number(G.field(detail, "scaleX"), 1) * 0.75;
@@ -127,15 +154,36 @@ class FriendNotes {
                     G.call("h2d.Object", "setScale", label, [scale]);
                 var text = " - " + value;
                 var textWidth = G.number(G.call("h2d.Text", "calcTextWidth", label, [text]));
-                var nameWidth = Std.int(Math.max(60, available - Math.min(textWidth * scale, available * 0.6)));
+                // Native party rows append labels such as "(Leader)" to the
+                // name. Keep those in the header's normal flow and place the
+                // note after the complete header, reserving their width too.
+                var captions = [name];
+                var captionWidth = 0.0;
+                var spacing = G.number(G.field(header, "horizontalSpacing"), 5);
+                for (child in Ui.children(header)) {
+                    if (child == name || !G.isA(child, "ui.comp.FmtText") || G.field(child, "visible") == false) continue;
+                    captions.push(child);
+                    var bounds = G.call("h2d.Object", "getBounds", child, [child, null]);
+                    captionWidth += (G.number(G.field(bounds, "xMax")) - G.number(G.field(bounds, "xMin")))
+                        * G.number(G.field(child, "scaleX"), 1) + spacing;
+                }
+                var nameWidth = Std.int(Math.max(60, available - captionWidth - Math.min(textWidth * scale, available * 0.6)));
                 if (nameWidth != previousWidth) {
                     previousWidth = nameWidth;
+                    // Native ellipsis replaces the text itself. Restore the
+                    // original before refitting so a wider row can show it all.
+                    if (G.text(G.field(name, "text")) != originalName)
+                        G.call("ui.comp.FmtText", "set_text", name, [originalName]);
                     G.call("ui.comp.FmtText", "set_textMultiline", name, [false]);
                     G.call("ui.comp.FmtText", "set_useEllipsis", name, [true]);
                     G.call("ui.comp.FmtText", "set_maxWidthText", name, [nameWidth]);
                 }
                 var nameBounds = G.call("h2d.Object", "getBounds", name, [header, null]);
                 var x = G.number(G.field(nameBounds, "xMax"));
+                for (caption in captions) {
+                    var bounds = G.call("h2d.Object", "getBounds", caption, [header, null]);
+                    x = Math.max(x, G.number(G.field(bounds, "xMax")));
+                }
                 var room = Math.max(0, available - x);
                 var chars = [for (c in new haxe.iterators.StringIteratorUnicode(value)) String.fromCharCode(c)];
                 while (chars.length > 0 && G.number(G.call("h2d.Text", "calcTextWidth", label, [text])) * scale > room) {
@@ -162,6 +210,7 @@ class FriendNotes {
         callbacks.remove(card);
     }
     public static function dispose():Void {
+        submitFrame = -1;
         for (card in [for (card in callbacks.keys()) card]) detach(card);
     }
 

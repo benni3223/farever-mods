@@ -13,7 +13,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party to enter dungeon; Leave dungeon button; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party and leave dungeon button on; Hide UI defaults to F2 |
 | Combat | Fancy damage numbers; Keep Crabgantua rockfall warnings visible | Fancy numbers off; Crabgantua warnings on |
 | Appearance | Change Appearance | Opens the character editor; changes apply on Save |
-| Social | Hide friend connection notifications; Enable missing slash commands; Sending message closes chat; Enable friend notes | All off |
+| Social | Hide friend connection notifications; Enable missing slash commands; Sending message closes chat; Enable friend notes; Rebind social interact hotkey; Social interact hotkey | Connection filtering and social rebind off; social key unassigned; commands, close after sending, and notes on |
 | Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
 | Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
@@ -24,7 +24,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 **Keep Crabgantua rockfall warnings visible** moves only the Heroic Avalanche warning circles' colour passes to the native overlay stage, after the water effects, with depth testing disabled for those circles. It retains the native warning position, size, animation, lifetime, and colour. Water, falling rocks, sounds, damage, and other bosses' indicators are unchanged. Turning the option off restores the original passes immediately, including active warnings; effect removal, pooling, and leaving the game also restore the original state. The option is on by default.
 
-**Fancy damage numbers** adds a 1 px black outline to all damage numbers. Normal physical damage uses an orange gradient and normal magic damage uses a blue gradient. Critical hits always use three colours, with the middle stop halfway down the number:
+**Fancy damage numbers** adds a 1 px black outline to damage and healing numbers. Normal physical damage uses an orange gradient and normal magic damage uses a blue gradient. Critical hits always use three colours, with the middle stop halfway down the number:
 
 | Damage type | Top | Middle (crit only) | Bottom |
 | --- | --- | --- | --- |
@@ -34,8 +34,10 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Magical crit | `#EF8DE8` | `#C08DEF` | `#5963C4` |
 | Raw | `#FFFFFF` | — | `#B8B8B8` |
 | Raw crit | `#F5E149` | `#FFFFFF` | `#EBEBEB` |
+| Heal | `#B8FF92` | — | `#238C45` |
+| Critical heal | `#FFD966` | `#B8FF92` | `#238C45` |
 
-The option remains off by default and preserves your existing Fancy damage numbers preference. All palettes are fixed; the former Pink crits, Exclamation mark crits, Three-colour crit gradients, and physical/magical/Raw colour inputs are removed and their saved values no longer affect styling. Critical hits keep native number formatting, with no added exclamation mark. Healing, damage values, fonts, and animations keep their native behavior.
+The option remains off by default and preserves your existing Fancy damage numbers preference. All palettes are fixed; the former Pink crits, Exclamation mark crits, Three-colour crit gradients, and physical/magical/Raw colour inputs are removed and their saved values no longer affect styling. Critical hits keep native number formatting, with no added exclamation mark. Healing skills can crit in the current game; the healing palette uses the native critical flag. Both healing received by your character (the `+500` incoming-healing feed) and floating heals on other targets use these palettes. Damage/healing values, fonts, visibility rules, and animations keep their native behavior.
 
 **Fancy damage numbers** is the only damage-number setting. Its fixed palettes apply to newly displayed numbers immediately. Raw uses its own palette regardless of the skill's physical or magical classification, retains the black outline, and has no native text shadow.
 
@@ -43,12 +45,13 @@ Gradients span the placed glyph geometry, excluding the formatted text's blank l
 
 **Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
 
-**Social**, directly below **Appearance**, contains four independent options (off by default):
+**Social**, directly below **Appearance**, contains the following options. Slash commands, closing chat after sending, and friend notes are enabled by default; hiding connection notifications is off. Existing saved preferences are preserved:
 
+- **Rebind social interact hotkey** and **Social interact hotkey** separate opening another player's interaction menu from the regular Interact button. Enable the checkbox, assign a key, and hold it while looking at a player. Rebinding is off by default and the key is initially unassigned. The on-screen player hint and hold progress follow the selected key; dead allies retain the regular revive hint. Loot, NPCs, reviving, gamepad controls, combat restrictions, and typing/input blocking retain native behavior. Disabling the checkbox restores the original player-interaction control without changing the game's saved bindings.
 - **Hide friend connection notifications** hides friends' connected/disconnected system messages while their online status continues updating.
 - **Enable missing slash commands** adds `/invite <player>`, `/leave`, and `/w <player> [message]`. A bare `/w <player>` opens the whisper channel; including a message sends it. Names match exactly, ignoring case, from the current area, party, friends, or recent chat. Quote names containing spaces. Unknown or ambiguous names produce a chat error; failed whispers never fall through into public chat. Invites and leaving use the game's normal permission checks.
 - **Sending message closes chat** closes the textbox after Enter submits a message, returning control of the character. Selecting a whisper recipient without a message keeps the textbox open.
-- **Enable friend notes** adds **Add note** after **Send message** in a friend's gear menu (**Edit note** when a note exists). Notes are limited to **30 characters**, displayed after a hyphen beside the name in smaller text, and saved by your account and the friend's account in `hlx/config/more-settings/friend-notes.json`. They follow character changes. Save an empty note to remove it; Cancel leaves it unchanged. Long rows use an ellipsis, with the full note available on hover. Disabling the setting hides notes without deleting them. Notes are local and are never sent to other players.
+- **Enable friend notes** adds **Add note** after **Send message** in a friend's gear menu (**Edit note** when a note exists). Notes are limited to **30 characters**, displayed after a hyphen beside the name in smaller text, and saved by your account and the friend's account in `hlx/config/more-settings/friend-notes.json`. They follow character changes. Press Enter or click Save to save without opening chat. Save an empty note to remove it; Cancel leaves it unchanged. Names and notes use the available header space, reserving room only for controls that overlap that row. Text is shortened only when it does not fit. Notes do not add hover tooltips or row highlighting. Party labels such as **(Leader)** remain before the note without overlapping it. Disabling the setting hides notes without deleting them. Notes are local and are never sent to other players.
 
 The profanity option applies to displayed player text and keeps HTML escaping. Character-name validation is unchanged.
 
