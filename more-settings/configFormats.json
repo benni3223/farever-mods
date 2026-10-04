@@ -62,7 +62,7 @@
       "label": "Fancy damage numbers",
       "tooltip": {
         "enabled": true,
-        "tooltipText": "Changes the appearance of damage numbers.\n\nBlue: magic hit\nBlue/pink: magic critical hit\nOrange: physical hit\nOrange/red: physical critical hit\nWhite: raw hit\nWhite/gold: raw critical hit"
+        "tooltipText": "Changes the appearance of damage numbers.\n\nBlue: magic hit\nBlue/pink: magic critical hit\nOrange: physical hit\nOrange/red: physical critical hit\nWhite: raw hit\nWhite/gold: raw critical hit\nGreen: heal\nGold/green: critical heal"
       }
     },
     {
@@ -124,6 +124,20 @@
         "enabled": true,
         "tooltipText": "Add a private note of up to 30 characters from a friend's settings menu. Notes appear beside their name and are saved on this computer. Save an empty note to remove it."
       }
+    },
+    {
+      "key": "rebindSocialInteract",
+      "type": "checkbox",
+      "label": "Rebind social interact hotkey",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Use a separate hotkey to open another player's interaction menu. Hold the selected key while looking at them. Loot, NPC interactions, and reviving allies keep the regular Interact button."
+      }
+    },
+    {
+      "key": "socialInteractKey",
+      "type": "keybinding",
+      "label": "Social interact hotkey"
     },
     {
       "type": "title",

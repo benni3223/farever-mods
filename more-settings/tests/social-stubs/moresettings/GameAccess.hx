@@ -9,6 +9,14 @@ class GameAccess {
     public static var dialog:Dynamic;
     public static var keyFrame = 100;
     public static var reason = "Ok";
+    public static var padActive = false;
+    public static var longPresses:Map<String, Dynamic> = [];
+    public static var bufferedPresses:Map<String, Dynamic> = [];
+    public static var defaultBindings:Array<Dynamic> = [];
+    public static var onHeroCheck:Void->Void;
+    public static var onInputCheck:(String, Dynamic, Dynamic)->Bool;
+    public static var heldAction:String;
+    public static var holdProgress = 0.0;
     public static function field(object:Dynamic, name:String):Dynamic return object == null ? null : Reflect.field(object, name);
     public static function text(value:Dynamic, fallback = ""):String return value == null ? fallback : Std.string(value);
     public static function number(value:Dynamic, fallback:Float = 0):Float return value == null ? fallback : value;
@@ -21,9 +29,30 @@ class GameAccess {
     }
     public static function enumeration(type:String, name:String):Dynamic return name;
     public static function enumValue(type:String, name:String, args:Array<Dynamic>):Dynamic return {type:type, name:name, args:args};
-    public static function current(type:String, name:String):Dynamic return type == "Data" ? {byId: {}} : ui;
+    public static function current(type:String, name:String):Dynamic {
+        if (type == "lib.Input") return name == "longPresses" ? longPresses : bufferedPresses;
+        if (type == "ui.comp.LongInputKey") return 0.15;
+        return type == "Data" ? {byId: {}} : ui;
+    }
     public static function staticCall(type:String, name:String, args:Array<Dynamic>):Dynamic {
         if (type == "hxd.Key" && name == "getFrame") return keyFrame;
+        if (type == "gamepad.Pad" && name == "get_active") return padActive;
+        if (type == "lib.Input") return switch name {
+            case "getBindings": @:privateAccess SocialHooks.socialBindingRead(args[0], defaultBindings.copy());
+            case "isLongPressed":
+                heldAction = args[0];
+                // Short-hold release buffering belongs to the passed action.
+                bufferedPresses.set(heldAction, 101.0);
+                switch (@:privateAccess SocialHooks.socialInput(heldAction, null, null)) {
+                    case SkipWith(value): value;
+                    default: throw "Alias was not routed through native checks";
+                }
+            case "checkInput": onInputCheck(args[0], args[1], args[2]);
+            case "getLongPressProgress":
+                if (args[0] != SocialInteract.ACTION) throw "Reading ordinary Interact progress";
+                holdProgress;
+            default: throw type + "." + name;
+        };
         if (type == "HText" && name == "reason") return args[0];
         throw type + "." + name;
     }
@@ -41,10 +70,21 @@ class GameAccess {
             return switch name {
                 case "pop": a.pop();
                 case "insert": a.insert(args[0], args[1]); null;
+                case "getDyn": a[args[0]];
+                case "setDyn": a[args[0]] = args[1]; null;
                 default: throw name;
             };
         }
         return switch name {
+            case "tryInteractHero": onHeroCheck(); null;
+            case "getFocusedTextInput": field(object, "textInput");
+            case "isDead": field(object, "dead") == true;
+            case "bindUpdate":
+                var callback:Float->Void = args[0];
+                object.callbacks.push(callback); callback(0); null;
+            case "set_progress": object.progress = args[0]; args[0];
+            case "remove" if (type == "haxe.ds.StringMap"):
+                var map:Map<String, Dynamic> = object; map.remove(args[0]);
             case "get_myPlayer": me;
             case "get_baseUI": ui;
             case "getName": object.name;

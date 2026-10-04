@@ -52,3 +52,9 @@
 -cp tests
 -main SocialTest
 --interp
+--next
+-cp src
+-cp tests/social-stubs
+-cp tests
+-main SocialInteractTest
+--interp

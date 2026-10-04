@@ -7,19 +7,58 @@ import moresettings.SettingsData.MoreSettingsConfig;
 class SocialHooks {
     static var hideConnections = false;
     static var reported:Map<String, Bool> = [];
+    static var interact = new SocialInteract();
 
     public static function configure(config:MoreSettingsConfig):Void {
         hideConnections = config.hideFriendConnectionNotifications;
         SocialChat.commandsEnabled = config.enableMissingSlashCommands;
         SocialChat.closeAfterSend = config.sendingMessageClosesChat;
+        try interact.configure(config.rebindSocialInteract, config.socialInteractKey) catch (e:Dynamic) report(e);
         try FriendNotes.configure(config.enableFriendNotes) catch (e:Dynamic) report(e);
     }
-    public static function dispose():Void { SocialChat.clear(); FriendNotes.dispose(); }
+    public static function dispose():Void { SocialChat.clear(); FriendNotes.dispose(); interact.dispose(); }
     public static function report(error:Dynamic):Void {
         var message = Std.string(error);
         if (reported.exists(message)) return;
         reported[message] = true;
         trace("[More Settings] Social: " + message);
+    }
+
+    @:hlx.prefix(client.PlayerController.tryInteractHero)
+    static function socialInteract(instance:Dynamic):HlxPrefixResult<Void> {
+        if (interact.inHeroCheck || !interact.usesHotkey()) return Continue;
+        try interact.checkHero(instance) catch (e:Dynamic) report(e);
+        return Skip;
+    }
+
+    @:hlx.prefix(lib.Input.isLongPressed)
+    static function socialHold(key:String):HlxPrefixResult<Bool> {
+        if (key != "Interact" || !interact.inHeroCheck) return Continue;
+        try return SkipWith(interact.longPressed()) catch (e:Dynamic) report(e);
+        return SkipWith(false);
+    }
+
+    @:hlx.prefix(lib.Input.checkInput)
+    static function socialInput(key:String, keyboard:Dynamic, pad:Dynamic):HlxPrefixResult<Bool> {
+        if (key != SocialInteract.ACTION) return Continue;
+        try return SkipWith(interact.checkInput(keyboard, pad)) catch (e:Dynamic) report(e);
+        return SkipWith(false);
+    }
+
+    @:hlx.prefix(lib.Input.getBindings)
+    static function socialBindings(key:String):HlxPrefixResult<Dynamic> {
+        if (key != SocialInteract.ACTION) return Continue;
+        return SkipWith(interact.getBindings());
+    }
+
+    @:hlx.postfix(lib.Input.getBindings)
+    static function socialBindingRead(key:String, result:Dynamic):Dynamic {
+        return key == "Interact" && interact.inBindingCheck ? interact.bindings(result) : result;
+    }
+
+    @:hlx.postfix(ui.comp.LongInputKey.init)
+    static function socialHint(instance:Dynamic, result:Void):Void {
+        try interact.attachHint(instance) catch (e:Dynamic) report(e);
     }
 
     @:hlx.postfix(lib.Input.isPressed)

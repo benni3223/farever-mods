@@ -75,6 +75,8 @@ jobs:
         run: |
           haxe -cp src -cp tests/social-stubs -cp tests -main SocialTest -hl build/social-test.hl
           ../.combat-hashlink/hl build/social-test.hl
+          haxe -cp src -cp tests/social-stubs -cp tests -main SocialInteractTest -hl build/social-interact-test.hl
+          ../.combat-hashlink/hl build/social-interact-test.hl
       - name: Test native event volume bridge
         working-directory: more-settings
         run: |

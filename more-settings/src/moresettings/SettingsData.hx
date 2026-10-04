@@ -5,6 +5,8 @@ typedef MoreSettingsConfig = {
     var enableMissingSlashCommands:Bool;
     var sendingMessageClosesChat:Bool;
     var enableFriendNotes:Bool;
+    var rebindSocialInteract:Bool;
+    var socialInteractKey:Int;
     var fancyDamageNumbers:Bool;
     var crabgantuaRockfallWarnings:Bool;
     var disableProfanityFilter:Bool;
@@ -34,6 +36,8 @@ class SettingsData {
         enableMissingSlashCommands: true,
         sendingMessageClosesChat: true,
         enableFriendNotes: true,
+        rebindSocialInteract: false,
+        socialInteractKey: 0, // Unassigned until the player chooses a key.
         fancyDamageNumbers: false,
         crabgantuaRockfallWarnings: true,
         disableProfanityFilter: true,
@@ -55,6 +59,7 @@ class SettingsData {
     public static function normalize(config:MoreSettingsConfig):Void {
         // Same single-key range as Better Mod Settings; zero means unassigned.
         if (config.hideUiKey < 0 || config.hideUiKey >= 512 || config.hideUiKey == 27) config.hideUiKey = 113;
+        if (config.socialInteractKey < 0 || config.socialInteractKey >= 512 || config.socialInteractKey == 27) config.socialInteractKey = 0;
         config.backgroundVolume = percent(config.backgroundVolume);
         config.fastTravelVolume = percent(config.fastTravelVolume);
     }

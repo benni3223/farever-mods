@@ -3,7 +3,7 @@ package moresettings;
 import moresettings.GameAccess as G;
 import moresettings.SettingsData.MoreSettingsConfig;
 
-/** Styles native damage counters; all rendering objects stay in the game module. */
+/** Styles native damage/healing counters; rendering objects stay in the game module. */
 class FancyDamageNumbers {
     static var ramp:Dynamic;
     static var rampPixels:Dynamic;
@@ -12,7 +12,8 @@ class FancyDamageNumbers {
     static var gradientOwners = new haxe.ds.ObjectMap<Dynamic, {counter:Dynamic, shader:Dynamic}>();
 
     public static function apply(display:Dynamic, config:MoreSettingsConfig):Void {
-        if (!config.fancyDamageNumbers || G.isA(display, "ui.comp.HealDisplay")) return;
+        if (!config.fancyDamageNumbers) return;
+        var healing = G.isA(display, "ui.comp.HealDisplay");
         var counter = G.field(display, "counter");
         var dom = G.field(counter, "dom");
         if (dom == null) return;
@@ -27,11 +28,11 @@ class FancyDamageNumbers {
         G.call("h2d.Text", "set_textColor", counter, [0xFFFFFF]);
 
         var damage = G.field(display, "dmg");
-        var raw = G.field(damage, "affinity") == "Raw";
+        var raw = !healing && G.field(damage, "affinity") == "Raw";
         var filter:Dynamic = G.field(counter, "filter");
-        if (raw) {
-            // Raw starts from an unshadowed white fill so its
-            // gradient is not tinted by the game's native affinity filter.
+        if (raw || healing) {
+            // Raw and healing start from an unshadowed white fill so their
+            // gradients are not tinted by the game's native affinity filter.
             filter = null;
             G.call("domkit.Properties", "initStyle", dom, ["text-shadow", null]);
             G.set(counter, "dropShadow", null);
@@ -40,17 +41,19 @@ class FancyDamageNumbers {
         var critical = G.field(display, "isCrit") == true;
         // Use the actual hit's affinity, including for skills with mixed damage.
         var magic = false;
-        if (!raw && damage != null)
+        if (!raw && !healing && damage != null)
             magic = G.call("st.skill.DamageResult", "get_isMagic", damage) == true;
 
-        var top = raw ? (critical ? 0xF5E149 : 0xFFFFFF)
+        var top = healing ? (critical ? 0xFFD966 : 0xB8FF92)
+            : raw ? (critical ? 0xF5E149 : 0xFFFFFF)
             : critical ? (magic ? 0xEF8DE8 : 0xFFCB6D)
             : magic ? 0xBCC2FF : damage != null ? 0xFFCB6D : baseColor;
-        var bottom = raw ? (critical ? 0xEBEBEB : 0xB8B8B8)
+        var bottom = healing ? 0x238C45
+            : raw ? (critical ? 0xEBEBEB : 0xB8B8B8)
             : critical ? (magic ? 0x5963C4 : 0xFF0000)
             : magic ? 0x5963C4 : damage != null ? 0xF04424 : shade(baseColor);
         if (critical) {
-            var middle = raw ? 0xFFFFFF
+            var middle = healing ? 0xB8FF92 : raw ? 0xFFFFFF
                 : magic ? 0xC08DEF : 0xF04424;
             // Encode the original white/black intensity in R and height in G.
             // A second native matrix pass selects a linear segment at half height.

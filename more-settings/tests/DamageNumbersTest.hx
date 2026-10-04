@@ -73,10 +73,31 @@ class DamageNumbersTest {
                 checkPalette(hit, palette);
             }
         }
-        var heal = display(true);
-        heal.nativeType = "ui.comp.HealDisplay";
-        FancyDamageNumbers.apply(heal, config);
-        eq(heal.counter.filter, null, "Healing retains its native appearance");
+        for (critical in [false, true]) for (raw in [false, true]) {
+            var heal = display(critical, true, raw);
+            heal.nativeType = "ui.comp.HealDisplay";
+            heal.dmg.amount = 123456.0;
+            heal.counter.filter = {kind: "native"};
+            heal.counter.dropShadow = {color: 0x00FF00};
+            config.fancyDamageNumbers = false;
+            var native = heal.counter.filter;
+            FancyDamageNumbers.apply(heal, config);
+            eq(heal.counter.filter, native, "Disabled fancy numbers preserve healing styling");
+            config.fancyDamageNumbers = true;
+            FancyDamageNumbers.apply(heal, config);
+            var stack = filters(heal.counter.filter);
+            eq(stack.length, critical ? 3 : 2, "Healing uses only its palette and one outline");
+            eq(heal.counter.dropShadow, null, "Native healing tint cannot change gradient endpoints");
+            eq(heal.counter.textColor, 0xFFFFFF, "Healing starts from a white glyph fill");
+            eq(heal.counter.dom.styles.color, 0xFFFFFF, "Healing CSS cannot restore a green tint");
+            eq(heal.counter.dom.styles.filter, heal.counter.filter, "Healing filter survives CSS refresh");
+            eq(heal.counter.text, "123,456", "Healing number formatting is unchanged");
+            eq(heal.dmg.amount, 123456.0, "Healing amount is unchanged");
+            eq(heal.isCrit, critical, "Uses the native heal crit flag without creating crits");
+            eq(stack[stack.length - 1].color, 0, "Healing has a black outline");
+            eq(stack[stack.length - 1].size, 1.0, "Healing has the same 1 px outline as damage");
+            checkPalette(heal, critical ? [0xFFD966, 0xB8FF92, 0x238C45] : [0xB8FF92, 0x238C45]);
+        }
         FancyDamageNumbers.dispose();
         var before = G.textures.length;
         var mappingFilter = gradientMapping();
