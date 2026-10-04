@@ -1,7 +1,7 @@
 {
-  "project": "dps-meter",
-  "version": "1.6.0",
-  "commit": "dfb130048e3468c2e2f1aa4b846ad068b2bab0dd",
-  "notes": "- Pressing the unlock hotkey now also unlocks the Fight History window\n- Damage breakdowns in the rift recap window now show a condensed version of the breakdown and fit neatly into the UI\n- Dying no longer stops the meter if your party is still alive\n- Delete buttons have been added to log entries in the log list so you don't have to open the log to delete it anymore\n- Reduced log list's page size by 1 so you don't need to scroll to see the last entry anymore\n- Mobs killed before the start of the Gate Phase in Rifts will no longer count towards damage done during the Gate Phase\n- Chakram's first phase (before surrendering to darkness) now counts as a separate fight from his other phases\n",
+  "project": "more-settings",
+  "version": "1.13.0",
+  "commit": "e4d19d3ca6e9a256f7bf4a20ec198b40df24a0c7",
+  "notes": "- Added Social settings category\n- Added option to close the chat input box upon sending a message\n- Added option to enable missing slash commands in chat\n- Added new chat commands: \"/w \\<target>\" (whisper player), \"/invite \\<target>\" (invite player to party), \"/leave\" (leave party)\n- Added Friend Notes, used by clicking the settings button on a friend in the friend list. Setting a note displays it next to their name in the friend list.\n- Added option to hide friend connection/disconnection system messages",
   "dry_run": false
 }
