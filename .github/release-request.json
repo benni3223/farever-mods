@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.13.0",
+  "project": "minimap",
+  "version": "1.8.0",
   "commit": "e4d19d3ca6e9a256f7bf4a20ec198b40df24a0c7",
-  "notes": "- Added Social settings category\n- Added option to close the chat input box upon sending a message\n- Added option to enable missing slash commands in chat\n- Added new chat commands: \"/w \\<target>\" (whisper player), \"/invite \\<target>\" (invite player to party), \"/leave\" (leave party)\n- Added Friend Notes, used by clicking the settings button on a friend in the friend list. Setting a note displays it next to their name in the friend list.\n- Added option to hide friend connection/disconnection system messages",
+  "notes": "- Added an arrow pointing towards party members that are outside minimap view\n- Added a new party member marker (blue arrow with purple outline)\n- The old party member marker (blue arrow with yellow outline) is now used for friends",
   "dry_run": false
 }
