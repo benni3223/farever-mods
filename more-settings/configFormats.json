@@ -98,7 +98,7 @@
       "label": "Hide allied minion HP bars",
       "tooltip": {
         "enabled": true,
-        "tooltipText": "Hides health bars above friendly summoned minions, including your own."
+        "tooltipText": "Hides health bars above allied minions. Your own summons' health bars remain visible."
       }
     },
     {

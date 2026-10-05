@@ -18,7 +18,7 @@ use separate functions and retain their normal behavior.
 Overhead `ui.hud.FoeWidget` contains `ui.hud.FoeCombatInfo.healthBar`, an
 instance of `ui.comp.HealthBar`. Filtering only that component keeps other
 widget indicators intact. Classification requires an `ent.Foe` with a
-`summonOwner`, the local hero's layer, and native `isEnemy(hero) == false`.
+`summonOwner`, the local hero's layer, and native `isEnemy(hero) == false`. The local hero's own summons are excluded.
 Player/party bars and health bars outside an overhead FoeWidget are excluded.
 
 The refresh callback belongs to the parent widget, which remains active when
@@ -31,7 +31,7 @@ disabled, unfiltered bars return without native lookups.
 
 `ui.win.GearAppearance.init()` provides `scene`, `unit`, and an array of
 `ui.win.AppearanceSlot` buttons. `scene.parent` is the native character panel;
-the `Slot_Head` button is the placement anchor. The new DOMKit button uses
+the `Slot_Hands` button is the horizontal placement anchor. The vertical inset is 15 native UI units, matching `character .content.character #appearanceModeBtn`'s native `offset-y: -15` bottom positioning from the supplied resource stylesheet. The new DOMKit button uses
 panel-relative bounds and absolute positioning, without modifying the model
 viewport or adding ImGui. Only the local hero's page gets a button. Its action
 requests the existing editor on the next game update, outside UI dispatch.

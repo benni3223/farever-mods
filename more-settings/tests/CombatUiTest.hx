@@ -31,13 +31,15 @@ class CombatUiTest {
         eq(own.visible, true, "disabled keeps own summon bar");
         eq(own.parent.callbacks.length, 1, "updates live on the widget, not the hidden child");
         MinionHealthBars.configure(true);
-        eq(own.visible, false, "hides own minion health");
+        eq(own.visible, true, "own minion health stays visible");
         eq(ally.visible, false, "hides allied minion health");
         for (b in [enemy, ordinary, otherZone, player, boss]) eq(b.visible, true, "unrelated health bars stay native");
         eq(player.parent.callbacks.length, 0, "no callback on player bars");
         eq(boss.parent.callbacks.length, 0, "no callback on boss HUD");
         G.call("ui.UIElement", "set_visible", own, [true]);
-        eq(own.visible, false, "native visibility refresh cannot reveal a filtered bar");
+        eq(own.visible, true, "native visibility refresh keeps own bar visible");
+        G.call("ui.UIElement", "set_visible", ally, [true]);
+        eq(ally.visible, false, "native visibility refresh cannot reveal an allied filtered bar");
         G.call("ui.UIElement", "set_visible", ally, [false]);
         MinionHealthBars.configure(false);
         eq(own.visible, true, "disabling restores native visible bar");
@@ -45,17 +47,24 @@ class CombatUiTest {
         eq(initiallyHidden.visible, false, "disabling never reveals an originally hidden bar");
         G.call("ui.UIElement", "set_visible", ally, [true]);
         MinionHealthBars.configure(true);
-        own.unit.enemy = true;
-        @:privateAccess MinionHealthBars.refresh(own, true);
-        eq(own.visible, true, "hostility change restores the enemy bar");
+        ally.unit.enemy = true;
+        @:privateAccess MinionHealthBars.refresh(ally, true);
+        eq(ally.visible, true, "hostility change restores the enemy bar");
+        ally.unit.enemy = false;
+        @:privateAccess MinionHealthBars.refresh(ally, true);
+        eq(ally.visible, false, "friendly again hides allied bar");
+        ally.unit.summonOwner = G.hero;
+        @:privateAccess MinionHealthBars.refresh(ally, true);
+        eq(ally.visible, true, "becoming locally owned restores bar immediately");
         ally.unit.summonOwner = null;
         @:privateAccess MinionHealthBars.refresh(ally, true);
         eq(ally.visible, true, "no-longer-summoned unit restores its bar");
-        own.unit.enemy = false;
-        @:privateAccess MinionHealthBars.refresh(own, true);
-        eq(own.visible, false, "friendly again hides its bar");
+        ally.unit.summonOwner = {};
+        @:privateAccess MinionHealthBars.refresh(ally, true);
+        eq(ally.visible, false, "other owner hides allied bar again");
         MinionHealthBars.clear();
-        eq(own.visible, true, "session cleanup restores tracked visibility");
+        eq(ally.visible, true, "session cleanup restores tracked visibility");
+        eq(own.visible, true, "own minion bar remains visible through all changes");
         MinionHealthBars.configure(false);
     }
 
@@ -63,7 +72,8 @@ class CombatUiTest {
         BarbershopButton.clear(); AppearanceEditor.requests = 0;
         var panel:Dynamic = {children:new Array<Dynamic>()}; panel.dom = {obj:panel};
         var helmet:Dynamic = {slot:"Slot_Head", parent:{}, bounds:{xMin:55.0,xMax:115.0,yMin:150.0,yMax:210.0}};
-        var page:Dynamic = {unit:G.hero, scene:{parent:panel}, buttons:{items:[helmet]}, removed:false,
+        var gloves:Dynamic = {slot:"Slot_Hands", parent:{}, bounds:{xMin:510.0,xMax:570.0,yMin:150.0,yMax:210.0}};
+        var page:Dynamic = {unit:G.hero, scene:{parent:panel}, buttons:{items:[helmet, gloves]}, removed:false,
             callbacks:new Array<Float->Void>()};
         BarbershopButton.attach(page);
         var children:Array<Dynamic> = panel.children;
@@ -72,16 +82,16 @@ class CombatUiTest {
         eq(button.text, "Barbershop", "requested label");
         eq(button.props.isAbsolute, true, "button does not move the model or appearance slots");
         eq(button.minWidth, 140, "button width fits the whitespace");
-        eq(button.x, 15.0, "button centered over helmet and inset from edge");
-        eq(button.y, 92.0, "button above helmet with a gap");
+        eq(button.x, 470.0, "button centered over gloves on the right");
+        eq(button.y, 15.0, "top margin mirrors the native Character button bottom offset");
         eq(G.relativeTo == panel, true, "native panel coordinates used for UI scaling");
         var click:Void->Void = button.onClick; click();
         eq(AppearanceEditor.requests, 1, "click requests the existing editor");
-        helmet.bounds.xMin = 75; helmet.bounds.xMax = 135; helmet.bounds.yMin = 200;
+        gloves.bounds.xMin = 530; gloves.bounds.xMax = 590; gloves.bounds.yMin = 200;
         var callbacks:Array<Float->Void> = page.callbacks;
         for (callback in callbacks) callback(0.016);
-        eq(button.x, 35.0, "native layout changes move the anchor");
-        eq(button.y, 142.0, "anchor follows vertical changes");
+        eq(button.x, 490.0, "native layout changes move the right-side anchor");
+        eq(button.y, 15.0, "top margin stays fixed when the slots move vertically");
         page.unit = {};
         for (callback in callbacks) callback(0.016);
         click();

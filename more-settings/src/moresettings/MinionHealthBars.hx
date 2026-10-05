@@ -31,8 +31,9 @@ class MinionHealthBars {
     }
 
     public static function friendlySummon(unit:Dynamic, hero:Dynamic):Bool {
+        var owner = G.field(unit, "summonOwner");
         return unit != null && hero != null && G.isA(unit, "ent.Foe")
-            && G.field(unit, "summonOwner") != null && G.field(unit, "removed") != true
+            && owner != null && owner != hero && G.field(unit, "removed") != true
             && G.field(unit, "layer") != null && G.field(unit, "layer") == G.field(hero, "layer")
             && G.call("ent.GameObject", "isEnemy", unit, [hero]) == false;
     }

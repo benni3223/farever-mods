@@ -4,12 +4,14 @@ import haxe.ds.ObjectMap;
 import moresettings.GameAccess as G;
 import moresettings.AppearanceUi as Ui;
 
-private typedef BarberEntry = { var button:Dynamic; var parent:Dynamic; var helmet:Dynamic; }
+private typedef BarberEntry = { var button:Dynamic; var parent:Dynamic; var gloves:Dynamic; }
 
 /** Native button on the character appearance page; no overlay/plugin dependency. */
 class BarbershopButton {
     static inline var WIDTH = 140;
     static inline var HEIGHT = 34;
+    // Native Character/Appearance button uses offset-y: -15 at the bottom.
+    static inline var TOP_MARGIN = 15;
     static var entries:ObjectMap<Dynamic, BarberEntry> = new ObjectMap();
 
     public static function attach(page:Dynamic):Void {
@@ -20,15 +22,15 @@ class BarbershopButton {
         var hero = G.staticCall("GameApp", "getMyHero", []);
         if (hero == null || G.field(page, "unit") != hero) return;
         var parent = G.field(G.field(page, "scene"), "parent");
-        var helmet:Dynamic = null;
+        var gloves:Dynamic = null;
         for (slot in G.array(G.field(page, "buttons")))
-            if (G.text(G.field(slot, "slot")) == "Slot_Head") { helmet = slot; break; }
-        if (parent == null || helmet == null) throw "Character appearance layout is unavailable";
+            if (G.text(G.field(slot, "slot")) == "Slot_Hands") { gloves = slot; break; }
+        if (parent == null || gloves == null) throw "Character appearance layout is unavailable";
         var button = G.field(Ui.node("button", G.field(parent, "dom"), ["Barbershop"], "moreSettingsBarbershop"), "obj");
         Ui.absolute(parent, button);
         Ui.size(button, WIDTH, HEIGHT);
         Ui.show(button, false); // Wait for the native slot layout before positioning.
-        var entry:BarberEntry = {button: button, parent: parent, helmet: helmet};
+        var entry:BarberEntry = {button: button, parent: parent, gloves: gloves};
         entries.set(page, entry);
         G.call("ui.UIElement", "set_onClick", button, [() -> {
             if (entries.get(page) == entry && G.field(page, "unit") == G.staticCall("GameApp", "getMyHero", []))
@@ -45,13 +47,13 @@ class BarbershopButton {
 
     static function layout(page:Dynamic, entry:BarberEntry):Void {
         var local = G.field(page, "unit") == G.staticCall("GameApp", "getMyHero", []);
-        if (!local || G.field(page, "removed") == true || G.field(entry.helmet, "parent") == null) {
+        if (!local || G.field(page, "removed") == true || G.field(entry.gloves, "parent") == null) {
             Ui.show(entry.button, false);
             return;
         }
         // Bounds are in this native panel's coordinates, so UI scale and moving
         // the character window do not change the anchor or require screen pixels.
-        var bounds = G.call("h2d.Object", "getBounds", entry.helmet, [entry.parent, null]);
+        var bounds = G.call("h2d.Object", "getBounds", entry.gloves, [entry.parent, null]);
         var left = G.number(G.field(bounds, "xMin"));
         var right = G.number(G.field(bounds, "xMax"));
         var top = G.number(G.field(bounds, "yMin"));
@@ -60,7 +62,7 @@ class BarbershopButton {
             return;
         }
         var x = Math.max(12, (left + right - WIDTH) / 2);
-        var y = Math.max(12, top - HEIGHT - 24);
+        var y = TOP_MARGIN;
         if (G.field(entry.button, "x") != x || G.field(entry.button, "y") != y) Ui.position(entry.button, x, y);
         if (G.field(entry.button, "visible") != true) Ui.show(entry.button, true);
     }
