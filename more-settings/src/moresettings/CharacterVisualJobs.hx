@@ -15,6 +15,7 @@ private typedef VisualBuild = {
 class CharacterVisualJobs {
     var candidates:Array<Dynamic> = [];
     var builds:Array<VisualBuild> = [];
+    var constructing:VisualBuild;
     var failed:Bool = false;
 
     public function new() {}
@@ -47,6 +48,13 @@ class CharacterVisualJobs {
     }
 
     public function pending(view:Dynamic):Bool return find(view) != null;
+
+    /** Equipment construction itself calls isReady; only outside observers wait. */
+    public function ready(view:Dynamic, nativeReady:Bool):Bool {
+        if (!nativeReady) return false;
+        var value = find(view);
+        return value == null || value == constructing;
+    }
 
     public function defer(view:Dynamic, excludeGear:Bool):Bool {
         if (!candidates.remove(view) || excludeGear || G.field(view, "modelObj") == null
@@ -94,10 +102,23 @@ class CharacterVisualJobs {
         G.call("lib.Workers", "addJob", value.worker, [() -> step(value), false]);
     }
 
+    function construct(value:VisualBuild, action:Void->Void):Void {
+        // displayGearSlot returns immediately when isReady() is false. Preserve
+        // the native result inside construction, including native fallback, but
+        // keep checkReady completion blocked until all parts finish.
+        var previous = constructing;
+        constructing = value;
+        try action() catch (error:Dynamic) {
+            constructing = previous;
+            throw error;
+        }
+        constructing = previous;
+    }
+
     function step(value:VisualBuild):Void {
         if (!valid(value)) { builds.remove(value); return; }
         try {
-            value.steps[value.cursor++]();
+            construct(value, value.steps[value.cursor++]);
             if (!valid(value)) { builds.remove(value); return; } // A callback can replace/remove the view.
             if (value.cursor < value.steps.length) enqueue(value);
             else finish(value);
@@ -108,7 +129,7 @@ class CharacterVisualJobs {
             // incompatibility. New builds will no longer be intercepted.
             candidates.remove(value.view);
             try {
-                G.call("client.UnitView", "updateDynamicVisuals", value.view, [false]);
+                construct(value, () -> G.call("client.UnitView", "updateDynamicVisuals", value.view, [false]));
                 finish(value);
             } catch (fallback:Dynamic) {
                 builds.remove(value);

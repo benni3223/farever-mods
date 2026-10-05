@@ -82,7 +82,7 @@ class PerformanceHooks {
 
     @:hlx.postfix(client.UnitView.isReady)
     static function afterCharacterReady(instance:Dynamic, result:Bool):Bool
-        return result && !characters.pending(instance);
+        return characters.ready(instance, result);
 
     @:hlx.prefix(h3d.scene.Object.onRemove)
     static function beforeSceneObjectRemoved(instance:Dynamic):HlxPrefixResult<Void> {

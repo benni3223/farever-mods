@@ -11,11 +11,13 @@ class GameAccess {
     public static var replayed:Array<Int> = [];
     public static var onAction:String->Void;
     public static var onReady:Void->Void;
+    public static var readiness:(Dynamic, Bool)->Bool = (_, value) -> value;
     public static var enqueueFails = false;
 
     public static function reset():Void {
         me = {}; worker = {}; jobs = []; calls = []; replayed = [];
         onAction = null; onReady = null; enqueueFails = false;
+        readiness = (_, value) -> value;
     }
     public static function nativeArray(items:Array<Dynamic>):Dynamic return {items:items, length:items.length};
     public static function field(object:Dynamic, name:String):Dynamic return object == null ? null : Reflect.field(object, name);
@@ -82,6 +84,12 @@ class GameAccess {
                     case "get_skinData": return field(object, "skin");
                     case "shouldShowGear": return true;
                     case "getSlotItemDisplayed": return field(object, "item");
+                    case "displayGearSlot":
+                        // Native displayGearSlot's very first operation is an
+                        // isReady guard. A call alone does not mean gear loaded.
+                        if (!readiness(object, field(object, "nativeReady") != false)) return null;
+                        var attached:Array<String> = cast field(object, "attached");
+                        attached.push(args[0]);
                     default:
                 }
             case "ent.Entity":
@@ -92,6 +100,10 @@ class GameAccess {
         if (name == "displayWeapon") label += ":" + args[1] + ":" + args[0];
         calls.push(label);
         if (onAction != null) onAction(name);
+        if (name == "updateDynamicVisuals") {
+            // Native fallback uses the same guarded equipment path.
+            for (slot in ["Head", "Chest", "Feet"]) call("client.UnitView", "displayGearSlot", object, [slot]);
+        }
         if (name == "checkReady" && onReady != null) onReady();
         return null;
     }

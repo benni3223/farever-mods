@@ -51,8 +51,14 @@ the remaining work. A single continuation per view prevents queue amplification.
 
 Base creation and AnimPlayer.reload stay in displaySkin. The reload routine
 restores the current animation/frame/callback; postponing it could break skill
-animations, so it is not delayed. Both checkReady and isReady retain a barrier
-until the components complete. Native model-weapon jobs and their own readiness
+animations, so it is not delayed. checkReady retains a barrier until the components
+complete. Outside construction, isReady does as well. During each component (and
+native fallback), isReady returns its original native result for that view only.
+This distinction is essential: displayGearSlot begins with `if (!isReady()) return`.
+Blocking that internal check silently skipped every armor slot, leaving heads and
+weapons visible. The construction scope restores its previous value on success or
+exception and supports nested builds without exposing another pending view.
+Native model-weapon jobs and their own readiness
 checks are preserved. Completion removes the barrier before native callbacks,
 then refreshes culling if the view remains current. Turning the setting off lets
 accepted builds finish. A component failure restores through native visuals and
@@ -66,6 +72,8 @@ so pending UnitViews are cancelled when an ancestor leaves the scene as well.
 
 StallOptimizationTest exercises production scheduling with a simulated native
 boundary on interpreter and HashLink: component ordering and current gear,
+actual armor attachment through the native readiness guard, scoped/reentrant
+readiness and armor attachment during native fallback,
 readiness, exclusions, cancellation/reentrancy, failure fallback, disabling,
 single-variant replay, combat/slow-frame delay, untouched shared arrays,
 background-thread bypass, actual contended mutexes, stale shaders and resets.

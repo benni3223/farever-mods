@@ -11,9 +11,11 @@ class StallOptimizationTest {
     }
     static function view():Dynamic {
         var hero:Dynamic = {};
-        return {async:true, parent:{}, modelObj:null, hero:hero, gameObject:hero, skin:{}, item:"old"};
+        return {async:true, parent:{}, modelObj:null, hero:hero, gameObject:hero, skin:{}, item:"old",
+            nativeReady:true, attached:new Array<String>()};
     }
     static function start(jobs:CharacterVisualJobs, view:Dynamic, enabled = true):Bool {
+        G.readiness = jobs.ready;
         jobs.begin(view, enabled);
         view.modelObj = {};
         var deferred = jobs.defer(view, false);
@@ -34,6 +36,7 @@ class StallOptimizationTest {
         eq(start(jobs, v), true, "initial remote model is staged");
         eq(G.calls.length, 0, "no whole appearance in the initial body job");
         eq(jobs.pending(v), true, "readiness held until cosmetics complete");
+        eq(jobs.ready(v, true), false, "outside observers wait between jobs");
         eq(G.jobs.length, 1, "only one continuation queued");
         G.jobs.shift()();
         eq(G.calls.join(","), "displayWeapon:0:old", "first budgeted component");
@@ -43,15 +46,41 @@ class StallOptimizationTest {
         eq(G.calls[1], "displayWeapon:1:new", "latest gear is read at execution");
         var readyCount = 0;
         G.onReady = () -> { eq(jobs.pending(v), false, "barrier removed before callbacks"); readyCount++; };
+        G.onAction = name -> {
+            if (name == "displayGearSlot") {
+                eq(jobs.ready(v, true), true, "construction can pass native equipment guard");
+                eq(jobs.ready(v, false), false, "construction never overrides native not-ready");
+                eq(jobs.pending(v), true, "completion callbacks still blocked during equipment construction");
+            }
+        };
         // Disabling the option rejects NEW work but cannot discard accepted work.
         var disabled = view();
         eq(start(jobs, disabled, false), false, "disabled retains native path");
         drain();
         eq(readyCount, 1, "ready callback once after all components");
+        var attached:Array<String> = v.attached;
+        eq(attached.join(","), "Head,Chest,Feet", "armor actually attaches before completion");
         eq(G.calls.join(","), "displayWeapon:0:old,displayWeapon:1:new,displayWeapon:2:new,displayWeapon:3:null,"
             + "updateWeaponsVisiblity,refreshFx,displayGear,displayGearSlot:Head,displayGearSlot:Chest,displayGearSlot:Feet,"
             + "displayHair,displayFacialHair,displayEyes,displayEyebrows,updateBlendShapes,updateModelWeapon,checkReady,updateCulling",
             "native component order and every equipment slot preserved");
+
+        G.reset(); jobs = new CharacterVisualJobs(); v = view();
+        var otherView = view();
+        start(jobs, v); start(jobs, otherView);
+        var reentered = false;
+        G.onAction = name -> {
+            if (reentered) return;
+            reentered = true;
+            eq(jobs.ready(v, true), true, "outer construction ready");
+            eq(jobs.ready(otherView, true), false, "scope does not expose another pending character");
+            G.jobs.shift()();
+            eq(jobs.ready(v, true), true, "nested job restores outer construction scope");
+            eq(jobs.ready(otherView, true), false, "nested character returns to pending between jobs");
+        };
+        G.jobs.shift()();
+        eq(jobs.ready(v, true), false, "construction scope ends after the job");
+        G.onAction = null; drain();
 
         G.reset(); jobs = new CharacterVisualJobs();
         for (kind in ["local", "preview", "sync", "existing", "detached", "npc"]) {
@@ -94,6 +123,9 @@ class StallOptimizationTest {
         drain();
         eq(jobs.pending(v), false, "failure releases pending state");
         eq(G.calls.indexOf("updateDynamicVisuals") >= 0, true, "failure restores through native visuals");
+        attached = v.attached;
+        for (slot in ["Head", "Chest", "Feet"])
+            eq(attached.indexOf(slot) >= 0, true, "native fallback attaches " + slot);
         eq(start(jobs, view()), false, "new staged work stops after incompatibility");
 
         G.reset(); jobs = new CharacterVisualJobs(); v = view(); G.enqueueFails = true;
