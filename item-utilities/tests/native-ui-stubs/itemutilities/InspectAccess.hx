@@ -15,7 +15,9 @@ class InspectAccess {
         return value;
     }
     public static function create(type:String, args:Array<Dynamic>):Dynamic {
-        if (type == "h2d.Graphics") return object(type,args[0]);
+        if (type == "h2d.Graphics") {
+            var result = object(type,args[0]); result.color={value:0xFFFFFFFF}; return result;
+        }
         if (type == "h2d.Interactive") {
             var result = object(type,args[2]); result.width=args[0]; result.height=args[1]; return result;
         }
@@ -24,6 +26,7 @@ class InspectAccess {
     public static function call(type:String, name:String, value:Dynamic, ?args:Array<Dynamic>):Dynamic {
         if (type == "h2d.Graphics") { geometryCalls++; return null; }
         return switch type + "." + name {
+            case "h3d.Vector4Impl.setColor": value.value=args[0]; null;
             case "hl.types.ArrayObj.slice": (cast value:Array<Dynamic>).slice(args[0],args[1]);
             case "hl.types.ArrayObj.pushDyn": (cast value:Array<Dynamic>).push(args[0]);
             case "ui.UIElement.set_onClick": value.onClick=args[0]; null;

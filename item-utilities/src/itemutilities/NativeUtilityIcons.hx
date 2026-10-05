@@ -15,9 +15,11 @@ class NativeUtilityIcons {
                 line(g, 0x333842, 1.5, [8.5,11, 8.5,14]);
             case "lock":
                 line(g, MARK, 2, [11,13, 11,10, 14,6, 19,6, 21,10, 21,13]);
-                G.call("h2d.Graphics", "lineStyle", g, [2., MARK, 1.]);
-                G.call("h2d.Graphics", "drawRoundedRect", g, [9.,13.,14.,11.,2.,8]);
-                G.call("h2d.Graphics", "lineStyle", g, [0.,0,0.]);
+                // Native drawRoundedRect emits fill vertices, not an outline.
+                // Trace the closed body explicitly so every edge is stroked.
+                line(g, MARK, 2, [11,13, 21,13, 22.4,13.6, 23,15,
+                    23,22, 22.4,23.4, 21,24, 11,24, 9.6,23.4,
+                    9,22, 9,15, 9.6,13.6, 11,13]);
             case "materials":
                 rect(g, 0xA16B3D, 9,9,4,10,1);
                 rect(g, 0xC7D1DB, 3,5,9,6,1);

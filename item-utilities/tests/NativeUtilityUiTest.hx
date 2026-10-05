@@ -31,6 +31,8 @@ class NativeUtilityUiTest {
         check(wheel.propagate, "Lock edit mode still permits inventory scrolling");
         button.onClick(); check(clicks==1, "Native buttons retain their action");
         check(dropdown.options.length==5 && dropdown.options[4].name=="Preset 5", "All five presets remain available");
+        check(dropdown.select.width==dropdown.width && dropdown.select.width < save.x
+            && dropdown.select.height==save.height, "The actual preset button fits beside Set at the same height");
         check(selected==-1, "Initial selection does not apply a preset");
         dropdown.onSelectOption(null); check(selected==0, "Reselecting the current preset reapplies it");
         dropdown.selectedIndex=4; dropdown.onSelectOption(null); check(selected==4, "Preset selection reaches the existing action");

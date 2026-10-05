@@ -10,6 +10,8 @@ private class UtilityControl {
     public var root:Dynamic;
     public var selector:Dynamic;
     public var save:Dynamic;
+    public var background:Dynamic;
+    public var backgroundColor:Int = -1;
     public var seen:Int = -1;
     public var action:Void->Void;
     public var select:Int->Void;
@@ -97,6 +99,11 @@ class NativeUtilityUi {
             entry.root = node("button", owner, [""]);
             attach(owner, entry.root);
             Ui.padding(entry.root, 0);
+            // Keep native hit testing/tooltips, but retain our darker utility
+            // palette instead of the default pale button skin.
+            Ui.style(entry.root, "background-alpha", 0.);
+            entry.background = G.create("h2d.Graphics", [entry.root]);
+            attach(entry.root, entry.background);
             var graphics = G.create("h2d.Graphics", [entry.root]);
             attach(entry.root, graphics);
             NativeUtilityIcons.draw(graphics, icon);
@@ -105,7 +112,23 @@ class NativeUtilityUi {
             }]);
         });
         entry.action = action;
+        var resized = entry.width != Math.round(rect.width) || entry.height != Math.round(rect.height);
         place(entry, rect);
+        if (resized) {
+            G.call("h2d.Graphics", "clear", entry.background);
+            G.call("h2d.Graphics", "beginFill", entry.background, [0xFFFFFF, 1.]);
+            G.call("h2d.Graphics", "drawRoundedRect", entry.background, [0., 0., entry.width * 1., entry.height * 1., 5., 12]);
+            G.call("h2d.Graphics", "endFill", entry.background);
+        }
+        var pressed = G.field(entry.root, "pushed") != null;
+        var hovered = G.field(entry.root, "hasHover") == true;
+        var color = selected
+            ? (pressed ? 0x7D5933 : hovered ? 0xAD854F : 0x946E40)
+            : (pressed ? 0x524A45 : hovered ? 0x7A7069 : 0x665E59);
+        if (color != entry.backgroundColor) {
+            G.call("h3d.Vector4Impl", "setColor", G.field(entry.background, "color"), [color | 0xFF000000]);
+            entry.backgroundColor = color;
+        }
         if (G.field(entry.root, "textTip") != tooltip)
             G.call("ui.UIElement", "set_textTip", entry.root, [tooltip]);
         if (G.field(entry.root, "selected") != selected)
@@ -170,6 +193,13 @@ class NativeUtilityUi {
             var selectorWidth = Std.int(rect.width * PresetSlots.SELECTOR_WIDTH / PresetSlots.CONTROLS_WIDTH);
             var saveWidth = Std.int(rect.width * PresetSlots.SET_WIDTH / PresetSlots.CONTROLS_WIDTH);
             Ui.size(entry.selector, selectorWidth, entry.height);
+            // Dropdown owns a separate, CSS-sized button. Sizing only the
+            // wrapper leaves that button at its default 300px width, behind Set.
+            Ui.padding(entry.selector, 0);
+            var selectButton = G.field(entry.selector, "select");
+            Ui.padding(selectButton, 0);
+            for (side in ["left", "right"]) Ui.style(selectButton, "padding-" + side, 8);
+            Ui.size(selectButton, selectorWidth, entry.height);
             Ui.size(entry.save, saveWidth, entry.height);
             Ui.position(entry.save, entry.width - saveWidth, 0);
         }
