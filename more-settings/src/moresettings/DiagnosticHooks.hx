@@ -55,9 +55,16 @@ class DiagnosticHooks {
     static function afterCacheSave(instance:Dynamic, result:Void):Void StallMetrics.end(M.PIPELINE_SAVE);
 
     @:hlx.prefix(h3d.impl.DX12Driver.beginFrame)
-    static function beforeBeginFrame(instance:Dynamic):HlxPrefixResult<Void> { StallMetrics.beginDriverFrame(); return Continue; }
+    static function beforeBeginFrame(instance:Dynamic):HlxPrefixResult<Void> {
+        StallMetrics.beginDriverFrame();
+        PerformanceHooks.beginResourceFrame(instance);
+        return Continue;
+    }
     @:hlx.postfix(h3d.impl.DX12Driver.beginFrame)
-    static function afterBeginFrame(instance:Dynamic, result:Void):Void StallMetrics.endDriverFrame();
+    static function afterBeginFrame(instance:Dynamic, result:Void):Void {
+        PerformanceHooks.endResourceFrame(instance);
+        StallMetrics.endDriverFrame();
+    }
 
     // Two frame-level boundaries split command reset, buffer reset, resource
     // recycling, query readback and the remaining target/descriptor/DLSS setup.
@@ -70,6 +77,7 @@ class DiagnosticHooks {
     @:hlx.postfix(h3d.impl.BufferAllocator.reset)
     static function afterBufferReset(instance:Dynamic, trim:hl.Ref<Bool>, result:Void):Void {
         StallMetrics.driverStep(M.BUFFER_RESET, M.FRAME_RECYCLE);
+        PerformanceHooks.recycleResources(instance);
     }
     @:hlx.prefix(h3d.impl.DX12Driver.beginQueries)
     static function beforeQueries(instance:Dynamic):HlxPrefixResult<Void> {

@@ -98,6 +98,13 @@ jobs:
         run: |
           haxe -cp src -cp tests -main FrameMetricsTest -hl build/frame-metrics-test.hl
           ../.combat-hashlink/hl build/frame-metrics-test.hl
+      - name: Test bounded GPU resource cleanup on HashLink
+        working-directory: more-settings
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
+        run: |
+          haxe -cp src -cp tests/resource-stubs -cp tests -main ResourceCleanupTest -hl build/resource-cleanup-test.hl
+          ../.combat-hashlink/hl build/resource-cleanup-test.hl
 
   build:
     needs: test

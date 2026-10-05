@@ -9,6 +9,7 @@ class PerformanceHooks {
     static var terrain = new TerrainGlobalsCache();
     static var pipelines = new PipelineWarmup();
     static var characters = new CharacterVisualJobs();
+    static var resources = new ResourceCleanup();
     static var pipelineFailed:Bool = false;
     static var queueFailed:Bool = false;
     static var feedFailed:Bool = false;
@@ -21,10 +22,19 @@ class PerformanceHooks {
     }
 
     public static function update(app:Dynamic, dt:Float):Void {
+        try resources.update(app, enabled) catch (error:Dynamic) resources.fail(error);
         if (enabled && !pipelineFailed) try pipelines.update(app, true, dt) catch (e:Dynamic) pipelineError(e);
     }
 
+    // Shared frame checkpoints also run when timing diagnostics are disabled.
+    public static function beginResourceFrame(driver:Dynamic):Void resources.beginFrame(driver);
+    public static function endResourceFrame(driver:Dynamic):Void resources.endFrame(driver);
+    public static function recycleResources(allocator:Dynamic):Void {
+        try resources.recycle(allocator) catch (error:Dynamic) resources.fail(error);
+    }
+
     public static function dispose():Void {
+        try resources.suspend() catch (error:Dynamic) resources.fail(error);
         pipelines.clear();
         characters.clear();
         terrain.clear();
@@ -52,6 +62,7 @@ class PerformanceHooks {
     @:hlx.prefix(h3d.impl.DX12Driver.reset)
     static function beforeDriverReset(instance:Dynamic):HlxPrefixResult<Void> {
         StallMetrics.begin(FrameMetrics.DRIVER_RESET);
+        try resources.invalidate(instance) catch (error:Dynamic) resources.fail(error);
         pipelines.invalidate(instance);
         return Continue;
     }
@@ -61,6 +72,7 @@ class PerformanceHooks {
 
     @:hlx.prefix(h3d.impl.DX12Driver.dispose)
     static function beforeDriverDispose(instance:Dynamic):HlxPrefixResult<Void> {
+        try resources.invalidate(instance) catch (error:Dynamic) resources.fail(error);
         pipelines.invalidate(instance);
         return Continue;
     }

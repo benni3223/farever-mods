@@ -75,3 +75,9 @@
 -cp tests
 -main FrameMetricsTest
 --interp
+--next
+-cp src
+-cp tests/resource-stubs
+-cp tests
+-main ResourceCleanupTest
+--interp
