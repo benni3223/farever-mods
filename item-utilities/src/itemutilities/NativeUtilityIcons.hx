@@ -37,8 +37,7 @@ class NativeUtilityIcons {
             case "badge":
                 line(g, 0xB8C2D1, 2, [5,8, 5,5, 7,2, 10,2, 12,5, 12,8]);
                 rect(g, 0xB8C2D1, 3,7,11,9,2);
-                circle(g, 0x333842, 8.5,11,1.25);
-                line(g, 0x333842, 1.5, [8.5,11, 8.5,14]);
+                keyhole(g, 8.5, 11);
             case "lock":
                 // A filled U-shaped shackle joins both sides of the body.
                 // Avoid a stroked arc's duplicate endpoint, which can break
@@ -51,8 +50,7 @@ class NativeUtilityIcons {
                 shackle.push(12.8); shackle.push(14);
                 fill(g, MARK, shackle);
                 rect(g, MARK, 8.5,13,15,11,2.4);
-                circle(g, 0x514840, 16,17.4,1.3);
-                rect(g, 0x514840, 15.4,17.8,1.2,3.3,0.5);
+                keyhole(g, 16, 17.4);
             case "materials":
                 // Flat hammer: two clean shapes, without bevels or highlights.
                 rect(g, 0xC79C65, 9,9,3.5,11.5,1);
@@ -99,6 +97,11 @@ class NativeUtilityIcons {
                 28.5,22.5, 29,22, 29,19.5]);
         }
         G.call("h2d.Graphics", "flush", g);
+    }
+
+    static function keyhole(g:Dynamic, x:Float, y:Float):Void {
+        circle(g, 0x333842, x, y, 1.25);
+        line(g, 0x333842, 1.5, [x,y, x,y+3]);
     }
 
     static function arc(points:Array<Float>, cx:Float, cy:Float, r:Float, from:Float, to:Float):Void {

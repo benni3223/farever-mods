@@ -8,10 +8,12 @@ class InspectUi {
         if (kind == "dropdown") {
             object.select=InspectAccess.object("element",object);
             object.select.width=300; object.select.height=42;
-            object.select.background={shader:{backgroundColor:{value:0xFFF5E4DC}}};
+            object.select.background={shader:{backgroundColor:{value:0xFFF5E4DC}},color:{value:0xFFFFFFFF}};
+            for (child in ["selected-icon", "selected-text", "dropdown-arrow"])
+                InspectAccess.object(child,object.select);
         }
         // Native buttons use a shader color; the tile alone does not color it.
-        if (kind == "button") object.background={shader:{backgroundColor:{value:0xFFB2988C}}};
+        if (kind == "button") object.background={shader:{backgroundColor:{value:0xFFB2988C}},color:{value:0xFFFFFFFF}};
         return object.dom;
     }
     public static function absolute(parent:Dynamic, object:Dynamic):Void object.absolute=true;
