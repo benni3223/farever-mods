@@ -17,34 +17,23 @@ Audited against the supplied Live HL6 bytecode, SHA-256
   missed that stage; it is now included. Deferred G-buffer/depth/shadow passes
   remain excluded.
 
-The user's report establishes that changing the original passes was insufficient.
-We have not captured the failing effect's runtime shader list, so this does not
-identify a particular shader as the sole cause. The independent outline avoids
-depending on the original decal's projection, fading, or later child materials.
+## Original swirl only
 
-## Independent boundary
+The user confirmed the brown swirl is visible during the water phase after the
+colour decal stages were included. The supplemental amber/dark circle has been
+removed at their request. The swirl retains its overlay stage and depth state;
+its native shaders, shape, animation, and warning timing are unchanged.
 
-- Two native `h3d.scene.Graphics` children of the area's `obj` draw the same
-  64-segment closed circle. The native constructor supplies the unlit vertex
-  colour and screen-width line shaders, disables shadows, and disables culling.
-- The dark 6-pixel backing and amber 3-pixel core have ordered overlay layers,
-  `Compare.Always`, and no depth writes. They contain no decal/depth-fade shader.
-  No filled disk obscures the arena. No collision or damage state is changed.
-- Geometry is built once per warning; native rendering follows the parent and
-  camera. No update hook rebuilds geometry or scans the scene. A construction
-  failure cleans up and suppresses further attempts for that warning until the
-  setting is toggled.
-- `SkillArea.killTelegraph` detaches and fades the FX for 0.5 seconds before
-  pooling. Our prefix removes the outline immediately and clears its area
-  reference so toggling during that fade cannot restore an expired warning.
-- Disabling, FX reset/removal, and game disposal remove outlines and restore the
-  original native passes. Native `Graphics.onRemove` clears its BigPrimitive;
-  native parent removal calls children's `onRemove`.
+- No additional geometry or skill-area lifecycle hook is needed.
+- Passes are patched once per warning; FX whose meshes are created later are
+  picked up on sync. No whole-scene scan is performed.
+- Disabling, FX reset/removal, and game disposal restore the original native
+  passes. Native detachment and fading run normally.
 
 ## Validation
 
-`CrabgantuaWarningsTest` covers radius/closure, render-state setters, late scene
-attachment, no repeated geometry allocation, active toggles, impact/fade,
-pool reuse, partial failures, and shutdown. Run it with the interpreter and
-HashLink. These use a simulated native boundary; an in-game water/rockfall overlap
-is still required to validate visual weight and the actual DX12 output.
+`CrabgantuaWarningsTest` covers render-state setters, colour decal stages,
+late-created materials, no repeated material traversal, active toggles without
+added geometry, pool reuse, partial failures, and shutdown. Run it with the
+interpreter and HashLink. These use a simulated native boundary; actual DX12
+visual output is validated in-game.
