@@ -16,6 +16,12 @@ SHA-256 `617f602066c762869d5c15a01c83714664b0026868f0d24b129bbcc850da88d8`.
 | Character model | Existing `client.UnitView.displaySkin()` hook | Void |
 | Pipeline replay | Existing `h3d.impl.PSOConfigCache.resolveConfig(CompiledShader)` hook | Void |
 | Character component | Existing staged-component construction scope | No new native hook |
+| Frame submission | `h3d.impl.DX12Driver.flushFrame(Ref<Bool>)` | Void |
+| Pipeline-cache save | `h3d.impl.PSOConfigCache.save()` | Void |
+| Next-frame preparation | `h3d.impl.DX12Driver.beginFrame()` | Void |
+| DLSS state | `h3d.impl.DX12Driver.refreshDLSSGState()` | Bool, passed through |
+| DLSS mode change | `h3d.impl.DX12Driver.setDLSSGMode(DLSSGMode, Ref<Int>, Ref<Bool>)` | Bool, passed through |
+| Driver reset | Existing `h3d.impl.DX12Driver.reset()` hook | Void |
 
 `mainLoop` handles platform events, calls the app loop, then presents. Work in
 the surrounding event loop is visible as a separate gap before the next measured
@@ -24,6 +30,33 @@ duration cannot be interpreted as GPU execution time. `compileSource` loads or
 compiles source for new shaders; the hotter `compileShader` cache-hit path and
 per-draw `flushPipeline` are deliberately not instrumented. Required pipeline
 creation can therefore remain inside the broader render timing.
+
+## Version 2: presentation detail
+
+User captures showed a 375 ms frame dominated by 373 ms of rendering, followed
+by a 2054 ms frame dominated by 2047 ms of presentation, with `frame-wait`
+rounding to zero in both. There were no recorded shader-source, pipeline-replay,
+worker or character-loading calls in those two frames. This locates the observed
+wall time; it does not identify its underlying cause or rule out mod effects on
+graphics work.
+
+In the supplied native code, `present` calls `flushFrame`, platform
+`command_queue_present`, optional DLSS state checks/mode changes, `waitForFrame`
+and `beginFrame`, and may recover a lost device. `flushFrame` submits GPU command
+lists and calls `PSOConfigCache.save`. The latter, when dirty and permitted,
+takes a mutex, sorts and serializes the cache, writes a temporary file, deletes
+the old file and renames the new one synchronously. `beginFrame` resets command
+and buffer allocators and releases queued graphics resources. Version 2 times
+these Haxe boundaries; it does not change their arguments, scheduling, locks,
+return values or behavior. Native-library Present and marker calls remain within
+the broader presentation measurement. An unaccounted presentation stall is not
+proof of a particular driver/GPU issue.
+
+`flushFrame` and cache saves can also occur outside `present`, so their totals
+are for the entire measured frame, not exclusive presentation subtotals. Nested
+save/flush/present times are deliberately not added or subtracted in the report.
+Two new synthetic timing cases distinguish a slow cache save from an equally
+slow presentation with a fast save and retain separate reset/mode-change timings.
 
 The existing worker/skin/cache hooks start a timer even when their optimization
 is off, so A/B comparisons use the same diagnostics. HLX runs postfixes after a
@@ -54,10 +87,10 @@ turning off diagnostics discards any unreported records.
 recursive scopes, retained snapshots, interval versus body timing, quiet/combat
 and loading gates, capacity/rate limits, output-delay exclusion, incomplete
 scopes, session boundaries, disabled timers and a real background-thread bypass.
-An optional `--bench` measures only the in-memory timing core. The local HashLink
-run took approximately 0.65 microseconds per simulated frame across 100,000
-iterations with five timed scopes; it excludes HLX dispatch and native context
-lookups, and is not an in-game overhead measurement.
+An optional `--bench` measures only the in-memory timing core. The local v2
+HashLink run took approximately 2.54 microseconds per simulated frame across
+100,000 iterations with nine timed scopes; it excludes HLX dispatch and native
+context lookups, and is not an in-game overhead measurement.
 
 The metric locates elapsed time, not necessarily its cause. Implicit HashLink GC,
 OS preemption, native locks, disk and GPU waits may contribute inside any measured

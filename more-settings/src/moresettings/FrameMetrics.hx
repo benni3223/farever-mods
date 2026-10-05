@@ -26,12 +26,19 @@ class FrameMetrics {
     public static inline var PIPELINE_REPLAY = 7;
     public static inline var GRAPHICS_CLEANUP = 8;
     public static inline var FRAME_WAIT = 9;
-    public static inline var COUNT = 10;
+    public static inline var FLUSH_FRAME = 10;
+    public static inline var PIPELINE_SAVE = 11;
+    public static inline var BEGIN_FRAME = 12;
+    public static inline var DLSS_STATE = 13;
+    public static inline var DLSS_MODE = 14;
+    public static inline var DRIVER_RESET = 15;
+    public static inline var COUNT = 16;
     public static inline var CAPACITY = 32;
     public static inline var THRESHOLD = 0.100;
     static inline var QUIET_SECONDS = 2.0;
     static var labels = ["update", "render", "present", "workers", "skin", "character-part",
-        "shader-source", "pipeline-replay", "graphics-cleanup", "frame-wait"];
+        "shader-source", "pipeline-replay", "graphics-cleanup", "frame-wait", "flush-frame",
+        "pso-save", "begin-frame", "dlss-state", "dlss-mode", "driver-reset"];
 
     var clock:Void->Float;
     var epoch:Float;
@@ -164,7 +171,7 @@ class FrameMetrics {
         var at = Date.fromTime(epoch + (record.at - origin) * 1000).toString();
         var parts = [for (i in 0...COUNT) if (record.calls[i] > 0)
             labels[i] + "=" + ms(record.total[i]) + "ms(max=" + ms(record.maximum[i]) + ",n=" + record.calls[i] + ")"];
-        var line = '[More Settings] Freeze metrics v1: at=$at frame=${ms(record.body)}ms gap=${ms(record.gap)}ms'
+        var line = '[More Settings] Freeze metrics v2: at=$at frame=${ms(record.body)}ms gap=${ms(record.gap)}ms'
             + ' outside-phases=${ms(record.outside)}ms combat=${record.combat} optimization=${record.optimized}'
             + ' incomplete=${record.incomplete} overwritten=$overwritten interrupted=$interrupted; '
             + parts.join(" ") + "; timings are inclusive wall time, not GPU or GC attribution.";

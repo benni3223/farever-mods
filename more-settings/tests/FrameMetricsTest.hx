@@ -46,6 +46,35 @@ class FrameMetricsTest {
         eq(m.report(), null, "no empty records");
     }
 
+    static function presentationBreakdown():Void {
+        var m = fresh(); warm(m);
+        m.beginFrame(); m.context(true, true, true);
+        m.begin(M.UPDATE); now += 0.001; m.end(M.UPDATE);
+        m.begin(M.RENDER); now += 0.005; m.end(M.RENDER);
+        m.begin(M.PRESENT);
+        m.begin(M.FLUSH_FRAME); m.begin(M.PIPELINE_SAVE); now += 2.000;
+        m.end(M.PIPELINE_SAVE); now += 0.001; m.end(M.FLUSH_FRAME);
+        now += 0.040; // Uninstrumented platform presentation / markers.
+        m.begin(M.DLSS_STATE); now += 0.001; m.end(M.DLSS_STATE);
+        m.begin(M.FRAME_WAIT); m.end(M.FRAME_WAIT);
+        m.begin(M.BEGIN_FRAME); now += 0.005; m.end(M.BEGIN_FRAME);
+        m.end(M.PRESENT); m.endFrame(); quiet(m);
+        var line = take(m);
+        for (part in ["Freeze metrics v2", "frame=2053ms", "present=2047ms", "flush-frame=2001ms",
+            "pso-save=2000ms", "begin-frame=5ms", "frame-wait=0ms", "dlss-state=1ms", "outside-phases=0ms"])
+            has(line, part, "nested presentation detail: " + part);
+
+        // An equally long presentation with a fast save must not accuse cache I/O.
+        m.beginFrame(); m.context(true, true, true); m.begin(M.PRESENT);
+        m.begin(M.FLUSH_FRAME); m.begin(M.PIPELINE_SAVE); m.end(M.PIPELINE_SAVE); m.end(M.FLUSH_FRAME);
+        now += 2;
+        m.begin(M.DLSS_MODE); m.begin(M.DRIVER_RESET); now += 0.010;
+        m.end(M.DRIVER_RESET); m.end(M.DLSS_MODE); m.end(M.PRESENT); m.endFrame(); quiet(m);
+        line = take(m);
+        for (part in ["present=2010ms", "pso-save=0ms", "flush-frame=0ms", "dlss-mode=10ms", "driver-reset=10ms"])
+            has(line, part, "uncategorized presentation time stays separate: " + part);
+    }
+
     static function overlapAndMissingPostfix():Void {
         var m = fresh(); warm(m);
         m.beginFrame(); m.context(true, true, false); m.begin(M.UPDATE);
@@ -126,14 +155,18 @@ class FrameMetricsTest {
             m.beginFrame(); m.context(true, true, true);
             m.begin(M.UPDATE); m.begin(M.WORKERS); m.end(M.WORKERS); m.end(M.UPDATE);
             m.begin(M.RENDER); m.end(M.RENDER);
-            m.begin(M.PRESENT); m.begin(M.FRAME_WAIT); m.end(M.FRAME_WAIT); m.end(M.PRESENT);
+            m.begin(M.PRESENT);
+            m.begin(M.FLUSH_FRAME); m.begin(M.PIPELINE_SAVE); m.end(M.PIPELINE_SAVE); m.end(M.FLUSH_FRAME);
+            m.begin(M.DLSS_STATE); m.end(M.DLSS_STATE);
+            m.begin(M.FRAME_WAIT); m.end(M.FRAME_WAIT);
+            m.begin(M.BEGIN_FRAME); m.end(M.BEGIN_FRAME); m.end(M.PRESENT);
             m.endFrame(); m.canReport();
         }
         var elapsed = haxe.Timer.stamp() - start;
         Sys.println('Timing-buffer microbenchmark: ${elapsed * 1000000 / frames} us/frame ($frames frames; excludes HLX hooks/native context reads).');
     }
     static function main():Void {
-        timings(); overlapAndMissingPostfix(); gatingAndGaps(); boundedOutput(); threadsAndDisabled();
+        timings(); presentationBreakdown(); overlapAndMissingPostfix(); gatingAndGaps(); boundedOutput(); threadsAndDisabled();
         eq(moresettings.SettingsData.defaults().performanceDiagnostics, false, "diagnostics opt-in");
         Sys.println('Frame metrics: $checks checks passed.');
         if (Sys.args().indexOf("--bench") >= 0) benchmark();

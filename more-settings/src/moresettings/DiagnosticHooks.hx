@@ -40,6 +40,39 @@ class DiagnosticHooks {
     @:hlx.postfix(h3d.impl.DX12Driver.present)
     static function afterPresent(instance:Dynamic, result:Void):Void StallMetrics.end(M.PRESENT);
 
+    // Presentation includes cache serialization/file writes and command/frame
+    // preparation as well as the platform Present call. Measure these separately.
+    @:hlx.prefix(h3d.impl.DX12Driver.flushFrame)
+    static function beforeFlush(instance:Dynamic, reset:hl.Ref<Bool>):HlxPrefixResult<Void> {
+        StallMetrics.begin(M.FLUSH_FRAME); return Continue;
+    }
+    @:hlx.postfix(h3d.impl.DX12Driver.flushFrame)
+    static function afterFlush(instance:Dynamic, reset:hl.Ref<Bool>, result:Void):Void StallMetrics.end(M.FLUSH_FRAME);
+
+    @:hlx.prefix(h3d.impl.PSOConfigCache.save)
+    static function beforeCacheSave(instance:Dynamic):HlxPrefixResult<Void> { StallMetrics.begin(M.PIPELINE_SAVE); return Continue; }
+    @:hlx.postfix(h3d.impl.PSOConfigCache.save)
+    static function afterCacheSave(instance:Dynamic, result:Void):Void StallMetrics.end(M.PIPELINE_SAVE);
+
+    @:hlx.prefix(h3d.impl.DX12Driver.beginFrame)
+    static function beforeBeginFrame(instance:Dynamic):HlxPrefixResult<Void> { StallMetrics.begin(M.BEGIN_FRAME); return Continue; }
+    @:hlx.postfix(h3d.impl.DX12Driver.beginFrame)
+    static function afterBeginFrame(instance:Dynamic, result:Void):Void StallMetrics.end(M.BEGIN_FRAME);
+
+    @:hlx.prefix(h3d.impl.DX12Driver.refreshDLSSGState)
+    static function beforeDLSSState(instance:Dynamic):HlxPrefixResult<Bool> { StallMetrics.begin(M.DLSS_STATE); return Continue; }
+    @:hlx.postfix(h3d.impl.DX12Driver.refreshDLSSGState)
+    static function afterDLSSState(instance:Dynamic, result:Bool):Bool { StallMetrics.end(M.DLSS_STATE); return result; }
+
+    @:hlx.prefix(h3d.impl.DX12Driver.setDLSSGMode)
+    static function beforeDLSSMode(instance:Dynamic, mode:Dynamic, frames:hl.Ref<Int>, force:hl.Ref<Bool>):HlxPrefixResult<Bool> {
+        StallMetrics.begin(M.DLSS_MODE); return Continue;
+    }
+    @:hlx.postfix(h3d.impl.DX12Driver.setDLSSGMode)
+    static function afterDLSSMode(instance:Dynamic, mode:Dynamic, frames:hl.Ref<Int>, force:hl.Ref<Bool>, result:Bool):Bool {
+        StallMetrics.end(M.DLSS_MODE); return result;
+    }
+
     // compileShader is also called for cache hits; compileSource only runs when
     // native code needs source loading/compilation for a newly compiled shader.
     @:hlx.prefix(h3d.impl.DX12Driver.compileSource)

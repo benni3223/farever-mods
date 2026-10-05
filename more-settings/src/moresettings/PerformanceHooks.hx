@@ -51,9 +51,13 @@ class PerformanceHooks {
 
     @:hlx.prefix(h3d.impl.DX12Driver.reset)
     static function beforeDriverReset(instance:Dynamic):HlxPrefixResult<Void> {
+        StallMetrics.begin(FrameMetrics.DRIVER_RESET);
         pipelines.invalidate(instance);
         return Continue;
     }
+
+    @:hlx.postfix(h3d.impl.DX12Driver.reset)
+    static function afterDriverReset(instance:Dynamic, result:Void):Void StallMetrics.end(FrameMetrics.DRIVER_RESET);
 
     @:hlx.prefix(h3d.impl.DX12Driver.dispose)
     static function beforeDriverDispose(instance:Dynamic):HlxPrefixResult<Void> {
