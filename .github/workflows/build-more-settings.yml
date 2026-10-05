@@ -98,13 +98,22 @@ jobs:
         run: |
           haxe -cp src -cp tests -main FrameMetricsTest -hl build/frame-metrics-test.hl
           ../.combat-hashlink/hl build/frame-metrics-test.hl
-      - name: Test bounded GPU resource cleanup on HashLink
+      - name: Test background GPU resource cleanup on HashLink
         working-directory: more-settings
         env:
           LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
         run: |
           haxe -cp src -cp tests/resource-stubs -cp tests -main ResourceCleanupTest -hl build/resource-cleanup-test.hl
           ../.combat-hashlink/hl build/resource-cleanup-test.hl
+      - name: Test native GPU release worker with concurrent GC
+        working-directory: more-settings
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/more-settings/build/native-release-test:${{ github.workspace }}/.combat-hashlink
+        run: |
+          mkdir -p build/native-release-test
+          cc -std=c11 -D_POSIX_C_SOURCE=200809L -fPIC -shared -pthread -I ../.combat-hashlink/src tests/native/gpu_release_test.c -L ../.combat-hashlink -lhl -o build/native-release-test/dx12.hdll
+          haxe -cp src -cp tests/native-stubs -cp tests -main GpuReleaseNativeTest -dce full -hl build/native-release-test/test.hl
+          timeout 20s ../.combat-hashlink/hl build/native-release-test/test.hl
 
   build:
     needs: test

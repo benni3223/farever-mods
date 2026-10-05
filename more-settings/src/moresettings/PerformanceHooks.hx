@@ -28,7 +28,9 @@ class PerformanceHooks {
 
     // Shared frame checkpoints also run when timing diagnostics are disabled.
     public static function beginResourceFrame(driver:Dynamic):Void resources.beginFrame(driver);
-    public static function endResourceFrame(driver:Dynamic):Void resources.endFrame(driver);
+    public static function endResourceFrame(driver:Dynamic):Void {
+        try resources.endFrame(driver) catch (error:Dynamic) resources.fail(error);
+    }
     public static function recycleResources(allocator:Dynamic):Void {
         try resources.recycle(allocator) catch (error:Dynamic) resources.fail(error);
     }
@@ -74,6 +76,13 @@ class PerformanceHooks {
     static function beforeDriverDispose(instance:Dynamic):HlxPrefixResult<Void> {
         try resources.invalidate(instance) catch (error:Dynamic) resources.fail(error);
         pipelines.invalidate(instance);
+        return Continue;
+    }
+
+    @:hlx.prefix(h3d.impl.DX12Driver.resize)
+    static function beforeDriverResize(instance:Dynamic, width:Int, height:Int):HlxPrefixResult<Void> {
+        // Finish retired references before swap-chain/back-buffer replacement.
+        try resources.resize(instance, width, height) catch (error:Dynamic) resources.fail(error);
         return Continue;
     }
 
