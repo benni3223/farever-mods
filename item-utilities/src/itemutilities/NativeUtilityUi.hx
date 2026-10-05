@@ -12,6 +12,7 @@ private class UtilityControl {
     public var save:Dynamic;
     public var background:Dynamic;
     public var backgroundColor:Int = -1;
+    public var presetSkinCopied = false;
     public var seen:Int = -1;
     public var action:Void->Void;
     public var select:Int->Void;
@@ -102,10 +103,11 @@ class NativeUtilityUi {
             // Keep native hit testing/tooltips, but retain our darker utility
             // palette instead of the default pale button skin.
             Ui.style(entry.root, "background-alpha", 0.);
-            entry.background = G.create("h2d.Graphics", [entry.root]);
-            attach(entry.root, entry.background);
-            var graphics = G.create("h2d.Graphics", [entry.root]);
-            attach(entry.root, graphics);
+            var artwork = G.create("h2d.Object", [entry.root]);
+            attach(entry.root, artwork);
+            NativeUtilityIcons.smooth(artwork);
+            entry.background = G.create("h2d.Graphics", [artwork]);
+            var graphics = G.create("h2d.Graphics", [artwork]);
             NativeUtilityIcons.draw(graphics, icon);
             G.call("ui.UIElement", "set_onClick", entry.root, [() -> {
                 if (live(entry) && entry.action != null) entry.action();
@@ -115,10 +117,7 @@ class NativeUtilityUi {
         var resized = entry.width != Math.round(rect.width) || entry.height != Math.round(rect.height);
         place(entry, rect);
         if (resized) {
-            G.call("h2d.Graphics", "clear", entry.background);
-            G.call("h2d.Graphics", "beginFill", entry.background, [0xFFFFFF, 1.]);
-            G.call("h2d.Graphics", "drawRoundedRect", entry.background, [0., 0., entry.width * 1., entry.height * 1., 5., 12]);
-            G.call("h2d.Graphics", "endFill", entry.background);
+            NativeUtilityIcons.background(entry.background, entry.width, entry.height);
         }
         var pressed = G.field(entry.root, "pushed") != null;
         var hovered = G.field(entry.root, "hasHover") == true;
@@ -205,11 +204,28 @@ class NativeUtilityUi {
         }
         if (G.field(entry.selector, "selectedIndex") != selected)
             G.call("ui.comp.Dropdown", "initSelectedIndex", entry.selector, [selected]);
+        matchPresetSkin(entry);
         entry.enabled = !busy;
         if (G.field(entry.selector, "enable") == busy) G.call("ui.comp.Dropdown", "set_enable", entry.selector, [!busy]);
         if (G.field(entry.save, "enable") == busy) G.call("ui.UIElement", "set_enable", entry.save, [!busy]);
         if (busy && G.call("ui.comp.Dropdown", "isOpen", entry.selector) == true)
             G.call("ui.comp.Dropdown", "close", entry.selector, [null]);
+    }
+
+    static function matchPresetSkin(entry:UtilityControl):Void {
+        if (entry.presetSkinCopied) return;
+        // Wait for the native button's CSS to settle, then reuse its actual
+        // nine-slice skin. This matches Set's color, corners and UI scaling.
+        var tile = G.field(entry.save, "backgroundTile");
+        if (tile == null || G.field(entry.save, "hasHover") == true || G.field(entry.save, "pushed") != null) return;
+        Ui.style(G.field(entry.selector, "select"), "background", {
+            tile:tile,
+            borderL:G.integer(G.field(entry.save, "borderLeft")),
+            borderR:G.integer(G.field(entry.save, "borderRight")),
+            borderT:G.integer(G.field(entry.save, "borderTop")),
+            borderB:G.integer(G.field(entry.save, "borderBottom"))
+        });
+        entry.presetSkinCopied = true;
     }
 
     public static function onPointerEvent(event:Dynamic):Void {
