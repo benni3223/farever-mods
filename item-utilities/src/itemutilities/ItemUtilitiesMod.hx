@@ -1727,7 +1727,7 @@ class ItemUtilitiesMod {
         if (sortButton == null || !isUiVisible(sortButton)) return;
         var rect = NativeUiLayout.rect(sortButton, -38, 0, 32, 30);
         NativeUtilityUi.button(fieldOrNull(sortButton, "parent"), "edit-locks", rect, "lock",
-            lockEditMode ? "Done editing" : "Edit locks", () -> {
+            null, () -> {
                 if (enabled.get() && showLockVisuals.get()) lockEditMode = !lockEditMode;
             }, lockEditMode);
     }

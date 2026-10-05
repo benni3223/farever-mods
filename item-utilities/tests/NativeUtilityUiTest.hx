@@ -33,6 +33,8 @@ class NativeUtilityUiTest {
         check(dropdown.options.length==5 && dropdown.options[4].name=="Preset 5", "All five presets remain available");
         check(dropdown.select.width==dropdown.width && dropdown.select.width < save.x
             && dropdown.select.height==save.height, "The actual preset button fits beside Set at the same height");
+        check(dropdown.select.children[0].color.value==save.background.shader.backgroundColor.value,
+            "Dropdown matches Set's visible shader color, including alpha, without a background tile");
         check(selected==-1, "Initial selection does not apply a preset");
         dropdown.onSelectOption(null); check(selected==0, "Reselecting the current preset reapplies it");
         dropdown.selectedIndex=4; dropdown.onSelectOption(null); check(selected==4, "Preset selection reaches the existing action");
@@ -40,11 +42,14 @@ class NativeUtilityUiTest {
 
         var foreground=G.object("tooltip",scene);
         var geometry=G.geometryCalls;
+        dropdown.select.background.shader.backgroundColor.value=0xFFF5E4DC;
         UI.beginFrame();
         UI.button(header,"deposit",rect,"materials","Deposit crafting components",() -> clicks++);
         UI.badge(slot); UI.lockInput(slot,() -> toggles++);
         UI.presets(header,"presets",presets,false,4,i -> selected=i,() -> saves++);
         UI.endFrame();
+        check(dropdown.select.children[0].color.value==save.background.shader.backgroundColor.value,
+            "Native style refresh cannot restore the pale dropdown background");
         check(button.parent==header && badge.parent==slot && button.visible && badge.visible, "Overlapping UI never hides the whole button or badge");
         check(scene.children[1]==foreground && scene.children.length==2, "Utilities cannot reorder themselves above foreground UI");
         check(G.geometryCalls==geometry && header.children.length==2 && slot.children.length==2, "Steady frames reuse controls and artwork");

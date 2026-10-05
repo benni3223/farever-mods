@@ -32,6 +32,12 @@ class InspectAccess {
             case "h2d.filter.Filter.set_resolutionScale": value.resolutionScale=args[0]; null;
             case "h2d.Object.set_filter": value.filter=args[0]; null;
             case "h3d.Vector4Impl.setColor": value.value=args[0]; null;
+            case "h3d.Vector4Impl.toColor": value.value;
+            case "shiro.ui.DynamicBackgroundShader.get_backgroundColor": value.backgroundColor;
+            case "h2d.Object.addChildAt":
+                var child:Dynamic=args[0];
+                if (child.parent != null) child.parent.children.remove(child);
+                value.children.insert(args[1],child); child.parent=value; null;
             case "hl.types.ArrayObj.slice": (cast value:Array<Dynamic>).slice(args[0],args[1]);
             case "hl.types.ArrayObj.pushDyn": (cast value:Array<Dynamic>).push(args[0]);
             case "ui.UIElement.set_onClick": value.onClick=args[0]; null;

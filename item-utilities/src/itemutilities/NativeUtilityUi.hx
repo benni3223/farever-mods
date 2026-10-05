@@ -12,7 +12,8 @@ private class UtilityControl {
     public var save:Dynamic;
     public var background:Dynamic;
     public var backgroundColor:Int = -1;
-    public var presetSkinCopied = false;
+    public var presetColor:Null<Int>;
+    public var presetBackground:Dynamic;
     public var seen:Int = -1;
     public var action:Void->Void;
     public var select:Int->Void;
@@ -122,8 +123,8 @@ class NativeUtilityUi {
         var pressed = G.field(entry.root, "pushed") != null;
         var hovered = G.field(entry.root, "hasHover") == true;
         var color = selected
-            ? (pressed ? 0x7D5933 : hovered ? 0xAD854F : 0x946E40)
-            : (pressed ? 0x524A45 : hovered ? 0x7A7069 : 0x665E59);
+            ? (pressed ? 0x654627 : hovered ? 0x7D5933 : 0x946E40)
+            : (pressed ? 0x423B36 : hovered ? 0x524A45 : 0x665E59);
         if (color != entry.backgroundColor) {
             G.call("h3d.Vector4Impl", "setColor", G.field(entry.background, "color"), [color | 0xFF000000]);
             entry.backgroundColor = color;
@@ -169,6 +170,12 @@ class NativeUtilityUi {
             attach(owner, entry.root); Ui.padding(entry.root, 0);
             entry.selector = node("dropdown", entry.root, [false,false,"options-dropdown-list"]);
             attach(entry.root, entry.selector);
+            var selectButton = G.field(entry.selector, "select");
+            Ui.style(selectButton, "background-alpha", 0.);
+            entry.presetBackground = G.create("h2d.Graphics", [selectButton]);
+            G.call("h2d.Object", "addChildAt", selectButton, [entry.presetBackground, 0]);
+            attach(selectButton, entry.presetBackground);
+            NativeUtilityIcons.smooth(entry.presetBackground);
             var options = G.call("hl.types.ArrayObj", "slice", G.field(entry.selector, "items"), [0,0]);
             for (i in 0...PresetSlots.COUNT)
                 G.call("hl.types.ArrayObj", "pushDyn", options, [{name:PresetSlots.label(i),value:i,icon:null,group:null}]);
@@ -199,12 +206,13 @@ class NativeUtilityUi {
             Ui.padding(selectButton, 0);
             for (side in ["left", "right"]) Ui.style(selectButton, "padding-" + side, 8);
             Ui.size(selectButton, selectorWidth, entry.height);
+            NativeUtilityIcons.background(entry.presetBackground, selectorWidth, entry.height);
             Ui.size(entry.save, saveWidth, entry.height);
             Ui.position(entry.save, entry.width - saveWidth, 0);
         }
         if (G.field(entry.selector, "selectedIndex") != selected)
             G.call("ui.comp.Dropdown", "initSelectedIndex", entry.selector, [selected]);
-        matchPresetSkin(entry);
+        matchPresetBackground(entry);
         entry.enabled = !busy;
         if (G.field(entry.selector, "enable") == busy) G.call("ui.comp.Dropdown", "set_enable", entry.selector, [!busy]);
         if (G.field(entry.save, "enable") == busy) G.call("ui.UIElement", "set_enable", entry.save, [!busy]);
@@ -212,20 +220,29 @@ class NativeUtilityUi {
             G.call("ui.comp.Dropdown", "close", entry.selector, [null]);
     }
 
-    static function matchPresetSkin(entry:UtilityControl):Void {
-        if (entry.presetSkinCopied) return;
-        // Wait for the native button's CSS to settle, then reuse its actual
-        // nine-slice skin. This matches Set's color, corners and UI scaling.
-        var tile = G.field(entry.save, "backgroundTile");
-        if (tile == null || G.field(entry.save, "hasHover") == true || G.field(entry.save, "pushed") != null) return;
-        Ui.style(G.field(entry.selector, "select"), "background", {
-            tile:tile,
-            borderL:G.integer(G.field(entry.save, "borderLeft")),
-            borderR:G.integer(G.field(entry.save, "borderRight")),
-            borderT:G.integer(G.field(entry.save, "borderTop")),
-            borderB:G.integer(G.field(entry.save, "borderBottom"))
-        });
-        entry.presetSkinCopied = true;
+    static function matchPresetBackground(entry:UtilityControl):Void {
+        var selectButton = G.field(entry.selector, "select");
+        var sourceShader = G.field(G.field(entry.save, "background"), "shader");
+        // These are DynamicBackground shaders, not colored nine-slice tiles.
+        // Capture Set's resting color after native styles have initialized.
+        if (entry.presetColor == null && sourceShader != null
+                && G.field(entry.save, "hasHover") != true && G.field(entry.save, "pushed") == null) {
+            var color = G.call("shiro.ui.DynamicBackgroundShader", "get_backgroundColor", sourceShader);
+            var argb = G.integer(G.call("h3d.Vector4Impl", "toColor", color));
+            if (argb >>> 24 != 0) entry.presetColor = argb;
+        }
+        // Avoid a white first frame while the native CSS is initializing.
+        var color:Int = entry.presetColor == null ? 0xFFB2988C : entry.presetColor;
+        var shade = G.field(selectButton, "pushed") != null ? 0.65
+            : G.field(selectButton, "hasHover") == true ? 0.8 : 1.0;
+        if (shade != 1) color = (color & 0xFF000000) | (Std.int((color >> 16 & 255) * shade) << 16)
+            | (Std.int((color >> 8 & 255) * shade) << 8) | Std.int((color & 255) * shade);
+        // As with the header buttons, the native child supplies the fill;
+        // native hover/focus CSS cannot restore the pale background over it.
+        if (color != entry.backgroundColor) {
+            G.call("h3d.Vector4Impl", "setColor", G.field(entry.presetBackground, "color"), [color]);
+            entry.backgroundColor = color;
+        }
     }
 
     public static function onPointerEvent(event:Dynamic):Void {
