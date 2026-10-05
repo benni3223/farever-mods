@@ -70,8 +70,16 @@ class MoreSettingsMod {
     static function beforeDamageNumber(damage:Dynamic, position:Dynamic):HlxPrefixResult<Dynamic>
         return config.disableDamageNumbers ? SkipWith(null) : Continue;
 
+    @:hlx.prefix(ui.comp.HealDisplay.display)
+    static function beforeHealingNumber(damage:Dynamic, position:Dynamic):HlxPrefixResult<Dynamic>
+        return config.disableDamageNumbers ? SkipWith(null) : Continue;
+
     @:hlx.prefix(ui.hud.EffectsFeed.displayDamage)
     static function beforeIncomingDamageNumber(instance:Dynamic, damage:Dynamic):HlxPrefixResult<Void>
+        return config.disableDamageNumbers ? Skip : Continue;
+
+    @:hlx.prefix(ui.hud.EffectsFeed.displayHeal)
+    static function beforeIncomingHealingNumber(instance:Dynamic, damage:Dynamic):HlxPrefixResult<Void>
         return config.disableDamageNumbers ? Skip : Continue;
 
     @:hlx.postfix(ui.win.GearAppearance.init)

@@ -10,8 +10,17 @@ when the native damage-number visibility flag is false. The mod uses the same
 return for its disabled-numbers option. `ent.Unit.rpcReceiveDamage__impl`
 ignores this return; the damage RPC itself is not skipped. Incoming numeric
 damage uses `ui.hud.EffectsFeed.displayDamage`, which only creates/stylizes a
-feed row and can also be skipped. Healing displays and combat notifications
-use separate functions and retain their normal behavior.
+feed row and can also be skipped. The same option now suppresses healing:
+`ui.comp.HealDisplay.display(DamageResult, {x:Float,y:Float,z:Float})` already
+returns null when native number visibility is disabled, and
+`ent.Unit.rpcDisplayHeal__impl` ignores the returned display. The mod returns
+null through the same presentation boundary. Received/self healing uses
+`ui.hud.EffectsFeed.displayHeal(DamageResult):Void`, which only creates/styles
+a feed row and is skipped separately. Its fancy-styling postfix also checks
+the hiding option because HLX still runs postfixes after a skipped call; it
+must not restyle a previous healing row. Combat notifications and actual healing
+continue normally. Both new targets are callable (static display companion and
+instance displayHeal prototype), and their native signatures are preserved.
 
 ## Allied minion bars
 

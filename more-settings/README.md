@@ -40,7 +40,7 @@ The option remains off by default and preserves your existing Fancy damage numbe
 
 Gradients span the placed glyph geometry, excluding the formatted text's blank line space and the surrounding border padding. Their endpoints stay aligned with the digits as font size or rendering resolution changes; a three-colour gradient reaches its middle colour halfway between the glyph edges.
 
-**Disable damage numbers**, immediately after Fancy damage numbers, suppresses newly created floating damage text and incoming damage rows in the effects feed. It takes priority over fancy styling for damage. Healing numbers, combat notifications, damage processing and DPS Meter recording continue normally.
+**Disable damage numbers**, immediately after Fancy damage numbers, suppresses newly created floating damage and healing text, including incoming damage and healing rows in the effects feed. It takes priority over fancy styling for both. Combat notifications, damage/healing processing and DPS Meter recording continue normally.
 
 **Hide allied minion HP bars**, the last Combat option, hides the overhead health/shield bars of allied summoned units. Your own summons retain their native health bars. Enemy health bars, player/party bars and boss panels remain native. Changing the setting restores the most recent native visibility; ownership and hostility changes are checked on the parent widget so a hidden bar can become visible again.
 

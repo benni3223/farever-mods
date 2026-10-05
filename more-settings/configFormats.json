@@ -80,7 +80,7 @@
       "label": "Disable damage numbers",
       "tooltip": {
         "enabled": true,
-        "tooltipText": "Hides floating damage numbers and incoming damage numbers in the effects feed."
+        "tooltipText": "Hides floating damage and healing numbers, including incoming damage and healing numbers in the effects feed."
       }
     },
     {
