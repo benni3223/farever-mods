@@ -113,8 +113,7 @@ class InspectWindow {
         var hero = PlayerInspect.remoteHero(local, target.uid);
         var loadout = G.field(hero, "loadout");
         var equipment = G.field(loadout, "equipment");
-        var available = hero != null && G.field(hero, "removed") != true
-            && equipment != null && G.field(equipment, "content") != null;
+        var available = InspectTargets.available(hero);
         var appearanceInventory = G.field(loadout, "appearance");
         var stylesAvailable = available && appearanceInventory != null && G.field(appearanceInventory, "content") != null;
         var styles:Map<String, Dynamic> = [];

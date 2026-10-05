@@ -36,6 +36,9 @@ Install the **complete archive**, including the `implementation/` subfolder. Mis
 Hold Interact on another player and choose **Inspect**, immediately below
 **Send message**. The native window shows their equipped weapons, armour, and
 accessories, with item icons, rarity colours, and the game's item-detail tooltips.
+You can also choose **Inspect** from a player's gear menu in the Social window,
+including friends, party members, and nearby players. It appears directly below
+**Send message**, or first when that action is unavailable.
 The taller **Inspecting: <name>** window follows the character page's equipment
 column order, with Main Hand, Off Hand, and Arsenal in a separate weapons section.
 The inspected hero's model appears between the equipment columns. **Appearance**
@@ -47,7 +50,8 @@ These are their actual equipped items, independently of cosmetic appearances.
 The window updates when their equipped gear changes and closes with X or Escape.
 
 Inspect is read-only and uses equipment already available to your client. If a
-player leaves or their equipment is unavailable, the window says so. It does not
+player cannot be inspected, a local chat error explains that their character or
+equipment is unavailable. If they leave while being inspected, the window says so. It does not
 request private inventory data or provide equip, drag, or transfer actions.
 The option is included whenever Item Utilities is enabled.
 

@@ -49,6 +49,12 @@
 --interp
 --next
 -cp src
+-cp tests/inspect-stubs
+-cp tests
+-main InspectTargetsTest
+--interp
+--next
+-cp src
 -cp tests
 -main InspectTooltipPlacementTest
 --interp
