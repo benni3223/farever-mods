@@ -42,7 +42,7 @@ jobs:
       - uses: krdlab/setup-haxe@v1
         with:
           haxe-version: 4.3.7
-      - name: Test appearance, volume, ownership and regional presentation filters
+      - name: Test appearance, ownership and regional presentation filters
         working-directory: more-settings
         run: haxe test.hxml
       - uses: actions/checkout@v4
@@ -77,12 +77,6 @@ jobs:
           ../.combat-hashlink/hl build/social-test.hl
           haxe -cp src -cp tests/social-stubs -cp tests -main SocialInteractTest -hl build/social-interact-test.hl
           ../.combat-hashlink/hl build/social-interact-test.hl
-      - name: Test native event volume bridge
-        working-directory: more-settings
-        run: |
-          mkdir -p build
-          cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/event_volume_test.c -o build/event-volume-test
-          build/event-volume-test
       - name: Test incremental loading and pipeline lifecycle on HashLink
         working-directory: more-settings
         env:
@@ -90,6 +84,13 @@ jobs:
         run: |
           haxe -cp src -cp tests/stall-stubs -cp tests -main StallOptimizationTest -hl build/stall-optimization-test.hl
           ../.combat-hashlink/hl build/stall-optimization-test.hl
+      - name: Test combat UI and Barbershop on HashLink
+        working-directory: more-settings
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
+        run: |
+          haxe -cp src -cp tests/combat-ui-stubs -cp tests -main CombatUiTest -hl build/combat-ui-test.hl
+          ../.combat-hashlink/hl build/combat-ui-test.hl
 
   build:
     needs: test
@@ -100,4 +101,3 @@ jobs:
       required-settings: true
       module: more-settings
       title: More Settings
-      travel-audio: true

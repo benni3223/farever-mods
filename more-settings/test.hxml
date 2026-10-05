@@ -64,3 +64,9 @@
 -cp tests
 -main StallOptimizationTest
 --interp
+--next
+-cp src
+-cp tests/combat-ui-stubs
+-cp tests
+-main CombatUiTest
+--interp

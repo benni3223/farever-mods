@@ -2,7 +2,7 @@ package moresettings;
 
 import moresettings.GameAccess as G;
 
-/** Opens on the next frame, outside Better Mod Settings' action dispatch. */
+/** Opens on the next frame, outside the character page's button dispatch. */
 class AppearanceEditor {
     static var requested = false;
     static var popup:AppearanceWindow;

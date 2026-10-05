@@ -1,0 +1,44 @@
+# Combat presentation and native Barbershop
+
+Checked against the supplied October 1 Live `hlboot.dat` (HL6), SHA-256
+`617f602066c762869d5c15a01c83714664b0026868f0d24b129bbcc850da88d8`.
+
+## Damage suppression
+
+`ui.comp.DamageDisplay.display(DamageResult, VectorImpl)` already returns null
+when the native damage-number visibility flag is false. The mod uses the same
+return for its disabled-numbers option. `ent.Unit.rpcReceiveDamage__impl`
+ignores this return; the damage RPC itself is not skipped. Incoming numeric
+damage uses `ui.hud.EffectsFeed.displayDamage`, which only creates/stylizes a
+feed row and can also be skipped. Healing displays and combat notifications
+use separate functions and retain their normal behavior.
+
+## Allied minion bars
+
+Overhead `ui.hud.FoeWidget` contains `ui.hud.FoeCombatInfo.healthBar`, an
+instance of `ui.comp.HealthBar`. Filtering only that component keeps other
+widget indicators intact. Classification requires an `ent.Foe` with a
+`summonOwner`, the local hero's layer, and native `isEnemy(hero) == false`.
+Player/party bars and health bars outside an overhead FoeWidget are excluded.
+
+The refresh callback belongs to the parent widget, which remains active when
+its health component is hidden. The visibility hook remembers later native
+visibility requests so disabling the setting restores the intended state.
+Ownership/hostility refresh is capped at five checks per second per bar, and
+disabled, unfiltered bars return without native lookups.
+
+## Appearance entry point
+
+`ui.win.GearAppearance.init()` provides `scene`, `unit`, and an array of
+`ui.win.AppearanceSlot` buttons. `scene.parent` is the native character panel;
+the `Slot_Head` button is the placement anchor. The new DOMKit button uses
+panel-relative bounds and absolute positioning, without modifying the model
+viewport or adding ImGui. Only the local hero's page gets a button. Its action
+requests the existing editor on the next game update, outside UI dispatch.
+Rebuilt/removed pages invalidate old button actions.
+
+`CombatUiTest` exercises production visibility and button code with native
+adapters in both the interpreter and HashLink. It covers visibility restoration,
+hostility/ownership changes, excluded bars, local-player checks, layout changes,
+page replacement, and stale actions. Native mod compilation also passes.
+Actual button rendering and multiplayer minion presentation need in-game testing.

@@ -217,8 +217,6 @@ def validate_package(package, project):
     require(f'hlx/mods/{project}/{project}.hl' in names, 'Missing compiled mod')
     if project == 'dps-meter':
         require('hlx/plugins/dps-meter/dps_meter_desktop.hdll' in names, 'Missing DPS Meter desktop plugin')
-    if project == 'more-settings':
-        require('hlx/plugins/more-settings/more_settings_audio.hdll' in names, 'Missing More Settings audio plugin')
     return files
 
 

@@ -66,6 +66,15 @@
       }
     },
     {
+      "key": "disableDamageNumbers",
+      "type": "checkbox",
+      "label": "Disable damage numbers",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Hides floating damage numbers and incoming damage numbers in the effects feed."
+      }
+    },
+    {
       "key": "crabgantuaRockfallWarnings",
       "type": "checkbox",
       "label": "Keep Crabgantua rockfall warnings visible",
@@ -75,15 +84,13 @@
       }
     },
     {
-      "type": "title",
-      "label": "Appearance"
-    },
-    {
-      "key": "changeAppearance",
-      "type": "button",
-      "label": "Change Appearance",
-      "buttonText": "Change Appearance",
-      "colour": "default"
+      "key": "hideAlliedMinionHealthBars",
+      "type": "checkbox",
+      "label": "Hide allied minion HP bars",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Hides health bars above friendly summoned minions, including your own."
+      }
     },
     {
       "type": "title",
@@ -138,40 +145,6 @@
       "key": "socialInteractKey",
       "type": "keybinding",
       "label": "Social interact hotkey"
-    },
-    {
-      "type": "title",
-      "label": "Unfocused Volume"
-    },
-    {
-      "key": "adjustUnfocusedVolume",
-      "type": "checkbox",
-      "label": "Adjust unfocused volume"
-    },
-    {
-      "key": "backgroundVolume",
-      "type": "slider",
-      "label": "Unfocused volume %",
-      "min": 0,
-      "max": 100,
-      "step": 1
-    },
-    {
-      "type": "title",
-      "label": "Fast Travel Music"
-    },
-    {
-      "key": "adjustFastTravelVolume",
-      "type": "checkbox",
-      "label": "Adjust fast travel music volume"
-    },
-    {
-      "key": "fastTravelVolume",
-      "type": "slider",
-      "label": "Fast travel music volume %",
-      "min": 0,
-      "max": 100,
-      "step": 1
     },
     {
       "type": "title",

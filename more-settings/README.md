@@ -2,7 +2,7 @@
 
 [Builds](https://github.com/xWink/farever-mods/actions/workflows/build-more-settings.yml) · [Releases](https://github.com/xWink/farever-mods/releases?q=more-settings%2Fv&expanded=true)
 
-Client settings for **Farever**: combat controls, chat filtering, boss health numbers, optional queue optimizations, temporary audio levels, and separate ally presentation controls for rifts, dungeons, and the overworld. Previously called **More Audio Settings**.
+Client settings for **Farever**: combat controls, chat filtering, boss health numbers, optional queue optimizations, a native Barbershop button, and separate ally presentation controls for rifts, dungeons, and the overworld. Previously called **More Audio Settings**.
 
 ## Settings
 
@@ -11,16 +11,13 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 | Category | Controls | Defaults |
 | --- | --- | --- |
 | General | Disable profanity filter; Show boss health; Performance improvements; Wait for party to enter dungeon; Leave dungeon button; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party and leave dungeon button on; Hide UI defaults to F2 |
-| Combat | Fancy damage numbers; Keep Crabgantua rockfall warnings visible | Fancy numbers off; Crabgantua warnings on |
-| Appearance | Change Appearance | Opens the character editor; changes apply on Save |
+| Combat | Fancy damage numbers; Disable damage numbers; Keep Crabgantua rockfall warnings visible; Hide allied minion HP bars | Fancy numbers, damage hiding and minion bar hiding off; Crabgantua warnings on |
 | Social | Hide friend connection notifications; Enable missing slash commands; Sending message closes chat; Enable friend notes; Rebind social interact hotkey; Social interact hotkey | Connection filtering and social rebind off; social key unassigned; commands, close after sending, and notes on |
-| Unfocused Volume | Adjust unfocused volume; Unfocused volume % | On; 0% |
-| Fast Travel Music | Adjust fast travel music volume; Fast travel music volume % | Off; 0% |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Dungeon Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 | Overworld Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
 
-**Combat** appears directly below **General** and contains **Fancy damage numbers** and **Keep Crabgantua rockfall warnings visible**. Quick cast and target-lock camera controls are available in **Fix Target Lock**.
+**Combat** appears directly below **General** and contains damage-number controls, **Keep Crabgantua rockfall warnings visible**, and **Hide allied minion HP bars**. Quick cast and target-lock camera controls are available in **Fix Target Lock**.
 
 **Keep Crabgantua rockfall warnings visible** moves only the Heroic Avalanche warning circles' colour passes to the native overlay stage, after the water effects, with depth testing disabled for those circles. It retains the native warning position, size, animation, lifetime, and colour. Water, falling rocks, sounds, damage, and other bosses' indicators are unchanged. Turning the option off restores the original passes immediately, including active warnings; effect removal, pooling, and leaving the game also restore the original state. The option is on by default.
 
@@ -39,13 +36,17 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 The option remains off by default and preserves your existing Fancy damage numbers preference. All palettes are fixed; the former Pink crits, Exclamation mark crits, Three-colour crit gradients, and physical/magical/Raw colour inputs are removed and their saved values no longer affect styling. Critical hits keep native number formatting, with no added exclamation mark. Healing skills can crit in the current game; the healing palette uses the native critical flag. Both healing received by your character (the `+500` incoming-healing feed) and floating heals on other targets use these palettes. Damage/healing values, fonts, visibility rules, and animations keep their native behavior.
 
-**Fancy damage numbers** is the only damage-number setting. Its fixed palettes apply to newly displayed numbers immediately. Raw uses its own palette regardless of the skill's physical or magical classification, retains the black outline, and has no native text shadow.
+**Fancy damage numbers** uses fixed palettes that apply to newly displayed numbers immediately. Raw uses its own palette regardless of the skill's physical or magical classification, retains the black outline, and has no native text shadow.
 
 Gradients span the placed glyph geometry, excluding the formatted text's blank line space and the surrounding border padding. Their endpoints stay aligned with the digits as font size or rendering resolution changes; a three-colour gradient reaches its middle colour halfway between the glyph edges.
 
-**Appearance**, directly below **Combat**, contains **Change Appearance**. While in the world, open it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
+**Disable damage numbers**, immediately after Fancy damage numbers, suppresses newly created floating damage text and incoming damage rows in the effects feed. It takes priority over fancy styling for damage. Healing numbers, combat notifications, damage processing and DPS Meter recording continue normally.
 
-**Social**, directly below **Appearance**, contains the following options. Slash commands, closing chat after sending, and friend notes are enabled by default; hiding connection notifications is off. Existing saved preferences are preserved:
+**Hide allied minion HP bars**, the last Combat option, hides the overhead health/shield bars of friendly summoned units, including your own summons. Enemy health bars, player/party bars and boss panels remain native. Changing the setting restores the most recent native visibility; ownership and hostility changes are checked on the parent widget so a hidden bar can become visible again.
+
+**Barbershop** is a native button on your character’s appearance page, above the helmet appearance slot and to the left of the model’s head. It needs no ImGui dependency. Click it to edit your body type, skin and eye colors, eyebrows, facial shapes, hair, facial hair, and hair color. The window includes a rotatable character preview with equipment hidden, Body/Face/Hair tabs, and the same player-available choices as character creation. **Save** applies the appearance through the game's normal replicated character property and save path. **Cancel**, the close button, or Escape discards the private preview. Leaving the world or changing characters also discards it.
+
+**Social**, directly below **Combat**, contains the following options. Slash commands, closing chat after sending, and friend notes are enabled by default; hiding connection notifications is off. Existing saved preferences are preserved:
 
 - **Rebind social interact hotkey** and **Social interact hotkey** separate opening another player's interaction menu from the regular Interact button. Enable the checkbox, assign a key, and hold it while looking at a player. Rebinding is off by default and the key is initially unassigned. The on-screen player hint and hold progress follow the selected key; dead allies retain the regular revive hint. Loot, NPCs, reviving, gamepad controls, combat restrictions, and typing/input blocking retain native behavior. Disabling the checkbox restores the original player-interaction control without changing the game's saved bindings.
 - **Hide friend connection notifications** hides friends' connected/disconnected system messages while their online status continues updating.
@@ -85,15 +86,9 @@ Disabling the option restores the game's normal visibility rules on the next HUD
 update. Its normal leave action is unchanged; rifts and overworld UI are unaffected.
 
 Targets the September 30 Live client with HLX Core 0.0.8 or newer.
-When **Adjust unfocused volume** is enabled, its level takes precedence over the
-new client's native unfocused mute without changing that saved game preference.
-Disabling the adjustment restores native audio behavior.
+Fast-travel music and unfocused-volume controls now belong to the game’s native settings. More Settings no longer changes those volumes or ships an audio plugin.
 
 **Hide UI hotkey** rebinds the game's existing UI visibility shortcut. Choose a key under **General**; the default is **F2**. The selected key replaces the original keyboard binding and retains the game's normal hide/show behavior and input restrictions. Typing in chat or another text field does not hide the UI. Update Better Mod Settings too: its key-capture guard prevents assigning a shortcut from hiding the settings window. Bindings use one key; Escape cancels capture.
-
-The unfocused setting temporarily limits Farever's master volume and restores it on focus, including any master-volume change made in the game's options. It never raises a quieter master setting.
-
-The fast-travel slider adjusts **only your obelisk travel music event** (`Hero_FlyToObelisk`). It leaves other music, ambience, sound effects, and all shared volume controls unchanged. 0% mutes that track; 100% keeps its normal level under your existing music/master settings. Slider changes apply during a trip, and disabling the option restores the track's original gain. Unfocused volume works independently, so it can still quiet the whole game when you alt-tab during travel. Existing fast-travel preferences are preserved.
 
 **Hide ally attacks** hides the visuals and sounds of friendly players' damaging or harmful abilities with no beneficial component. **Hide ally buffs** covers healing, shields, beneficial statuses, and utility abilities. Mixed damage/support abilities belong to the buffs category so attack hiding preserves useful support effects. Classification follows native skill data and referenced subskills/statuses.
 
@@ -110,10 +105,10 @@ Install the **complete archive**, including the `implementation/` subfolder. Mis
 1. Install [HLX Core](https://github.com/hlx-framework/hlx-core) and [Better Mod Settings](../better-mod-settings/).
 2. Close Farever. Remove the old **binary and settings descriptor** from `hlx/mods/more-audio-settings/` (or `hlx/mods/mute-unfocused/`). Keep old configuration files for migration.
 3. If the standalone Disable Profanity Filter mod is installed, remove its binary and settings descriptor as well so this setting has one owner. Keep its configuration file.
-4. Install `farever-more-settings.zip` with Vortex, or extract it into the Farever game directory. Extract the **whole archive**: it contains `hlx/mods/more-settings/more-settings.hl`, its `configFormats.json`, and `hlx/plugins/more-settings/more_settings_audio.hdll` for individual music-event volume control.
+4. Install `farever-more-settings.zip` with Vortex, or extract it into the Farever game directory. Extract the **whole archive**: it contains `hlx/mods/more-settings/more-settings.hl`, its `configFormats.json`, and the `implementation/` subfolder. No separate More Settings audio plugin is needed.
 5. Relaunch Farever.
 
-Settings live at `hlx/config/more-settings/config.json`. On first launch, the mod imports the previous native or mod-local configuration from `more-audio-settings`, then `mute-unfocused` if needed. Existing More Settings configuration takes priority. Old files remain intact as backups. The former `enabled` setting migrates to `adjustUnfocusedVolume`.
+Settings live at `hlx/config/more-settings/config.json`. On first launch, the mod imports the previous native or mod-local configuration from `more-audio-settings`, then `mute-unfocused` if needed. Existing More Settings configuration takes priority. Old files remain intact as backups. Legacy audio fields are no longer used; other saved preferences are preserved.
 
 The GitHub Actions artifact is **farever-more-settings**. Release ZIPs are **farever-more-settings.zip**; release tags use **more-settings/vX.Y.Z**.
 
@@ -128,18 +123,8 @@ haxe test.hxml
 haxe compile.hxml
 ```
 
-Output: `build/more-settings/more-settings.hl`. The complete package also includes the prebuilt Windows x64 audio plugin. Normal builds verify and copy it without downloading a Windows compiler:
+Output: `build/more-settings/more-settings.hl` and `build/more-settings/implementation/more-settings.hl`. Package both binaries and `configFormats.json` under `hlx/mods/more-settings/`.
 
-```sh
-(cd native/prebuilt && sha256sum --check SHA256SUMS)
-mkdir -p build/native
-cp native/prebuilt/more_settings_audio.hdll build/native/
-```
+Regression tests exercise UI controls, minion bar visibility/restoration, Barbershop ownership and layout, boss health formatting, region/ability policies, appearance isolation, damage styling, worker ordering/budgets, pipeline lifecycle and terrain reuse with simulated native adapters. CI runs interpreter and HashLink checks before compiling and packaging. Actual rendering and frame-time gains still require in-game multiplayer testing.
 
-The plugin output is `build/native/more_settings_audio.hdll`; install it in `hlx/plugins/more-settings/`. It resolves the public FMOD event-volume API from the game's loaded `fmodstudio.dll`; no game or FMOD binaries are bundled. If the plugin is missing or unavailable, an audio error is logged and the mod never falls back to changing a global volume for travel.
-
-Only changes to the native bridge itself require rebuilding with MinGW; see [native/prebuilt/README.md](native/prebuilt/README.md).
-
-Regression tests exercise the production UI binding adapter, boss health formatting and update callbacks, volume controller, region/ability policy, classifier, presentation tracker, worker queue ordering/budgets/error recovery, effects-feed overload behavior, and terrain composition reuse/invalidation/resource lifetime with a simulated native adapter. CI requires those tests plus native bridge tests before compiling the mod and packaging it with the prebuilt audio plugin. Native API and bytecode inspection supplements these tests; actual rendering/audio and performance still require in-game multiplayer testing after game updates.
-
-The mod avoids repeating FMOD writes on unchanged frames. Model membership and adoption of existing effects refresh at most five times per second. Native member lookup and skill classification are cached; disabled filters avoid entity scans. Rendering hooks never skip skill execution or character animation updates.
+Model membership and adoption of existing effects refresh at most five times per second. Native member lookup and skill classification are cached; disabled filters avoid entity scans. Rendering hooks never skip skill execution or character animation updates.

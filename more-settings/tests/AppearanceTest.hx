@@ -104,10 +104,8 @@ class AppearanceTest {
             if (entry.type == "title") categories.push(entry.label);
             if (entry.key == "changeAppearance") action = entry;
         }
-        eq(categories.slice(0, 3).join(","), "General,Combat,Appearance", "Appearance follows Combat");
-        eq(action.type, "button", "Appearance is an action, not a saved checkbox");
-        eq(action.buttonText, "Change Appearance", "Requested button label");
-        eq(action.colour, "default", "Requested default button color");
+        eq(categories.slice(0, 3).join(","), "General,Combat,Social", "Social follows Combat after moving appearance into the character UI");
+        eq(action, null, "Appearance editor is accessed through the native Barbershop button");
 
         // Go through the actual component factory, including the stub's XML
         // parser, so this fails if escaping is omitted or moved after creation.
