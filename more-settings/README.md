@@ -80,7 +80,7 @@ Version 3 splits `begin-frame` into initial command reset (`frame-setup`), buffe
 
 Timings are inclusive wall time: nested values must not be added together. `outside-phases` excludes the union of update/render/presentation, while `gap` covers time between the measured loops. Neither identifies a cause on its own. Scope totals cover all calls within the frame, so a function called from both rendering and presentation must not be subtracted from presentation alone. GC, operating-system scheduling and driver waits can inflate the enclosing measurement; graphics resource cleanup is not HashLink GC, and presentation timing is not GPU execution timing.
 
-The timing buffer reuses numeric arrays and records during collection; the HLX hook dispatcher and native context lookups still have overhead. Automated tests cover timing, nesting, bounded storage, deferred/rate-limited reporting, loading/focus gating, exception recovery and background-thread exclusion. Actual overhead and freeze attribution must be checked in game.
+The timing buffer reuses numeric arrays and records during collection; the HLX hook dispatcher and native context lookups still have overhead. Automated tests cover timing, nesting, bounded storage, deferred/rate-limited reporting, loading/focus gating, exception recovery and background-thread exclusion. Actual overhead and freeze attribution must be checked in game. `graphics-cleanup` times the native `cleanTextures` method; earlier diagnostic builds tried the unhookable `garbage` callback field, producing startup lookup warnings and missing that measurement.
 
 **Wait for party to enter dungeon** appears after Performance diagnostics under
 **General** and is enabled by default, including for existing installations.

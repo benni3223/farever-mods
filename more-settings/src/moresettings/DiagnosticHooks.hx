@@ -110,9 +110,14 @@ class DiagnosticHooks {
     @:hlx.postfix(h3d.impl.DX12Driver.waitForFrame)
     static function afterWait(instance:Dynamic, index:Int, result:Void):Void StallMetrics.end(M.FRAME_WAIT);
 
-    // Graphics resource cleanup, not HashLink's implicit garbage collector.
-    @:hlx.prefix(h3d.impl.MemoryManager.garbage)
-    static function beforeCleanup(instance:Dynamic):HlxPrefixResult<Void> { StallMetrics.begin(M.GRAPHICS_CLEANUP); return Continue; }
-    @:hlx.postfix(h3d.impl.MemoryManager.garbage)
-    static function afterCleanup(instance:Dynamic, result:Void):Void StallMetrics.end(M.GRAPHICS_CLEANUP);
+    // garbage is a per-instance callback field, not a hookable method. Time the
+    // real texture-cleanup method it calls; this is not HashLink's implicit GC.
+    @:hlx.prefix(h3d.impl.MemoryManager.cleanTextures)
+    static function beforeCleanup(instance:Dynamic, force:hl.Ref<Bool>):HlxPrefixResult<Bool> {
+        StallMetrics.begin(M.GRAPHICS_CLEANUP); return Continue;
+    }
+    @:hlx.postfix(h3d.impl.MemoryManager.cleanTextures)
+    static function afterCleanup(instance:Dynamic, force:hl.Ref<Bool>, result:Bool):Bool {
+        StallMetrics.end(M.GRAPHICS_CLEANUP); return result;
+    }
 }

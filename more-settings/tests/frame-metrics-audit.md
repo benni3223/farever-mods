@@ -11,7 +11,7 @@ SHA-256 `617f602066c762869d5c15a01c83714664b0026868f0d24b129bbcc850da88d8`.
 | Present | `h3d.impl.DX12Driver.present()` | Void |
 | Shader source | `h3d.impl.DX12Driver.compileSource(RuntimeShaderData, String, String)` | Bytes object, passed through |
 | Frame wait | `h3d.impl.DX12Driver.waitForFrame(Int)` | Void |
-| Graphics cleanup | `h3d.impl.MemoryManager.garbage()` | Void |
+| Graphics texture cleanup | `h3d.impl.MemoryManager.cleanTextures(Ref<Bool>)` | Bool, passed through; reference unchanged |
 | Worker jobs | Existing `lib.Workers.work()` hook | Void |
 | Character model | Existing `client.UnitView.displaySkin()` hook | Void |
 | Pipeline replay | Existing `h3d.impl.PSOConfigCache.resolveConfig(CompiledShader)` hook | Void |
@@ -24,6 +24,19 @@ SHA-256 `617f602066c762869d5c15a01c83714664b0026868f0d24b129bbcc850da88d8`.
 | Driver reset | Existing `h3d.impl.DX12Driver.reset()` hook | Void |
 | Buffer reset checkpoint | `h3d.impl.BufferAllocator.reset(Ref<Bool>)` | Void; reference unchanged |
 | Query readback checkpoint | `h3d.impl.DX12Driver.beginQueries()` | Void |
+
+Hook targets must also be callable through HLX's member resolver. A named
+function in the bytecode alone is insufficient: MemoryManager.garbage is an
+instance function-valued field, absent from its method prototypes. The original
+diagnostics incorrectly targeted it. HLX refused the instance lookup, tried the
+static fallback, then skipped that one target while installing the others.
+Consequently earlier captures have no reliable graphics-cleanup measurement.
+The corrected target cleanTextures is a real prototype method. The default
+garbage callback calls it with false, then with true if the first call returns
+false. Its Bool return and nullable Ref<Bool> argument are preserved. This
+measurement covers texture cleanup, not every possible custom garbage callback.
+All other DiagnosticHooks targets were checked against native prototypes or the
+static System companion; none are instance callback fields.
 
 `mainLoop` handles platform events, calls the app loop, then presents. Work in
 the surrounding event loop is visible as a separate gap before the next measured
