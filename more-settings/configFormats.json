@@ -35,7 +35,7 @@
       "label": "Performance diagnostics",
       "tooltip": {
         "enabled": true,
-        "tooltipText": "Records timing information for freezes of 100 ms or longer. Keeps a small buffer in memory and writes to the mod log after combat. Enable while investigating freezes; works with Performance improvements on or off."
+        "tooltipText": "Records timing information for freezes of 500 ms or longer. Keeps a small buffer in memory and writes to the mod log after combat. Enable while investigating freezes; works with Performance improvements on or off."
       }
     },
     {

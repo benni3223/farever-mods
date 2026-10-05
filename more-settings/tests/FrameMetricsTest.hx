@@ -27,7 +27,7 @@ class FrameMetricsTest {
         var m = fresh(); warm(m);
         now += 0.001; m.beginFrame(); m.context(true, true, true);
         now += 0.002; m.begin(M.UPDATE); m.begin(M.WORKERS); m.begin(M.SKIN);
-        now += 0.100; m.end(M.SKIN); m.end(M.WORKERS);
+        now += 0.500; m.end(M.SKIN); m.end(M.WORKERS);
         now += 0.020; m.end(M.UPDATE);
         m.begin(M.RENDER); now += 0.050; m.end(M.RENDER);
         m.begin(M.PRESENT); m.begin(M.FRAME_WAIT); now += 0.040;
@@ -38,7 +38,7 @@ class FrameMetricsTest {
         eq(m.report(), null, "time alone never enables output in combat");
         quiet(m);
         var line = take(m);
-        for (part in ["frame=217ms", "update=120ms", "workers=100ms", "skin=100ms", "render=50ms", "present=45ms", "frame-wait=40ms"])
+        for (part in ["frame=617ms", "update=520ms", "workers=500ms", "skin=500ms", "render=50ms", "present=45ms", "frame-wait=40ms"])
             has(line, part, "snapshot retains measured duration: " + part);
         has(line, "outside-phases=2ms", "nested timings are not summed as root phases");
         has(line, "combat=true optimization=true", "context belongs to captured frame, not report");
@@ -103,20 +103,20 @@ class FrameMetricsTest {
         m.driverStep(M.FRAME_SETUP, M.BUFFER_RESET, true);
         m.driverStep(M.BUFFER_RESET, M.FRAME_RECYCLE);
         eq(reads, before, "standalone buffer resets do not create driver checkpoints");
-        m.beginDriverFrame(); now += 0.110; m.endDriverFrame(); m.endFrame(); quiet(m);
+        m.beginDriverFrame(); now += 0.510; m.endDriverFrame(); m.endFrame(); quiet(m);
         has(take(m), "incomplete=true", "missing checkpoints cannot masquerade as complete detail");
 
         m.beginFrame(); m.context(true, true, true); m.beginDriverFrame();
-        m.driverStep(M.FRAME_RECYCLE, M.FRAME_QUERIES); now += 0.110;
+        m.driverStep(M.FRAME_RECYCLE, M.FRAME_QUERIES); now += 0.510;
         m.endDriverFrame(); m.endFrame(); quiet(m);
         has(take(m), "incomplete=true", "out-of-order checkpoints identified");
 
         m.beginFrame(); m.context(true, true, true); m.beginDriverFrame();
-        m.beginDriverFrame(); m.endDriverFrame(); now += 0.110;
+        m.beginDriverFrame(); m.endDriverFrame(); now += 0.510;
         m.endDriverFrame(); m.endFrame(); quiet(m);
         has(take(m), "incomplete=true", "recursive driver preparation is flagged");
 
-        m.beginFrame(); m.context(true, true, true); m.beginDriverFrame(); now += 0.110;
+        m.beginFrame(); m.context(true, true, true); m.beginDriverFrame(); now += 0.510;
         m.endFrame(); quiet(m);
         has(take(m), "incomplete=true", "interrupted preparation is flagged");
         m.beginFrame(); m.context(true, true, true); driverFrame(m, M.FRAME_TAIL); m.endFrame(); quiet(m);
@@ -126,14 +126,14 @@ class FrameMetricsTest {
     static function overlapAndMissingPostfix():Void {
         var m = fresh(); warm(m);
         m.beginFrame(); m.context(true, true, false); m.begin(M.UPDATE);
-        m.begin(M.RENDER); m.begin(M.RENDER); now += 0.110; m.end(M.RENDER); m.end(M.RENDER);
+        m.begin(M.RENDER); m.begin(M.RENDER); now += 0.510; m.end(M.RENDER); m.end(M.RENDER);
         m.end(M.UPDATE); m.endFrame(); quiet(m);
         var line = take(m);
         has(line, "outside-phases=0ms", "overlapping phases use their union");
-        has(line, "render=110ms(max=110,n=1)", "recursive scope counted once");
+        has(line, "render=510ms(max=510,n=1)", "recursive scope counted once");
         has(line, "optimization=false", "supports optimization comparison");
         frame(m); m.beginFrame(); m.context(true, true, true); m.begin(M.SKIN);
-        now += 0.110; m.endFrame(); quiet(m);
+        now += 0.510; m.endFrame(); quiet(m);
         has(take(m), "incomplete=true", "missing postfix identified");
         eq(m.depth[M.SKIN], 0, "scope depth resets next frame");
         m.beginFrame(); m.context(true, true, true); m.begin(M.SKIN); now += 1;
@@ -151,17 +151,17 @@ class FrameMetricsTest {
         has(line, "frame=16ms gap=800ms", "event loop/unknown gap separated from frame body");
         frame(m, 1, false, false); frame(m, 0.016, false, true, 2.0);
         eq(m.pending, 0, "returning from Alt-Tab not a freeze report");
-        warm(m); frame(m, 0.110); m.suspend();
+        warm(m); frame(m, 0.510); m.suspend();
         eq(m.pending, 1, "world exit retains captured diagnostic");
         eq(m.report(), null, "world exit does not force disk output");
         frame(m, 0.016, false, true, 5); quiet(m); line = take(m);
-        has(line, "frame=110ms", "record reported after next quiet session");
+        has(line, "frame=510ms", "record reported after next quiet session");
         eq(m.pending, 0, "session boundary not recorded as a five-second gap");
     }
 
     static function boundedOutput():Void {
         var m = fresh(); warm(m);
-        for (_ in 0...100) frame(m, 0.110);
+        for (_ in 0...100) frame(m, 0.510);
         eq(m.pending, M.CAPACITY, "buffer bounded during prolonged combat");
         eq(m.overwritten, 100 - M.CAPACITY, "overwritten entries counted");
         var first = m.records[m.head];
@@ -172,7 +172,7 @@ class FrameMetricsTest {
         for (_ in 0...65) frame(m, 0.016, false);
         eq(m.canReport(), true, "next record available after rate limit");
         eq(m.records[(m.head + M.CAPACITY - 1) % M.CAPACITY] == first, true, "ring record storage reused");
-        var pending = m.pending; frame(m, 0.110, false);
+        var pending = m.pending; frame(m, 0.510, false);
         eq(m.pending, pending + 1, "new real slow frame still captured");
         eq(m.canReport(), false, "slow out-of-combat frame restarts quiet interval");
     }

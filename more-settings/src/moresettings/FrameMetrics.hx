@@ -40,7 +40,7 @@ class FrameMetrics {
     public static inline var FRAME_TAIL = 20;
     public static inline var COUNT = 21;
     public static inline var CAPACITY = 32;
-    public static inline var THRESHOLD = 0.100;
+    public static inline var THRESHOLD = 0.500;
     static inline var QUIET_SECONDS = 2.0;
     static var labels = ["update", "render", "present", "workers", "skin", "character-part",
         "shader-source", "pipeline-replay", "graphics-cleanup", "frame-wait", "flush-frame",

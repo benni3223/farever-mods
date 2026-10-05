@@ -133,7 +133,7 @@ free. No GC configuration, native scheduling, return value or rendering decision
 is changed by diagnostics.
 
 Gameplay/focus/combat state is read during the normal GameApp update. Two stable
-seconds are required before capture. Records of >=100 ms frame body or inter-loop
+seconds are required before capture. Records of >=500 ms frame body or inter-loop
 gap retain their original timestamp, combat flag and optimization flag. Overflow
 keeps the newest records and increments a visible counter. Formatting and normal
 mod-log output happen only after two seconds of quiet, focused gameplay outside
