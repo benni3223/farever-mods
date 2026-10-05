@@ -91,6 +91,13 @@ jobs:
         run: |
           haxe -cp src -cp tests/combat-ui-stubs -cp tests -main CombatUiTest -hl build/combat-ui-test.hl
           ../.combat-hashlink/hl build/combat-ui-test.hl
+      - name: Test bounded freeze diagnostics on HashLink
+        working-directory: more-settings
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
+        run: |
+          haxe -cp src -cp tests -main FrameMetricsTest -hl build/frame-metrics-test.hl
+          ../.combat-hashlink/hl build/frame-metrics-test.hl
 
   build:
     needs: test

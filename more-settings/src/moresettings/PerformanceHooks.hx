@@ -38,11 +38,16 @@ class PerformanceHooks {
 
     @:hlx.prefix(h3d.impl.PSOConfigCache.resolveConfig)
     static function beforePipelineReplay(instance:Dynamic, shader:Dynamic):HlxPrefixResult<Void> {
+        StallMetrics.begin(FrameMetrics.PIPELINE_REPLAY);
         if (enabled && !pipelineFailed) try {
             if (pipelines.defer(instance, shader)) return Skip;
         } catch (e:Dynamic) pipelineError(e);
         return Continue;
     }
+
+    @:hlx.postfix(h3d.impl.PSOConfigCache.resolveConfig)
+    static function afterPipelineReplay(instance:Dynamic, shader:Dynamic, result:Void):Void
+        StallMetrics.end(FrameMetrics.PIPELINE_REPLAY);
 
     @:hlx.prefix(h3d.impl.DX12Driver.reset)
     static function beforeDriverReset(instance:Dynamic):HlxPrefixResult<Void> {
@@ -58,6 +63,7 @@ class PerformanceHooks {
 
     @:hlx.prefix(client.UnitView.displaySkin)
     static function beforeSkin(instance:Dynamic):HlxPrefixResult<Void> {
+        StallMetrics.begin(FrameMetrics.SKIN);
         try characters.begin(instance, enabled) catch (e:Dynamic) {
             characters.cancel(instance);
             characters.report(e);
@@ -66,7 +72,10 @@ class PerformanceHooks {
     }
 
     @:hlx.postfix(client.UnitView.displaySkin)
-    static function afterSkin(instance:Dynamic, result:Void):Void characters.end(instance);
+    static function afterSkin(instance:Dynamic, result:Void):Void {
+        characters.end(instance);
+        StallMetrics.end(FrameMetrics.SKIN);
+    }
 
     @:hlx.prefix(client.UnitView.updateDynamicVisuals)
     static function beforeCharacterParts(instance:Dynamic, excludeGear:hl.Ref<Bool>):HlxPrefixResult<Void> {
@@ -124,6 +133,7 @@ class PerformanceHooks {
 
     @:hlx.prefix(lib.Workers.work)
     static function work(instance:Dynamic):HlxPrefixResult<Void> {
+        StallMetrics.begin(FrameMetrics.WORKERS);
         // A nested work() must use the current cursor even if a job toggles us off.
         if ((!enabled || queueFailed) && !queue.active(instance)) return Continue;
         try return queue.run(instance) ? Skip : Continue catch (e:Dynamic) {
@@ -134,6 +144,9 @@ class PerformanceHooks {
             return Skip;
         }
     }
+
+    @:hlx.postfix(lib.Workers.work)
+    static function afterWork(instance:Dynamic, result:Void):Void StallMetrics.end(FrameMetrics.WORKERS);
 
     @:hlx.postfix(lib.Workers.isEmpty)
     static function isEmpty(instance:Dynamic, result:Bool):Bool

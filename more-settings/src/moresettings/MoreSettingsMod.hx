@@ -30,6 +30,7 @@ class MoreSettingsMod {
         SettingsData.normalize(config);
         BossHealth.enabled = config.showBossHealth;
         PerformanceHooks.enabled = config.performanceOptimization;
+        StallMetrics.configure(config.performanceDiagnostics);
         DungeonPartyGuard.enabled = config.waitForParty;
         DungeonLeaveButton.enabled = config.leaveDungeonButton;
         CrabgantuaWarnings.configure(config.crabgantuaRockfallWarnings);
@@ -43,6 +44,7 @@ class MoreSettingsMod {
             SettingsData.normalize(config);
             BossHealth.enabled = config.showBossHealth;
             PerformanceHooks.enabled = config.performanceOptimization;
+            StallMetrics.configure(config.performanceDiagnostics);
             DungeonPartyGuard.enabled = config.waitForParty;
             DungeonLeaveButton.enabled = config.leaveDungeonButton;
             CrabgantuaWarnings.configure(config.crabgantuaRockfallWarnings);
@@ -180,6 +182,7 @@ class MoreSettingsMod {
 
     @:hlx.prefix(GameApp.update)
     static function beforeUpdate(instance:Dynamic, dt:Float):HlxPrefixResult<Void> {
+        DiagnosticHooks.update(instance, config.performanceOptimization);
         PerformanceHooks.update(instance, dt);
         AppearanceEditor.update(instance);
         AllyEffects.update(instance);
@@ -188,6 +191,7 @@ class MoreSettingsMod {
 
     @:hlx.prefix(GameApp.dispose)
     static function dispose(instance:Dynamic):HlxPrefixResult<Void> {
+        StallMetrics.suspend();
         PerformanceHooks.dispose();
         DungeonLeaveButton.clear();
         try FancyDamageNumbers.dispose() catch (error:Dynamic) damageNumberError(error);

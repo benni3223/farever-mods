@@ -14,6 +14,7 @@ typedef MoreSettingsConfig = {
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
+    var performanceDiagnostics:Bool;
     var waitForParty:Bool;
     var leaveDungeonButton:Bool;
     var hideUiKey:Int;
@@ -43,6 +44,7 @@ class SettingsData {
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
+        performanceDiagnostics: false,
         waitForParty: true,
         leaveDungeonButton: true,
         hideUiKey: 113, // hxd.Key.F2

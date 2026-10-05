@@ -108,10 +108,13 @@ class CharacterVisualJobs {
         // keep checkReady completion blocked until all parts finish.
         var previous = constructing;
         constructing = value;
+        StallMetrics.begin(FrameMetrics.CHARACTER_PART);
         try action() catch (error:Dynamic) {
+            StallMetrics.end(FrameMetrics.CHARACTER_PART);
             constructing = previous;
             throw error;
         }
+        StallMetrics.end(FrameMetrics.CHARACTER_PART);
         constructing = previous;
     }
 

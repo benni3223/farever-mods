@@ -10,7 +10,7 @@ Open **More Settings** in [Better Mod Settings](../better-mod-settings/).
 
 | Category | Controls | Defaults |
 | --- | --- | --- |
-| General | Disable profanity filter; Show boss health; Performance improvements; Wait for party to enter dungeon; Leave dungeon button; Hide UI hotkey | Profanity option on (imports previous preference); boss health and performance improvements off; waiting for party and leave dungeon button on; Hide UI defaults to F2 |
+| General | Disable profanity filter; Show boss health; Performance improvements; Performance diagnostics; Wait for party to enter dungeon; Leave dungeon button; Hide UI hotkey | Profanity option on (imports previous preference); boss health, performance improvements and diagnostics off; waiting for party and leave dungeon button on; Hide UI defaults to F2 |
 | Combat | Fancy damage numbers; Disable damage numbers; Keep Crabgantua rockfall warnings visible; Hide allied minion HP bars | Fancy numbers, damage hiding and minion bar hiding off; Crabgantua warnings on |
 | Social | Hide friend connection notifications; Enable missing slash commands; Sending message closes chat; Enable friend notes; Rebind social interact hotkey; Social interact hotkey | Connection filtering and social rebind off; social key unassigned; commands, close after sending, and notes on |
 | Rift Effects | Hide ally attacks; Hide ally buffs; Hide allies | All off |
@@ -70,7 +70,15 @@ Disabling the option restores native handling for new work and discards optional
 
 Pipeline preparation uses the game's existing PSO cache and native pipeline builder; this mod does not add or replace disk persistence or move graphics/scene mutation to another thread. [Shader Persistent Cache](https://github.com/laymain/farever-mods/tree/main/shader-persistent-cache) is a separate persistence mod. Compatibility and frame times with that mod installed still require in-game testing.
 
-**Wait for party to enter dungeon** appears after Performance improvements under
+**Performance diagnostics** is a separate, opt-in General setting for investigating freezes. It works with **Performance improvements** on or off, and each record includes that choice. Enable it, reproduce a freeze, then remain out of combat with the game focused for a few seconds. Look for `[More Settings] Freeze metrics v1` in the mod log. Allow up to about 35 seconds to drain a full buffer before closing the game or disabling diagnostics.
+
+It records gameplay frames or gaps of at least 100 ms using a preallocated buffer of the latest 32 records. No per-hit/per-draw logging, stack capture, memory dump or diagnostic disk output runs during combat. Loading, unfocused windows and the initial two seconds of gameplay are excluded. Output waits for two seconds of quiet gameplay outside combat and is limited to one record per second. The buffer is discarded when diagnostics are disabled or the process exits; world changes retain captured records until the next quiet gameplay period.
+
+Records include frame-body time, the gap since the previous frame, game-update/render/presentation times, worker jobs, character loading, staged character components, shader-source loading/compilation, pipeline-cache replay, graphics resource cleanup and DX12 frame waits. Timings are inclusive wall time: nested values must not be added together. `outside-phases` excludes the union of update/render/presentation, while `gap` covers time between the measured loops. Neither identifies a cause on its own. GC, operating-system scheduling and driver waits can inflate the enclosing measurement; graphics resource cleanup is not HashLink GC, and presentation timing is not GPU execution timing.
+
+The timing buffer reuses numeric arrays and records during collection; the HLX hook dispatcher and native context lookups still have overhead. Automated tests cover timing, nesting, bounded storage, deferred/rate-limited reporting, loading/focus gating, exception recovery and background-thread exclusion. Actual overhead and freeze attribution must be checked in game.
+
+**Wait for party to enter dungeon** appears after Performance diagnostics under
 **General** and is enabled by default, including for existing installations.
 When you own a dungeon or rift entry lobby, Start stays disabled and reads
 **Waiting for party members** until every party member has joined that same

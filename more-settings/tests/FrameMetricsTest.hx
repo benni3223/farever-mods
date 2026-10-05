@@ -1,0 +1,141 @@
+import moresettings.FrameMetrics as M;
+import moresettings.StallMetrics;
+import sys.thread.Thread;
+import sys.thread.Lock;
+
+@:access(moresettings.StallMetrics)
+@:access(moresettings.FrameMetrics)
+class FrameMetricsTest {
+    static var checks = 0;
+    static var now:Float = 0;
+    static var reads = 0;
+    static function clock():Float { reads++; return now; }
+    static function eq(actual:Dynamic, expected:Dynamic, label:String):Void {
+        checks++;
+        if (actual != expected) throw label + ': expected $expected, got $actual';
+    }
+    static function has(text:String, value:String, label:String):Void eq(text != null && text.indexOf(value) >= 0, true, label);
+    static function fresh():M { now = 0; reads = 0; return new M(clock, 0); }
+    static function frame(m:M, duration = 0.016, combat = true, eligible = true, gap = 0.001):Void {
+        now += gap; m.beginFrame(); m.context(eligible, combat, true); now += duration; m.endFrame();
+    }
+    static function warm(m:M):Void for (_ in 0...140) frame(m);
+    static function quiet(m:M):Void for (_ in 0...140) frame(m, 0.016, false);
+    static function take(m:M):String { var line = m.report(); m.reported(); return line; }
+
+    static function timings():Void {
+        var m = fresh(); warm(m);
+        now += 0.001; m.beginFrame(); m.context(true, true, true);
+        now += 0.002; m.begin(M.UPDATE); m.begin(M.WORKERS); m.begin(M.SKIN);
+        now += 0.100; m.end(M.SKIN); m.end(M.WORKERS);
+        now += 0.020; m.end(M.UPDATE);
+        m.begin(M.RENDER); now += 0.050; m.end(M.RENDER);
+        m.begin(M.PRESENT); m.begin(M.FRAME_WAIT); now += 0.040;
+        m.end(M.FRAME_WAIT); now += 0.005; m.end(M.PRESENT); m.endFrame();
+        eq(m.pending, 1, "one slow frame");
+        eq(m.report(), null, "no report during combat");
+        for (_ in 0...500) frame(m);
+        eq(m.report(), null, "time alone never enables output in combat");
+        quiet(m);
+        var line = take(m);
+        for (part in ["frame=217ms", "update=120ms", "workers=100ms", "skin=100ms", "render=50ms", "present=45ms", "frame-wait=40ms"])
+            has(line, part, "snapshot retains measured duration: " + part);
+        has(line, "outside-phases=2ms", "nested timings are not summed as root phases");
+        has(line, "combat=true optimization=true", "context belongs to captured frame, not report");
+        eq(m.pending, 0, "drains the captured frame");
+        eq(m.report(), null, "no empty records");
+    }
+
+    static function overlapAndMissingPostfix():Void {
+        var m = fresh(); warm(m);
+        m.beginFrame(); m.context(true, true, false); m.begin(M.UPDATE);
+        m.begin(M.RENDER); m.begin(M.RENDER); now += 0.110; m.end(M.RENDER); m.end(M.RENDER);
+        m.end(M.UPDATE); m.endFrame(); quiet(m);
+        var line = take(m);
+        has(line, "outside-phases=0ms", "overlapping phases use their union");
+        has(line, "render=110ms(max=110,n=1)", "recursive scope counted once");
+        has(line, "optimization=false", "supports optimization comparison");
+        frame(m); m.beginFrame(); m.context(true, true, true); m.begin(M.SKIN);
+        now += 0.110; m.endFrame(); quiet(m);
+        has(take(m), "incomplete=true", "missing postfix identified");
+        eq(m.depth[M.SKIN], 0, "scope depth resets next frame");
+        m.beginFrame(); m.context(true, true, true); m.begin(M.SKIN); now += 1;
+        m.beginFrame(); m.context(true, true, true); now += 0.016; m.endFrame();
+        eq(m.interrupted, 1, "whole-frame exception invalidates previous scope");
+        eq(m.pending, 0, "interrupted frame not mislabeled as a new gap");
+    }
+
+    static function gatingAndGaps():Void {
+        var m = fresh(); frame(m, 1, true, false); frame(m, 1);
+        eq(m.pending, 0, "loading and first gameplay frame excluded");
+        warm(m); frame(m, 0.016, true, true, 0.800);
+        eq(m.pending, 1, "stall between frames recorded");
+        quiet(m); var line = take(m);
+        has(line, "frame=16ms gap=800ms", "event loop/unknown gap separated from frame body");
+        frame(m, 1, false, false); frame(m, 0.016, false, true, 2.0);
+        eq(m.pending, 0, "returning from Alt-Tab not a freeze report");
+        warm(m); frame(m, 0.110); m.suspend();
+        eq(m.pending, 1, "world exit retains captured diagnostic");
+        eq(m.report(), null, "world exit does not force disk output");
+        frame(m, 0.016, false, true, 5); quiet(m); line = take(m);
+        has(line, "frame=110ms", "record reported after next quiet session");
+        eq(m.pending, 0, "session boundary not recorded as a five-second gap");
+    }
+
+    static function boundedOutput():Void {
+        var m = fresh(); warm(m);
+        for (_ in 0...100) frame(m, 0.110);
+        eq(m.pending, M.CAPACITY, "buffer bounded during prolonged combat");
+        eq(m.overwritten, 100 - M.CAPACITY, "overwritten entries counted");
+        var first = m.records[m.head];
+        quiet(m); var line = m.report(); has(line, "overwritten=68", "reports buffer pressure");
+        now += 0.9; m.reported(); frame(m, 0.016, false);
+        eq(m.pending, M.CAPACITY - 1, "own logging delay excluded");
+        eq(m.report(), null, "at most one output per second");
+        for (_ in 0...65) frame(m, 0.016, false);
+        eq(m.canReport(), true, "next record available after rate limit");
+        eq(m.records[(m.head + M.CAPACITY - 1) % M.CAPACITY] == first, true, "ring record storage reused");
+        var pending = m.pending; frame(m, 0.110, false);
+        eq(m.pending, pending + 1, "new real slow frame still captured");
+        eq(m.canReport(), false, "slow out-of-combat frame restarts quiet interval");
+    }
+
+    static function threadsAndDisabled():Void {
+        StallMetrics.configure(true);
+        var m = fresh(); StallMetrics.metrics = m;
+        StallMetrics.beginFrame(); StallMetrics.context(true, true, false);
+        var before = reads; var done = new Lock();
+        Thread.create(() -> {
+            StallMetrics.begin(M.SHADER_SOURCE); StallMetrics.end(M.SHADER_SOURCE);
+            StallMetrics.context(false, false, false); StallMetrics.endFrame(); done.release();
+        });
+        eq(done.wait(3), true, "background test completed");
+        eq(reads, before, "background hooks do not sample clocks");
+        eq(m.active, true, "background hook cannot end main frame");
+        eq(m.eligible, true, "background hook cannot change context");
+        now += 0.016; StallMetrics.endFrame(); StallMetrics.configure(false); before = reads;
+        StallMetrics.beginFrame(); StallMetrics.begin(M.RENDER); StallMetrics.end(M.RENDER);
+        StallMetrics.context(true, true, true); StallMetrics.endFrame();
+        eq(reads, before, "disabled diagnostics do not read the clock");
+        eq(StallMetrics.metrics, null, "disabling releases diagnostic buffer");
+    }
+
+    static function benchmark():Void {
+        var m = new M(); var start = haxe.Timer.stamp(); var frames = 100000;
+        for (_ in 0...frames) {
+            m.beginFrame(); m.context(true, true, true);
+            m.begin(M.UPDATE); m.begin(M.WORKERS); m.end(M.WORKERS); m.end(M.UPDATE);
+            m.begin(M.RENDER); m.end(M.RENDER);
+            m.begin(M.PRESENT); m.begin(M.FRAME_WAIT); m.end(M.FRAME_WAIT); m.end(M.PRESENT);
+            m.endFrame(); m.canReport();
+        }
+        var elapsed = haxe.Timer.stamp() - start;
+        Sys.println('Timing-buffer microbenchmark: ${elapsed * 1000000 / frames} us/frame ($frames frames; excludes HLX hooks/native context reads).');
+    }
+    static function main():Void {
+        timings(); overlapAndMissingPostfix(); gatingAndGaps(); boundedOutput(); threadsAndDisabled();
+        eq(moresettings.SettingsData.defaults().performanceDiagnostics, false, "diagnostics opt-in");
+        Sys.println('Frame metrics: $checks checks passed.');
+        if (Sys.args().indexOf("--bench") >= 0) benchmark();
+    }
+}

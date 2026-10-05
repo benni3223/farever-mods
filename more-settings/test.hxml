@@ -70,3 +70,8 @@
 -cp tests
 -main CombatUiTest
 --interp
+--next
+-cp src
+-cp tests
+-main FrameMetricsTest
+--interp
