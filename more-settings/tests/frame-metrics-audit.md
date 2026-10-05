@@ -22,6 +22,8 @@ SHA-256 `617f602066c762869d5c15a01c83714664b0026868f0d24b129bbcc850da88d8`.
 | DLSS state | `h3d.impl.DX12Driver.refreshDLSSGState()` | Bool, passed through |
 | DLSS mode change | `h3d.impl.DX12Driver.setDLSSGMode(DLSSGMode, Ref<Int>, Ref<Bool>)` | Bool, passed through |
 | Driver reset | Existing `h3d.impl.DX12Driver.reset()` hook | Void |
+| Buffer reset checkpoint | `h3d.impl.BufferAllocator.reset(Ref<Bool>)` | Void; reference unchanged |
+| Query readback checkpoint | `h3d.impl.DX12Driver.beginQueries()` | Void |
 
 `mainLoop` handles platform events, calls the app loop, then presents. Work in
 the surrounding event loop is visible as a separate gap before the next measured
@@ -57,6 +59,50 @@ are for the entire measured frame, not exclusive presentation subtotals. Nested
 save/flush/present times are deliberately not added or subtracted in the report.
 Two new synthetic timing cases distinguish a slow cache save from an equally
 slow presentation with a fast save and retain separate reset/mode-change timings.
+
+## Version 3: next-frame preparation
+
+The next user capture showed a 438 ms frame (426 ms render) followed two seconds
+later by a 1965 ms frame (1960 ms present and 1960 ms begin-frame). Frame wait,
+flush-frame and pso-save each rounded to zero. Both captures were outside combat.
+This locates the large pause inside beginFrame; it does not prove why it stalled
+or establish a causal link to the preceding render stall.
+
+Two additional Haxe method hook pairs partition native beginFrame in order:
+
+| Checkpoint region | Native work between boundaries |
+| --- | --- |
+| frame-setup | Select current back buffer/frame; reset render command allocator/list; calculate buffer allocator size |
+| buffer-reset | BufferAllocator.reset: reset page cursors and dispose excess/old pages |
+| frame-recycle | Reset copy command allocator/list; release queued resources; recycle texture/buffer handles and descriptors |
+| frame-queries | beginQueries: when needed, map query buffer, collect pending results and unmap |
+| frame-tail | Back-buffer transition, primitive topology, render-target setup, descriptor-cache reset, flushHeaps, optional DLSS frame token and Reflex state |
+
+Native BufferAllocator.reset takes Ref<Bool>, defaulting null to false. It keeps
+the first page and disposes other pages when unusedFrame > 3600 or forced. Native
+beginFrame requests forced trimming when that frame's buffer allocator size is
+at least 512 MiB. `buffer-trims` counts the true flags received at the reset
+checkpoint; no buffer pages are scanned or memory usage queried by diagnostics.
+ScratchHeapArray.reset merely sets a cursor to zero; it gets no separate hook.
+There are no per-resource release, allocation or per-draw hooks.
+
+Checkpoints outside a measured beginFrame are ignored. Their state resets with
+each main loop; interrupted, recursive or unexpected sequences are incomplete.
+All checkpoint operations use the same main-thread/disabled gate as existing
+timers. The code neither replaces beginFrame nor delays disposal, weakens GPU
+fences, changes native arguments, or adjusts allocation limits. A large recycle
+measurement still includes copy-command reset and descriptor work; it is not
+proof that resource_release alone was slow. A large tail measurement similarly
+does not single out DLSS.
+
+Synthetic tests put a 1960 ms pause in each of the five regions independently,
+verify inclusive parent/root totals and retained/reset trim counts, and cover
+standalone resets, missing/out-of-order/recursive checkpoints and recovery.
+All 90 checks pass in interpreter and HashLink, including background-thread and
+disabled bypasses. The local v3 timing-core benchmark was about 1.53 microseconds
+per simulated frame (100,000 iterations, fourteen scopes), excluding HLX/native
+dispatch. This is not an in-game overhead measurement or a controlled comparison
+with the earlier benchmark.
 
 The existing worker/skin/cache hooks start a timer even when their optimization
 is off, so A/B comparisons use the same diagnostics. HLX runs postfixes after a

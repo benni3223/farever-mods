@@ -55,9 +55,30 @@ class DiagnosticHooks {
     static function afterCacheSave(instance:Dynamic, result:Void):Void StallMetrics.end(M.PIPELINE_SAVE);
 
     @:hlx.prefix(h3d.impl.DX12Driver.beginFrame)
-    static function beforeBeginFrame(instance:Dynamic):HlxPrefixResult<Void> { StallMetrics.begin(M.BEGIN_FRAME); return Continue; }
+    static function beforeBeginFrame(instance:Dynamic):HlxPrefixResult<Void> { StallMetrics.beginDriverFrame(); return Continue; }
     @:hlx.postfix(h3d.impl.DX12Driver.beginFrame)
-    static function afterBeginFrame(instance:Dynamic, result:Void):Void StallMetrics.end(M.BEGIN_FRAME);
+    static function afterBeginFrame(instance:Dynamic, result:Void):Void StallMetrics.endDriverFrame();
+
+    // Two frame-level boundaries split command reset, buffer reset, resource
+    // recycling, query readback and the remaining target/descriptor/DLSS setup.
+    // No hooks on per-resource release, per-draw state or allocation hot paths.
+    @:hlx.prefix(h3d.impl.BufferAllocator.reset)
+    static function beforeBufferReset(instance:Dynamic, trim:hl.Ref<Bool>):HlxPrefixResult<Void> {
+        if (StallMetrics.enabled) StallMetrics.driverStep(M.FRAME_SETUP, M.BUFFER_RESET, trim != null && trim.get());
+        return Continue;
+    }
+    @:hlx.postfix(h3d.impl.BufferAllocator.reset)
+    static function afterBufferReset(instance:Dynamic, trim:hl.Ref<Bool>, result:Void):Void {
+        StallMetrics.driverStep(M.BUFFER_RESET, M.FRAME_RECYCLE);
+    }
+    @:hlx.prefix(h3d.impl.DX12Driver.beginQueries)
+    static function beforeQueries(instance:Dynamic):HlxPrefixResult<Void> {
+        StallMetrics.driverStep(M.FRAME_RECYCLE, M.FRAME_QUERIES); return Continue;
+    }
+    @:hlx.postfix(h3d.impl.DX12Driver.beginQueries)
+    static function afterQueries(instance:Dynamic, result:Void):Void {
+        StallMetrics.driverStep(M.FRAME_QUERIES, M.FRAME_TAIL);
+    }
 
     @:hlx.prefix(h3d.impl.DX12Driver.refreshDLSSGState)
     static function beforeDLSSState(instance:Dynamic):HlxPrefixResult<Bool> { StallMetrics.begin(M.DLSS_STATE); return Continue; }

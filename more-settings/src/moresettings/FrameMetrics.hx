@@ -8,6 +8,7 @@ private class SlowFrame {
     public var combat = false;
     public var optimized = false;
     public var incomplete = false;
+    public var bufferTrims = 0;
     public var total:Array<Float> = [for (_ in 0...FrameMetrics.COUNT) 0.0];
     public var maximum:Array<Float> = [for (_ in 0...FrameMetrics.COUNT) 0.0];
     public var calls:Array<Int> = [for (_ in 0...FrameMetrics.COUNT) 0];
@@ -32,13 +33,19 @@ class FrameMetrics {
     public static inline var DLSS_STATE = 13;
     public static inline var DLSS_MODE = 14;
     public static inline var DRIVER_RESET = 15;
-    public static inline var COUNT = 16;
+    public static inline var FRAME_SETUP = 16;
+    public static inline var BUFFER_RESET = 17;
+    public static inline var FRAME_RECYCLE = 18;
+    public static inline var FRAME_QUERIES = 19;
+    public static inline var FRAME_TAIL = 20;
+    public static inline var COUNT = 21;
     public static inline var CAPACITY = 32;
     public static inline var THRESHOLD = 0.100;
     static inline var QUIET_SECONDS = 2.0;
     static var labels = ["update", "render", "present", "workers", "skin", "character-part",
         "shader-source", "pipeline-replay", "graphics-cleanup", "frame-wait", "flush-frame",
-        "pso-save", "begin-frame", "dlss-state", "dlss-mode", "driver-reset"];
+        "pso-save", "begin-frame", "dlss-state", "dlss-mode", "driver-reset",
+        "frame-setup", "buffer-reset", "frame-recycle", "frame-queries", "frame-tail"];
 
     var clock:Void->Float;
     var epoch:Float;
@@ -57,6 +64,9 @@ class FrameMetrics {
     var phaseDepth = 0;
     var phaseStart:Float = 0;
     var phaseTotal:Float = 0;
+    var driverStage = -1;
+    var driverIncomplete = false;
+    var bufferTrims = 0;
     var starts:Array<Float> = [for (_ in 0...COUNT) 0.0];
     var depth:Array<Int> = [for (_ in 0...COUNT) 0];
     var totals:Array<Float> = [for (_ in 0...COUNT) 0.0];
@@ -86,6 +96,9 @@ class FrameMetrics {
         eligible = false;
         phaseDepth = 0;
         phaseTotal = 0;
+        driverStage = -1;
+        driverIncomplete = false;
+        bufferTrims = 0;
         for (i in 0...COUNT) { depth[i] = 0; totals[i] = 0; maxima[i] = 0; counts[i] = 0; }
         active = true;
     }
@@ -116,6 +129,35 @@ class FrameMetrics {
         if (id <= PRESENT && --phaseDepth == 0) phaseTotal += now - phaseStart;
     }
 
+    /** Checkpoints partition beginFrame without replacing any native graphics work. */
+    public function beginDriverFrame():Void {
+        if (!active) return;
+        begin(BEGIN_FRAME);
+        if (depth[BEGIN_FRAME] != 1) { driverIncomplete = true; return; }
+        driverStage = FRAME_SETUP;
+        begin(driverStage);
+    }
+
+    public function driverStep(expected:Int, next:Int, trim:Bool = false):Void {
+        // These methods also run independently of beginFrame. Ignore those calls.
+        if (!active || depth[BEGIN_FRAME] == 0) return;
+        if (depth[BEGIN_FRAME] != 1 || driverStage != expected) { driverIncomplete = true; return; }
+        end(driverStage);
+        driverStage = next;
+        begin(driverStage);
+        if (next == BUFFER_RESET && trim) bufferTrims++;
+    }
+
+    public function endDriverFrame():Void {
+        if (!active || depth[BEGIN_FRAME] == 0) return;
+        if (depth[BEGIN_FRAME] == 1) {
+            if (driverStage != FRAME_TAIL) driverIncomplete = true;
+            if (driverStage >= 0) end(driverStage);
+            driverStage = -1;
+        }
+        end(BEGIN_FRAME);
+    }
+
     public function endFrame():Void {
         if (!active) return;
         var now = clock();
@@ -129,7 +171,7 @@ class FrameMetrics {
             return;
         }
         if (eligibleSince < 0) eligibleSince = now;
-        var incomplete = false;
+        var incomplete = driverIncomplete;
         for (d in depth) if (d != 0) incomplete = true;
         // Require stable, focused gameplay; loading and returning from Alt-Tab
         // should not fill the diagnostic buffer with expected long frames.
@@ -146,6 +188,7 @@ class FrameMetrics {
             record.combat = combat;
             record.optimized = optimized;
             record.incomplete = incomplete;
+            record.bufferTrims = bufferTrims;
             for (i in 0...COUNT) {
                 record.total[i] = totals[i]; record.maximum[i] = maxima[i]; record.calls[i] = counts[i];
             }
@@ -171,9 +214,9 @@ class FrameMetrics {
         var at = Date.fromTime(epoch + (record.at - origin) * 1000).toString();
         var parts = [for (i in 0...COUNT) if (record.calls[i] > 0)
             labels[i] + "=" + ms(record.total[i]) + "ms(max=" + ms(record.maximum[i]) + ",n=" + record.calls[i] + ")"];
-        var line = '[More Settings] Freeze metrics v2: at=$at frame=${ms(record.body)}ms gap=${ms(record.gap)}ms'
+        var line = '[More Settings] Freeze metrics v3: at=$at frame=${ms(record.body)}ms gap=${ms(record.gap)}ms'
             + ' outside-phases=${ms(record.outside)}ms combat=${record.combat} optimization=${record.optimized}'
-            + ' incomplete=${record.incomplete} overwritten=$overwritten interrupted=$interrupted; '
+            + ' incomplete=${record.incomplete} overwritten=$overwritten interrupted=$interrupted buffer-trims=${record.bufferTrims}; '
             + parts.join(" ") + "; timings are inclusive wall time, not GPU or GC attribution.";
         head = (head + 1) % CAPACITY;
         pending--;

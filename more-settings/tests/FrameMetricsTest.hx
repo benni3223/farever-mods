@@ -60,7 +60,7 @@ class FrameMetricsTest {
         m.begin(M.BEGIN_FRAME); now += 0.005; m.end(M.BEGIN_FRAME);
         m.end(M.PRESENT); m.endFrame(); quiet(m);
         var line = take(m);
-        for (part in ["Freeze metrics v2", "frame=2053ms", "present=2047ms", "flush-frame=2001ms",
+        for (part in ["Freeze metrics v3", "frame=2053ms", "present=2047ms", "flush-frame=2001ms",
             "pso-save=2000ms", "begin-frame=5ms", "frame-wait=0ms", "dlss-state=1ms", "outside-phases=0ms"])
             has(line, part, "nested presentation detail: " + part);
 
@@ -73,6 +73,54 @@ class FrameMetricsTest {
         line = take(m);
         for (part in ["present=2010ms", "pso-save=0ms", "flush-frame=0ms", "dlss-mode=10ms", "driver-reset=10ms"])
             has(line, part, "uncategorized presentation time stays separate: " + part);
+    }
+
+    static function driverFrame(m:M, slowStage:Int = -1, trim = false):Void {
+        m.beginDriverFrame(); now += slowStage == M.FRAME_SETUP ? 1.960 : 0.001;
+        m.driverStep(M.FRAME_SETUP, M.BUFFER_RESET, trim); now += slowStage == M.BUFFER_RESET ? 1.960 : 0.001;
+        m.driverStep(M.BUFFER_RESET, M.FRAME_RECYCLE); now += slowStage == M.FRAME_RECYCLE ? 1.960 : 0.001;
+        m.driverStep(M.FRAME_RECYCLE, M.FRAME_QUERIES); now += slowStage == M.FRAME_QUERIES ? 1.960 : 0.001;
+        m.driverStep(M.FRAME_QUERIES, M.FRAME_TAIL); now += slowStage == M.FRAME_TAIL ? 1.960 : 0.001;
+        m.endDriverFrame();
+    }
+
+    static function beginFrameBreakdown():Void {
+        var m = fresh(); warm(m);
+        var labels = ["frame-setup", "buffer-reset", "frame-recycle", "frame-queries", "frame-tail"];
+        for (stage in M.FRAME_SETUP...M.COUNT) {
+            m.beginFrame(); m.context(true, true, true); m.begin(M.PRESENT);
+            driverFrame(m, stage, stage == M.BUFFER_RESET);
+            m.end(M.PRESENT); m.endFrame(); quiet(m);
+            var line = take(m);
+            has(line, labels[stage - M.FRAME_SETUP] + "=1960ms", "locates the slow preparation step");
+            has(line, "begin-frame=1964ms", "parent retains inclusive total");
+            has(line, "outside-phases=0ms", "preparation is not subtracted twice");
+            has(line, "incomplete=false", "all checkpoints observed");
+            has(line, "buffer-trims=" + (stage == M.BUFFER_RESET ? 1 : 0), "trim flag retained and cleared between frames");
+        }
+        m.beginFrame(); m.context(true, true, true);
+        var before = reads;
+        m.driverStep(M.FRAME_SETUP, M.BUFFER_RESET, true);
+        m.driverStep(M.BUFFER_RESET, M.FRAME_RECYCLE);
+        eq(reads, before, "standalone buffer resets do not create driver checkpoints");
+        m.beginDriverFrame(); now += 0.110; m.endDriverFrame(); m.endFrame(); quiet(m);
+        has(take(m), "incomplete=true", "missing checkpoints cannot masquerade as complete detail");
+
+        m.beginFrame(); m.context(true, true, true); m.beginDriverFrame();
+        m.driverStep(M.FRAME_RECYCLE, M.FRAME_QUERIES); now += 0.110;
+        m.endDriverFrame(); m.endFrame(); quiet(m);
+        has(take(m), "incomplete=true", "out-of-order checkpoints identified");
+
+        m.beginFrame(); m.context(true, true, true); m.beginDriverFrame();
+        m.beginDriverFrame(); m.endDriverFrame(); now += 0.110;
+        m.endDriverFrame(); m.endFrame(); quiet(m);
+        has(take(m), "incomplete=true", "recursive driver preparation is flagged");
+
+        m.beginFrame(); m.context(true, true, true); m.beginDriverFrame(); now += 0.110;
+        m.endFrame(); quiet(m);
+        has(take(m), "incomplete=true", "interrupted preparation is flagged");
+        m.beginFrame(); m.context(true, true, true); driverFrame(m, M.FRAME_TAIL); m.endFrame(); quiet(m);
+        has(take(m), "incomplete=false", "checkpoints recover after missing postfix");
     }
 
     static function overlapAndMissingPostfix():Void {
@@ -136,6 +184,8 @@ class FrameMetricsTest {
         var before = reads; var done = new Lock();
         Thread.create(() -> {
             StallMetrics.begin(M.SHADER_SOURCE); StallMetrics.end(M.SHADER_SOURCE);
+            StallMetrics.beginDriverFrame();
+            StallMetrics.driverStep(M.FRAME_SETUP, M.BUFFER_RESET, true); StallMetrics.endDriverFrame();
             StallMetrics.context(false, false, false); StallMetrics.endFrame(); done.release();
         });
         eq(done.wait(3), true, "background test completed");
@@ -144,6 +194,7 @@ class FrameMetricsTest {
         eq(m.eligible, true, "background hook cannot change context");
         now += 0.016; StallMetrics.endFrame(); StallMetrics.configure(false); before = reads;
         StallMetrics.beginFrame(); StallMetrics.begin(M.RENDER); StallMetrics.end(M.RENDER);
+        StallMetrics.beginDriverFrame(); StallMetrics.driverStep(M.FRAME_SETUP, M.BUFFER_RESET); StallMetrics.endDriverFrame();
         StallMetrics.context(true, true, true); StallMetrics.endFrame();
         eq(reads, before, "disabled diagnostics do not read the clock");
         eq(StallMetrics.metrics, null, "disabling releases diagnostic buffer");
@@ -159,14 +210,16 @@ class FrameMetricsTest {
             m.begin(M.FLUSH_FRAME); m.begin(M.PIPELINE_SAVE); m.end(M.PIPELINE_SAVE); m.end(M.FLUSH_FRAME);
             m.begin(M.DLSS_STATE); m.end(M.DLSS_STATE);
             m.begin(M.FRAME_WAIT); m.end(M.FRAME_WAIT);
-            m.begin(M.BEGIN_FRAME); m.end(M.BEGIN_FRAME); m.end(M.PRESENT);
+            m.beginDriverFrame(); m.driverStep(M.FRAME_SETUP, M.BUFFER_RESET);
+            m.driverStep(M.BUFFER_RESET, M.FRAME_RECYCLE); m.driverStep(M.FRAME_RECYCLE, M.FRAME_QUERIES);
+            m.driverStep(M.FRAME_QUERIES, M.FRAME_TAIL); m.endDriverFrame(); m.end(M.PRESENT);
             m.endFrame(); m.canReport();
         }
         var elapsed = haxe.Timer.stamp() - start;
         Sys.println('Timing-buffer microbenchmark: ${elapsed * 1000000 / frames} us/frame ($frames frames; excludes HLX hooks/native context reads).');
     }
     static function main():Void {
-        timings(); presentationBreakdown(); overlapAndMissingPostfix(); gatingAndGaps(); boundedOutput(); threadsAndDisabled();
+        timings(); presentationBreakdown(); beginFrameBreakdown(); overlapAndMissingPostfix(); gatingAndGaps(); boundedOutput(); threadsAndDisabled();
         eq(moresettings.SettingsData.defaults().performanceDiagnostics, false, "diagnostics opt-in");
         Sys.println('Frame metrics: $checks checks passed.');
         if (Sys.args().indexOf("--bench") >= 0) benchmark();

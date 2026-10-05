@@ -24,6 +24,11 @@ class StallMetrics {
     }
     public static function begin(id:Int):Void { if (onMain()) metrics.begin(id); }
     public static function end(id:Int):Void { if (onMain()) metrics.end(id); }
+    public static function beginDriverFrame():Void { if (onMain()) metrics.beginDriverFrame(); }
+    public static function driverStep(expected:Int, next:Int, trim:Bool = false):Void {
+        if (onMain()) metrics.driverStep(expected, next, trim);
+    }
+    public static function endDriverFrame():Void { if (onMain()) metrics.endDriverFrame(); }
     public static function endFrame():Void {
         if (!onMain()) return;
         metrics.endFrame();
