@@ -2,14 +2,6 @@ package itemutilities;
 
 import haxe.Json;
 import haxe.ds.ObjectMap;
-import imgui.ImGui;
-import imgui.Structs.ImVec2;
-import imgui.Structs.ImVec4;
-import imgui.Enums.ImGuiCol;
-import imgui.Enums.ImGuiComboFlags;
-import imgui.Enums.ImGuiKey;
-import imgui.Enums.ImGuiStyleVar;
-import imgui.Enums.ImGuiWindowFlags;
 import imgui.ref.BoolRef;
 import hlx.runtime.Bus;
 import hlx.runtime.ModConfig;
@@ -69,9 +61,6 @@ private typedef TrackedInventorySlot = {
     var index:Int;
     var slot:Dynamic;
     var listIndex:Int;
-    var overlayId:String;
-    var lockInput:PresetDropdownInput;
-    var lockInputUsed:Bool;
 }
 
 @:build(hlx.runtime.Mod.build())
@@ -134,9 +123,6 @@ class ItemUtilitiesMod {
     static var nextSkillPresetCheck:Float = 0;
     static var skillPresetStatus:String = "";
     static var appearancePresetHotkeyKeys:Array<Int> = [for (_ in 0...PresetSlots.COUNT) 0];
-    static var presetDropdown = new PresetDropdownState();
-    static var presetDropdownInput = new PresetDropdownInput();
-    static var presetDropdownHost:Dynamic;
     static var selectedAppearancePreset:Int = 0;
     static var selectedAppearancePresetCharacterId:String;
     static var appearancePresetTransfer = new AppearancePresetTransfer();
@@ -170,7 +156,6 @@ class ItemUtilitiesMod {
     static var activeCharacterUI:Dynamic;
     static var activeInventoryWindow:Dynamic;
     static var openInventoryWindows:Array<{ window:Dynamic, inventory:Dynamic }> = [];
-    static var depositButton:Dynamic;
     static var sourceInventory:Dynamic;
     static var bankInventory:Dynamic;
     static var scrapInventory:Dynamic;
@@ -202,11 +187,6 @@ class ItemUtilitiesMod {
     static var scrapStationType:hl.Bytes;
     static var arrayObjType:hl.Bytes;
     static var arrayDynType:hl.Bytes;
-    static var cursorType:hl.Bytes;
-    static var systemType:hl.Bytes;
-    static var propertiesType:hl.Bytes;
-    static var uiElementType:hl.Bytes;
-    static var h2dObjectType:hl.Bytes;
     static var isTypeMember:hlx.runtime.ResolvedMember;
     static var equalsMember:hlx.runtime.ResolvedMember;
     static var isMaxStackMember:hlx.runtime.ResolvedMember;
@@ -220,18 +200,6 @@ class ItemUtilitiesMod {
     static var arrayGetDynMember:hlx.runtime.ResolvedMember;
     static var arrayDynGetDynMember:hlx.runtime.ResolvedMember;
     static var arrayDynGetLengthMember:hlx.runtime.ResolvedMember;
-    static var setSystemCursorFn:Dynamic;
-    static var buttonCursor:Dynamic;
-    static var cursorResolutionAttempted:Bool = false;
-    static var cursorErrorLogged:Bool = false;
-    static var createNewMember:hlx.runtime.ResolvedMember;
-    static var getParentPropertiesMember:hlx.runtime.ResolvedMember;
-    static var setOnClickMember:hlx.runtime.ResolvedMember;
-    static var playClickFeedbackMember:hlx.runtime.ResolvedMember;
-    static var setTextTipMember:hlx.runtime.ResolvedMember;
-    static var setVisibleMember:hlx.runtime.ResolvedMember;
-    static var getChildIndexMember:hlx.runtime.ResolvedMember;
-    static var addChildAtMember:hlx.runtime.ResolvedMember;
     static var gameAppType:hl.Bytes;
     static var hxdKeyType:hl.Bytes;
     static var isKeyPressedMember:hlx.runtime.ResolvedMember;
@@ -245,9 +213,7 @@ class ItemUtilitiesMod {
     static var inventoryComps:Array<Dynamic> = [];
     static var playerInventoryComp:Dynamic;
     static var visibleSlots:Array<TrackedInventorySlot> = [];
-    static var activeLockInputs:Array<TrackedInventorySlot> = [];
     static var slotsByObject:ObjectMap<Dynamic, TrackedInventorySlot> = new ObjectMap();
-    static var nextSlotOverlayId:Int = 0;
     static var lockEditMode:Bool = false;
     static var lockRecords:Array<Dynamic> = [];
     static var fingerprintCache:Map<String, {item:Dynamic, fingerprint:String}> = new Map();
@@ -265,15 +231,6 @@ class ItemUtilitiesMod {
     static var presetEquippedIndexes:Array<Int> = [];
     static var presetTransferActive:Bool = false;
     static var lockErrors:Map<String, Bool> = new Map();
-    static var activeTooltip:Dynamic;
-    static var activeTooltipShownAt:Float = 0;
-    static var activeBaseUI:Dynamic;
-    static var windowOccluders:Array<OverlayRect>;
-    static inline var INVENTORY_SLOT_SIZE = 48.0;
-    static inline var TOOLTIP_BUTTON_DELAY = 0.2;
-    static inline var TOOLTIP_OVERLAP_INSET = 4.0;
-    static var overlayScaleX:Float = 1;
-    static var overlayScaleY:Float = 1;
     static inline var ITEM_FINGERPRINT_VERSION = ItemLockState.FINGERPRINT_VERSION;
     static inline var LOCK_RECONCILE_INTERVAL = 0.2;
     static inline var DEPOSIT_CRAFTING = 0;
@@ -301,7 +258,6 @@ class ItemUtilitiesMod {
             );
         }
         PlayerInspect.initialize(() -> enabled.get());
-        ImGui.register(HlxRuntime.moduleName(), draw);
     }
 
     @:hlx.postfix(GameApp.finishedLoading)
@@ -409,7 +365,6 @@ class ItemUtilitiesMod {
     static function afterBankInit(instance:Dynamic, result:Void):Void {
         activeBankWindow = instance;
         try bankInventory = HlxRuntime.resolveField(instance, "inventory") catch (_:Dynamic) {}
-        depositButton = null;
         status = "";
         cancelDeposit();
         cancelRecyclerDeposit();
@@ -528,40 +483,36 @@ class ItemUtilitiesMod {
     @:hlx.prefix(ui.BaseUI.setTip)
     static function suppressLockEditItemTooltip(instance:Dynamic, element:Dynamic,
         anchor:Dynamic, position:Dynamic, nesting:Dynamic):HlxPrefixResult<Dynamic> {
-        if (enabled.get() && presetDropdown.isOpen()) {
-            var mouse = ImGui.getMousePos();
-            if (presetDropdown.blocksTooltip(mouse.x, mouse.y)) return SkipWith(null);
-        }
-        if (!lockEditMode)
+        if (!enabled.get() || !showLockVisuals.get() || !lockEditMode)
             return Continue;
         for (entry in visibleSlots) {
             var slot:Dynamic = entry.slot;
             if (!isActiveLockSlot(entry, slot))
                 continue;
             if (isAncestorOf(slot, element) || isAncestorOf(slot, anchor)) {
-                activeBaseUI = instance;
                 return SkipWith(null);
             }
         }
         return Continue;
     }
 
-    @:hlx.postfix(ui.BaseUI.setTip)
-    static function afterTooltipSet(instance:Dynamic, element:Dynamic, anchor:Dynamic,
-        position:Dynamic, nesting:Dynamic, result:Dynamic):Dynamic {
-        activeBaseUI = instance;
-        if (result != null) {
-            activeTooltip = result;
-            activeTooltipShownAt = haxe.Timer.stamp();
-        }
-        return result;
+    @:hlx.prefix(App.render)
+    static function updateNativeControls(instance:Dynamic, engine:Dynamic):HlxPrefixResult<Void> {
+        // Update after game/UI input and before native drawing, never in the
+        // ImGui present pass after the owning windows have already rendered.
+        try draw() catch (error:Dynamic) logLockError("native controls", error);
+        try NativeUtilityUi.endFrame() catch (error:Dynamic) logLockError("native control cleanup", error);
+        return Continue;
+    }
+
+    @:hlx.postfix(hxd.SceneEvents.emitEvent)
+    static function dismissPresetDropdowns(instance:Dynamic, event:Dynamic, result:Void):Void {
+        try NativeUtilityUi.onPointerEvent(event) catch (error:Dynamic) logLockError("preset dropdown", error);
     }
 
     @:hlx.postfix(ui.BaseUI.displayWindow)
-    static function afterWindowDisplayed(instance:Dynamic, window:Dynamic,
-        root:Dynamic, result:Void):Void {
-        activeBaseUI = instance;
-        windowOccluders = null;
+    static function closeCoveredPresetDropdowns(instance:Dynamic, window:Dynamic, root:Dynamic, result:Void):Void {
+        try NativeUtilityUi.onWindowDisplayed(window) catch (error:Dynamic) logLockError("preset dropdown", error);
     }
 
     @:hlx.prefix(st.Loadout.requestCompleteItem)
@@ -750,7 +701,6 @@ class ItemUtilitiesMod {
 
     @:hlx.postfix(ui.win.TitleWindow.onRemove)
     static function afterTitleWindowRemove(instance:Dynamic, result:Void):Void {
-        windowOccluders = null;
         var kept:Array<{ window:Dynamic, inventory:Dynamic }> = [];
         for (entry in openInventoryWindows)
             if (entry.window != instance) kept.push(entry);
@@ -776,7 +726,6 @@ class ItemUtilitiesMod {
         if (instance == activeBankWindow) {
             cancelDeposit();
             activeBankWindow = null;
-            depositButton = null;
             bankInventory = null;
         }
         if (instance == activeScrapWindow) {
@@ -789,14 +738,9 @@ class ItemUtilitiesMod {
     }
 
     static function draw():Void {
-        PlayerInspect.update();
         NativeUiLayout.beginFrame();
-        presetDropdown.beginFrame();
-        presetDropdownHost = null;
-        windowOccluders = null;
-        var previousLockInputs = activeLockInputs;
-        for (entry in previousLockInputs) entry.lockInputUsed = false;
-        activeLockInputs = [];
+        NativeUtilityUi.beginFrame();
+        PlayerInspect.update();
         refreshActiveHero();
         updateTalentPreset();
         updateSkillPreset();
@@ -839,45 +783,6 @@ class ItemUtilitiesMod {
                 drawLockedItemBadges();
             }
         }
-        for (entry in previousLockInputs) {
-            var input:PresetDropdownInput = entry.lockInput;
-            if (input != null && entry.lockInputUsed != true) input.update(null, null);
-        }
-        presetDropdown.endFrame();
-        presetDropdownInput.update(presetDropdownHost, presetDropdown.inputBounds());
-    }
-
-    /** Keep window bounds, content, and custom artwork in the same pixel space. */
-    static function prepareOverlay(rect:OverlayRect, width:Float, height:Float, rounding:Float):Void {
-        overlayScaleX = rect.width / width;
-        overlayScaleY = rect.height / height;
-        ImGui.setNextWindowPos(new ImVec2(rect.left, rect.top));
-        // Explicitly resize on this frame instead of using last frame's content.
-        ImGui.setNextWindowSize(new ImVec2(rect.width, rect.height));
-        ImGui.setNextWindowScroll(new ImVec2(0, 0));
-        ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, new ImVec2(0, 0));
-        ImGui.pushStyleVar(ImGuiStyleVar.WindowMinSize, new ImVec2(1, 1));
-        ImGui.pushStyleVar(ImGuiStyleVar.FrameRounding, overlayStroke(rounding));
-        ImGui.pushStyleVar(ImGuiStyleVar.FramePadding, overlaySize(4, 3));
-        ImGui.pushStyleVar(ImGuiStyleVar.ItemSpacing, overlaySize(8, 4));
-        ImGui.pushFont(null, overlayStroke(ImGui.getFontSize()));
-    }
-
-    static function finishOverlay():Void {
-        ImGui.popFont();
-        ImGui.popStyleVar(5);
-    }
-
-    static inline function overlaySize(width:Float, height:Float):ImVec2 {
-        return new ImVec2(width * overlayScaleX, height * overlayScaleY);
-    }
-
-    static inline function iconPoint(origin:ImVec2, x:Float, y:Float):ImVec2 {
-        return new ImVec2(origin.x + x * overlayScaleX, origin.y + y * overlayScaleY);
-    }
-
-    static inline function overlayStroke(value:Float):Float {
-        return value * Math.min(overlayScaleX, overlayScaleY);
     }
 
     static function drawBankHeaderButton():Void {
@@ -917,80 +822,17 @@ class ItemUtilitiesMod {
             return;
 
         var rect = NativeUiLayout.rect(sortButton, -38, 0, 32, 30);
-        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height))
-            return;
-
-        prepareOverlay(rect, 32, 30, 5);
-        ImGui.setNextWindowBgAlpha(0);
-        var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-            | ImGuiWindowFlags.NoScrollWithMouse
-            | ImGuiWindowFlags.NoSavedSettings
-            | ImGuiWindowFlags.NoFocusOnAppearing;
-        ImGui.pushStyleColor(ImGuiCol.Button, new ImVec4(0.40, 0.37, 0.35, 1));
-        ImGui.pushStyleColor(ImGuiCol.ButtonHovered, new ImVec4(0.48, 0.44, 0.41, 1));
-        ImGui.pushStyleColor(ImGuiCol.ButtonActive, new ImVec4(0.32, 0.29, 0.27, 1));
-        ImGui.pushStyleColor(ImGuiCol.Text, new ImVec4(0.92, 0.86, 0.80, 1));
-        if (!ImGui.begin("##item-utilities-recycler-header", null, flags)) {
-            ImGui.end();
-            ImGui.popStyleColor(4);
-            finishOverlay();
-            return;
-        }
-
-        if (ImGui.button("##recycler-deposit-all", overlaySize(32, 30))) {
-            playButtonClickSound(sortButton);
-            if (!recyclerDepositing)
-                beginRecyclerDeposit();
-        }
-        drawDepositModeIcon(DEPOSIT_ALL);
-        if (ImGui.isItemHovered()) {
-            setGameButtonCursor();
-            ImGui.setTooltip(" Deposit all ");
-        }
-
-        ImGui.end();
-        ImGui.popStyleColor(4);
-        finishOverlay();
+        NativeUtilityUi.button(fieldOrNull(sortButton, "parent"), "recycler-deposit", rect, "all", "Deposit all", () -> {
+            if (enabled.get() && showDepositMaterials.get() && !recyclerDepositing) beginRecyclerDeposit();
+        });
     }
 
     static function drawBankDepositButton(sortButton:Dynamic, rect:OverlayRect,
         mode:Int, suffix:String, tooltip:String):Void {
-        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height))
-            return;
-
-        // Keep the utility in the Bank header without modifying Domkit's live
-        // component tree (doing that after init can invalidate the whole UI).
-        prepareOverlay(rect, 32, 30, 5);
-        ImGui.setNextWindowBgAlpha(0);
-        var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-            | ImGuiWindowFlags.NoScrollWithMouse
-            | ImGuiWindowFlags.NoSavedSettings
-            | ImGuiWindowFlags.NoFocusOnAppearing;
-        ImGui.pushStyleColor(ImGuiCol.Button, new ImVec4(0.40, 0.37, 0.35, 1));
-        ImGui.pushStyleColor(ImGuiCol.ButtonHovered, new ImVec4(0.48, 0.44, 0.41, 1));
-        ImGui.pushStyleColor(ImGuiCol.ButtonActive, new ImVec4(0.32, 0.29, 0.27, 1));
-        ImGui.pushStyleColor(ImGuiCol.Text, new ImVec4(0.92, 0.86, 0.80, 1));
-        if (!ImGui.begin("##item-utilities-bank-header-" + suffix, null, flags)) {
-            ImGui.end();
-            ImGui.popStyleColor(4);
-            finishOverlay();
-            return;
-        }
-
-        if (ImGui.button("##deposit-" + suffix, overlaySize(32, 30))) {
-            playButtonClickSound(sortButton);
-            if (!depositing)
-                beginDepositMode(mode);
-        }
-        drawDepositModeIcon(mode);
-        if (ImGui.isItemHovered()) {
-            setGameButtonCursor();
-            ImGui.setTooltip(tooltip);
-        }
-
-        ImGui.end();
-        ImGui.popStyleColor(4);
-        finishOverlay();
+        NativeUtilityUi.button(fieldOrNull(sortButton, "parent"), "bank-deposit-" + suffix, rect, suffix,
+            StringTools.trim(tooltip), () -> {
+                if (enabled.get() && showDepositMaterials.get() && !depositing) beginDepositMode(mode);
+            });
     }
 
     static function drawEquipmentPresetButtons():Void {
@@ -1022,9 +864,7 @@ class ItemUtilitiesMod {
 
         var controlsWidth = PresetSlots.CONTROLS_WIDTH;
         var rect = NativeUiLayout.rect(appearanceButton, width + 32, 0, controlsWidth, height);
-        if (presetControlsCovered(rect, Equipment))
-            return;
-        drawPresetButtons(rect, height, appearanceButton, Equipment);
+        drawPresetButtons(rect, fieldOrNull(appearanceButton, "parent"), Equipment);
     }
 
     static function drawTalentPresetButtons():Void {
@@ -1053,8 +893,7 @@ class ItemUtilitiesMod {
         var points = fieldOrNull(fieldOrNull(view, "availablePoints"), "parent");
         var rect = TalentPresetLayout.place(uiElementRect(points), uiElementRect(activeTalentRoot),
             uiElementRect(tree), NativeUiLayout.rect(view, 0, 0, PresetSlots.CONTROLS_WIDTH, 36));
-        if (presetControlsCovered(rect, Talent)) return;
-        drawPresetButtons(rect, 36, view, Talent);
+        drawPresetButtons(rect, view, Talent);
     }
 
     static function drawSkillPresetButtons():Void {
@@ -1075,8 +914,7 @@ class ItemUtilitiesMod {
             Math.max(runeBounds.bottom, skillBounds.bottom));
         var rect = SkillPresetLayout.place(uiElementRect(footer), textBounds,
             NativeUiLayout.rect(view, 0, 0, PresetSlots.CONTROLS_WIDTH, 36));
-        if (presetControlsCovered(rect, Skill)) return;
-        drawPresetButtons(rect, 36, view, Skill);
+        drawPresetButtons(rect, footer, Skill);
     }
 
     static function drawAppearancePresetButtons():Void {
@@ -1088,17 +926,7 @@ class ItemUtilitiesMod {
         if (button == null || !isUiVisible(button)) return;
         var rect = AppearancePresetLayout.place(uiElementRect(button),
             uiElementRect(fieldOrNull(button, "parent")), NativeUiLayout.rect(button, 0, 0, PresetSlots.CONTROLS_WIDTH, 36));
-        if (presetControlsCovered(rect, Appearance)) return;
-        drawPresetButtons(rect, 36, button, Appearance);
-    }
-
-    static function presetControlsCovered(rect:OverlayRect, kind:PresetKind):Bool {
-        if (rect == null) return true;
-        // A tooltip from a skill behind the popup must not stop submitting its
-        // parent bar to ImGui. Real covering windows still hide the controls.
-        return presetDropdown.covered(cast kind,
-            tooltipOverlaps(rect.left, rect.top, rect.width, rect.height),
-            windowOverlaps(rect.left, rect.top, rect.width, rect.height));
+        drawPresetButtons(rect, fieldOrNull(button, "parent"), Appearance);
     }
 
     static function uiElementRect(element:Dynamic):OverlayRect {
@@ -1108,128 +936,37 @@ class ItemUtilitiesMod {
         return NativeUiLayout.rect(element, 0, 0, cast width, cast height);
     }
 
-    static function drawPresetButtons(rect:OverlayRect, height:Float,
-        referenceButton:Dynamic, kind:PresetKind):Void {
-        prepareOverlay(rect, PresetSlots.CONTROLS_WIDTH, height, 6);
-        ImGui.setNextWindowBgAlpha(0);
-        var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-            | ImGuiWindowFlags.NoScrollWithMouse
-            | ImGuiWindowFlags.NoSavedSettings
-            | ImGuiWindowFlags.NoFocusOnAppearing;
-        ImGui.pushStyleColor(ImGuiCol.Button, new ImVec4(0.70, 0.59, 0.54, 1));
-        ImGui.pushStyleColor(ImGuiCol.ButtonHovered, new ImVec4(0.541, 0.373, 0.275, 1));
-        ImGui.pushStyleColor(ImGuiCol.ButtonActive, new ImVec4(0.60, 0.48, 0.43, 1));
-        ImGui.pushStyleColor(ImGuiCol.Text, new ImVec4(0.98, 0.93, 0.90, 1));
-        ImGui.pushStyleColor(ImGuiCol.FrameBg, new ImVec4(0.70, 0.59, 0.54, 1));
-        ImGui.pushStyleColor(ImGuiCol.FrameBgHovered, new ImVec4(0.541, 0.373, 0.275, 1));
-        ImGui.pushStyleColor(ImGuiCol.FrameBgActive, new ImVec4(0.60, 0.48, 0.43, 1));
-        ImGui.pushStyleColor(ImGuiCol.PopupBg, new ImVec4(0.81, 0.73, 0.69, 1));
-        ImGui.pushStyleColor(ImGuiCol.Header, new ImVec4(0.70, 0.59, 0.54, 1));
-        ImGui.pushStyleColor(ImGuiCol.HeaderHovered, new ImVec4(0.75, 0.65, 0.60, 1));
-        ImGui.pushStyleColor(ImGuiCol.HeaderActive, new ImVec4(0.60, 0.48, 0.43, 1));
-        var windowId = switch kind {
-            case Equipment: "##item-utilities-weapon-presets";
-            case Talent: "##item-utilities-talent-presets";
-            case Skill: "##item-utilities-skill-presets";
-            case Appearance: "##item-utilities-appearance-presets";
+    static function drawPresetButtons(rect:OverlayRect, parent:Dynamic, kind:PresetKind):Void {
+        var busy = switch kind {
+            case Equipment: presetTransferActive;
+            case Talent: talentPresetTransfer.active;
+            case Skill: skillPresetTransfer.active;
+            case Appearance: appearancePresetTransfer.active;
         };
-        if (ImGui.begin(windowId, null, flags)) {
-            var busy = switch kind {
-                case Equipment: presetTransferActive;
-                case Talent: talentPresetTransfer.active;
-                case Skill: skillPresetTransfer.active;
-                case Appearance: appearancePresetTransfer.active;
-            };
-            var selectedPreset = switch kind {
-                case Equipment: selectedWeaponPreset;
-                case Talent: selectedTalentPreset;
-                case Skill: selectedSkillPreset;
-                case Appearance: selectedAppearancePreset;
-            };
-            ImGui.beginDisabled(busy);
-            // Match the Set button's height at every native UI scale. Combo
-            // popups use their own window, so the options aren't clipped by
-            // the single-row overlay (including on the Skills footer).
-            ImGui.pushStyleVar(ImGuiStyleVar.FramePadding, new ImVec2(8 * overlayScaleX,
-                Math.max(0, (height * overlayScaleY - ImGui.getFontSize()) * 0.5)));
-            ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, overlaySize(6, 6));
-            ImGui.setNextItemWidth(PresetSlots.SELECTOR_WIDTH * overlayScaleX);
-            var previewMin = ImGui.getCursorScreenPos();
-            var popupOpen = ImGui.beginCombo("##preset-selector", "", ImGuiComboFlags.HeightLarge);
-            if (popupOpen) {
-                var popupPos = ImGui.getWindowPos(), popupSize = ImGui.getWindowSize();
-                presetDropdownHost = referenceButton;
-                presetDropdown.update(cast kind, true, new OverlayRect(popupPos.x, popupPos.y,
-                    popupPos.x + popupSize.x, popupPos.y + popupSize.y));
-                ImGui.pushStyleColor(ImGuiCol.Text, new ImVec4(0.36, 0.26, 0.20, 1));
-                for (preset in 0...PresetSlots.COUNT) {
-                    var selected = selectedPreset == preset;
-                    var rowMin = ImGui.getCursorScreenPos();
-                    var rowMax = new ImVec2(rowMin.x + ImGui.getContentRegionAvail().x,
-                        rowMin.y + 28 * overlayScaleY);
-                    if (ImGui.selectable("##preset-option-" + preset, selected, 0, overlaySize(0, 28))) {
-                        presetDropdown.update(cast kind, false);
-                        playButtonClickSound(referenceButton);
-                        switch kind {
-                            case Equipment:
-                                selectEquipmentPreset(preset);
-                                activateEquipmentPreset(preset);
-                            case Talent:
-                                selectTalentPreset(preset);
-                                activateTalentPreset(preset);
-                            case Skill:
-                                selectSkillPreset(preset);
-                                activateSkillPreset(preset);
-                            case Appearance:
-                                selectAppearancePreset(preset);
-                                activateAppearancePreset(preset);
-                        }
-                    }
-                    drawPresetText(PresetSlots.label(preset), rowMin, rowMax);
-                    if (selected) ImGui.setItemDefaultFocus();
-                    if (ImGui.isItemHovered()) setGameButtonCursor();
+        var selected = switch kind {
+            case Equipment: selectedWeaponPreset;
+            case Talent: selectedTalentPreset;
+            case Skill: selectedSkillPreset;
+            case Appearance: selectedAppearancePreset;
+        };
+        NativeUtilityUi.presets(parent, "presets-" + cast(kind, Int), rect, busy, selected,
+            preset -> {
+                if (!enabled.get()) return;
+                switch kind {
+                    case Equipment: selectEquipmentPreset(preset); activateEquipmentPreset(preset);
+                    case Talent: selectTalentPreset(preset); activateTalentPreset(preset);
+                    case Skill: selectSkillPreset(preset); activateSkillPreset(preset);
+                    case Appearance: selectAppearancePreset(preset); activateAppearancePreset(preset);
                 }
-                ImGui.popStyleColor();
-                ImGui.endCombo();
-            } else presetDropdown.update(cast kind, false);
-            drawPresetText(PresetSlots.label(selectedPreset),
-                new ImVec2(previewMin.x + 8 * overlayScaleX, previewMin.y),
-                new ImVec2(previewMin.x + PresetSlots.SELECTOR_WIDTH * overlayScaleX - height * overlayScaleY,
-                    previewMin.y + height * overlayScaleY));
-            ImGui.popStyleVar(2);
-            if (ImGui.isItemHovered()) setGameButtonCursor();
-            ImGui.sameLine();
-            if (ImGui.button("##weapon-preset-set", overlaySize(PresetSlots.SET_WIDTH, height))) {
-                playButtonClickSound(referenceButton);
+            }, () -> {
+                if (!enabled.get()) return;
                 switch kind {
                     case Equipment: saveCurrentEquipmentToPreset(selectedWeaponPreset);
                     case Talent: saveCurrentTalentsToPreset(selectedTalentPreset);
                     case Skill: saveCurrentSkillsToPreset(selectedSkillPreset);
                     case Appearance: saveCurrentAppearancesToPreset(selectedAppearancePreset);
                 }
-            }
-            drawPresetText("Set", ImGui.getItemRectMin(), ImGui.getItemRectMax(), true);
-            if (ImGui.isItemHovered()) setGameButtonCursor();
-            ImGui.endDisabled();
-        }
-        ImGui.end();
-        ImGui.popStyleColor(11);
-        finishOverlay();
-    }
-
-    static function drawPresetText(value:String, min:ImVec2, max:ImVec2, center:Bool = false):Void {
-        var textSize = ImGui.calcTextSize(value);
-        var weight = overlayStroke(0.65);
-        var x = center ? min.x + (max.x - min.x - textSize.x - weight) * 0.5 : min.x;
-        var y = min.y + (max.y - min.y - textSize.y) * 0.5;
-        var drawList = ImGui.getWindowDrawList();
-        var color = ImGui.getColorU32_Col(ImGuiCol.Text);
-        // The same light overdraw used by the old Presets heading, retaining
-        // the plugin font and disabled-state alpha without another font asset.
-        ImGui.ImDrawList_PushClipRect(drawList, min, max, true);
-        ImGui.ImDrawList_AddText_Vec2(drawList, new ImVec2(x, y), color, value);
-        ImGui.ImDrawList_AddText_Vec2(drawList, new ImVec2(x + weight, y), color, value);
-        ImGui.ImDrawList_PopClipRect(drawList);
+            });
     }
 
     static function syncSelectedTalentPreset():Void {
@@ -1985,398 +1722,35 @@ class ItemUtilitiesMod {
     }
 
     static function drawLockHeaderButton():Void {
-        if (activeInventoryUI == null || !isUiVisible(activeInventoryUI)
-            || playerInventoryComp == null)
-            return;
+        if (activeInventoryUI == null || !isUiVisible(activeInventoryUI) || playerInventoryComp == null) return;
         var sortButton = fieldOrNull(playerInventoryComp, "sortButton");
-        if (sortButton == null || !isUiVisible(sortButton))
-            return;
+        if (sortButton == null || !isUiVisible(sortButton)) return;
         var rect = NativeUiLayout.rect(sortButton, -38, 0, 32, 30);
-        if (rect == null || buttonCovered(rect.left, rect.top, rect.width, rect.height))
-            return;
-
-        prepareOverlay(rect, 32, 30, 5);
-        ImGui.setNextWindowBgAlpha(0);
-        var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-            | ImGuiWindowFlags.NoScrollWithMouse
-            | ImGuiWindowFlags.NoSavedSettings
-            | ImGuiWindowFlags.NoFocusOnAppearing;
-        ImGui.pushStyleColor(ImGuiCol.Button,
-            lockEditMode ? new ImVec4(0.58, 0.43, 0.25, 1) : new ImVec4(0.40, 0.37, 0.35, 1));
-        ImGui.pushStyleColor(ImGuiCol.ButtonHovered,
-            lockEditMode ? new ImVec4(0.68, 0.52, 0.31, 1) : new ImVec4(0.48, 0.44, 0.41, 1));
-        ImGui.pushStyleColor(ImGuiCol.ButtonActive,
-            lockEditMode ? new ImVec4(0.49, 0.35, 0.20, 1) : new ImVec4(0.32, 0.29, 0.27, 1));
-        ImGui.pushStyleColor(ImGuiCol.Text, new ImVec4(0.92, 0.86, 0.80, 1));
-
-        if (ImGui.begin("##item-utilities-lock-header", null, flags)) {
-            if (ImGui.button("##item-lock-mode", overlaySize(32, 30))) {
-                playButtonClickSound(sortButton);
-                lockEditMode = !lockEditMode;
-            }
-            drawLockIcon();
-            if (ImGui.isItemHovered()) {
-                setGameButtonCursor();
-                ImGui.setTooltip(lockEditMode ? " Done editing " : " Edit locks ");
-            }
-        }
-        ImGui.end();
-        ImGui.popStyleColor(4);
-        finishOverlay();
-    }
-
-    static function drawLockIcon():Void {
-        var min = ImGui.getItemRectMin();
-        var drawList = ImGui.getWindowDrawList();
-        var color = ImGui.colorConvertFloat4ToU32(new ImVec4(0.94, 0.89, 0.83, 1));
-        ImGui.ImDrawList_AddRect(drawList,
-            iconPoint(min, 9, 13),
-            iconPoint(min, 23, 24), color, overlayStroke(2.0), overlayStroke(2.0), 0);
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 11, 13),
-            iconPoint(min, 11, 10), color, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 11, 10),
-            iconPoint(min, 14, 6), color, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 14, 6),
-            iconPoint(min, 19, 6), color, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 19, 6),
-            iconPoint(min, 21, 10), color, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 21, 10),
-            iconPoint(min, 21, 13), color, overlayStroke(2.0));
+        NativeUtilityUi.button(fieldOrNull(sortButton, "parent"), "edit-locks", rect, "lock",
+            lockEditMode ? "Done editing" : "Edit locks", () -> {
+                if (enabled.get() && showLockVisuals.get()) lockEditMode = !lockEditMode;
+            }, lockEditMode);
     }
 
     static function drawLockSlotOverlays():Void {
-        var viewport = inventoryViewportBounds();
         for (entry in visibleSlots) {
-            var slot:Dynamic = entry.slot;
-            if (!isActiveLockSlot(entry, slot))
-                continue;
-            var item = authoritativeSlotItem(entry, slot);
-            if (item == null)
-                continue;
-
-            var rect = NativeUiLayout.rect(slot, 0, 0, INVENTORY_SLOT_SIZE, INVENTORY_SLOT_SIZE);
-            if (rect == null)
-                continue;
-            if (entry.inventory == sourceInventory) {
-                // Clip the input window itself so hidden rows cannot intercept
-                // clicks on the header or outside the bag at any UI scale.
-                rect = rect.clippedTo(viewport);
-                if (rect == null)
-                    continue;
-            }
-            var x = rect.left;
-            var y = rect.top;
-            var width = rect.width;
-            var height = rect.height;
-            if (buttonCovered(x, y, width, height))
-                continue;
-
-            // Equipped slots have native mouse actions underneath the ImGui
-            // toggle. Give the overlay its own native hit target too, so that
-            // the same press/release cannot also open the equipment picker.
-            if (isActiveEquipmentSlot(entry, slot)) {
-                if (entry.lockInput == null)
-                    entry.lockInput = new PresetDropdownInput("item lock");
-                var input:PresetDropdownInput = entry.lockInput;
-                input.update(slot, rect);
-                entry.lockInputUsed = true;
-                activeLockInputs.push(entry);
-            }
-
-            ImGui.setNextWindowPos(new ImVec2(x, y));
-            ImGui.setNextWindowSize(new ImVec2(width, height));
-            ImGui.setNextWindowScroll(new ImVec2(0, 0));
-            ImGui.setNextWindowBgAlpha(0);
-            var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-                | ImGuiWindowFlags.NoScrollWithMouse
-                | ImGuiWindowFlags.NoSavedSettings | ImGuiWindowFlags.NoFocusOnAppearing
-                | ImGuiWindowFlags.NoBackground;
-            ImGui.pushStyleVar(ImGuiStyleVar.WindowPadding, new ImVec2(0, 0));
-            // Partial rows may be smaller than ImGui's default minimum window.
-            ImGui.pushStyleVar(ImGuiStyleVar.WindowMinSize, new ImVec2(1, 1));
-            if (ImGui.begin(entry.overlayId, null, flags)) {
-                if (ImGui.invisibleButton("##toggle", new ImVec2(width, height)))
-                    toggleItemLock(item);
-                if (ImGui.isItemHovered())
-                    setGameButtonCursor();
-            }
-            ImGui.end();
-            ImGui.popStyleVar(2);
+            var slot = entry.slot;
+            if (!isActiveLockSlot(entry, slot) || authoritativeSlotItem(entry, slot) == null) continue;
+            NativeUtilityUi.lockInput(slot, () -> {
+                // Resolve at click time: sorting/transfers can replace a slot's item.
+                if (!enabled.get() || !showLockVisuals.get() || !lockEditMode || !isActiveLockSlot(entry, slot)) return;
+                var item = authoritativeSlotItem(entry, slot);
+                if (item != null) toggleItemLock(item);
+            });
         }
     }
 
     static function drawLockedItemBadges():Void {
-        if (activeInventoryUI == null || !isUiVisible(activeInventoryUI))
-            return;
-        var viewport = inventoryViewportBounds();
         for (entry in visibleSlots) {
-            var slot:Dynamic = entry.slot;
-            if (!isActiveLockSlot(entry, slot))
-                continue;
-            var item = authoritativeSlotItem(entry, slot);
-            if (!isItemLocked(item))
-                continue;
-
-            var slotRect = NativeUiLayout.rect(slot, 0, 0, INVENTORY_SLOT_SIZE, INVENTORY_SLOT_SIZE);
-            if (slotRect == null || (entry.inventory == sourceInventory
-                && !slotRect.intersects(viewport)))
-                continue;
-
-            var badge = NativeUiLayout.rect(slot, 40, 7, 16, 17);
-            if (badge == null || buttonCovered(badge.left, badge.top, badge.width, badge.height))
-                continue;
-
-            prepareOverlay(badge, 16, 17, 0);
-            ImGui.setNextWindowBgAlpha(0);
-            var flags = ImGuiWindowFlags.NoDecoration | ImGuiWindowFlags.NoMove
-                | ImGuiWindowFlags.NoScrollWithMouse
-                | ImGuiWindowFlags.NoSavedSettings
-                | ImGuiWindowFlags.NoFocusOnAppearing | ImGuiWindowFlags.NoBackground
-                | ImGuiWindowFlags.NoInputs;
-            if (ImGui.begin("##item-lock-badge-" + itemUid(item), null, flags)) {
-                ImGui.invisibleButton("##badge", overlaySize(16, 17));
-                var drawList = ImGui.getWindowDrawList();
-                var clip = entry.inventory == sourceInventory ? viewport : null;
-                if (clip != null)
-                    ImGui.ImDrawList_PushClipRect(drawList,
-                        new ImVec2(clip.left, clip.top),
-                        new ImVec2(clip.right, clip.bottom), true);
-                drawSmallMetalLockIcon();
-                if (clip != null)
-                    ImGui.ImDrawList_PopClipRect(drawList);
-            }
-            ImGui.end();
-            finishOverlay();
+            var slot = entry.slot;
+            if (isActiveLockSlot(entry, slot) && isItemLocked(authoritativeSlotItem(entry, slot)))
+                NativeUtilityUi.badge(slot);
         }
-    }
-
-    static function drawSmallMetalLockIcon():Void {
-        var min = ImGui.getItemRectMin();
-        var drawList = ImGui.getWindowDrawList();
-        var metal = ImGui.colorConvertFloat4ToU32(new ImVec4(0.72, 0.76, 0.82, 1));
-        var keyhole = ImGui.colorConvertFloat4ToU32(new ImVec4(0.20, 0.22, 0.26, 1));
-
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 5, 8),
-            iconPoint(min, 5, 5), metal, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 5, 5),
-            iconPoint(min, 7, 2), metal, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 7, 2),
-            iconPoint(min, 10, 2), metal, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 10, 2),
-            iconPoint(min, 12, 5), metal, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 12, 5),
-            iconPoint(min, 12, 8), metal, overlayStroke(2.0));
-        ImGui.ImDrawList_AddRectFilled(drawList,
-            iconPoint(min, 3, 7),
-            iconPoint(min, 14, 16), metal, overlayStroke(2.0), 0);
-        ImGui.ImDrawList_AddCircleFilled(drawList,
-            iconPoint(min, 8.5, 11), overlayStroke(1.25), keyhole, 8);
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 8.5, 11),
-            iconPoint(min, 8.5, 14), keyhole, overlayStroke(1.5));
-    }
-
-    static function drawDepositModeIcon(mode:Int):Void {
-        switch (mode) {
-            case DEPOSIT_ALL: drawDepositAllIcon();
-            case DEPOSIT_FOOD: drawFoodDepositIcon();
-            case DEPOSIT_CONSUMABLE: drawConsumableDepositIcon();
-            case DEPOSIT_DEMON_ENCHANTMENT: drawDemonDepositIcon();
-            case DEPOSIT_MISC: drawMiscDepositIcon();
-            default: drawCraftingDepositIcon();
-        }
-    }
-
-    static function drawCraftingDepositIcon():Void {
-        var min = ImGui.getItemRectMin();
-        var drawList = ImGui.getWindowDrawList();
-        var metal = ImGui.colorConvertFloat4ToU32(new ImVec4(0.78, 0.82, 0.86, 1));
-        var metalShade = ImGui.colorConvertFloat4ToU32(new ImVec4(0.52, 0.58, 0.64, 1));
-        var handle = ImGui.colorConvertFloat4ToU32(new ImVec4(0.63, 0.42, 0.24, 1));
-        var mark = ImGui.colorConvertFloat4ToU32(new ImVec4(0.94, 0.89, 0.83, 1));
-
-        // Long upright handle, drawn first so the head sits over it.
-        ImGui.ImDrawList_AddRectFilled(drawList,
-            iconPoint(min, 9, 9),
-            iconPoint(min, 13, 19), handle, overlayStroke(1.0), 0);
-
-        // Classic horizontal hammer head: a broad striking face on the left
-        // and a narrower peen on the right.
-        ImGui.ImDrawList_AddRectFilled(drawList,
-            iconPoint(min, 3, 5),
-            iconPoint(min, 12, 11), metal, overlayStroke(1.0), 0);
-        ImGui.ImDrawList_AddQuadFilled(drawList,
-            iconPoint(min, 12, 6),
-            iconPoint(min, 18, 7),
-            iconPoint(min, 18, 9),
-            iconPoint(min, 12, 10), metalShade);
-
-        drawDepositArrowAndBucket(min, drawList, mark);
-    }
-
-    static function drawFoodDepositIcon():Void {
-        var min = ImGui.getItemRectMin();
-        var drawList = ImGui.getWindowDrawList();
-        var food = ImGui.colorConvertFloat4ToU32(new ImVec4(0.86, 0.42, 0.30, 1));
-        var leaf = ImGui.colorConvertFloat4ToU32(new ImVec4(0.55, 0.76, 0.38, 1));
-        var mark = ImGui.colorConvertFloat4ToU32(new ImVec4(0.94, 0.89, 0.83, 1));
-
-        // Apple with a leaf.
-        ImGui.ImDrawList_AddCircleFilled(drawList,
-            iconPoint(min, 11, 12), overlayStroke(5.5), food, 12);
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 11, 7),
-            iconPoint(min, 13, 4), leaf, overlayStroke(1.5));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 13, 5),
-            iconPoint(min, 17, 6), leaf, overlayStroke(2.0));
-        drawDepositArrowAndBucket(min, drawList, mark);
-    }
-
-    static function drawConsumableDepositIcon():Void {
-        var min = ImGui.getItemRectMin();
-        var drawList = ImGui.getWindowDrawList();
-        var potion = ImGui.colorConvertFloat4ToU32(new ImVec4(0.55, 0.73, 0.92, 1));
-        var mark = ImGui.colorConvertFloat4ToU32(new ImVec4(0.94, 0.89, 0.83, 1));
-
-        // Small potion flask.
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 9, 5),
-            iconPoint(min, 14, 5), potion, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 10, 6),
-            iconPoint(min, 10, 10), potion, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 13, 6),
-            iconPoint(min, 13, 10), potion, overlayStroke(2.0));
-        ImGui.ImDrawList_AddTriangleFilled(drawList,
-            iconPoint(min, 10, 9),
-            iconPoint(min, 5, 18),
-            iconPoint(min, 16, 18), potion);
-        drawDepositArrowAndBucket(min, drawList, mark);
-    }
-
-    static function drawDemonDepositIcon():Void {
-        var min = ImGui.getItemRectMin();
-        var drawList = ImGui.getWindowDrawList();
-        var demon = ImGui.colorConvertFloat4ToU32(new ImVec4(0.76, 0.43, 0.86, 1));
-        var mark = ImGui.colorConvertFloat4ToU32(new ImVec4(0.94, 0.89, 0.83, 1));
-
-        // Gem flanked by two small horns.
-        ImGui.ImDrawList_AddQuadFilled(drawList,
-            iconPoint(min, 11, 7),
-            iconPoint(min, 16, 12),
-            iconPoint(min, 11, 18),
-            iconPoint(min, 6, 12), demon);
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 7, 10),
-            iconPoint(min, 4, 5), demon, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 15, 10),
-            iconPoint(min, 18, 5), demon, overlayStroke(2.0));
-        drawDepositArrowAndBucket(min, drawList, mark);
-    }
-
-    static function drawMiscDepositIcon():Void {
-        var min = ImGui.getItemRectMin();
-        var drawList = ImGui.getWindowDrawList();
-        var misc = ImGui.colorConvertFloat4ToU32(new ImVec4(0.77, 0.68, 0.53, 1));
-        var mark = ImGui.colorConvertFloat4ToU32(new ImVec4(0.94, 0.89, 0.83, 1));
-
-        // Three varied pieces represent miscellaneous items.
-        ImGui.ImDrawList_AddCircleFilled(drawList,
-            iconPoint(min, 7, 8), overlayStroke(2.5), misc, 8);
-        ImGui.ImDrawList_AddRectFilled(drawList,
-            iconPoint(min, 11, 6),
-            iconPoint(min, 16, 11), misc, overlayStroke(1.0), 0);
-        ImGui.ImDrawList_AddTriangleFilled(drawList,
-            iconPoint(min, 7, 13),
-            iconPoint(min, 12, 18),
-            iconPoint(min, 3, 18), misc);
-        drawDepositArrowAndBucket(min, drawList, mark);
-    }
-
-    static function drawDepositAllIcon():Void {
-        var min = ImGui.getItemRectMin();
-        var drawList = ImGui.getWindowDrawList();
-        var star = ImGui.colorConvertFloat4ToU32(new ImVec4(0.91, 0.70, 0.39, 1));
-        var mark = ImGui.colorConvertFloat4ToU32(new ImVec4(0.94, 0.89, 0.83, 1));
-
-        // Four-point sparkle communicates "all" without crowding the icon.
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 11, 5),
-            iconPoint(min, 11, 18), star, overlayStroke(2.5));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 5, 11),
-            iconPoint(min, 17, 11), star, overlayStroke(2.5));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 7, 7),
-            iconPoint(min, 15, 15), star, overlayStroke(1.5));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 15, 7),
-            iconPoint(min, 7, 15), star, overlayStroke(1.5));
-
-        drawDepositArrowAndBucket(min, drawList, mark);
-    }
-
-    static function drawDepositArrowAndBucket(min:ImVec2, drawList:Dynamic,
-        mark:Int):Void {
-
-        // Down arrow and receiving tray communicate "deposit" at a glance.
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 23, 6),
-            iconPoint(min, 23, 16), mark, overlayStroke(2.0));
-        ImGui.ImDrawList_AddTriangleFilled(drawList,
-            iconPoint(min, 19, 14),
-            iconPoint(min, 27, 14),
-            iconPoint(min, 23, 19), mark);
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 18, 23),
-            iconPoint(min, 28, 23), mark, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 18, 19),
-            iconPoint(min, 18, 23), mark, overlayStroke(2.0));
-        ImGui.ImDrawList_AddLine(drawList,
-            iconPoint(min, 28, 19),
-            iconPoint(min, 28, 23), mark, overlayStroke(2.0));
-    }
-
-    static function setGameButtonCursor():Void {
-        try {
-            if (cursorType == null)
-                cursorType = HlxRuntime.resolveType("hxd.Cursor");
-            if (systemType == null)
-                systemType = HlxRuntime.resolveType("hxd.System");
-            if (cursorType == null || systemType == null)
-                return;
-            if (buttonCursor == null)
-                buttonCursor = HlxRuntime.constructEnum(cursorType, "Button", []);
-            if (!cursorResolutionAttempted) {
-                cursorResolutionAttempted = true;
-                setSystemCursorFn = HlxRuntime.resolveStaticField(systemType, "setCursor");
-            }
-            if (buttonCursor != null && setSystemCursorFn != null)
-                Reflect.callMethod(null, setSystemCursorFn, [buttonCursor]);
-        } catch (error:Dynamic) {
-            if (!cursorErrorLogged) {
-                cursorErrorLogged = true;
-                trace("[ItemUtilities] button cursor failed: " + Std.string(error));
-            }
-        }
-    }
-
-    static function beginDeposit():Void {
-        beginDepositMode(DEPOSIT_CRAFTING);
     }
 
     static function beginDepositMode(mode:Int):Void {
@@ -2950,17 +2324,6 @@ class ItemUtilitiesMod {
         return true;
     }
 
-    static function inventoryViewportBounds():OverlayRect {
-        var viewport = fieldOrNull(playerInventoryComp, "invContent");
-        if (viewport == null || !isUiVisible(viewport))
-            return null;
-        var rawWidth = fieldOrNull(viewport, "calculatedWidth");
-        var rawHeight = fieldOrNull(viewport, "calculatedHeight");
-        if (rawWidth == null || rawHeight == null)
-            return null;
-        return NativeUiLayout.rect(viewport, 0, 0, cast rawWidth, cast rawHeight);
-    }
-
     static function isActiveInventoryGridSlot(entry:Dynamic, slot:Dynamic):Bool {
         if (slot == null || entry.inventory != sourceInventory || !isUiVisible(slot))
             return false;
@@ -3015,16 +2378,11 @@ class ItemUtilitiesMod {
             entry.index = index;
             return;
         }
-        // Inventory and equipment reuse slot indexes. ImGui needs a distinct,
-        // stable window ID for each UI slot, even when the tracked list moves it.
         entry = {
             inventory: inventory,
             index: index,
             slot: slot,
-            listIndex: visibleSlots.length,
-            lockInput: null,
-            lockInputUsed: false,
-            overlayId: "##item-lock-slot-" + nextSlotOverlayId++
+            listIndex: visibleSlots.length
         };
         slotsByObject.set(slot, entry);
         visibleSlots.push(entry);
@@ -3034,69 +2392,13 @@ class ItemUtilitiesMod {
         var entry = slotsByObject.get(slot);
         if (entry == null)
             return;
-        var input:PresetDropdownInput = entry.lockInput;
-        if (input != null) input.update(null, null);
+        NativeUtilityUi.forget(slot);
         slotsByObject.remove(slot);
         // Fill the gap with the last entry, avoiding another list search or shift.
         var last = visibleSlots.pop();
         if (entry.listIndex < visibleSlots.length) {
             visibleSlots[entry.listIndex] = last;
             last.listIndex = entry.listIndex;
-        }
-    }
-
-    static function buttonCovered(x:Float, y:Float, width:Float, height:Float):Bool {
-        return tooltipOverlaps(x, y, width, height)
-            || windowOverlaps(x, y, width, height);
-    }
-
-    static function tooltipOverlaps(x:Float, y:Float, width:Float, height:Float):Bool {
-        try {
-            var tip = activeTooltip;
-            if (tip == null || fieldOrNull(tip, "parent") == null
-                || fieldOrNull(tip, "visible") == false)
-                return false;
-            if (haxe.Timer.stamp() - activeTooltipShownAt < TOOLTIP_BUTTON_DELAY)
-                return false;
-
-            // Ignore the tooltip's transparent outer padding/shadow so a
-            // merely adjacent tooltip does not make the button disappear.
-            return objectOverlaps(tip, x, y, width, height, TOOLTIP_OVERLAP_INSET);
-        } catch (error:Dynamic) {
-            logLockError("tooltip bounds", error);
-            return false;
-        }
-    }
-
-    static function windowOverlaps(x:Float, y:Float, width:Float, height:Float):Bool {
-        if (windowOccluders == null) collectWindowOccluders();
-        var area = new OverlayRect(x, y, x + width, y + height);
-        for (bounds in windowOccluders)
-            if (bounds.intersects(area)) return true;
-        return false;
-    }
-
-    static function collectWindowOccluders():Void {
-        // The same panel protects badges, lock-edit hit targets, preset buttons
-        // and deposit controls. Resolve it once per frame, not once per item.
-        windowOccluders = [];
-        try {
-            var windows = fieldOrNull(activeBaseUI, "windows");
-            for (index in 0...arrayLength(windows)) {
-                var window = arrayGet(windows, index);
-                if (window == null || window == activeBankWindow
-                    || window == activeScrapWindow
-                    || window == activeCharacterUI
-                    || window == activeInventoryWindow
-                    || isAncestorOf(window, activeInventoryUI)
-                    || isAncestorOf(window, playerInventoryComp))
-                    continue;
-                if (!isUiVisible(window)) continue;
-                var bounds = NativeUiLayout.windowBounds(window);
-                if (bounds != null) windowOccluders.push(bounds);
-            }
-        } catch (error:Dynamic) {
-            logLockError("window bounds", error);
         }
     }
 
@@ -3110,12 +2412,6 @@ class ItemUtilitiesMod {
             current = fieldOrNull(current, "parent");
         }
         return false;
-    }
-
-    static function objectOverlaps(object:Dynamic, x:Float, y:Float,
-        width:Float, height:Float, inset:Float):Bool {
-        var bounds = NativeUiLayout.objectBounds(object, inset);
-        return bounds != null && bounds.intersects(new OverlayRect(x, y, x + width, y + height));
     }
 
     static function toggleItemLock(item:Dynamic):Void {
@@ -3370,25 +2666,6 @@ class ItemUtilitiesMod {
         return Json.stringify(parts);
     }
 
-    static function playButtonClickSound(referenceButton:Dynamic):Void {
-        if (referenceButton == null)
-            return;
-        try {
-            if (!resolveUiMembers())
-                return;
-            if (playClickFeedbackMember == null)
-                playClickFeedbackMember = HlxRuntime.resolveMember(uiElementType, "playClickFeedBack");
-            if (playClickFeedbackMember == null)
-                return;
-            // UIElement.click() calls this after a successful native click. It
-            // owns the exact UI_Button_Click SFX and visual feedback without
-            // invoking the Sort button's action.
-            HlxRuntime.callResolved(playClickFeedbackMember, [referenceButton]);
-        } catch (error:Dynamic) {
-            logLockError("button click sound", error);
-        }
-    }
-
     static function fieldOrNull(object:Dynamic, name:String):Dynamic {
         if (object == null)
             return null;
@@ -3528,78 +2805,6 @@ class ItemUtilitiesMod {
         return isScrappableMember != null;
     }
 
-    static function installDepositButton():Void {
-        try {
-            if (!resolveUiMembers())
-                return;
-
-            var inventoryComp:Dynamic = HlxRuntime.resolveField(activeBankWindow, "comp");
-            var sortButton:Dynamic = inventoryComp == null ? null : HlxRuntime.resolveField(inventoryComp, "sortButton");
-            var sortProperties:Dynamic = sortButton == null ? null : HlxRuntime.resolveField(sortButton, "dom");
-            if (sortProperties == null)
-                return;
-
-            var parentProperties:Dynamic = HlxRuntime.callResolved(getParentPropertiesMember, [sortProperties]);
-            if (parentProperties == null)
-                return;
-
-            var createdProperties:Dynamic = HlxRuntime.callResolved(createNewMember, [
-                "button-icon",
-                parentProperties,
-                ["Item_Transfer"],
-                { id: "depositCraftingMaterials" }
-            ]);
-            if (createdProperties == null)
-                return;
-
-            depositButton = HlxRuntime.resolveField(createdProperties, "obj");
-            if (depositButton == null)
-                return;
-
-            HlxRuntime.callResolved(setOnClickMember, [depositButton, beginDeposit]);
-            HlxRuntime.callResolved(setTextTipMember, [depositButton, "Deposit Crafting Components"]);
-
-            // Domkit appends new components. Move ours immediately after Sort so
-            // it behaves like a native part of the inventory header.
-            var parentObject:Dynamic = HlxRuntime.resolveField(parentProperties, "obj");
-            if (parentObject != null) {
-                var sortIndex:Dynamic = HlxRuntime.callResolved(getChildIndexMember, [parentObject, sortButton]);
-                if (sortIndex != null && cast sortIndex >= 0)
-                    HlxRuntime.callResolved(addChildAtMember, [parentObject, depositButton, cast sortIndex + 1]);
-            }
-
-            syncDepositButtonVisibility();
-        } catch (_:Dynamic) {
-            depositButton = null;
-        }
-    }
-
-    static function syncDepositButtonVisibility():Void {
-        if (depositButton == null || !resolveUiMembers())
-            return;
-        try HlxRuntime.callResolved(setVisibleMember, [depositButton, enabled.get() && showDepositMaterials.get()]) catch (_:Dynamic) {}
-    }
-
-    static function resolveUiMembers():Bool {
-        if (propertiesType == null) propertiesType = HlxRuntime.resolveType("domkit.Properties");
-        if (uiElementType == null) uiElementType = HlxRuntime.resolveType("ui.UIElement");
-        if (h2dObjectType == null) h2dObjectType = HlxRuntime.resolveType("h2d.Object");
-        if (propertiesType == null || uiElementType == null || h2dObjectType == null)
-            return false;
-
-        if (createNewMember == null) createNewMember = HlxRuntime.resolveStaticMember(propertiesType, "createNew");
-        if (getParentPropertiesMember == null) getParentPropertiesMember = HlxRuntime.resolveMember(propertiesType, "get_parent");
-        if (setOnClickMember == null) setOnClickMember = HlxRuntime.resolveMember(uiElementType, "set_onClick");
-        if (setTextTipMember == null) setTextTipMember = HlxRuntime.resolveMember(uiElementType, "set_textTip");
-        if (setVisibleMember == null) setVisibleMember = HlxRuntime.resolveMember(h2dObjectType, "set_visible");
-        if (getChildIndexMember == null) getChildIndexMember = HlxRuntime.resolveMember(h2dObjectType, "getChildIndex");
-        if (addChildAtMember == null) addChildAtMember = HlxRuntime.resolveMember(h2dObjectType, "addChildAt");
-
-        return createNewMember != null && getParentPropertiesMember != null
-            && setOnClickMember != null && setTextTipMember != null && setVisibleMember != null
-            && getChildIndexMember != null && addChildAtMember != null;
-    }
-
     static function cancelDeposit():Void {
         depositing = false;
         transferIndexes = [];
@@ -3713,7 +2918,6 @@ class ItemUtilitiesMod {
                 lockEditMode = false;
             if (!enabled.get() || !sortingIgnoresLockedItems.get())
                 cancelLockedSort(false);
-            syncDepositButtonVisibility();
         } catch (_:Dynamic) {}
     }
 

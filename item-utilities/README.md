@@ -4,12 +4,11 @@
 
 A collection of inventory, bank, character preset, and item-safety quality-of-life tools for Farever.
 
-Lock icons, lock editing, preset controls, and bank/Recycler buttons follow
-the game's current UI position and scale when changing resolution or resizing
-the window. Their click targets and inventory scrolling boundaries scale with them.
-Overlapping windows, including DPS Meter's Fight History, hide covered utility
-overlays and block their lock-edit click targets. Window coverage uses the full
-panel rectangle and is collected once per frame.
+Lock icons, lock editing, preset controls, and bank/Recycler buttons are native
+children of their corresponding game windows. Tooltips and foreground windows
+cover only the overlapping portion, while inventory scrolling clips icons and
+click targets normally. The controls follow the game's UI position and scale,
+and covered portions cannot intercept clicks through foreground native UI.
 
 ## Installation
 
@@ -151,13 +150,13 @@ All four categories have five slots, labeled **Preset 1**, **Preset 2**, **Prese
 **Preset 4**, and **Preset 5**. The collapsed dropdown shows the selected slot;
 choosing a saved option immediately applies it. Empty options remain selectable.
 Selecting the current slot again reapplies it. Preset controls have no tooltips;
-menu labels and **Set** use slightly bolder, vertically centered text.
+the selector, menu labels, and **Set** use the game's native button/dropdown styling.
 **Set** saves your current setup to the selected slot. Controls are disabled while
 that category is applying a preset. The dropdown closes when you choose an option
 or click outside; individual hotkeys can apply presets without opening it.
-Game tooltips underneath an open menu do not hide or dismiss it.
-While a preset menu is open, tabs and other game controls behind its options do
-not receive hover, click, or scroll input. Closing the menu restores normal input.
+The native dropdown handles input over its options. Closing the menu restores
+normal input; leaving the tab, hiding the controls, or opening another window
+also closes its list.
 
 ### Equipment presets
 
@@ -310,7 +309,7 @@ build/item-utilities/item-utilities.hl
 build/item-utilities/implementation/item-utilities.hl
 ```
 
-Run the quick-loot, lock-restoration, overlay-layout, and preset regression tests (Haxe only; no running game required):
+Run the quick-loot, lock-restoration, layout, native UI lifecycle, and preset regression tests (Haxe only; no running game required):
 
 ```sh
 haxe test.hxml

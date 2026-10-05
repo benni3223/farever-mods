@@ -40,11 +40,6 @@
 --next
 -cp src
 -cp tests
--main PresetDropdownStateTest
---interp
---next
--cp src
--cp tests
 -main InspectMenuContextTest
 --interp
 --next
@@ -52,6 +47,12 @@
 -cp tests/inspect-stubs
 -cp tests
 -main InspectTargetsTest
+--interp
+--next
+-cp src
+-cp tests/native-ui-stubs
+-cp tests
+-main NativeUtilityUiTest
 --interp
 --next
 -cp src
