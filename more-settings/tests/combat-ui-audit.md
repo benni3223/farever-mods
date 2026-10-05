@@ -31,7 +31,7 @@ disabled, unfiltered bars return without native lookups.
 
 `ui.win.GearAppearance.init()` provides `scene`, `unit`, and an array of
 `ui.win.AppearanceSlot` buttons. `scene.parent` is the native character panel;
-the `Slot_Hands` button is the horizontal placement anchor. The vertical inset is 15 native UI units, matching `character .content.character #appearanceModeBtn`'s native `offset-y: -15` bottom positioning from the supplied resource stylesheet. The new DOMKit button uses
+the `Slot_Hands` button confirms the native slot layout is ready. The top and right insets are both 15 native UI units. Horizontal placement uses the panel and button's calculated widths so it follows the panel edge on resize. The vertical inset matches `character .content.character #appearanceModeBtn`'s native `offset-y: -15` bottom positioning from the supplied resource stylesheet. The new DOMKit button uses
 panel-relative bounds and absolute positioning, without modifying the model
 viewport or adding ImGui. Only the local hero's page gets a button. Its action
 requests the existing editor on the next game update, outside UI dispatch.

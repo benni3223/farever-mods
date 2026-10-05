@@ -70,7 +70,7 @@ class CombatUiTest {
 
     static function barber():Void {
         BarbershopButton.clear(); AppearanceEditor.requests = 0;
-        var panel:Dynamic = {children:new Array<Dynamic>()}; panel.dom = {obj:panel};
+        var panel:Dynamic = {children:new Array<Dynamic>(), calculatedWidth:620.0}; panel.dom = {obj:panel};
         var helmet:Dynamic = {slot:"Slot_Head", parent:{}, bounds:{xMin:55.0,xMax:115.0,yMin:150.0,yMax:210.0}};
         var gloves:Dynamic = {slot:"Slot_Hands", parent:{}, bounds:{xMin:510.0,xMax:570.0,yMin:150.0,yMax:210.0}};
         var page:Dynamic = {unit:G.hero, scene:{parent:panel}, buttons:{items:[helmet, gloves]}, removed:false,
@@ -82,15 +82,16 @@ class CombatUiTest {
         eq(button.text, "Barbershop", "requested label");
         eq(button.props.isAbsolute, true, "button does not move the model or appearance slots");
         eq(button.minWidth, 140, "button width fits the whitespace");
-        eq(button.x, 470.0, "button centered over gloves on the right");
+        eq(button.x, 465.0, "right margin matches the top margin");
         eq(button.y, 15.0, "top margin mirrors the native Character button bottom offset");
         eq(G.relativeTo == panel, true, "native panel coordinates used for UI scaling");
         var click:Void->Void = button.onClick; click();
         eq(AppearanceEditor.requests, 1, "click requests the existing editor");
         gloves.bounds.xMin = 530; gloves.bounds.xMax = 590; gloves.bounds.yMin = 200;
+        panel.calculatedWidth = 640;
         var callbacks:Array<Float->Void> = page.callbacks;
         for (callback in callbacks) callback(0.016);
-        eq(button.x, 490.0, "native layout changes move the right-side anchor");
+        eq(button.x, 485.0, "native panel resize preserves the right margin");
         eq(button.y, 15.0, "top margin stays fixed when the slots move vertically");
         page.unit = {};
         for (callback in callbacks) callback(0.016);

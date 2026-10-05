@@ -11,7 +11,7 @@ class BarbershopButton {
     static inline var WIDTH = 140;
     static inline var HEIGHT = 34;
     // Native Character/Appearance button uses offset-y: -15 at the bottom.
-    static inline var TOP_MARGIN = 15;
+    static inline var EDGE_MARGIN = 15;
     static var entries:ObjectMap<Dynamic, BarberEntry> = new ObjectMap();
 
     public static function attach(page:Dynamic):Void {
@@ -57,12 +57,14 @@ class BarbershopButton {
         var left = G.number(G.field(bounds, "xMin"));
         var right = G.number(G.field(bounds, "xMax"));
         var top = G.number(G.field(bounds, "yMin"));
-        if (right <= left || top < HEIGHT + 16) {
+        var panelWidth = G.number(G.field(entry.parent, "calculatedWidth"));
+        var buttonWidth = Math.max(WIDTH, G.number(G.field(entry.button, "calculatedWidth")));
+        if (right <= left || top < HEIGHT + 16 || panelWidth < buttonWidth + EDGE_MARGIN * 2) {
             if (G.field(entry.button, "visible") == true) Ui.show(entry.button, false);
             return;
         }
-        var x = Math.max(12, (left + right - WIDTH) / 2);
-        var y = TOP_MARGIN;
+        var x = panelWidth - buttonWidth - EDGE_MARGIN;
+        var y = EDGE_MARGIN;
         if (G.field(entry.button, "x") != x || G.field(entry.button, "y") != y) Ui.position(entry.button, x, y);
         if (G.field(entry.button, "visible") != true) Ui.show(entry.button, true);
     }
