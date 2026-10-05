@@ -9,6 +9,11 @@ class EffectsHooks {
     static function telegraphAfter(instance:Dynamic, mobile:Bool, result:Void):Void
         CrabgantuaWarnings.attach(instance);
 
+    @:hlx.prefix(st.skill.SkillArea.killTelegraph)
+    static function telegraphEnding(instance:Dynamic):HlxPrefixResult<Void> {
+        CrabgantuaWarnings.end(instance); return Continue;
+    }
+
     @:hlx.prefix(st.skill.SkillStep.playVisuals)
     static function stepBefore(instance:Dynamic, force:hl.Ref<Bool>):HlxPrefixResult<Void> {
         AllyEffects.pushSkill(G.field(instance, "baseSkill")); return Continue;

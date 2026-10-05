@@ -89,7 +89,7 @@
       "label": "Keep Crabgantua rockfall warnings visible",
       "tooltip": {
         "enabled": true,
-        "tooltipText": "Keeps the incoming rockfall circles visible through Crabgantua's water effects on Heroic difficulty."
+        "tooltipText": "Adds high-contrast outlines to incoming rockfall circles so they stay visible through Crabgantua's water effects on Heroic difficulty."
       }
     },
     {

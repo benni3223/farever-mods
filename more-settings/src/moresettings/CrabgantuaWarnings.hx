@@ -13,6 +13,9 @@ private typedef WarningPass = {
 private typedef WarningFx = {
     var passes:Array<WarningPass>;
     var applied:Bool;
+    var area:Dynamic;
+    var outline:Dynamic;
+    var outlineFailed:Bool;
 }
 
 /** Keep only Crabgantua's heroic Avalanche telegraphs above its water effects. */
@@ -35,7 +38,8 @@ class CrabgantuaWarnings {
         if (G.text(G.field(G.field(skill, "inf"), "id")) != "R1CrabBoss_Heroic_Avalanche") return;
         var fx = G.field(area, "telegraphFx");
         if (fx == null || G.field(fx, "removed") == true) return;
-        if (!warnings.exists(fx)) warnings.set(fx, {passes: [], applied: false});
+        if (!warnings.exists(fx)) warnings.set(fx,
+            {passes: [], applied: false, area: area, outline: null, outlineFailed: false});
         // Track even while disabled so enabling during a warning works too.
         sync(fx);
     }
@@ -43,7 +47,18 @@ class CrabgantuaWarnings {
     public static function sync(fx:Dynamic):Void {
         if (!enabled) return;
         var warning = warnings.get(fx);
-        if (warning == null || warning.applied || G.field(fx, "removed") == true) return;
+        if (warning == null || G.field(fx, "removed") == true) return;
+        // Material depth state alone cannot guarantee that a projected warning
+        // survives water/decal shaders. The independent boundary has no such
+        // shader dependency and only exists during the actual warning interval.
+        if (warning.outline == null && warning.area != null && !warning.outlineFailed) try {
+            warning.outline = RockfallOutline.create(warning.area);
+        } catch (error:Dynamic) {
+            // Do not allocate failed graphics again on every render frame.
+            warning.outlineFailed = true;
+            report(error);
+        }
+        if (warning.applied) return;
         try {
             var always = G.enumeration("h3d.mat.Compare", "Always");
             if (always == null) throw "Native depth comparison unavailable";
@@ -80,7 +95,7 @@ class CrabgantuaWarnings {
 
     static function colorPass(name:String):Bool return switch name {
         case "default", "alpha", "additive", "forward", "forwardAlpha", "overlay",
-            "beforeTonemapping", "beforeTonemappingAlpha", "afterTonemapping", "afterTonemappingDecal",
+            "beforeTonemapping", "beforeTonemappingAlpha", "beforeTonemappingDecal", "afterTonemapping", "afterTonemappingDecal",
             "afterFog", "transparentOverlay", "volumetricOverlay": true;
         // Depth/shadow passes and deferred G-buffer outputs must keep their
         // original pipeline. Only colour passes can use the native overlay output.
@@ -88,6 +103,7 @@ class CrabgantuaWarnings {
     };
 
     static function restore(warning:WarningFx):Void {
+        removeOutline(warning);
         for (saved in warning.passes) try {
             G.call("h3d.mat.Pass", "setPassName", saved.pass, [saved.name]);
             G.call("h3d.mat.Pass", "set_depthTest", saved.pass, [saved.depthTest]);
@@ -95,6 +111,23 @@ class CrabgantuaWarnings {
         } catch (error:Dynamic) report(error);
         warning.passes = [];
         warning.applied = false;
+        warning.outlineFailed = false;
+    }
+
+    static function removeOutline(warning:WarningFx):Void {
+        var outline = warning.outline;
+        warning.outline = null;
+        try RockfallOutline.remove(outline) catch (error:Dynamic) report(error);
+    }
+
+    /** Called before native killTelegraph detaches/fades the warning for pooling. */
+    public static function end(area:Dynamic):Void {
+        var fx = G.field(area, "telegraphFx");
+        if (fx == null) return;
+        var warning = warnings.get(fx);
+        if (warning == null) return;
+        warning.area = null;
+        removeOutline(warning);
     }
 
     public static function forget(fx:Dynamic):Void {
