@@ -912,8 +912,18 @@ class ItemUtilitiesMod {
         var textBounds = new OverlayRect(Math.min(runeBounds.left, skillBounds.left),
             Math.min(runeBounds.top, skillBounds.top), Math.max(runeBounds.right, skillBounds.right),
             Math.max(runeBounds.bottom, skillBounds.bottom));
+        var equippedBounds:OverlayRect = null;
+        var footerChildren = fieldOrNull(footer, "children");
+        for (i in 0...arrayLength(footerChildren)) {
+            var child = arrayGet(footerChildren, i);
+            if (InspectAccess.isA(child, "ui.win.HeroSkillSlots")) {
+                equippedBounds = uiElementRect(child);
+                break;
+            }
+        }
         var rect = SkillPresetLayout.place(uiElementRect(footer), textBounds,
-            NativeUiLayout.rect(view, 0, 0, PresetSlots.CONTROLS_WIDTH, 36));
+            NativeUiLayout.rect(view, 0, 0, PresetSlots.CONTROLS_WIDTH, 36),
+            uiElementRect(view), equippedBounds);
         drawPresetButtons(rect, footer, Skill);
     }
 
