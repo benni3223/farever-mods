@@ -168,6 +168,7 @@ class MoreSettingsMod {
     @:hlx.prefix(GameApp.update)
     static function beforeUpdate(instance:Dynamic, dt:Float):HlxPrefixResult<Void> {
         app = instance;
+        PerformanceHooks.update(instance, dt);
         AppearanceEditor.update(instance);
         AllyEffects.update(instance);
         if (audio != null && haxe.Timer.stamp() >= audioRetryAt)
@@ -189,6 +190,7 @@ class MoreSettingsMod {
 
     @:hlx.prefix(GameApp.dispose)
     static function dispose(instance:Dynamic):HlxPrefixResult<Void> {
+        PerformanceHooks.dispose();
         DungeonLeaveButton.clear();
         try FancyDamageNumbers.dispose() catch (error:Dynamic) damageNumberError(error);
         AppearanceEditor.close();

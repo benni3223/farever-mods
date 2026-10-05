@@ -58,3 +58,9 @@
 -cp tests
 -main SocialInteractTest
 --interp
+--next
+-cp src
+-cp tests/stall-stubs
+-cp tests
+-main StallOptimizationTest
+--interp

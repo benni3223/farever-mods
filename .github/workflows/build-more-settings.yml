@@ -83,6 +83,13 @@ jobs:
           mkdir -p build
           cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined tests/event_volume_test.c -o build/event-volume-test
           build/event-volume-test
+      - name: Test incremental loading and pipeline lifecycle on HashLink
+        working-directory: more-settings
+        env:
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.combat-hashlink
+        run: |
+          haxe -cp src -cp tests/stall-stubs -cp tests -main StallOptimizationTest -hl build/stall-optimization-test.hl
+          ../.combat-hashlink/hl build/stall-optimization-test.hl
 
   build:
     needs: test
