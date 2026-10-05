@@ -62,6 +62,33 @@ class SkillPresetSerializationPlugin {
         check(SkillPresetPlan.same(changes[1].after,
             {slots: current.slots, runes: [secondRune, otherRune]}),
             "Preserve rune preferences belonging to unequipped skills.");
+
+        var signature:String = cast Reflect.field(host, "signature");
+        var signatureRune1:String = cast Reflect.field(host, "signatureRune1");
+        var signatureRune2:String = cast Reflect.field(host, "signatureRune2");
+        owners.set(signatureRune1, signature); owners.set(signatureRune2, signature);
+        rules.signatures = [signature => [signatureRune1, signatureRune2]];
+        check(Type.getClass(signature) != String && Type.getClass(signatureRune1) != String,
+            "Signature fixture must use game-owned string identities too.");
+        var before:SkillPresetState = {slots:current.slots, runes:[firstRune, signatureRune1, otherRune]};
+        for (selection in [[], [signatureRune1], [signatureRune2], [signatureRune1, signatureRune2]]) {
+            var desired:SkillPresetState = {slots:before.slots, runes:[firstRune, otherRune].concat(selection)};
+            var savedSignatures = SkillPresetPlan.savedSignatures(desired, owners, rules);
+            for (target in [SkillPresetPlan.decodeSignatures(savedSignatures),
+                SkillPresetPlan.decodeSignatures(haxe.Json.parse(haxe.Json.stringify(savedSignatures)))]) {
+                check(target.length == 1 && Std.isOfType(target[0].skill, String),
+                    "Save the signature skill ID as a local JSON string.");
+                check(target[0].skill == "Priest_Sig_DivineIntervention" && target[0].runes.join(",") == selection.join(","),
+                    "Keep the exact signature rune selection, including empty and multiple selections.");
+                for (rune in target[0].runes) check(Std.isOfType(rune, String), "Signature runes are local strings.");
+                var classSlots = SkillPresetPlan.saved(desired, owners);
+                var changes = SkillPresetPlan.build(before, classSlots, rules, owners, target);
+                for (change in changes) check(change.slot == -1 && change.skill == signature,
+                    "Signature selections produce only normal rune requests, never slot assignments.");
+                var after = changes.length == 0 ? before : changes[changes.length - 1].after;
+                check(SkillPresetPlan.same(after, desired), "Apply signature runes without changing other skills/runes.");
+            }
+        }
         Sys.println("Skill preset cross-module serialization passed.");
     }
 }

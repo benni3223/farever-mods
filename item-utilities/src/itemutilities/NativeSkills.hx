@@ -82,6 +82,7 @@ class NativeSkills {
         var progress = field(field(hero, "player"), "progress");
         var learned = strings(field(field(progress, "skillMasteriesLearnt"), "array"));
         var result:Map<String, Array<String>> = [];
+        var signatures:Map<String, Array<String>> = [];
         if (skills == null) throw "The character's skills are not ready yet.";
         for (i in 0...arrayLength(skills)) {
             var entry = arrayGet(skills, i);
@@ -90,8 +91,10 @@ class NativeSkills {
             if (unlock != null && level < (cast unlock:Int)) continue;
             var inf = definition(skill);
             // HeroSkillSlots use type 11; matchSlotTypes permits class type 9.
-            // Signature skills, weapons, prayers, and conduits have other UIs.
-            if (inf == null || field(inf, "type") != 9) continue;
+            // Signature skills (17), such as Judgment, have runes in the same
+            // replicated mastery array, but never occupy one of the four slots.
+            var type = field(inf, "type");
+            if (inf == null || (type != 9 && type != 17)) continue;
             var runes:Array<String> = [];
             var runeLevel:Dynamic = field(entry, "masteriesLevel");
             if (runeLevel == null || level >= (cast runeLevel:Int)) {
@@ -101,10 +104,11 @@ class NativeSkills {
                     if (learned.indexOf(rune) >= 0) runes.push(rune);
                 }
             }
-            result.set(skill, runes);
+            if (type == 17) signatures.set(skill, runes);
+            else result.set(skill, runes);
         }
         var secondRune:Float = cast field(staticField("Const", "Hero"), "UnlockLevel_SecondMastery");
-        return {skills: result,
+        return {skills: result, signatures: signatures,
             unlockedSlots: [for (i in 0...SkillPresetPlan.SLOT_COUNT)
                 call("ent.Hero", "isSkillInputUnlocked", hero, ["Skill" + (i + 1)]) == true],
             maxRunes: level >= secondRune ? 2 : 1};

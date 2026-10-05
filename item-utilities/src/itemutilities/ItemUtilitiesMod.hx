@@ -1653,8 +1653,11 @@ class ItemUtilitiesMod {
             var specialization = fieldOrNull(hero, "specialization");
             var current = NativeSkills.current(specialization);
             NativeSkills.ensureSynchronized(hero, current);
-            var saved = SkillPresetPlan.saved(current, NativeSkills.runeSkills(current.runes));
-            SkillPresetPlan.validate(saved, NativeSkills.rules(hero));
+            var owners = NativeSkills.runeSkills(current.runes);
+            var rules = NativeSkills.rules(hero);
+            var saved = SkillPresetPlan.saved(current, owners);
+            var signatures = SkillPresetPlan.savedSignatures(current, owners, rules);
+            SkillPresetPlan.validate(saved, rules, signatures);
             var existing = findSkillPreset(characterId, preset);
             if (existing == null) {
                 existing = {characterId: characterId, preset: preset};
@@ -1662,6 +1665,7 @@ class ItemUtilitiesMod {
             }
             Reflect.setField(existing, "classId", Std.string(fieldOrNull(fieldOrNull(hero, "inf"), "id")));
             Reflect.setField(existing, "skills", saved);
+            Reflect.setField(existing, "signatureSkills", signatures);
             saveConfig();
             skillPresetStatus = "Skill preset " + (preset + 1) + " saved.";
         } catch (error:Dynamic) {
@@ -1687,9 +1691,13 @@ class ItemUtilitiesMod {
             var current = NativeSkills.current(specialization);
             NativeSkills.ensureSynchronized(hero, current);
             var target = SkillPresetPlan.decode(Reflect.field(saved, "skills"));
+            // Older presets did not record signature runes; leave those choices
+            // alone until the player presses Set to capture them explicitly.
+            var signatures = Reflect.hasField(saved, "signatureSkills")
+                ? SkillPresetPlan.decodeSignatures(Reflect.field(saved, "signatureSkills")) : [];
             NativeSkills.ensureCanApply(hero);
             var changes = SkillPresetPlan.build(current, target, NativeSkills.rules(hero),
-                NativeSkills.runeSkills(current.runes));
+                NativeSkills.runeSkills(current.runes), signatures);
             if (changes.length == 0) {
                 skillPresetStatus = "This skill preset is already active.";
                 refreshSkillPresetView(hero);

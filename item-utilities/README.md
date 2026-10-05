@@ -172,6 +172,13 @@ start empty with unbound hotkeys. Preset hotkeys work without opening the Charac
 
 Existing weapon presets remain usable. Press **Set** again on each preset to include your current armor and accessories. Equipment changes follow the game's normal restrictions.
 
+Saved item IDs can be reassigned after logging in again. Presets verify the saved
+item fingerprint (including upgrades, sockets, and infusions) before preferring
+an ID match, so another item cannot replace a saved weapon just by reusing its ID.
+Existing presets benefit automatically. Re-save after changing an item's saved
+properties; a legacy preset missing infusion details cannot choose between
+different infusion variants.
+
 ### Talent presets
 
 Adds a matching **Preset 1–5** dropdown and **Set** button near the top of the Talents page,
@@ -198,7 +205,8 @@ Adds a matching **Preset 1–5** dropdown and **Set** button at the far right of
 page's bottom strip, vertically centered and aligned with the current UI scale.
 
 - Select a preset slot and press **Set** to save the four equipped class skills,
-  their slot order, and the runes equipped on each of those skills.
+  their slot order, their runes, and the runes on unlocked signature skills such
+  as the priest's **Judgment**. Signature skills do not occupy a regular slot.
 - Choose a saved preset from the dropdown or use its **Skill preset 1–5 hotkey** under **Skill
   Presets** in Better Mod Settings. Hotkeys also work with the window closed.
 - Presets and the selected slot are saved separately for each character,
@@ -206,6 +214,8 @@ page's bottom strip, vertically centered and aligned with the current UI scale.
 - Empty slots and no-rune selections are saved exactly. A preset with one rune
   restores that rune and removes any extra rune from that skill. Multiple runes
   are supported when the game permits them; runes on other skills are left alone.
+  Older presets without signature records keep the current signature runes;
+  select the desired runes and press **Set** once to include them.
 - The saved skills and runes must be unlocked, and changes cannot be applied in
   combat. All checks happen before applying the first change.
 - Uses normal skill-slot and rune requests, waiting for each server update.
