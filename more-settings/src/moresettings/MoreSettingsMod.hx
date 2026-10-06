@@ -66,6 +66,11 @@ class MoreSettingsMod {
         try MinionHealthBars.attach(instance) catch (e:Dynamic) MinionHealthBars.report(e);
     }
 
+    @:hlx.postfix(ui.comp.AttributeBar.init)
+    static function afterAttributeBarInit(instance:Dynamic, result:Void):Void {
+        try MinionHealthBars.attachLifetime(instance) catch (e:Dynamic) MinionHealthBars.report(e);
+    }
+
     @:hlx.prefix(ui.comp.DamageDisplay.display)
     static function beforeDamageNumber(damage:Dynamic, position:Dynamic):HlxPrefixResult<Dynamic>
         return config.disableDamageNumbers ? SkipWith(null) : Continue;

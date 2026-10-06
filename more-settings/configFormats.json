@@ -86,10 +86,10 @@
     {
       "key": "crabgantuaRockfallWarnings",
       "type": "checkbox",
-      "label": "Keep Crabgantua rockfall warnings visible",
+      "label": "Improved Crabgantua rockfall warnings",
       "tooltip": {
         "enabled": true,
-        "tooltipText": "Adds high-contrast outlines to incoming rockfall circles so they stay visible through Crabgantua's water effects on Heroic difficulty."
+        "tooltipText": "Makes Crabgantua's rockfall warnings visible through the flooding water attack"
       }
     },
     {

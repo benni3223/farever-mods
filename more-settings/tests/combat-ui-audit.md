@@ -25,8 +25,14 @@ instance displayHeal prototype), and their native signatures are preserved.
 ## Allied minion bars
 
 Overhead `ui.hud.FoeWidget` contains `ui.hud.FoeCombatInfo.healthBar`, an
-instance of `ui.comp.HealthBar`. Filtering only that component keeps other
-widget indicators intact. Classification requires an `ent.Foe` with a
+instance of `ui.comp.HealthBar`. Filtering bar components keeps other widget
+indicators intact. Temporary summons also create a separate
+`ui.comp.AttributeBar(unit, "Lifetime")` in `FoeCombatInfo`'s `main-bar` container.
+The Almaz staff's `Staff_SummonDemon_Skill2` summons `Summon_Imp` for 12 seconds;
+its lifetime bar bypassed the original HealthBar-only hook. The AttributeBar
+initializer now attaches only bars whose native `atbId` is `Lifetime` to the same
+visibility filter. Other attribute bars are excluded. Classification requires an
+`ent.Foe` with a
 `summonOwner`, the local hero's layer, and native `isEnemy(hero) == false`. The local hero's own summons are excluded.
 Player/party bars and health bars outside an overhead FoeWidget are excluded.
 

@@ -14,6 +14,11 @@ class CombatUiTest {
         return {unit:unit, visible:visible, removed:false, parent:{type:parentType, parent:null, callbacks:new Array<Float->Void>()}};
     static function unit(layer:Dynamic, owner:Dynamic, enemy = false):Dynamic
         return {type:"ent.Foe", summonOwner:owner, enemy:enemy, layer:layer, removed:false};
+    static function attributeBar(unit:Dynamic, atbId = "Lifetime", parentType = "ui.hud.FoeWidget", visible = true):Dynamic {
+        var result = bar(unit, parentType, visible);
+        result.atbId = atbId;
+        return result;
+    }
 
     static function minions():Void {
         MinionHealthBars.clear(); MinionHealthBars.configure(false);
@@ -66,6 +71,43 @@ class CombatUiTest {
         eq(ally.visible, true, "session cleanup restores tracked visibility");
         eq(own.visible, true, "own minion bar remains visible through all changes");
         MinionHealthBars.configure(false);
+    }
+
+    static function lifetimeBars():Void {
+        MinionHealthBars.clear(); MinionHealthBars.configure(true);
+        var layer:Dynamic = {};
+        G.hero = {layer:layer};
+        var own = attributeBar(unit(layer, G.hero));
+        var allyUnit = unit(layer, {}); allyUnit.kind = "Summon_Imp";
+        var ally = attributeBar(allyUnit);
+        var health = bar(allyUnit);
+        var enemy = attributeBar(unit(layer, {}, true));
+        var unknownOwner = attributeBar(unit(layer, null));
+        var otherAttribute = attributeBar(allyUnit, "SpecialEnergy");
+        var boss = attributeBar(allyUnit, "Lifetime", "ui.hud.BossInfo");
+        var player = attributeBar({type:"ent.Hero", layer:layer}, "Lifetime", "ui.hud.HeroWidget");
+        var initiallyHidden = attributeBar(allyUnit, "Lifetime", "ui.hud.FoeWidget", false);
+        for (b in [own, ally, enemy, unknownOwner, otherAttribute, boss, player, initiallyHidden])
+            MinionHealthBars.attachLifetime(b);
+        MinionHealthBars.attach(health);
+        eq(ally.visible, false, "Almaz imp lifetime bar hides without a HealthBar component");
+        eq(health.visible, false, "summons with both health and lifetime hide both bars");
+        for (b in [own, enemy, unknownOwner, otherAttribute, boss, player])
+            eq(b.visible, true, "own, unrelated and unresolved lifetime bars stay visible");
+        eq(otherAttribute.parent.callbacks.length, 0, "other attribute bars are not tracked");
+        G.call("ui.UIElement", "set_visible", ally, [true]);
+        eq(ally.visible, false, "native refresh cannot reveal filtered lifetime bar");
+        unknownOwner.unit.summonOwner = {};
+        @:privateAccess MinionHealthBars.refresh(unknownOwner, true);
+        eq(unknownOwner.visible, false, "late ownership hides allied lifetime bar");
+        unknownOwner.unit.summonOwner = G.hero;
+        @:privateAccess MinionHealthBars.refresh(unknownOwner, true);
+        eq(unknownOwner.visible, true, "local ownership restores lifetime bar");
+        MinionHealthBars.configure(false);
+        eq(ally.visible, true, "disabling restores allied lifetime bar");
+        eq(health.visible, true, "disabling restores allied health bar");
+        eq(initiallyHidden.visible, false, "disabling preserves a natively hidden lifetime bar");
+        MinionHealthBars.clear();
     }
 
     static function barber():Void {
@@ -125,7 +167,7 @@ class CombatUiTest {
         }
     }
     static function main():Void {
-        minions(); barber(); descriptor();
+        minions(); lifetimeBars(); barber(); descriptor();
         trace('Combat UI: $checks checks passed.');
     }
 }

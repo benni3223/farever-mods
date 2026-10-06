@@ -5,7 +5,7 @@ import moresettings.GameAccess as G;
 
 private typedef MinionBar = { var nativeVisible:Bool; var hidden:Bool; var nextCheck:Float; }
 
-/** Filter only the health/shield component of an overhead summoned-unit widget. */
+/** Filter health/shield and lifetime bars in overhead summoned-unit widgets. */
 class MinionHealthBars {
     static var enabled = false;
     static var bars:ObjectMap<Dynamic, MinionBar> = new ObjectMap();
@@ -15,6 +15,12 @@ class MinionHealthBars {
     public static function configure(value:Bool):Void {
         enabled = value;
         for (bar in bars.keys()) refresh(bar, true);
+    }
+
+    public static function attachLifetime(bar:Dynamic):Void {
+        // Temporary summons such as Almaz's imps use a standalone AttributeBar,
+        // outside the HealthBar component, to display their remaining lifetime.
+        if (G.text(G.field(bar, "atbId")) == "Lifetime") attach(bar);
     }
 
     public static function attach(bar:Dynamic):Void {
