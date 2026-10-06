@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.14.0",
-  "commit": "c1271b01ea060123f78e4af14ac163d20fe2c5cb",
-  "notes": "- Added fancy healing numbers to Fancy Damage Numbers (green = heal, green+gold = crit heal)\n- Added an option to rebind the social interaction hotkey separately from loot/revive/talk to npc\n",
+  "project": "item-utilities",
+  "version": "1.10.0",
+  "commit": "fe51b67629f9651f7734e086f53bdd3105a6dbcc",
+  "notes": "- Fixed an issue where some runes and weapons and skills weren't properly saving in skill/weapon presets\n- Added an inspect option to social menus (friend, party, and nearby players list) to enable inspection without interacting directly with another player's character. This only works when in the same shard.\n-> Improved appearance of lock/deposit/preset buttons\n",
   "dry_run": false
 }
