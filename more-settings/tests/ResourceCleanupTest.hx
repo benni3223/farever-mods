@@ -55,6 +55,59 @@ class ResourceCleanupTest {
     static function block(value:Dynamic):Void {
         value.gate = new Lock(); value.entered = new Lock();
     }
+    static function capturedBurst():Void {
+        // Regression for the 2026-10-06 v4 capture: 22,132 queued, zero pending,
+        // rejected by the old 4,096 limit and drained natively in 2,088 ms.
+        for (diagnostics in [false, true]) {
+            StallMetrics.configure(diagnostics);
+            if (diagnostics) StallMetrics.beginFrame();
+            var f = fixture(22132); var c:ResourceCleanup = f.cleanup;
+            var values:Array<Dynamic> = f.values;
+            block(values[values.length - 1]); // Native pop order: block the first release.
+            c.beginFrame(f.driver);
+            for (v in values) v.ready = true;
+            c.recycle(f.driver.frame.bufferAllocator);
+            eq(f.driver.frame.toRelease.length, 0, "captured burst removed from native release loop");
+            eq(GPU.released.length, 0, "large transfer preserves delayed publication");
+            c.endFrame(f.driver);
+            eq(values[values.length - 1].entered.wait(3), true, "large batch begins on worker");
+            eq(GPU.released.length, 0, "game thread returns while worker release remains blocked");
+            if (diagnostics) {
+                var sample = StallMetrics.metrics.cleanup;
+                eq(sample.queued, 22132, "captured native queue count");
+                eq(sample.pendingMax, 0, "captured initially idle worker");
+                eq(sample.staged, 22132, "entire captured burst staged");
+                eq(sample.submitted, 22132, "entire captured burst submitted");
+                eq(sample.memoryReads, 1, "large burst still checks actual memory headroom");
+                eq((sample.events & (1 << C.QUEUE_LIMIT)) != 0, false, "captured burst no longer hits count fallback");
+            }
+            // A fix must not merely move the wait to the very next frame.
+            var later:Array<Dynamic> = [];
+            for (_ in 0...60) {
+                var next = objects(8);
+                for (v in next) later.push(v);
+                f.driver.frame = frame(next);
+                pass(f);
+                eq(f.driver.frame.toRelease.length, 0, "later frame offloads while large batch is in flight");
+            }
+            eq(GPU.released.length, 0, "later submissions also return before blocked release finishes");
+            values[values.length - 1].gate.release();
+            c.suspend();
+            allOnce(values, true, "captured burst");
+            allOnce(later, true, "frames following captured burst");
+            eq(GPU.released[0].id, values[values.length - 1].id, "large batch keeps native reverse order");
+            eq(GPU.released[values.length].id, later[7].id, "following batch retains FIFO order");
+        }
+        StallMetrics.configure(false);
+
+        // Higher count capacity must not bypass the separate memory guard.
+        var f = fixture(22132); var c:ResourceCleanup = f.cleanup;
+        f.driver.memory.free = 100e6;
+        var original = f.driver.frame.toRelease;
+        pass(f); c.suspend();
+        eq(f.driver.frame.toRelease == original, true, "large burst under memory pressure stays native");
+        allOnce(f.values, false, "memory guard on captured-size burst");
+    }
     static function diagnostics():Void {
         var now = 0.0;
         StallMetrics.configure(true);
@@ -244,6 +297,7 @@ class ResourceCleanupTest {
         worker.close(); worker.close();
         eq(item.releases, 0, "failed commit never consumed");
         GPU.release(item);
+        capturedBurst();
         diagnostics();
         Sys.println('ResourceCleanupTest: $checks checks passed');
     }

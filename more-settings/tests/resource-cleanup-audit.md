@@ -77,12 +77,23 @@ Sources:
 
 ## Limits and lifecycle
 
-The pending count includes in-flight batches until they complete. At most 4,096
+The pending count includes in-flight batches until they complete. At most 65,536
 references are accepted. If a new batch would exceed that limit, or DXGI reports
 less than max(512 MiB, 10% of budget) free, accepted work finishes before the new
 queue drains natively. Unknown memory information also uses the native path.
 This bounds retained reference count and checks real DXGI memory headroom; it is
 not an exact retained-byte cap. Pressure fallback can still wait on the driver.
+
+The original 4,096-reference bound was too low for a real gameplay retirement.
+The October 6 v4 capture had 22,132 queued references, zero pending worker
+references, `queue-limit|pressure-join`, zero staged/submitted references and no
+memory query. Worker join rounded to zero; native recycling took 2,088 ms.
+This confirms the count guard bypassed offloading for that burst. It does not
+establish low VRAM, since the count guard returned before the DXGI query.
+65,536 accommodates the observed burst plus subsequent frames without making
+the backlog unbounded. The memory guard, lifecycle waits and ownership rules
+are unchanged. Larger/backlogged batches or low/unknown memory can still use
+native cleanup; this change addresses the demonstrated count-limit failure.
 
 The worker drains continuously; there is no intentional per-frame deferral or
 age-based trigger that forces a second synchronous cleanup after two seconds.
@@ -105,6 +116,13 @@ order, exactly-once ownership, readiness and delayed publication, empty/small/la
 queues, count and memory fallback, disable/loading/device transitions, worker
 restart, partial conversion and allocation/field-swap failures, interrupted frame
 postfixes, recursive scopes, and background-thread hook exclusion.
+
+The captured-burst regression transfers exactly 22,132 references and holds the
+first worker release blocked. Sixty subsequent small frame queues must transfer
+and return before the worker is allowed to proceed. It runs with diagnostics on
+and off, verifies all references release exactly once on the worker in order,
+and checks the same large batch still follows native cleanup under low VRAM.
+The existing cap tests now exercise the new bound, including in-flight work.
 
 `GpuReleaseNativeTest` runs the production worker AND `GpuResources` blocking
 wrapper against a test-only Linux `dx12.hdll`. The fake native verifies another

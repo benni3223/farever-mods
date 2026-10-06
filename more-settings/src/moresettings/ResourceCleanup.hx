@@ -8,7 +8,10 @@ import sys.thread.Thread;
 
 /** Transfers only the native, fence-safe beginFrame retirement queue. */
 class ResourceCleanup {
-    public static inline var MAX_PENDING = 4096;
+    // A captured gameplay retirement contained 22,132 references with no
+    // worker backlog. Leave room for that burst and subsequent frames while
+    // retaining a finite bound and the independent DXGI memory-budget guard.
+    public static inline var MAX_PENDING = 65536;
     public static inline var MIN_FREE_BYTES = 512.0 * 1024 * 1024;
 
     var mainThread:Null<Thread>;
