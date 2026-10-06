@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.15.1",
-  "commit": "1ac84757f3fc5cba58c100d861d4356a932de4bc",
-  "notes": "- Added an option to disable damage numbers in the Combat category\n- Added an option to hide HP bars of minions belonging to other players\n- Moved  the \"Change Appearance\" button from the settings page to the Character Appearance page\n- Removed \"Fast Travel Music\" and \"Unfocused Volume\" settings since the game now supports them natively\n- Added more improvements to Performance Improvements\n",
+  "project": "minimap",
+  "version": "1.8.1",
+  "commit": "e4a4e8f8616373bd6bae59b15d8705c99560c0d7",
+  "notes": "Fixed an issue where nearby secret orbs disappeared from the Minimap before being collected",
   "dry_run": false
 }
