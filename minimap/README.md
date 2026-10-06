@@ -37,7 +37,7 @@ Install the **complete archive**, including the `implementation/` subfolder. Mis
 - Directional player arrows and markers for enemies, resources, NPCs, obelisks, and respawn points.
 - Distinct icons for Guild Merchants, Glory Merchants, Demon Huntresses, and crafting, upgrade, recycling, and infusion stations.
 - Soulstone summoning circles with rune-ring and crystal markers.
-- Unopened treasure chest, undiscovered secret orb, and activity markers.
+- Unopened treasure chest, uncollected secret orb, and activity markers.
 - Hide completed activities while keeping ascensions and dungeons visible, with separate options to hide either.
 - Independent enemy filters for Codex XP completion, full mastery, and target dummies.
 - Companion markers with an option to hide variants already in your collection.
@@ -49,7 +49,7 @@ Install the **complete archive**, including the `implementation/` subfolder. Mis
 - Hover the mouse over the map and scroll to zoom.
 - Up/down arrows show markers more than 15 metres above or below you.
 
-The minimap covers the overworld and hides in other instances. Live player, enemy, gatherable, and chest markers are limited to entities currently sent to your client. Harvested plants and ore disappear until they respawn. Opened or inactive chests are hidden; secret orbs disappear once recorded as discovered by the game.
+The minimap covers the overworld and hides in other instances. Live player, enemy, gatherable, and chest markers are limited to entities currently sent to your client. Harvested plants and ore disappear until they respawn. Opened or inactive chests are hidden; secret orbs remain marked after discovery and disappear only once collected by the current character.
 
 | Marker | Appearance |
 | --- | --- |
@@ -85,7 +85,7 @@ The minimap covers the overworld and hides in other instances. Live player, enem
 | Abandoned chests | Brown wooden chest with dull metal bands and a brass lock |
 | Vault chests | Red chest with gold bands, a keyhole, and a diamond crest |
 | Recipe chests | Burgundy pouch with cream parchment scrolls; hover label **Recipe Chest** |
-| Undiscovered secret orbs | Gold orb with an ivory centre and broken purple rings |
+| Uncollected secret orbs | Gold orb with an ivory centre and broken purple rings |
 
 **Show NPCs** also controls the Guild Merchant, Glory Merchant, Demon Huntress, and station icons. NPC markers draw in front of all other map elements. All player markers, including your character arrow, draw behind other marker types so crowds cannot obscure them. **Show chests** and **Show secret orbs** are separate options in the **Markers** section.
 

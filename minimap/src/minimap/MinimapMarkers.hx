@@ -444,8 +444,9 @@ class MinimapMarkers {
         for (point in liveNpcs) if (point != null && near(point.x, point.y, x, y, radius)) points.push(point);
         if (config.showSecretOrbs && progress != null) for (id => point in secretOrbs) {
             if (!near(point.x, point.y, x, y, radius)) continue;
-            // Read only: never create a progress entry while displaying it.
-            if (G.call("st.player.Progress", "hasElementDiscovered", progress, [id]) != true) points.push(point);
+            // Discovery can precede collection. Keep the marker until the
+            // character has actually completed this orb's interaction.
+            if (!SecretOrbMarkers.collected(progress, id)) points.push(point);
         }
         if (config.showActivities) {
             refreshActivities();
