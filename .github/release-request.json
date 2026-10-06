@@ -1,7 +1,7 @@
 {
-  "project": "minimap",
-  "version": "1.8.1",
-  "commit": "e4a4e8f8616373bd6bae59b15d8705c99560c0d7",
-  "notes": "Fixed an issue where nearby secret orbs disappeared from the Minimap before being collected",
+  "project": "more-settings",
+  "version": "1.15.2",
+  "commit": "a393cd920c589204cf6939ef63ceafa9f2064705",
+  "notes": "More game performance improvements",
   "dry_run": false
 }
