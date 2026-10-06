@@ -49,7 +49,7 @@ class NativeUtilityIcons {
                 arc(shackle,16,10,3.2,0,-Math.PI);
                 shackle.push(12.8); shackle.push(14);
                 fill(g, MARK, shackle);
-                rect(g, MARK, 8.5,13,15,11,2.4);
+                rect(g, MARK, 8.5,13,15,11,0);
                 // A broad crossbar remains visibly T-shaped at button size.
                 rect(g, 0x333842, 13.5,16.4,5,2,0.3);
                 rect(g, 0x333842, 15.25,17.4,1.5,4,0);
