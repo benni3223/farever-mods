@@ -14,6 +14,7 @@ class SkillPresetLayout {
             if (margin > 0 && margin < window.width * 0.5)
                 right = Math.min(footer.right, window.right - margin);
         }
+        right -= 10 * controls.width / PresetSlots.CONTROLS_WIDTH;
         var gap = right - text.right - padding;
         if (gap <= 0) return null;
         var scale = Math.min(1, Math.min(gap / controls.width, footer.height / controls.height));

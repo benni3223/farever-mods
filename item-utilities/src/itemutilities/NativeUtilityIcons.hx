@@ -51,8 +51,8 @@ class NativeUtilityIcons {
                 fill(g, MARK, shackle);
                 rect(g, MARK, 8.5,13,15,11,2.4);
                 // A broad crossbar remains visibly T-shaped at button size.
-                rect(g, 0x333842, 14,16.4,4,2,0.3);
-                rect(g, 0x333842, 15.25,17.4,1.5,3,0);
+                rect(g, 0x333842, 13.5,16.4,5,2,0.3);
+                rect(g, 0x333842, 15.25,17.4,1.5,4,0);
             case "materials":
                 // Flat hammer: two clean shapes, without bevels or highlights.
                 rect(g, 0xC79C65, 9,9,3.5,11.5,1);

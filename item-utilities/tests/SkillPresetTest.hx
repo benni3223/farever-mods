@@ -172,16 +172,16 @@ class SkillPresetTest {
             var texts = transform.rect(342, 674, 190, 43);
             var controls = transform.rect(0, 0, PresetSlots.CONTROLS_WIDTH, 36);
             var rect = SkillPresetLayout.place(footer, texts, controls);
-            near(rect.left, 100 + 959 * scale, "right-aligned preset bar");
+            near(rect.left, 100 + 949 * scale, "right-aligned preset bar");
             near(rect.top, 50 + 677 * scale, "vertically centered in white footer");
-            near(footer.right - rect.right, 32 * scale, "scaled fallback right padding");
+            near(footer.right - rect.right, 42 * scale, "scaled fallback right padding");
             near(rect.width, PresetSlots.CONTROLS_WIDTH * scale, "matching equipment and talent width");
             near(rect.height, 36 * scale, "matching equipment and talent height");
             var window = transform.rect(0, 0, 1180, 750);
             var equipped = transform.rect(32, 660, 288, 72);
             var mirrored = SkillPresetLayout.place(footer, texts, controls, window, equipped);
-            near(window.right - mirrored.right, equipped.left - window.left,
-                "Set mirrors the equipped-skills margin even when the footer extends past the window");
+            near(window.right - mirrored.right, equipped.left - window.left + 10 * scale,
+                "Set uses the equipped-skills margin plus ten pixels even when the footer extends past the window");
         }
         var narrow = SkillPresetLayout.place(new OverlayRect(0, 0, 600, 90), new OverlayRect(100, 10, 400, 70), new OverlayRect(0, 0, PresetSlots.CONTROLS_WIDTH, 36));
         check(narrow.left > 400 && narrow.right < 600 && narrow.width < PresetSlots.CONTROLS_WIDTH, "narrow footer fits controls without overlapping counts");
