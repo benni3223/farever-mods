@@ -178,7 +178,8 @@ class FightHistoryStore {
         } else if (request.action == "fights") {
             response.characters = HistoryOptions.characters(entries.iterator());
             var fights = [for (entry in entries) if (matches(entry, request.category)
-                && HistoryCategory.encounterName(entry, catalog) == request.group && HistoryOptions.matches(entry, request.character)) entry];
+                && HistoryCategory.encounterName(entry, catalog) == request.group
+                && HistoryOptions.matches(entry, request.character, request.outcome)) entry];
             fights.sort((a, b) -> HistoryOptions.compare(a, b, request.sortBy, request.ascending == true));
             response.total = fights.length;
             response.page = page(request.page, response.total);

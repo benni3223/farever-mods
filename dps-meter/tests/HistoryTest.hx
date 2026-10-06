@@ -989,6 +989,7 @@ class HistoryTest {
         for (i in 0...12) {
             var record = FightHistory.encode(sample(), "sort_" + StringTools.lpad(Std.string(i), "0", 2));
             record.startedAt += i * 1000; record.duration = 12 - i;
+            record.outcome = i < 9 ? "Victory" : "Defeat";
             var mine:Dynamic = FightHistory.array(record.players).filter(p -> p.isMe == true)[0];
             mine.uid = "spawn_" + i; record.me = mine.uid;
             mine.name = i % 2 == 0 ? "Wink" : "Priest"; mine.className = i % 2 == 0 ? "warrior" : "cleric";
@@ -1034,6 +1035,26 @@ class HistoryTest {
         }
         req.page = 0; req.ascending = false; result = store.query(req);
         check(result.entries[0].id == "sort_11" && result.entries[1].id == "sort_08", "Equal DPS uses stable newest-first tie breaking");
+        req.sortBy = "time"; req.page = 99; req.outcome = "Victory";
+        result = store.query(req);
+        check(result.total == 9 && result.page == 1 && result.entries.length == 2,
+            "Outcome filtering precedes counts and pagination across the entire archive");
+        check(result.entries[0].id == "sort_01" && result.entries[1].id == "sort_00",
+            "The filtered last page retains the selected sort order");
+        req.outcome = "Defeat"; result = store.query(req);
+        check(result.total == 3 && result.page == 0 && result.entries.filter(e -> e.outcome != "Defeat").length == 0,
+            "Defeat excludes victories and unknown outcomes, and clamps a stale page");
+        req.character = haxe.Json.stringify(["Wink", "warrior"]); req.outcome = "Victory";
+        result = store.query(req);
+        check(result.total == 5 && result.entries.filter(e -> e.playerName != "Wink" || e.outcome != "Victory").length == 0,
+            "Character and outcome filters combine");
+        req.character = haxe.Json.stringify(["Wink", "mage"]);
+        result = store.query(req);
+        check(result.total == 0 && result.page == 0 && result.characters.length == 4,
+            "Empty outcome results retain the character picker, including characters with unknown outcomes");
+        req.character = ""; req.outcome = ""; req.page = 0;
+        result = store.query(req);
+        check(result.total == 14, "Any outcome restores all records, including both older unknown-outcome logs");
         var encoded = FightHistory.encode(sample(), "uid_fallback");
         for (p in FightHistory.array(encoded.players)) p.isMe = false;
         var summary = FightHistory.entry(encoded);

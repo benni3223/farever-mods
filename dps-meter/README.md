@@ -73,7 +73,8 @@ then an attempt. You can also assign **Open or close history hotkey** in the new
 window, ignores typing in text fields, and uses BMS's central hotkey-assignment protection.
 The list defaults to all characters, newest first. Use the controls
 above it to sort by time, your DPS, or duration in ascending or descending order,
-and filter by your character. Character names retain their class colour when opening,
+and filter by your character and **Outcome**: **Any** (default), **Victory**, or **Defeat**.
+Older logs with an unknown outcome appear under **Any**. Character names retain their class colour when opening,
 hovering, and selecting dropdown options. Clicking outside a dropdown closes it.
 The history window keeps the cursor available while it is open, including after
 selecting or dismissing a dropdown. Closing history releases its cursor request
@@ -116,7 +117,8 @@ Chaos remains magical. Unclassified damage is logged and stays in the total used
 for percentages, but is omitted from the display. Earlier breakdowns that recorded
 the Raw affinity under unclassified recover its share when opened. Older logs without
 damage-type information keep their existing summary. Click a
-player to see their skills; click a skill row to return to the player chart.
+player to see their skills and update the header to their name, DPS, and damage-type
+percentages. Click a skill row to return to the player chart and the original summary.
 Each ability occupies one row with its game icon, display name, total damage,
 and share of your damage. A full-width history view also has casts,
 average damage per cast, hits, average damage per hit, and critical-hit percentage.

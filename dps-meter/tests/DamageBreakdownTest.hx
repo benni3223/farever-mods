@@ -84,6 +84,22 @@ class DamageBreakdownTest {
         check(StringTools.endsWith(summary, "Victory  ·  Physical: 60%  ·  Magical: 40%  ·  Raw: 0%") && summary.indexOf("\n") < 0,
             "The named player's split follows the outcome in the same chart/snapshot summary row");
         check(FightHistory.attemptHeading(FightHistory.entry(record)).indexOf("Physical") < 0, "Attempt-list headings stay compact");
+        var entry = FightHistory.entry(record);
+        var selectedSummary = FightHistory.chartDetail(entry, restored.players["ally"]);
+        check(selectedSummary == FightHistory.dateLabel(entry.startedAt)
+            + "  ·  Ally  ·  DPS: 1,000  ·  1 sec  ·  Victory  ·  Physical: 0%  ·  Magical: 100%  ·  Raw: 0%",
+            "Selecting another player replaces the name, DPS and split while retaining encounter metadata");
+        check(FightHistory.chartDetail(entry) == summary && entry.playerName == "Wink" && entry.personalDps == 100,
+            "Returning to the player list restores the owner summary without mutating the archive entry");
+        check(FightHistory.chartDetail(entry, restored.players["me"]).indexOf("  ·  Wink  ·  DPS: 100  ·  ") >= 0,
+            "Selecting the owner again uses their own recorded totals");
+        var oldPlayer = new PlayerStats(profile("ally"));
+        oldPlayer.damage = restored.players["ally"].damage;
+        check(FightHistory.chartDetail(entry, oldPlayer).indexOf("Physical:") < 0,
+            "A selected player without damage types never inherits the owner's split");
+        var instant = Reflect.copy(entry); instant.duration = 0;
+        check(FightHistory.chartDetail(instant, restored.players["ally"]).indexOf("DPS: 1,000") >= 0,
+            "Selected-player DPS shares the chart's one-second minimum duration");
 
         var report = fight.json("time", 1);
         var me = [for (p in (cast report.players:Array<Dynamic>)) if (p.is_me) p][0];

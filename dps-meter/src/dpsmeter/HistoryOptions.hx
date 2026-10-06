@@ -22,8 +22,9 @@ class HistoryOptions {
         });
         return result;
     }
-    public static function matches(entry:HistoryEntry, key:Null<String>):Bool
-        return key == null || key == "" || characterKey(entry) == key;
+    public static function matches(entry:HistoryEntry, key:Null<String>, ?outcome:String):Bool
+        return (key == null || key == "" || characterKey(entry) == key)
+            && (outcome == null || outcome == "" || entry.outcome == outcome);
     public static function compare(a:HistoryEntry, b:HistoryEntry, sortBy:Null<String>, ascending:Bool):Int {
         var x:Null<Float> = metric(a, sortBy); var y:Null<Float> = metric(b, sortBy);
         // Missing personal damage is unavailable, not zero. Keep it at the end

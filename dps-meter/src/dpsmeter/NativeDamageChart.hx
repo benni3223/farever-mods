@@ -6,6 +6,7 @@ import dpsmeter.NativeUi.*;
 
 /** The same scrollable player/skill chart in the live meter and phase recaps. */
 class NativeDamageChart {
+    public var onSelectionChanged:Null<PlayerStats>->Void;
     var root:Dynamic;
     var headerRoot:Dynamic;
     var rowsRoot:Dynamic;
@@ -41,9 +42,7 @@ class NativeDamageChart {
         flow(rowsRoot, "set_overflow", scroll);
         style(object, "overflow", scroll);
         if (emptyText != "") empty = label(rowsRoot, emptyText);
-        skillTable = new NativeSkillTable(rowsRoot, id, () -> {
-            selectedPlayer = ""; resetScroll(); lastRefresh = -1;
-        }, headerRoot, recap);
+        skillTable = new NativeSkillTable(rowsRoot, id, () -> selectPlayer(""), headerRoot, recap);
     }
     public function resize(width:Int, height:Int):Void {
         this.width = width; this.height = height;
@@ -74,11 +73,16 @@ class NativeDamageChart {
         G.set(G.field(rowsRoot, "obj"), "scrollPosY", 0.0);
         flow(rowsRoot, "set_needReflow", true);
     }
+    function selectPlayer(uid:String):Void {
+        selectedPlayer = uid;
+        skillTable.clear(); resetScroll(); lastRefresh = -1;
+        if (onSelectionChanged != null)
+            onSelectionChanged(displayed == null ? null : displayed.players[uid]);
+    }
     public function update(fight:Null<Fight>, now:Float):Void {
         if (fight != displayed) {
-            displayed = fight; selectedPlayer = "";
-            skillTable.clear();
-            resetScroll(); lastRefresh = -1;
+            displayed = fight;
+            selectPlayer("");
         }
         if (now - lastRefresh < 0.20) return;
         lastRefresh = now;
@@ -187,7 +191,7 @@ class NativeDamageChart {
         var obj = G.field(d, "obj");
         var row:Dynamic = {obj: obj, heading: headingObject, name: name, details: details,
             bar: bar, uid: "", caption: "", lineHeight: 0, color: -1, width: 0};
-        G.call("ui.UIElement", "set_onClick", obj, [() -> { selectedPlayer = row.uid; skillTable.clear(); resetScroll(); lastRefresh = -1; }]);
+        G.call("ui.UIElement", "set_onClick", obj, [() -> selectPlayer(row.uid)]);
         sizeRow(row);
         return row;
     }

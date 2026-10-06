@@ -129,7 +129,7 @@ class NativeHistoryWindow {
         G.call("h2d.Text", "set_text", footer, [logsPath]);
         writer.requestHistory({id: serial, action: mode, group: group, page: page, fightId: entry == null ? "" : entry.id,
             category: category, catalog: mode == "categories" ? catalog : null,
-            sortBy: options.sortBy, ascending: options.ascending, character: options.characterKey});
+            sortBy: options.sortBy, ascending: options.ascending, character: options.characterKey, outcome: options.outcomeKey});
         width = 0; // Navigation changes the amount of space above the list.
         lastRefresh = -1;
     }
@@ -184,7 +184,8 @@ class NativeHistoryWindow {
                 row.width = 0; // Different name lengths change the inline positions.
             }
             show(G.field(list, "obj"), count > 0); show(empty, count == 0);
-            setText(empty, mode == "fights" && options.characterKey != "" ? "No fights match this character." : "No fights recorded in this category yet.");
+            setText(empty, mode == "fights" && (options.characterKey != "" || options.outcomeKey != "")
+                ? "No fights match these filters." : "No fights recorded in this category yet.");
             G.set(G.field(list, "obj"), "scrollPosY", 0.0);
             flow(list, "set_needReflow", true);
             show(previous, page > 0); show(next, (page + 1) * FightHistory.PAGE_SIZE < total);
@@ -318,6 +319,10 @@ class NativeHistoryWindow {
         chartPanel = node("flow", panel, [], "dpsHistoryChart", "vertical");
         padding(G.field(chartPanel, "obj"), 0);
         chart = new NativeDamageChart(chartPanel, "dpsHistoryRows", "No damage recorded");
+        chart.onSelectionChanged = player -> {
+            G.call("h2d.Text", "set_text", chartInfo, [FightHistory.chartDetail(selectedEntry, player)]);
+            lastRefresh = -1;
+        };
         previous = button(panel, "Previous", "dpsHistoryPrevious", () -> navigate(mode, group, page - 1));
         next = button(panel, "Next", "dpsHistoryNext", () -> navigate(mode, group, page + 1));
         pageLabel = label(panel, "");
