@@ -29,6 +29,10 @@ class StallMetrics {
         if (onMain()) metrics.driverStep(expected, next, trim);
     }
     public static function endDriverFrame():Void { if (onMain()) metrics.endDriverFrame(); }
+    public static function driverRecycleReady():Void { if (onMain()) metrics.driverRecycleReady(); }
+    public static function cleanupEvent(id:Int, count:Int = 0):Void { if (onMain()) metrics.cleanupEvent(id, count); }
+    public static function cleanupQueue(count:Int, pending:Int):Void { if (onMain()) metrics.cleanupQueue(count, pending); }
+    public static function cleanupMemory(free:Float, budget:Float):Void { if (onMain()) metrics.cleanupMemory(free, budget); }
     public static function endFrame():Void {
         if (!onMain()) return;
         metrics.endFrame();

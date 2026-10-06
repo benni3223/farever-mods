@@ -78,6 +78,7 @@ class DiagnosticHooks {
     static function afterBufferReset(instance:Dynamic, trim:hl.Ref<Bool>, result:Void):Void {
         StallMetrics.driverStep(M.BUFFER_RESET, M.FRAME_RECYCLE);
         PerformanceHooks.recycleResources(instance);
+        StallMetrics.driverRecycleReady();
     }
     @:hlx.prefix(h3d.impl.DX12Driver.beginQueries)
     static function beforeQueries(instance:Dynamic):HlxPrefixResult<Void> {

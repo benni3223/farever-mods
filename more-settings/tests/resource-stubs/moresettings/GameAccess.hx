@@ -4,6 +4,7 @@ package moresettings;
 class GameAccess {
     public static var failSwap = false;
     public static var failSlice = false;
+    public static var memoryRead:Null<Void->Void>;
     public static function queue(values:Array<Dynamic>):Dynamic return {items:values, length:values.length};
     public static function field(value:Dynamic, name:String):Dynamic return value == null ? null : Reflect.field(value, name);
     public static function set(value:Dynamic, name:String, next:Dynamic):Void {
@@ -14,7 +15,10 @@ class GameAccess {
     public static function integer(value:Dynamic, fallback:Int = 0):Int return value == null ? fallback : value;
     public static function call(type:String, name:String, object:Dynamic, ?args:Array<Dynamic>):Dynamic {
         if (type == "GameApp" && name == "get_isLoading") return field(object, "loading");
-        if (type == "h3d.impl.DX12Driver" && name == "getMemoryUsage") return field(object, "memory");
+        if (type == "h3d.impl.DX12Driver" && name == "getMemoryUsage") {
+            if (memoryRead != null) memoryRead();
+            return field(object, "memory");
+        }
         if (type != "hl.types.ArrayObj") throw type + "." + name;
         var items:Array<Dynamic> = field(object, "items");
         return switch name {

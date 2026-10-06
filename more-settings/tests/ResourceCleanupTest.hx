@@ -2,9 +2,14 @@ import moresettings.ResourceCleanup;
 import moresettings.GpuReleaseWorker;
 import moresettings.GameAccess as G;
 import moresettings.GpuResources as GPU;
+import moresettings.StallMetrics;
+import moresettings.FrameMetrics as M;
+import moresettings.CleanupSample as C;
 import sys.thread.Thread;
 import sys.thread.Lock;
 
+@:access(moresettings.StallMetrics)
+@:access(moresettings.FrameMetrics)
 class ResourceCleanupTest {
     static var checks = 0;
     static var serial = 0;
@@ -49,6 +54,71 @@ class ResourceCleanupTest {
     }
     static function block(value:Dynamic):Void {
         value.gate = new Lock(); value.entered = new Lock();
+    }
+    static function diagnostics():Void {
+        var now = 0.0;
+        StallMetrics.configure(true);
+        var metrics = new M(() -> now, 0);
+        StallMetrics.metrics = metrics;
+        for (mode in ["offloaded", "empty", "low-memory", "unknown-memory", "queue-limit", "disabled", "failed"]) {
+            metrics.endFrame(); StallMetrics.beginFrame();
+            var f = fixture(mode == "empty" ? 0 : mode == "queue-limit" ? ResourceCleanup.MAX_PENDING + 1 : 2);
+            var c:ResourceCleanup = f.cleanup;
+            var calls = 0;
+            G.memoryRead = () -> { calls++; now += 1.957; };
+            switch mode {
+                case "low-memory": f.driver.memory.free = 100e6;
+                case "unknown-memory": f.driver.memory = null;
+                case "disabled": c.update(f.app, false);
+                case "failed": c.fail("simulated failure");
+                default:
+            }
+            pass(f);
+            var sample = metrics.cleanup;
+            var event = switch mode {
+                case "offloaded": C.SUBMITTED;
+                case "empty": C.EMPTY;
+                case "low-memory": C.LOW_MEMORY;
+                case "unknown-memory": C.UNKNOWN_MEMORY;
+                case "queue-limit": C.QUEUE_LIMIT;
+                case "disabled": C.DISABLED;
+                case "failed": C.FAILED;
+                default: -1;
+            };
+            eq((sample.events & (1 << event)) != 0, true, mode + " records its actual outcome");
+            eq(sample.staged, mode == "offloaded" ? 2 : 0, mode + " stage count");
+            eq(sample.submitted, mode == "offloaded" ? 2 : 0, mode + " published count");
+            eq(sample.memoryReads, calls, mode + " adds no memory queries");
+            eq(Math.round(metrics.totals[M.CLEANUP_MEMORY] * 1000), calls * 1957, mode + " isolates memory-query delay");
+            c.suspend(); allOnce(f.values, mode == "offloaded", mode + " preserves ownership with diagnostics enabled");
+        }
+        G.memoryRead = null;
+        metrics.endFrame(); StallMetrics.beginFrame();
+        var f = fixture(1); var c:ResourceCleanup = f.cleanup;
+        block(f.values[0]); pass(f);
+        eq(f.values[0].entered.wait(3), true, "diagnostic pressure worker entered");
+        // Include an empty frame while the worker is busy: pending work must remain visible.
+        metrics.endFrame(); StallMetrics.beginFrame(); pass(f);
+        eq(metrics.cleanup.pendingMax, 1, "empty current queue still reports an in-flight release");
+        var newer = objects(2); f.driver.frame = frame(newer); f.driver.memory.free = 0;
+        var gate:Lock = f.values[0].gate;
+        Thread.create(() -> { Sys.sleep(0.02); gate.release(); });
+        pass(f);
+        eq((metrics.cleanup.events & (1 << C.PRESSURE_JOIN)) != 0, true, "blocking fallback records pressure join");
+        eq(metrics.counts[M.CLEANUP_JOIN], 1, "worker wait has its own timing scope");
+        c.suspend(); allOnce(f.values, true, "diagnostic old ownership"); allOnce(newer, false, "diagnostic native fallback");
+
+        metrics.endFrame(); StallMetrics.beginFrame(); f = fixture(1); c = f.cleanup;
+        var values:Array<Dynamic> = f.values; for (v in values) v.ready = true;
+        G.memoryRead = () -> { now += 0.7; throw "memory query failed"; };
+        c.beginFrame(f.driver);
+        try c.recycle(f.driver.frame.bufferAllocator) catch (error:Dynamic) c.fail(error);
+        eq(metrics.depth[M.CLEANUP_MEMORY], 0, "failed memory query closes timing scope");
+        eq(metrics.depth[M.CLEANUP_HOOK], 0, "failed cleanup closes timing scope");
+        eq((metrics.cleanup.events & (1 << C.ERROR)) != 0, true, "failed hook records error");
+        nativeDrain(f.driver.frame.toRelease); c.endFrame(f.driver); c.suspend();
+        allOnce(values, false, "failed diagnostic query preserves native ownership");
+        G.memoryRead = null; StallMetrics.configure(false);
     }
     static function main():Void {
         // Single-resource queues must also move off the main thread. Hold a release
@@ -174,6 +244,7 @@ class ResourceCleanupTest {
         worker.close(); worker.close();
         eq(item.releases, 0, "failed commit never consumed");
         GPU.release(item);
+        diagnostics();
         Sys.println('ResourceCleanupTest: $checks checks passed');
     }
 }

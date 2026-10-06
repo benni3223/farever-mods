@@ -1,5 +1,6 @@
 import moresettings.FrameMetrics as M;
 import moresettings.StallMetrics;
+import moresettings.CleanupSample as C;
 import sys.thread.Thread;
 import sys.thread.Lock;
 
@@ -60,7 +61,7 @@ class FrameMetricsTest {
         m.begin(M.BEGIN_FRAME); now += 0.005; m.end(M.BEGIN_FRAME);
         m.end(M.PRESENT); m.endFrame(); quiet(m);
         var line = take(m);
-        for (part in ["Freeze metrics v3", "frame=2053ms", "present=2047ms", "flush-frame=2001ms",
+        for (part in ["Freeze metrics v4", "frame=2053ms", "present=2047ms", "flush-frame=2001ms",
             "pso-save=2000ms", "begin-frame=5ms", "frame-wait=0ms", "dlss-state=1ms", "outside-phases=0ms"])
             has(line, part, "nested presentation detail: " + part);
 
@@ -87,7 +88,7 @@ class FrameMetricsTest {
     static function beginFrameBreakdown():Void {
         var m = fresh(); warm(m);
         var labels = ["frame-setup", "buffer-reset", "frame-recycle", "frame-queries", "frame-tail"];
-        for (stage in M.FRAME_SETUP...M.COUNT) {
+        for (stage in M.FRAME_SETUP...(M.FRAME_TAIL + 1)) {
             m.beginFrame(); m.context(true, true, true); m.begin(M.PRESENT);
             driverFrame(m, stage, stage == M.BUFFER_RESET);
             m.end(M.PRESENT); m.endFrame(); quiet(m);
@@ -121,6 +122,42 @@ class FrameMetricsTest {
         has(take(m), "incomplete=true", "interrupted preparation is flagged");
         m.beginFrame(); m.context(true, true, true); driverFrame(m, M.FRAME_TAIL); m.endFrame(); quiet(m);
         has(take(m), "incomplete=false", "checkpoints recover after missing postfix");
+    }
+
+    static function cleanupBreakdown():Void {
+        var m = fresh(); warm(m);
+        for (slow in [M.CLEANUP_MEMORY, M.CLEANUP_JOIN, M.RECYCLE_NATIVE]) {
+            m.beginFrame(); m.context(true, true, true); m.begin(M.PRESENT); m.beginDriverFrame();
+            m.driverStep(M.FRAME_SETUP, M.BUFFER_RESET); m.driverStep(M.BUFFER_RESET, M.FRAME_RECYCLE);
+            m.cleanupEvent(C.ACTIVE); m.cleanupQueue(4, 2);
+            m.begin(M.CLEANUP_HOOK); m.begin(M.CLEANUP_MEMORY);
+            now += slow == M.CLEANUP_MEMORY ? 1.957 : 0.001;
+            m.end(M.CLEANUP_MEMORY); m.cleanupMemory(100.0 * 1048576, 8192.0 * 1048576);
+            m.cleanupEvent(C.LOW_MEMORY); m.cleanupEvent(C.PRESSURE_JOIN);
+            m.begin(M.CLEANUP_JOIN); now += slow == M.CLEANUP_JOIN ? 1.957 : 0.001; m.end(M.CLEANUP_JOIN);
+            m.end(M.CLEANUP_HOOK); m.driverRecycleReady();
+            now += slow == M.RECYCLE_NATIVE ? 1.957 : 0.001;
+            m.driverStep(M.FRAME_RECYCLE, M.FRAME_QUERIES); m.driverStep(M.FRAME_QUERIES, M.FRAME_TAIL);
+            m.endDriverFrame(); m.end(M.PRESENT); m.endFrame();
+            quiet(m); // Must not replace the frozen frame's outcome with later empty frames.
+            var line = take(m);
+            var name = slow == M.CLEANUP_MEMORY ? "cleanup-memory" : slow == M.CLEANUP_JOIN ? "cleanup-join" : "recycle-native";
+            for (part in [name + "=1957ms", "frame-recycle=1959ms", "incomplete=false",
+                "events=active|low-memory|pressure-join", "queued=4 staged=0 submitted=0 pending-max=2",
+                "memory-reads=1 last-free-MiB=100 last-budget-MiB=8192"])
+                has(line, part, "cleanup outcome and timings retained: " + part);
+        }
+        // Multiple beginFrame calls aggregate all outcomes, not just the last queue.
+        m.beginFrame(); m.context(true, true, true);
+        m.cleanupQueue(3, 1); m.cleanupEvent(C.STAGED, 3); m.cleanupEvent(C.SUBMITTED, 3);
+        m.cleanupQueue(0, 4); m.cleanupEvent(C.EMPTY); now += 0.510; m.endFrame(); quiet(m);
+        var line = take(m);
+        has(line, "events=empty|staged|submitted", "all outcomes in one frame survive");
+        has(line, "queued=3 staged=3 submitted=3 pending-max=4", "queue totals and high-water pending count");
+        has(line, "memory-reads=0 last-free-MiB=unknown", "unqueried memory is not stale");
+        frame(m, 0.510); quiet(m); line = take(m);
+        has(line, "events=unobserved queued=0 staged=0 submitted=0 pending-max=unknown", "new frame resets cleanup state");
+        m.cleanupEvent(C.ERROR); eq(m.cleanup.events, 0, "events outside a frame ignored");
     }
 
     static function overlapAndMissingPostfix():Void {
@@ -186,16 +223,23 @@ class FrameMetricsTest {
             StallMetrics.begin(M.SHADER_SOURCE); StallMetrics.end(M.SHADER_SOURCE);
             StallMetrics.beginDriverFrame();
             StallMetrics.driverStep(M.FRAME_SETUP, M.BUFFER_RESET, true); StallMetrics.endDriverFrame();
+            StallMetrics.driverRecycleReady(); StallMetrics.cleanupEvent(C.ERROR);
+            StallMetrics.cleanupQueue(42, 10); StallMetrics.cleanupMemory(1, 2);
             StallMetrics.context(false, false, false); StallMetrics.endFrame(); done.release();
         });
         eq(done.wait(3), true, "background test completed");
         eq(reads, before, "background hooks do not sample clocks");
         eq(m.active, true, "background hook cannot end main frame");
         eq(m.eligible, true, "background hook cannot change context");
+        eq(m.cleanup.events, 0, "background hook cannot change cleanup outcome");
+        eq(m.cleanup.queued, 0, "background hook cannot change cleanup counts");
+        eq(m.cleanup.memoryReads, 0, "background hook cannot change memory sample");
         now += 0.016; StallMetrics.endFrame(); StallMetrics.configure(false); before = reads;
         StallMetrics.beginFrame(); StallMetrics.begin(M.RENDER); StallMetrics.end(M.RENDER);
         StallMetrics.beginDriverFrame(); StallMetrics.driverStep(M.FRAME_SETUP, M.BUFFER_RESET); StallMetrics.endDriverFrame();
         StallMetrics.context(true, true, true); StallMetrics.endFrame();
+        StallMetrics.driverRecycleReady(); StallMetrics.cleanupEvent(C.ERROR);
+        StallMetrics.cleanupQueue(42, 10); StallMetrics.cleanupMemory(1, 2);
         eq(reads, before, "disabled diagnostics do not read the clock");
         eq(StallMetrics.metrics, null, "disabling releases diagnostic buffer");
     }
@@ -211,7 +255,11 @@ class FrameMetricsTest {
             m.begin(M.DLSS_STATE); m.end(M.DLSS_STATE);
             m.begin(M.FRAME_WAIT); m.end(M.FRAME_WAIT);
             m.beginDriverFrame(); m.driverStep(M.FRAME_SETUP, M.BUFFER_RESET);
-            m.driverStep(M.BUFFER_RESET, M.FRAME_RECYCLE); m.driverStep(M.FRAME_RECYCLE, M.FRAME_QUERIES);
+            m.driverStep(M.BUFFER_RESET, M.FRAME_RECYCLE);
+            m.cleanupEvent(C.ACTIVE); m.cleanupQueue(4, 0); m.begin(M.CLEANUP_HOOK);
+            m.begin(M.CLEANUP_MEMORY); m.end(M.CLEANUP_MEMORY); m.cleanupMemory(4e9, 8e9);
+            m.cleanupEvent(C.STAGED, 4); m.end(M.CLEANUP_HOOK); m.driverRecycleReady();
+            m.driverStep(M.FRAME_RECYCLE, M.FRAME_QUERIES);
             m.driverStep(M.FRAME_QUERIES, M.FRAME_TAIL); m.endDriverFrame(); m.end(M.PRESENT);
             m.endFrame(); m.canReport();
         }
@@ -219,7 +267,7 @@ class FrameMetricsTest {
         Sys.println('Timing-buffer microbenchmark: ${elapsed * 1000000 / frames} us/frame ($frames frames; excludes HLX hooks/native context reads).');
     }
     static function main():Void {
-        timings(); presentationBreakdown(); beginFrameBreakdown(); overlapAndMissingPostfix(); gatingAndGaps(); boundedOutput(); threadsAndDisabled();
+        timings(); presentationBreakdown(); beginFrameBreakdown(); cleanupBreakdown(); overlapAndMissingPostfix(); gatingAndGaps(); boundedOutput(); threadsAndDisabled();
         eq(moresettings.SettingsData.defaults().performanceDiagnostics, false, "diagnostics opt-in");
         Sys.println('Frame metrics: $checks checks passed.');
         if (Sys.args().indexOf("--bench") >= 0) benchmark();

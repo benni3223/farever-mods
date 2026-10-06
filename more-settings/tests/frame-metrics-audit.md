@@ -154,3 +154,40 @@ context lookups, and is not an in-game overhead measurement.
 The metric locates elapsed time, not necessarily its cause. Implicit HashLink GC,
 OS preemption, native locks, disk and GPU waits may contribute inside any measured
 scope. A remaining unmeasured gap must not be labeled as GC without more evidence.
+
+## Version 4: cleanup decisions and waits
+
+The October 5 samples again spent about 1,957 ms inside `frame-recycle` despite
+`optimization=true`. That flag is the setting, not confirmation of offloading.
+The release worker's pressure fallback can join in this region, as can the DXGI
+memory query and the remaining native command/resource/descriptor operations.
+
+No new native hooks are installed. The existing allocator postfix starts a
+`recycle-native` scope after the cleanup callback returns; the existing
+beginQueries prefix closes it. `cleanup-hook`, `cleanup-memory`, `cleanup-join`
+and `cleanup-publish` time the mod's own boundaries. Timings stay inclusive:
+`cleanup-memory` and pressure joins overlap `cleanup-hook`; none should be summed
+with their parents. Join reasons distinguish pressure, lifecycle and error waits.
+
+A preallocated CleanupSample is reset each frame and copied into the same
+32-entry ring only on a captured >=500 ms stall. It records all observed outcome
+flags, totals of inspected native queues and transferred/submitted references,
+maximum pending count observed before decisions (including an empty current
+queue), and the most recent memory sample and sample count in that frame.
+`unobserved`/`unknown` distinguish missing observations from zero. These are
+main-thread observations, not worker execution time or exact retained bytes.
+Staged means removed from native ownership; submitted means publication succeeded.
+
+There are no additional DXGI queries, per-resource timers, worker-thread log
+writes, disk output or strings allocated during collection. With diagnostics
+on, empty queues also sample the existing short pending-count mutex. Normal
+memory guards, fallback, reference ownership and worker publication order remain
+unchanged. Output still waits for quiet gameplay outside combat.
+
+Tests simulate identical 1,957 ms delays in memory-query, worker-wait and native
+recycle scopes; retain outcome snapshots through subsequent quiet frames; reset
+unknown values; aggregate multiple queues; gate foreign threads and disabled
+diagnostics; and run the real cleanup scheduler's offload, pressure, unknown
+memory, cap, disabled, failed and in-flight-empty-queue paths. Query exceptions
+close scopes and preserve native ownership. Windows GPU attribution still
+requires the user's gameplay sample; these tests do not reproduce their driver.
