@@ -9,10 +9,10 @@ class FriendNotes {
     static var submitFrame = -1;
     static var store = new FriendNotesStore("hlx/config/more-settings/friend-notes.json");
 
-    public static function configure(value:Bool):Void {
+    public static function configure(value:Bool, refreshExisting:Bool = true):Void {
         if (enabled == value) return;
         enabled = value;
-        refresh();
+        if (refreshExisting) refresh();
     }
 
     static function friendView(object:Dynamic):Dynamic {

@@ -35,7 +35,7 @@ class MoreSettingsMod {
         DungeonLeaveButton.enabled = config.leaveDungeonButton;
         CrabgantuaWarnings.configure(config.crabgantuaRockfallWarnings);
         MinionHealthBars.configure(config.hideAlliedMinionHealthBars);
-        SocialHooks.configure(config);
+        SocialHooks.configure(config, false);
         hideUi.configure(config.hideUiKey);
         config.save();
         AllyEffects.configure(config);
