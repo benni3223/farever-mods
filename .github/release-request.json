@@ -1,7 +1,7 @@
 {
-  "project": "item-utilities",
-  "version": "1.10.0",
+  "project": "more-settings",
+  "version": "1.15.0",
   "commit": "fe51b67629f9651f7734e086f53bdd3105a6dbcc",
-  "notes": "- Fixed an issue where some runes and weapons and skills weren't properly saving in skill/weapon presets\n- Added an inspect option to social menus (friend, party, and nearby players list) to enable inspection without interacting directly with another player's character. This only works when in the same shard.\n-> Improved appearance of lock/deposit/preset buttons\n",
+  "notes": "- Added an option to disable damage numbers in the Combat category\n- Added an option to hide HP bars of minions belonging to other players\n- Moved  the \"Change Appearance\" button from the settings page to the Character Appearance page\n- Removed \"Fast Travel Music\" and \"Unfocused Volume\" settings since the game now supports them natively\n- Added more improvements to Performance Improvements\n",
   "dry_run": false
 }
