@@ -28,7 +28,7 @@ Install the **complete archive**, including the `implementation/` subfolder. Mis
 
 The mod and its data are contained in `hlx/mods/dps-meter/`. Upload settings
 (`uploader.ini`), upload history (`uploader.log`), and queued reports (`logs/`)
-also live in this folder. Local fight charts live in `history/`. An external
+also live in this folder. Local fight charts live in `history/<encounter>/`. An external
 uploader is not required. The included Windows x64 desktop plugin,
 `hlx/plugins/dps-meter/dps_meter_desktop.hdll`, supports folder opening, Recycle Bin
 deletion, and image clipboard access. Install this folder too when updating manually.
@@ -231,7 +231,7 @@ fights also appear there without rewriting their logs. Dummies are identified
 from the game's unit metadata rather than their names. Other unclassified combat
 is not saved. A qualifying fight still in progress when you leave an area or
 exit normally is also preserved. Completed rift phases
-keep their separate **Rift: Gates** and **Rift: [boss name]** charts.
+keep their separate **Rift - Gates** and **Rift - [boss name]** charts.
 
 An ongoing fight continues while a living party member in the same instance is
 still in combat, even if you die. Party damage and the encounter timer continue,
@@ -283,6 +283,14 @@ cannot be recovered. Older reports use their original encounter names and an
 estimated start time derived from the recorded export time and duration.
 
 Disk writes, history indexing, and chart reads run on the uploader worker.
+Logs are organized by encounter and difficulty, for example
+`history/Crabgantua - Heroic/<log>.json` and `history/Rift - Gates/<log>.json`.
+Existing flat history logs move into these folders automatically without
+rewriting their contents. Windows-invalid folder characters are replaced;
+reserved names, trailing dots/spaces, and overly long names are handled too.
+If a move fails, the original file remains readable and the next launch retries.
+The temporary **Rift - Before gates** chart is still not saved. Uploaded report
+phase identifiers and the `logs/` upload queue remain unchanged.
 Only compact summaries are kept in its index; the browser requests one page
 or one chart at a time. Back up `hlx/mods/dps-meter/history/` to preserve your
 local charts when reinstalling the mod or moving to another computer.

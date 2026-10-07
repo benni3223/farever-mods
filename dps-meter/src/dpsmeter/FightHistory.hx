@@ -40,8 +40,8 @@ class FightHistory {
     public static function name(fight:Fight):String {
         if (fight.category == HistoryCatalog.HistoryCategory.DUMMY
             || (fight.category == HistoryCatalog.HistoryCategory.OTHER && fight.targetDummy)) return "Target dummy";
-        return fight.phase != "" ? fight.phase : fight.bossName != "" ? fight.bossName
-            : fight.bossKind != "" ? fight.bossKind : "Other combat";
+        return HistoryCatalog.HistoryCategory.normalizeName(fight.phase != "" ? fight.phase : fight.bossName != "" ? fight.bossName
+            : fight.bossKind != "" ? fight.bossKind : "Other combat");
     }
     public static function entry(record:Dynamic):HistoryEntry {
         validate(record);

@@ -126,8 +126,8 @@ class NativeRiftRecapWindow {
         absolute(bodyObject, options);
         absolute(options, container);
         buildSummary(result);
-        addSection(container, RiftTracker.GATES_PHASE, result.gate, "dpsRiftGate");
-        addSection(container, result.boss.phase, result.boss, "dpsRiftBoss");
+        addSection(container, HistoryCatalog.HistoryCategory.normalizeName(RiftTracker.GATES_PHASE), result.gate, "dpsRiftGate");
+        addSection(container, HistoryCatalog.HistoryCategory.normalizeName(result.boss.phase), result.boss, "dpsRiftBoss");
         layout();
     }
 
