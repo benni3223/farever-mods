@@ -105,6 +105,7 @@ class NativeSkillTable {
         if (index >= 0) {
             for (i in 0...3) {
                 var t = label(dom, ""); absolute(obj, t);
+                G.call("domkit.Properties", "addClass", G.field(t, "dom"), ["bold-14"]);
                 var left = G.enumeration("h2d.Align", "Left");
                 G.call("h2d.Text", "set_textAlign", t, [left]); style(t, "text-align", left);
                 (cast row.distributionTexts:Array<Dynamic>).push(t);
@@ -159,7 +160,7 @@ class NativeSkillTable {
                     for (i in 0...3) {
                         var detail = distributionTexts[i]; show(detail, true);
                         fitDetail(detail, labels[i], stacked ? x : x + cellWidth * i / 3,
-                            stacked ? 6 + i * 12 : 6, stacked ? cellWidth : cellWidth / 3, stacked ? 12 : 14);
+                            stacked ? 3 + i * 14 : 5, stacked ? cellWidth : cellWidth / 3, stacked ? 14 : 16);
                     }
                 }
             } else fit(t, value, x, cellWidth, height, true);
