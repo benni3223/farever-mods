@@ -3,7 +3,7 @@ package itemutilities;
 import itemutilities.SkillPresetPlan.SkillPresetState;
 import itemutilities.SkillPresetPlan.SkillPresetChange;
 
-/** Slot RPCs have no callback; rune RPCs require a reply as well as replication. */
+/** Slot RPCs have no callback; rune/conduit RPCs require a reply and replication. */
 class SkillPresetTransfer {
     public var active(default, null):Bool = false;
     public var error(default, null):String = "";
@@ -74,7 +74,7 @@ class SkillPresetTransfer {
 
     public function acknowledge(id:Int, success:Bool):Void {
         if (!active || pending == null || pending.slot >= 0 || id != requestId) return;
-        if (!success) cancel("The game rejected a rune change. Skill preset application stopped.");
+        if (!success) cancel("The game rejected a skill preset change. Application stopped.");
         else acknowledged = true;
     }
 

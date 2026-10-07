@@ -10,17 +10,16 @@ typedef MoreSettingsConfig = {
     var fancyDamageNumbers:Bool;
     var classColoredNames:Bool;
     var showNameplateWeapons:Bool;
+    var disableDamageNumbers:Bool;
     var crabgantuaRockfallWarnings:Bool;
+    var hideAlliedMinionHealthBars:Bool;
     var disableProfanityFilter:Bool;
     var showBossHealth:Bool;
     var performanceOptimization:Bool;
+    var performanceDiagnostics:Bool;
     var waitForParty:Bool;
     var leaveDungeonButton:Bool;
     var hideUiKey:Int;
-    var adjustUnfocusedVolume:Bool;
-    var backgroundVolume:Float;
-    var adjustFastTravelVolume:Bool;
-    var fastTravelVolume:Float;
     var riftHideAllyAttacks:Bool;
     var riftHideAllyBuffs:Bool;
     var riftHideAllies:Bool;
@@ -43,28 +42,24 @@ class SettingsData {
         fancyDamageNumbers: false,
         classColoredNames: true,
         showNameplateWeapons: true,
+        disableDamageNumbers: false,
         crabgantuaRockfallWarnings: true,
+        hideAlliedMinionHealthBars: false,
         disableProfanityFilter: true,
         showBossHealth: false,
         performanceOptimization: false,
+        performanceDiagnostics: false,
         waitForParty: true,
         leaveDungeonButton: true,
         hideUiKey: 113, // hxd.Key.F2
-        adjustUnfocusedVolume: true, backgroundVolume: 0,
-        adjustFastTravelVolume: false, fastTravelVolume: 0,
         riftHideAllyAttacks: false, riftHideAllyBuffs: false, riftHideAllies: false,
         dungeonHideAllyAttacks: false, dungeonHideAllyBuffs: false, dungeonHideAllies: false,
         overworldHideAllyAttacks: false, overworldHideAllyBuffs: false, overworldHideAllies: false
     };
 
-    public static function percent(value:Float):Float
-        return Math.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
-
     public static function normalize(config:MoreSettingsConfig):Void {
         // Same single-key range as Better Mod Settings; zero means unassigned.
         if (config.hideUiKey < 0 || config.hideUiKey >= 512 || config.hideUiKey == 27) config.hideUiKey = 113;
         if (config.socialInteractKey < 0 || config.socialInteractKey >= 512 || config.socialInteractKey == 27) config.socialInteractKey = 0;
-        config.backgroundVolume = percent(config.backgroundVolume);
-        config.fastTravelVolume = percent(config.fastTravelVolume);
     }
 }

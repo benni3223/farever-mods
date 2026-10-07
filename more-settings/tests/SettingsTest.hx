@@ -1,7 +1,4 @@
 import moresettings.SettingsData;
-import moresettings.VolumeState;
-import moresettings.AudioControl;
-import moresettings.EventVolume;
 import moresettings.HideUiBinding;
 import moresettings.BossHealth;
 import moresettings.EffectPolicy;
@@ -16,11 +13,9 @@ class SettingsTest {
         checks++;
         if (actual != expected) throw message + ": expected " + expected + ", got " + actual;
     }
-    static function close(actual:Float, expected:Float, message:String):Void
-        eq(Math.abs(actual - expected) < 0.000001, true, message);
 
     static function main():Void {
-        bossHealth(); hideUiBinding(); volume(); audioLifecycle(); nativeFocusAudio(); policy(); classification(); presentation();
+        bossHealth(); hideUiBinding(); policy(); classification(); presentation();
         Sys.println('More Settings: $checks checks passed.');
     }
 
@@ -72,66 +67,6 @@ class SettingsTest {
             eq(other.callbacks.length, 0, "only boss HUD bars get a callback");
         }
         BossHealth.enabled = false;
-    }
-
-    static function audioLifecycle():Void {
-        var config = SettingsData.defaults(); config.backgroundVolume = 20;
-        G.data = null; G.focused = true; G.audioReady = false;
-        G.master = 0.8; G.reads = 0; G.writes = 0;
-        var audio = new AudioControl(config);
-        audio.masterChanged(); audio.configure(config); audio.update(null);
-        G.focused = false;
-        audio.masterChanged(); audio.configure(config); audio.update(null);
-        eq(G.reads, 0, "startup never reads an uninitialized FMOD system, even when unfocused");
-        eq(G.writes, 0, "startup leaves native audio untouched");
-        G.audioReady = true; audio.update(null);
-        close(G.master, 0.2, "deferred background adjustment starts once FMOD initializes");
-        G.focused = true; audio.update(null);
-        close(G.master, 0.8, "startup deferral preserves the original master");
-        var reads = G.reads;
-        audio.masterChanged();
-        eq(G.reads, reads, "focused settings callbacks skip inactive volume overrides");
-        config.adjustUnfocusedVolume = false; G.focused = false;
-        audio.masterChanged();
-        eq(G.reads, reads, "disabled overrides do not read native master volume");
-        config.adjustUnfocusedVolume = true; audio.update(null);
-        G.audioReady = false; reads = G.reads; audio.dispose();
-        eq(G.reads, reads, "disposal does not read a stopped FMOD system");
-        G.audioReady = true; G.master = 0.6; audio.update(null);
-        close(G.master, 0.2, "a restarted audio system receives the background limit");
-        G.focused = true; audio.update(null);
-        close(G.master, 0.6, "a restarted audio system retains its own master baseline");
-        audio.dispose();
-    }
-
-    static function nativeFocusAudio():Void {
-        var config = SettingsData.defaults(); config.backgroundVolume = 20;
-        // The native applyAudio has already muted the VCA on focus loss.
-        G.data = {audioRequireFocus: true, audioMaster: 80,
-            option: {byId: {AudioMaster: {props: {maxVal: 100}}}}};
-        G.master = 0; G.focused = false;
-        var audio = new AudioControl(config);
-        audio.update(null);
-        close(G.master, 0.2, "Native background override recovers the configured master from a native mute");
-        G.data.audioMaster = 10; G.master = 0; audio.masterChanged();
-        close(G.master, 0.1, "background override never boosts a quieter native master");
-        G.data.audioMaster = 70; G.master = 0; audio.masterChanged();
-        close(G.master, 0.2, "native options changes retain our background limit");
-        config.adjustUnfocusedVolume = false; audio.configure(config);
-        close(G.master, 0, "disabling the mod restores native unfocused muting");
-        eq(G.data.audioRequireFocus, true, "native audio preference is never changed");
-        config.adjustUnfocusedVolume = true; audio.configure(config);
-        close(G.master, 0.2, "reenabling while unfocused recovers from zero");
-        G.focused = true; G.master = 0.7; audio.masterChanged();
-        close(G.master, 0.7, "native focus return before update restores master immediately");
-        G.focused = false; G.master = 0; audio.masterChanged();
-        close(G.master, 0.2, "native focus loss before update immediately applies the override");
-        audio.dispose(); close(G.master, 0, "disposing hands control back to native mute");
-        G.data.audioRequireFocus = false; G.master = 0.7;
-        audio = new AudioControl(config); audio.update(null);
-        close(G.master, 0.2, "native audio-on-unfocus also works");
-        audio.dispose(); close(G.master, 0.7, "native audio-on-unfocus restores configured volume");
-        G.data = null; G.focused = true;
     }
 
     static function hideUiBinding():Void {
@@ -191,96 +126,6 @@ class SettingsTest {
         G.data = {current: {textInput: null}};
         eq(binding.pressed("ToggleUI", true), true, "native press toggles UI when not typing");
         G.data = null;
-    }
-
-    static function volume():Void {
-        var config = SettingsData.defaults();
-        config.backgroundVolume = 20; config.adjustFastTravelVolume = true; config.fastTravelVolume = 40;
-        eq(VolumeState.target(config, true), null, "fast travel never requests a master limit");
-        close(VolumeState.target(config, false), 0.2, "only unfocus requests a master limit");
-        var state = new VolumeState();
-        close(state.apply(0.1, 0.4), 0.1, "temporary control never boosts master");
-        state.masterChanged(0.6);
-        close(state.apply(0.6, 0.4), 0.4, "master change while temporarily limited");
-        close(state.apply(0.4, null), 0.6, "restore updated master");
-        config.backgroundVolume = Math.NaN; config.fastTravelVolume = 150;
-        SettingsData.normalize(config);
-        close(config.backgroundVolume, 0, "invalid percent"); close(config.fastTravelVolume, 100, "clamped percent");
-
-        config.backgroundVolume = 20; config.fastTravelVolume = 40;
-        G.master = 0.8; G.focused = true; G.writes = 0;
-        EventVolume.reads = 0; EventVolume.writes = 0;
-        var audio = new AudioControl(config);
-        var hero:Dynamic = {flying: false, flySoundObj: null};
-        var otherMusic:Dynamic = {valid: true, volume: 0.9};
-        var sfx:Dynamic = {valid: true, volume: 0.6};
-        audio.update(hero); eq(G.writes, 0, "focused idle does not write FMOD");
-        eq(EventVolume.reads, 0, "idle does not query event volumes");
-        var first:Dynamic = {valid: true, volume: 0.75};
-        hero.flySoundObj = {inst: first}; hero.flying = true;
-        audio.startTravel(hero);
-        close(first.volume, 0.3, "departure immediately scales only the travel event");
-        close(G.master, 0.8, "travel leaves master unchanged");
-        eq(G.writes, 0, "travel never writes any bus or VCA");
-        close(otherMusic.volume, 0.9, "other music unchanged");
-        close(sfx.volume, 0.6, "effects unchanged");
-        G.focused = false; audio.update(hero);
-        close(G.master, 0.2, "unfocus independently limits master while traveling");
-        close(first.volume, 0.3, "unfocus leaves travel event gain unchanged");
-        var writes = G.writes, eventWrites = EventVolume.writes, reads = EventVolume.reads;
-        for (_ in 0...1000) audio.update(hero);
-        eq(G.writes, writes, "unchanged frames never write master volume");
-        eq(EventVolume.writes, eventWrites, "unchanged frames never write event volume");
-        eq(EventVolume.reads, reads, "unchanged frames never read event volume");
-        config.fastTravelVolume = 60; audio.configure(config);
-        close(first.volume, 0.45, "live slider uses original gain, not compounded attenuation");
-        close(G.master, 0.2, "live travel slider leaves master unchanged");
-        config.adjustFastTravelVolume = false; audio.configure(config);
-        close(first.volume, 0.75, "disable restores event's own baseline");
-        close(G.master, 0.2, "disabling travel does not cancel unfocus");
-        config.adjustFastTravelVolume = true; config.fastTravelVolume = 0; audio.configure(config);
-        close(first.volume, 0, "zero mutes only travel music");
-        G.master = 0.7; audio.masterChanged(); close(G.master, 0.2, "options preserve unfocused limit");
-        close(first.volume, 0, "options do not overwrite travel event gain");
-        G.focused = true; audio.update(hero); close(G.master, 0.7, "focus restores updated master");
-        close(first.volume, 0, "focus does not unmute travel music");
-        config.fastTravelVolume = 100; audio.configure(config);
-        close(first.volume, 0.75, "100 percent restores natural event gain");
-        config.fastTravelVolume = 40; audio.configure(config);
-        hero.flying = false; audio.update(hero);
-        close(first.volume, 0.3, "landing leaves outgoing music fade at selected volume");
-        var second:Dynamic = {valid: true, volume: 0.5};
-        hero.flySoundObj = {inst: second}; audio.startTravel(hero);
-        close(first.volume, 0.75, "replaced event restored");
-        close(second.volume, 0.2, "next event has its own baseline");
-        second.valid = false; hero.flySoundObj.inst = null; audio.update(hero);
-        close(second.volume, 0.2, "released handle not written");
-        var third:Dynamic = {valid: true, volume: 1};
-        hero.flySoundObj.inst = third; audio.update(hero);
-        close(third.volume, 0.4, "recreated handle does not reuse previous event baseline");
-        third.valid = false;
-        var fourth:Dynamic = {valid: true, volume: 0.9};
-        hero.flySoundObj = {inst: fourth}; audio.startTravel(hero);
-        close(fourth.volume, 0.36, "invalid outgoing event does not block next trip");
-        G.focused = false; audio.update(hero); audio.dispose();
-        close(G.master, 0.7, "dispose restores master");
-        close(fourth.volume, 0.9, "dispose restores live travel event");
-        audio.update(hero); hero.removed = true; audio.update(hero);
-        close(fourth.volume, 0.9, "removed hero restores music");
-        audio.dispose();
-
-        // A missing native plugin must never fall back to muting all audio.
-        G.focused = true; G.writes = 0; EventVolume.available = false;
-        hero.removed = false;
-        var failed = false;
-        try audio.update(hero) catch (_:Dynamic) failed = true;
-        eq(failed, true, "missing event API reports a recoverable audio error");
-        eq(G.writes, 0, "missing event API never changes a global volume");
-        EventVolume.available = true; audio.update(hero);
-        close(fourth.volume, 0.36, "retry captures original volume after API recovers");
-        audio.update(null);
-        close(fourth.volume, 0.9, "logout restores last event");
-        audio.dispose();
     }
 
     static function policy():Void {

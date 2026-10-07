@@ -112,8 +112,8 @@ class InspectWindow {
     function refresh():Void {
         var hero = PlayerInspect.remoteHero(local, target.uid);
         var loadout = G.field(hero, "loadout");
-        var equipment = equipmentOf(hero);
-        var available = hero != null && G.field(hero, "removed") != true && hasGear(hero, equipment);
+        var equipment = InspectTargets.equipment(hero);
+        var available = InspectTargets.available(hero);
         var appearanceInventory = G.field(loadout, "appearance");
         var stylesAvailable = available && appearanceInventory != null && G.field(appearanceInventory, "content") != null;
         var styles:Map<String, Dynamic> = [];
@@ -310,22 +310,6 @@ class InspectWindow {
             G.call("h2d.Object", "setScale", text, [0.72]);
             position(text, 0, 78);
         }
-    }
-
-    static function equipmentOf(hero:Dynamic):Dynamic {
-        var equipment = G.field(G.field(hero, "loadout"), "equipment");
-        if (equipment != null) return equipment;
-        try {
-            return G.call("ent.Hero", "get_equipment", hero);
-        } catch (_:Dynamic) {
-            return null;
-        }
-    }
-
-    static function hasGear(hero:Dynamic, equipment:Dynamic):Bool {
-        if (equipment != null && (G.field(equipment, "content") != null || G.field(equipment, "stacks") != null))
-            return true;
-        return directWeapon(hero, "get_weapon1") != null || directWeapon(hero, "get_weapon2") != null;
     }
 
     static function readSlot(hero:Dynamic, equipment:Dynamic, slot:String):Dynamic {

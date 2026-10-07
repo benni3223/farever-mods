@@ -11,12 +11,8 @@ import moresettings.SettingsData.MoreSettingsConfig;
 class MoreSettingsMod {
     @:hlx.config
     static var config:MoreSettingsConfig = SettingsData.defaults();
-    static var audio:AudioControl;
     static var hideUi = new HideUiBinding();
     static var reportedInputError:Bool = false;
-    static var app:Dynamic;
-    static var reportedAudioError:Bool = false;
-    static var audioRetryAt:Float = 0;
     static var reportedDamageNumberError:Bool = false;
 
     static function main():Void {
@@ -25,11 +21,8 @@ class MoreSettingsMod {
         if (!imported) imported = ConfigMigration.importLegacy();
         if (imported) config = ModConfig.load(HlxRuntime.moduleName(), config);
         var previous = ModConfig.load(HlxRuntime.moduleName(), {
-            enabled: config.adjustUnfocusedVolume,
-            adjustUnfocusedVolume: (null:Null<Bool>),
             disableProfanityFilter: (null:Null<Bool>)
         });
-        if (previous.adjustUnfocusedVolume == null) config.adjustUnfocusedVolume = previous.enabled;
         if (previous.disableProfanityFilter == null) {
             // Preserve the standalone mod's preference when combining installs.
             config.disableProfanityFilter = previousProfanityPreference();
@@ -37,33 +30,32 @@ class MoreSettingsMod {
         SettingsData.normalize(config);
         BossHealth.enabled = config.showBossHealth;
         PerformanceHooks.enabled = config.performanceOptimization;
+        StallMetrics.configure(config.performanceDiagnostics);
         DungeonPartyGuard.enabled = config.waitForParty;
         NameplateColors.enabled = config.classColoredNames;
         NameplateWeapons.enabled = config.showNameplateWeapons;
         DungeonLeaveButton.enabled = config.leaveDungeonButton;
         CrabgantuaWarnings.configure(config.crabgantuaRockfallWarnings);
-        SocialHooks.configure(config);
+        MinionHealthBars.configure(config.hideAlliedMinionHealthBars);
+        SocialHooks.configure(config, false);
         hideUi.configure(config.hideUiKey);
         config.save();
-        audio = new AudioControl(config);
         AllyEffects.configure(config);
-        Bus.subscribe("better-mod-settings/action/" + HlxRuntime.moduleName() + "/changeAppearance",
-            (_:Dynamic) -> AppearanceEditor.request());
         Bus.subscribe("better-mod-settings/config-changed/" + HlxRuntime.moduleName(), (_:Dynamic) -> {
             config = ModConfig.load(HlxRuntime.moduleName(), config);
             SettingsData.normalize(config);
             BossHealth.enabled = config.showBossHealth;
             PerformanceHooks.enabled = config.performanceOptimization;
+            StallMetrics.configure(config.performanceDiagnostics);
             DungeonPartyGuard.enabled = config.waitForParty;
             NameplateColors.enabled = config.classColoredNames;
             NameplateWeapons.enabled = config.showNameplateWeapons;
             DungeonLeaveButton.enabled = config.leaveDungeonButton;
             CrabgantuaWarnings.configure(config.crabgantuaRockfallWarnings);
+            MinionHealthBars.configure(config.hideAlliedMinionHealthBars);
             SocialHooks.configure(config);
             hideUi.configure(config.hideUiKey);
             AllyEffects.configure(config);
-            try audio.configure(config) catch (e:Dynamic) audioError(e);
-            audioRetryAt = 0;
         });
     }
 
@@ -81,6 +73,39 @@ class MoreSettingsMod {
     @:hlx.postfix(ui.comp.HealthBar.init)
     static function afterHealthBarInit(instance:Dynamic, result:Void):Void {
         try BossHealth.attach(instance) catch (e:Dynamic) BossHealth.reportError(e);
+        try MinionHealthBars.attach(instance) catch (e:Dynamic) MinionHealthBars.report(e);
+    }
+
+    @:hlx.postfix(ui.comp.AttributeBar.init)
+    static function afterAttributeBarInit(instance:Dynamic, result:Void):Void {
+        try MinionHealthBars.attachLifetime(instance) catch (e:Dynamic) MinionHealthBars.report(e);
+    }
+
+    @:hlx.prefix(ui.comp.DamageDisplay.display)
+    static function beforeDamageNumber(damage:Dynamic, position:Dynamic):HlxPrefixResult<Dynamic>
+        return config.disableDamageNumbers ? SkipWith(null) : Continue;
+
+    @:hlx.prefix(ui.comp.HealDisplay.display)
+    static function beforeHealingNumber(damage:Dynamic, position:Dynamic):HlxPrefixResult<Dynamic>
+        return config.disableDamageNumbers ? SkipWith(null) : Continue;
+
+    @:hlx.prefix(ui.hud.EffectsFeed.displayDamage)
+    static function beforeIncomingDamageNumber(instance:Dynamic, damage:Dynamic):HlxPrefixResult<Void>
+        return config.disableDamageNumbers ? Skip : Continue;
+
+    @:hlx.prefix(ui.hud.EffectsFeed.displayHeal)
+    static function beforeIncomingHealingNumber(instance:Dynamic, damage:Dynamic):HlxPrefixResult<Void>
+        return config.disableDamageNumbers ? Skip : Continue;
+
+    @:hlx.postfix(ui.win.GearAppearance.init)
+    static function afterGearAppearanceInit(instance:Dynamic, result:Void):Void {
+        try BarbershopButton.attach(instance) catch (error:Dynamic) AppearanceEditor.report(error);
+    }
+
+    @:hlx.postfix(ui.BaseElement.onRemove)
+    static function afterElementRemoved(instance:Dynamic, result:Void):Void {
+        MinionHealthBars.forget(instance);
+        BarbershopButton.forget(instance);
     }
 
     @:hlx.postfix(ui.comp.DamageDisplay.init)
@@ -143,6 +168,9 @@ class MoreSettingsMod {
     @:hlx.prefix(ui.UIElement.set_visible)
     static function beforeUiVisibility(instance:Dynamic, value:Bool):HlxPrefixResult<Bool> {
         try {
+            if (MinionHealthBars.intercept(instance, value)) return SkipWith(false);
+        } catch (error:Dynamic) MinionHealthBars.report(error);
+        try {
             var visible = DungeonLeaveButton.visibility(instance, value);
             if (visible != value) {
                 // Re-enter with the final value: this prefix then continues to
@@ -177,36 +205,25 @@ class MoreSettingsMod {
 
     @:hlx.prefix(GameApp.update)
     static function beforeUpdate(instance:Dynamic, dt:Float):HlxPrefixResult<Void> {
-        app = instance;
+        DiagnosticHooks.update(instance, config.performanceOptimization);
+        PerformanceHooks.update(instance, dt);
         AppearanceEditor.update(instance);
         AllyEffects.update(instance);
-        if (audio != null && haxe.Timer.stamp() >= audioRetryAt)
-            try audio.update(G.field(instance, "hero")) catch (e:Dynamic) audioError(e);
         return Continue;
-    }
-
-    // The original creates flySoundObj. Adjust its event before the next audio update.
-    @:hlx.postfix(ent.Hero.onStartFlyPath)
-    static function afterTravel(instance:Dynamic, result:Void):Void {
-        if (audio != null && instance == G.field(app, "hero"))
-            try audio.startTravel(instance) catch (e:Dynamic) audioError(e);
-    }
-
-    @:hlx.postfix(Options.applyAudio)
-    static function afterAudioSettings(result:Void):Void {
-        if (audio != null) try audio.masterChanged() catch (e:Dynamic) audioError(e);
     }
 
     @:hlx.prefix(GameApp.dispose)
     static function dispose(instance:Dynamic):HlxPrefixResult<Void> {
+        StallMetrics.suspend();
+        PerformanceHooks.dispose();
         DungeonLeaveButton.clear();
         try FancyDamageNumbers.dispose() catch (error:Dynamic) damageNumberError(error);
         AppearanceEditor.close();
-        if (audio != null) try audio.dispose() catch (e:Dynamic) audioError(e);
+        BarbershopButton.clear();
+        MinionHealthBars.clear();
         AllyEffects.dispose();
         CrabgantuaWarnings.dispose();
         SocialHooks.dispose();
-        app = null;
         return Continue;
     }
 
@@ -220,14 +237,6 @@ class MoreSettingsMod {
             } catch (_:Dynamic) {}
         }
         return true;
-    }
-
-    static function audioError(error:Dynamic):Void {
-        audioRetryAt = haxe.Timer.stamp() + 5;
-        if (!reportedAudioError) {
-            reportedAudioError = true;
-            trace("[More Settings] Audio: " + Std.string(error));
-        }
     }
 
     static function inputError(error:Dynamic):Void {

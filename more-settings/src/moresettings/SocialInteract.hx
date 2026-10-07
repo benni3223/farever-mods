@@ -13,12 +13,12 @@ class SocialInteract {
 
     public function new() {}
 
-    public function configure(enabled:Bool, keyCode:Int):Void {
+    public function configure(enabled:Bool, keyCode:Int, refreshExisting:Bool = true):Void {
         if (this.enabled == enabled && this.keyCode == keyCode) return;
         this.enabled = enabled;
         this.keyCode = keyCode;
         cached = [];
-        clearPresses();
+        if (refreshExisting) clearPresses();
     }
 
     public function usesHotkey():Bool

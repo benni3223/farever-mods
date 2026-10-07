@@ -65,7 +65,7 @@ class NativeSkillTable {
             row.values = ["ability" => names[key], "percent" => Std.string(SkillStats.rounded(v.percent, 1)) + "%",
                 "distribution" => distribution == null ? "—" : "", "damage" => compact(v.damage), "casts" => Std.string(v.casts),
                 "avgCast" => compact(v.avgCast), "hits" => Std.string(v.hits), "avgHit" => compact(v.avgHit),
-                "crit" => Std.string(SkillStats.rounded(v.crit, 1)) + "%"];
+                "crit" => Std.string(SkillStats.rounded(v.crit, 1)) + "%", "dps" => compact(v.dps)];
             var values:Map<String, String> = row.values;
             var signature = row.physical + "|" + row.magical + "|" + (cast row.percentages:Array<String>).join("|")
                 + "|" + [for (key in SkillBreakdown.KEYS) values[key]].join("|");
@@ -129,6 +129,7 @@ class NativeSkillTable {
         for (t in texts) show(t, false);
         var distributionTexts:Array<Dynamic> = row.distributionTexts;
         for (t in distributionTexts) show(t, false);
+        if (heading && recap) { layoutRecapHeader(texts, height); return; }
         if (!heading) position(row.icon, 5, (height - 26) / 2);
         for (column in columns) {
             var t = texts[column.key]; show(t, true);
@@ -158,11 +159,32 @@ class NativeSkillTable {
                     for (i in 0...3) {
                         var detail = distributionTexts[i]; show(detail, true);
                         fitDetail(detail, labels[i], stacked ? x : x + cellWidth * i / 3,
-                            stacked ? 6 + i * 12 : 6, stacked ? cellWidth : cellWidth / 3, stacked ? 12 : 14);
+                            stacked ? 3 + i * 14 : 5, stacked ? cellWidth : cellWidth / 3, stacked ? 14 : 16);
                     }
                 }
-            } else if (heading && recap) fitDetail(t, value, x, 3, cellWidth, height - 6);
-            else fit(t, value, x, cellWidth, height, true);
+            } else fit(t, value, x, cellWidth, height, true);
+        }
+    }
+    function layoutRecapHeader(texts:Map<String, Dynamic>, height:Int):Void {
+        // All headings use the native bold-14 font at the same scale. Measure
+        // complete labels first so an unusually narrow viewport scales the
+        // whole header uniformly, rather than shrinking individual columns.
+        var scale = 1.0;
+        var measured = [for (column in columns) {
+            var text = texts[column.key]; show(text, true);
+            G.call("ui.comp.FmtText", "set_maxWidthText", text, [null]);
+            setText(text, column.title);
+            G.call("ui.comp.FmtText", "updateScale", text);
+            var w = G.number(G.call("h2d.Text", "get_textWidth", text));
+            var h = G.number(G.call("h2d.Text", "get_textHeight", text));
+            scale = Math.min(scale, Math.min(Math.max(1, column.width - 12) / Math.max(1, w), (height - 6) / Math.max(1, h)));
+            {column: column, text: text, width: w, height: h};
+        }];
+        for (entry in measured) {
+            G.call("h2d.Object", "setScale", entry.text, [scale]);
+            var x = entry.column.x + 5.0;
+            if (entry.column.key != "ability") x += Math.max(0, (entry.column.width - 10 - entry.width * scale) / 2);
+            position(entry.text, x, (height - entry.height * scale) / 2);
         }
     }
     static function fitDetail(text:Dynamic, value:String, x:Float, y:Float, width:Float, height:Int):Void {

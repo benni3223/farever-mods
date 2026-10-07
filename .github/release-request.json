@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.14.0",
-  "commit": "c1271b01ea060123f78e4af14ac163d20fe2c5cb",
-  "notes": "- Added fancy healing numbers to Fancy Damage Numbers (green = heal, green+gold = crit heal)\n- Added an option to rebind the social interaction hotkey separately from loot/revive/talk to npc\n",
+  "project": "item-utilities",
+  "version": "1.11.0",
+  "commit": "e19b6285fd2e986124b3034daa6cbfbdd27c35a0",
+  "notes": "- Added an option to mark inventory items as junk, similar to locking.\n- Locked items cannot be marked as junk. Junk items cannot be locked.\n- Junk items cannot be equipped or banked.\n- Marking an item as junk marks all exact copies of that item as junk (including picking up new ones) until you unmark it as junk.\n- Junk is saved per-character.\n- Added a \"Sell all junk\" button to the Guild Merchant's trade window.\n- Fixed an issue where Spark Master choices were not saved in skill presets.\n",
   "dry_run": false
 }

@@ -71,3 +71,26 @@
 -cp tests
 -main SocialInteractTest
 --interp
+--next
+-cp src
+-cp tests/stall-stubs
+-cp tests
+-main StallOptimizationTest
+--interp
+--next
+-cp src
+-cp tests/combat-ui-stubs
+-cp tests
+-main CombatUiTest
+--interp
+--next
+-cp src
+-cp tests
+-main FrameMetricsTest
+--interp
+--next
+-cp src
+-cp tests/resource-stubs
+-cp tests
+-main ResourceCleanupTest
+--interp

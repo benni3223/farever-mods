@@ -30,6 +30,15 @@
       }
     },
     {
+      "key": "performanceDiagnostics",
+      "type": "checkbox",
+      "label": "Performance diagnostics",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Records timing information for freezes of 500 ms or longer. Keeps a small buffer in memory and writes to the mod log after combat. Enable while investigating freezes; works with Performance improvements on or off."
+      }
+    },
+    {
       "key": "waitForParty",
       "type": "checkbox",
       "label": "Wait for party to enter dungeon",
@@ -66,24 +75,31 @@
       }
     },
     {
-      "key": "crabgantuaRockfallWarnings",
+      "key": "disableDamageNumbers",
       "type": "checkbox",
-      "label": "Keep Crabgantua rockfall warnings visible",
+      "label": "Disable damage numbers",
       "tooltip": {
         "enabled": true,
-        "tooltipText": "Keeps the incoming rockfall circles visible through Crabgantua's water effects on Heroic difficulty."
+        "tooltipText": "Hides floating damage and healing numbers, including incoming damage and healing numbers in the effects feed."
       }
     },
     {
-      "type": "title",
-      "label": "Appearance"
+      "key": "crabgantuaRockfallWarnings",
+      "type": "checkbox",
+      "label": "Improved Crabgantua rockfall warnings",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Makes Crabgantua's rockfall warnings visible through the flooding water attack"
+      }
     },
     {
-      "key": "changeAppearance",
-      "type": "button",
-      "label": "Change Appearance",
-      "buttonText": "Change Appearance",
-      "colour": "default"
+      "key": "hideAlliedMinionHealthBars",
+      "type": "checkbox",
+      "label": "Hide allied minion HP bars",
+      "tooltip": {
+        "enabled": true,
+        "tooltipText": "Hides health bars above allied minions. Your own summons' health bars remain visible."
+      }
     },
     {
       "type": "title",
@@ -152,40 +168,6 @@
       "key": "socialInteractKey",
       "type": "keybinding",
       "label": "Social interact hotkey"
-    },
-    {
-      "type": "title",
-      "label": "Unfocused Volume"
-    },
-    {
-      "key": "adjustUnfocusedVolume",
-      "type": "checkbox",
-      "label": "Adjust unfocused volume"
-    },
-    {
-      "key": "backgroundVolume",
-      "type": "slider",
-      "label": "Unfocused volume %",
-      "min": 0,
-      "max": 100,
-      "step": 1
-    },
-    {
-      "type": "title",
-      "label": "Fast Travel Music"
-    },
-    {
-      "key": "adjustFastTravelVolume",
-      "type": "checkbox",
-      "label": "Adjust fast travel music volume"
-    },
-    {
-      "key": "fastTravelVolume",
-      "type": "slider",
-      "label": "Fast travel music volume %",
-      "min": 0,
-      "max": 100,
-      "step": 1
     },
     {
       "type": "title",

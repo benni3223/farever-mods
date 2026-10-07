@@ -28,7 +28,7 @@ Install the **complete archive**, including the `implementation/` subfolder. Mis
 
 The mod and its data are contained in `hlx/mods/dps-meter/`. Upload settings
 (`uploader.ini`), upload history (`uploader.log`), and queued reports (`logs/`)
-also live in this folder. Local fight charts live in `history/`. An external
+also live in this folder. Local fight charts live in `history/<encounter>/`. An external
 uploader is not required. The included Windows x64 desktop plugin,
 `hlx/plugins/dps-meter/dps_meter_desktop.hdll`, supports folder opening, Recycle Bin
 deletion, and image clipboard access. Install this folder too when updating manually.
@@ -73,7 +73,8 @@ then an attempt. You can also assign **Open or close history hotkey** in the new
 window, ignores typing in text fields, and uses BMS's central hotkey-assignment protection.
 The list defaults to all characters, newest first. Use the controls
 above it to sort by time, your DPS, or duration in ascending or descending order,
-and filter by your character. Character names retain their class colour when opening,
+and filter by your character and **Outcome**: **Any** (default), **Victory**, or **Defeat**.
+Older logs with an unknown outcome appear under **Any**. Character names retain their class colour when opening,
 hovering, and selecting dropdown options. Clicking outside a dropdown closes it.
 The history window keeps the cursor available while it is open, including after
 selecting or dismissing a dropdown. Closing history releases its cursor request
@@ -116,10 +117,13 @@ Chaos remains magical. Unclassified damage is logged and stays in the total used
 for percentages, but is omitted from the display. Earlier breakdowns that recorded
 the Raw affinity under unclassified recover its share when opened. Older logs without
 damage-type information keep their existing summary. Click a
-player to see their skills; click a skill row to return to the player chart.
+player to see their skills and update the header to their name, DPS, and damage-type
+percentages. Click a skill row to return to the player chart and the original summary.
 Each ability occupies one row with its game icon, display name, total damage,
 and share of your damage. A full-width history view also has casts,
 average damage per cast, hits, average damage per hit, and critical-hit percentage.
+Regular breakdowns end with **DPS**, calculated over the whole fight's duration;
+rift recap tables keep their compact columns without DPS.
 **Damage (%)** shows only the skill's numeric share of the player's total damage.
 The adjacent **Phys/Magic/Raw** column shows the split within that skill's damage:
 red for physical, blue for magical, and off-white for Raw. Each bar represents
@@ -229,7 +233,20 @@ fights also appear there without rewriting their logs. Dummies are identified
 from the game's unit metadata rather than their names. Other unclassified combat
 is not saved. A qualifying fight still in progress when you leave an area or
 exit normally is also preserved. Completed rift phases
-keep their separate **Rift: Gates** and **Rift: [boss name]** charts.
+keep their separate **Rift - Gates** and **Rift - [boss name]** charts.
+
+Completed rifts also save a combined **Rift Recap** under **World Bosses** in
+Fight History and in `history/Rift Recap/`. Selecting a recap displays both phase
+charts inside Fight History, with the same appearance and compact player/skill
+breakdowns as the automatic popup. The charts fit side by side, or stack on
+narrower screens. Snapshot and Delete log work here too; Back returns to the
+same history page and filters.
+Recaps save even with automatic recap popups or log uploads disabled. Each recap
+contains its own gate and boss snapshots, so deleting a separate phase log does
+not break it. The log list identifies the boss and shows combined personal DPS
+over the sum of the recorded phase durations. Joining at the boss leaves the
+gate panel empty rather than inventing earlier damage. Recaps are captured from
+newly completed rifts; older, separate phase files are not guessed into pairs.
 
 An ongoing fight continues while a living party member in the same instance is
 still in combat, even if you die. Party damage and the encounter timer continue,
@@ -281,6 +298,14 @@ cannot be recovered. Older reports use their original encounter names and an
 estimated start time derived from the recorded export time and duration.
 
 Disk writes, history indexing, and chart reads run on the uploader worker.
+Logs are organized by encounter and difficulty, for example
+`history/Crabgantua - Heroic/<log>.json` and `history/Rift - Gates/<log>.json`.
+Existing flat history logs move into these folders automatically without
+rewriting their contents. Windows-invalid folder characters are replaced;
+reserved names, trailing dots/spaces, and overly long names are handled too.
+If a move fails, the original file remains readable and the next launch retries.
+The temporary **Rift - Before gates** chart is still not saved. Uploaded report
+phase identifiers and the `logs/` upload queue remain unchanged.
 Only compact summaries are kept in its index; the browser requests one page
 or one chart at a time. Back up `hlx/mods/dps-meter/history/` to preserve your
 local charts when reinstalling the mod or moving to another computer.

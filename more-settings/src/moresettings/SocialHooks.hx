@@ -9,12 +9,15 @@ class SocialHooks {
     static var reported:Map<String, Bool> = [];
     static var interact = new SocialInteract();
 
-    public static function configure(config:MoreSettingsConfig):Void {
+    // HLX recovers game types after mod main() returns. At startup only store
+    // preferences; UI creation/input hooks apply them once the game is ready.
+    // Live settings changes still refresh existing cards and clear held inputs.
+    public static function configure(config:MoreSettingsConfig, refreshExisting:Bool = true):Void {
         hideConnections = config.hideFriendConnectionNotifications;
         SocialChat.commandsEnabled = config.enableMissingSlashCommands;
         SocialChat.closeAfterSend = config.sendingMessageClosesChat;
-        try interact.configure(config.rebindSocialInteract, config.socialInteractKey) catch (e:Dynamic) report(e);
-        try FriendNotes.configure(config.enableFriendNotes) catch (e:Dynamic) report(e);
+        try interact.configure(config.rebindSocialInteract, config.socialInteractKey, refreshExisting) catch (e:Dynamic) report(e);
+        try FriendNotes.configure(config.enableFriendNotes, refreshExisting) catch (e:Dynamic) report(e);
     }
     public static function dispose():Void { SocialChat.clear(); FriendNotes.dispose(); interact.dispose(); }
     public static function report(error:Dynamic):Void {

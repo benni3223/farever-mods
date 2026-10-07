@@ -24,7 +24,6 @@ class Collector {
         try version = G.text(G.staticCall("Config", "getVersion", []))
         catch (error:Dynamic) trace("[DPS Meter] Could not read game version: " + Std.string(error));
         model = new CombatModel(haxe.Timer.stamp(), version);
-        trace("[DPS Meter] Game version: " + (version == "" ? "unknown" : version));
     }
     public function update(app:Dynamic, now:Float):Void {
         var nextHero = G.field(app, "hero");

@@ -16,6 +16,11 @@ class CrabgantuaWarningsTest {
     static function fx(p:Dynamic):Dynamic return {materials:[{passes:p}], removed:false, localTime:0.75, playSpeed:1.};
     static function area(effect:Dynamic, skill:String = "R1CrabBoss_Heroic_Avalanche"):Dynamic
         return {baseSkill:{inf:{id:skill}}, telegraphFx:effect};
+    static function visibleArea(effect:Dynamic, skill:String = "R1CrabBoss_Heroic_Avalanche"):Dynamic {
+        var warning = area(effect, skill);
+        warning.obj = {children:[]};
+        return warning;
+    }
 
     static function main():Void {
         eq(SettingsData.defaults().crabgantuaRockfallWarnings, true, "New setting is enabled by default");
@@ -29,11 +34,11 @@ class CrabgantuaWarningsTest {
             W.attach(area(fx(unrelated), skill));
         eq(unrelated.name, "beforeTonemappingAlpha", "Water and unrelated boss effects keep native rendering");
         W.attach(warning);
-        eq(color.name, "overlay", "Circle is scheduled after the water and distortion stages");
+        eq(color.name, "overlay", "Swirl is scheduled after the water and distortion stages");
         eq(color.passId, "overlay", "Native setter updates the render queue ID");
-        eq(color.depthTest, G.always, "Water above the ground circle cannot reject its pixels by depth");
+        eq(color.depthTest, G.always, "Water above the ground swirl cannot reject its pixels by depth");
         eq(color.testBits, G.always, "Depth override reaches native render-state bits");
-        eq(color.depthWrite, false, "Circle does not occlude later HUD/overlay objects");
+        eq(color.depthWrite, false, "Swirl does not occlude later HUD/overlay objects");
         eq(color.writeBits, false, "Depth-write override reaches native render-state bits");
         eq(color.shaders, shader, "Native warning animation shader is retained, not cloned or frozen");
         eq(color.blendSrc, "native alpha", "Native blending is retained");
@@ -87,6 +92,21 @@ class CrabgantuaWarningsTest {
         eq(duplicated.name, "afterTonemappingDecal", "World shutdown restores all warnings");
         W.sync(badFx);
         eq(bad.name, "forwardAlpha", "World shutdown releases all tracking");
+
+        var decal = pass("beforeTonemappingDecal"), decalFx = fx(decal), landing = visibleArea(decalFx);
+        W.attach(landing);
+        eq(decal.name, "overlay", "Colour decal stage previously missed by the filter is covered");
+        eq(landing.obj.children.length, 0, "Only the native swirl is displayed, with no added boundary");
+        W.sync(decalFx); W.attach(landing);
+        eq(landing.obj.children.length, 0, "Repeated sync/attach adds no scene geometry");
+        W.configure(false);
+        eq(decal.name, "beforeTonemappingDecal", "Disabling restores the decal pass");
+        W.configure(true);
+        eq(decal.name, "overlay", "Reenabling restores native swirl visibility");
+        eq(landing.obj.children.length, 0, "Toggling never adds a supplemental boundary");
+        W.forget(decalFx);
+        eq(decal.name, "beforeTonemappingDecal", "FX pooling restores its native pass");
+        W.dispose();
         W.configure(false);
         Sys.println('Crabgantua warnings: $checks checks passed.');
     }

@@ -17,7 +17,7 @@ class GameAccess {
         if (type != "h3d.mat.Compare" || name != "Always") throw "Unexpected native enum lookup";
         return always;
     }
-    public static function call(type:String, name:String, object:Dynamic, args:Array<Dynamic>):Dynamic {
+    public static function call(type:String, name:String, object:Dynamic, ?args:Array<Dynamic>):Dynamic {
         if (type == "h3d.scene.Object" && name == "getMaterials") {
             if (args.length != 2 || args[0] != null || args[1] != null) throw "Incorrect getMaterials signature";
             materialReads++;

@@ -40,15 +40,33 @@
 --next
 -cp src
 -cp tests
--main PresetDropdownStateTest
+-main InspectMenuContextTest
 --interp
 --next
 -cp src
+-cp tests/inspect-stubs
 -cp tests
--main InspectMenuContextTest
+-main InspectTargetsTest
+--interp
+--next
+-cp src
+-cp tests/native-ui-stubs
+-cp tests
+-main NativeUtilityUiTest
 --interp
 --next
 -cp src
 -cp tests
 -main InspectTooltipPlacementTest
+--interp
+--next
+-cp src
+-cp tests
+-main SparkmasterPresetTest
+--interp
+--next
+-cp src
+-cp tests/junk-stubs
+-cp tests
+-main ItemJunkTest
 --interp

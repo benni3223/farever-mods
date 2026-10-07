@@ -11,7 +11,10 @@ class HistoryDropdown {
     var choices:Array<HistoryChoice> = [];
     var signature:String = "";
     var selected:String;
-    public function new(parent:Dynamic, id:String, choices:Array<HistoryChoice>, selected:String, changed:String->Void) {
+    var captionPrefix:String;
+    public function new(parent:Dynamic, id:String, choices:Array<HistoryChoice>, selected:String, changed:String->Void,
+        captionPrefix:String = "") {
+        this.captionPrefix = captionPrefix;
         object = G.field(node("dropdown", parent, [false, false, "dps-history-options"], id), "obj");
         padding(object, 0);
         // The history window is above gameRoot. Native Dropdown.toggle first
@@ -57,6 +60,8 @@ class HistoryDropdown {
     public function close():Void G.call("ui.comp.Dropdown", "close", object, [null]);
     public function refreshColors():Void {
         var index = G.integer(G.field(object, "selectedIndex"));
+        if (captionPrefix != "" && index >= 0 && index < choices.length)
+            setText(G.field(object, "selectText"), captionPrefix + choices[index].name);
         color(G.field(object, "selectText"), choiceColor(index));
         var items = G.array(G.field(object, "items"));
         for (i in 0...items.length) for (child in children(items[i]))

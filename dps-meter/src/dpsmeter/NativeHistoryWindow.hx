@@ -1,6 +1,7 @@
 package dpsmeter;
 
 import dpsmeter.CombatModel.Fight;
+import dpsmeter.RiftTracker.RiftRecap;
 import dpsmeter.FightHistory;
 import dpsmeter.GameAccess as G;
 import dpsmeter.NativeUi.*;
@@ -31,6 +32,8 @@ class NativeHistoryWindow {
     var list:Dynamic;
     var chartPanel:Dynamic;
     var chart:NativeDamageChart;
+    var recapView:NativeRiftRecapCharts;
+    var recap:Null<RiftRecap>;
     var empty:Dynamic;
     var previous:Dynamic;
     var next:Dynamic;
@@ -99,13 +102,17 @@ class NativeHistoryWindow {
         }
         updateDrag();
         layout();
-        if (mode == "chart" && !pending && fight != null) chart.update(fight, now);
+        if (mode == "chart" && !pending) {
+            if (recap != null) recapView.update(now);
+            else if (fight != null) chart.update(fight, now);
+        }
         if (now - lastRefresh >= 0.20) {
             lastRefresh = now;
             alignLabels();
         }
     }
     function navigate(mode:String, group:String, page:Int, ?entry:HistoryEntry):Void {
+        recap = null; recapView.setRecap(null); show(recapView.object, false);
         this.mode = mode; this.group = group; this.page = page;
         selectedEntry = entry; deleting = false;
         status(""); show(deleteButton, false); show(snapshotButton, false);
@@ -129,7 +136,7 @@ class NativeHistoryWindow {
         G.call("h2d.Text", "set_text", footer, [logsPath]);
         writer.requestHistory({id: serial, action: mode, group: group, page: page, fightId: entry == null ? "" : entry.id,
             category: category, catalog: mode == "categories" ? catalog : null,
-            sortBy: options.sortBy, ascending: options.ascending, character: options.characterKey});
+            sortBy: options.sortBy, ascending: options.ascending, character: options.characterKey, outcome: options.outcomeKey});
         width = 0; // Navigation changes the amount of space above the list.
         lastRefresh = -1;
     }
@@ -152,14 +159,24 @@ class NativeHistoryWindow {
         }
         if (response.error != "") { setText(empty, response.error); show(empty, true); return; }
         if (mode == "chart") {
-            try fight = FightHistory.decode(response.record)
-            catch (e:Dynamic) {
+            try {
+                if (RiftRecapHistory.isRecap(response.record)) {
+                    recap = RiftRecapHistory.decode(response.record);
+                    recapView.setRecap(recap);
+                    G.call("h2d.Text", "set_text", chartInfo, [FightHistory.recapDetail(recap)]);
+                    show(recapView.object, true);
+                } else {
+                    fight = FightHistory.decode(response.record);
+                    show(G.field(chartPanel, "obj"), true);
+                }
+            } catch (e:Dynamic) {
                 setText(empty, "This fight log could not be read. Choose another fight using Back.");
                 show(empty, true);
                 trace("[DPS Meter] Could not read chart: " + Std.string(e));
                 return;
             }
-            show(empty, false); show(G.field(chartPanel, "obj"), true);
+            show(empty, false);
+            width = 0;
             show(deleteButton, true); show(snapshotButton, true);
         } else {
             if (mode == "fights") options.setCharacters(response.characters);
@@ -184,7 +201,8 @@ class NativeHistoryWindow {
                 row.width = 0; // Different name lengths change the inline positions.
             }
             show(G.field(list, "obj"), count > 0); show(empty, count == 0);
-            setText(empty, mode == "fights" && options.characterKey != "" ? "No fights match this character." : "No fights recorded in this category yet.");
+            setText(empty, mode == "fights" && (options.characterKey != "" || options.outcomeKey != "")
+                ? "No fights match these filters." : "No fights recorded in this category yet.");
             G.set(G.field(list, "obj"), "scrollPosY", 0.0);
             flow(list, "set_needReflow", true);
             show(previous, page > 0); show(next, (page + 1) * FightHistory.PAGE_SIZE < total);
@@ -198,7 +216,7 @@ class NativeHistoryWindow {
         catch (error:Dynamic) status(Std.string(error), true);
     }
     function deleteLog():Void {
-        if (fight != null) deleteEntry(selectedEntry);
+        if (fight != null || recap != null) deleteEntry(selectedEntry);
     }
     function deleteEntry(entry:HistoryEntry):Void {
         if (pending || copying || entry == null) return;
@@ -209,16 +227,16 @@ class NativeHistoryWindow {
         writer.requestHistory({id: serial, action: "delete", group: group, page: fightsPage, fightId: entry.id});
     }
     function copySnapshot():Void {
-        if (pending || copying || fight == null || selectedEntry == null) return;
+        if (pending || copying || (fight == null && recap == null) || selectedEntry == null) return;
         copying = true;
-        var scroll = chart.snapshotScroll();
+        var scrolls = recap != null ? recapView.snapshotScrolls() : [chart.snapshotScroll()];
         var message = "Snapshot copied to clipboard.";
         var failed = false;
         try {
             show(actionStatus, false);
             layout(true);
             refreshSnapshotChart(true);
-            chart.restoreScroll(0);
+            if (recap != null) recapView.restoreScrolls([0, 0]); else chart.restoreScroll(0);
             NativeFightSnapshot.copyBody(window, width, height,
                 [header, back, snapshotButton, deleteButton, folderButton, previous, next, pageLabel, actionStatus]);
         } catch (error:Dynamic) {
@@ -226,7 +244,8 @@ class NativeHistoryWindow {
             trace("[DPS Meter] Snapshot: " + Std.string(error));
         }
         try {
-            layout(); refreshSnapshotChart(); chart.restoreScroll(scroll);
+            layout(); refreshSnapshotChart();
+            if (recap != null) recapView.restoreScrolls(scrolls); else chart.restoreScroll(scrolls[0]);
         } catch (error:Dynamic) {
             message = Std.string(error); failed = true;
             trace("[DPS Meter] Restore history after snapshot: " + message);
@@ -236,7 +255,8 @@ class NativeHistoryWindow {
     }
     function refreshSnapshotChart(snapshot:Bool = false):Void {
         NativeFightSnapshot.reflow(window);
-        chart.update(fight, haxe.Timer.stamp());
+        if (recap != null) recapView.update(haxe.Timer.stamp());
+        else chart.update(fight, haxe.Timer.stamp());
         NativeFightSnapshot.reflow(window);
         alignLabels(snapshot);
     }
@@ -318,6 +338,12 @@ class NativeHistoryWindow {
         chartPanel = node("flow", panel, [], "dpsHistoryChart", "vertical");
         padding(G.field(chartPanel, "obj"), 0);
         chart = new NativeDamageChart(chartPanel, "dpsHistoryRows", "No damage recorded");
+        chart.onSelectionChanged = player -> {
+            G.call("h2d.Text", "set_text", chartInfo, [FightHistory.chartDetail(selectedEntry, player)]);
+            lastRefresh = -1;
+        };
+        recapView = new NativeRiftRecapCharts(panel, "dpsHistoryRecap");
+        show(recapView.object, false);
         previous = button(panel, "Previous", "dpsHistoryPrevious", () -> navigate(mode, group, page - 1));
         next = button(panel, "Next", "dpsHistoryNext", () -> navigate(mode, group, page + 1));
         pageLabel = label(panel, "");
@@ -327,7 +353,7 @@ class NativeHistoryWindow {
         actionStatus = G.create("h2d.Text", [G.field(detail, "font"), G.field(panel, "obj")]);
         G.call("h2d.Text", "set_lineBreak", actionStatus, [false]);
         show(actionStatus, false);
-        for (object in [back, heading, detail, chartInfo, empty, G.field(list, "obj"), G.field(chartPanel, "obj"), previous, next, pageLabel, footer,
+        for (object in [back, heading, detail, chartInfo, empty, G.field(list, "obj"), G.field(chartPanel, "obj"), recapView.object, previous, next, pageLabel, footer,
             folderButton, snapshotButton, deleteButton, actionStatus])
             absolute(G.field(panel, "obj"), object);
         for (text in [title, detail, empty, pageLabel]) {
@@ -381,10 +407,10 @@ class NativeHistoryWindow {
         var scene = G.field(owner, "s2d");
         var top = localPoint(0, 0);
         var bottom = localPoint(G.number(G.field(scene, "width"), 1920), G.number(G.field(scene, "height"), 1080));
-        var w = Std.int(Math.max(300, Math.min(900, bottom.x - top.x - 40)));
+        var w = Std.int(Math.max(300, Math.min(940, bottom.x - top.x - 40)));
         var h = Std.int(Math.max(320, Math.min(820, bottom.y - top.y - 60)));
         if (snapshot) {
-            h = SnapshotLayout.historyHeight(chart.snapshotHeight(), h);
+            h = SnapshotLayout.historyHeight(recap != null ? recapView.snapshotHeight() : chart.snapshotHeight(), h);
             SnapshotLayout.imageSize(w, h);
         }
         if (copying || w != width || h != height) {
@@ -417,6 +443,8 @@ class NativeHistoryWindow {
             var chartHeight = Std.int(Math.max(30, bodyHeight - topInset - footerSpace));
             for (object in [G.field(list, "obj"), G.field(chartPanel, "obj")]) { size(object, inner, chartHeight); position(object, 0, topInset); }
             chart.resize(inner, chartHeight);
+            recapView.resize(inner, chartHeight, snapshot && recap != null);
+            position(recapView.object, 0, topInset);
             size(previous, 108, 34); position(previous, 0, bodyHeight - 70);
             size(next, 108, 34); position(next, inner - 108, bodyHeight - 70);
             G.call("ui.comp.FmtText", "set_maxWidthText", pageLabel, [Std.int(Math.max(1, inner - 236))]);
@@ -466,6 +494,7 @@ class NativeHistoryWindow {
         DpsMeterMod.saveConfig();
     }
     function alignLabels(snapshot:Bool = false):Void {
+        if (recap != null) recapView.alignLabels();
         G.call("ui.comp.FmtText", "updateScale", headingStyle);
         var font = G.field(headingStyle, "font");
         if (font != null && font != headingFont) { headingFont = font; G.call("h2d.Text", "set_font", heading, [font]); }
@@ -555,7 +584,7 @@ class NativeHistoryWindow {
             else G.call("h2d.Object", "remove", old);
         }
         owner = null; rows = []; wrappers = []; frame = null; body = null; container = null;
-        chart = null; fight = null; width = 0; height = 0;
+        chart = null; fight = null; recapView = null; recap = null; width = 0; height = 0;
         mode = "categories"; category = ""; group = ""; page = 0; groupsPage = 0; fightsPage = 0;
         headingFont = null; catalog = null;
     }

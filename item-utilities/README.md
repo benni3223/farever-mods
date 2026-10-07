@@ -4,12 +4,11 @@
 
 A collection of inventory, bank, character preset, and item-safety quality-of-life tools for Farever.
 
-Lock icons, lock editing, preset controls, and bank/Recycler buttons follow
-the game's current UI position and scale when changing resolution or resizing
-the window. Their click targets and inventory scrolling boundaries scale with them.
-Overlapping windows, including DPS Meter's Fight History, hide covered utility
-overlays and block their lock-edit click targets. Window coverage uses the full
-panel rectangle and is collected once per frame.
+Lock icons, lock editing, preset controls, and bank/Recycler buttons are native
+children of their corresponding game windows. Tooltips and foreground windows
+cover only the overlapping portion, while inventory scrolling clips icons and
+click targets normally. The controls follow the game's UI position and scale,
+and covered portions cannot intercept clicks through foreground native UI.
 
 ## Installation
 
@@ -36,6 +35,9 @@ Install the **complete archive**, including the `implementation/` subfolder. Mis
 Hold Interact on another player and choose **Inspect**, immediately below
 **Send message**. The native window shows their equipped weapons, armour, and
 accessories, with item icons, rarity colours, and the game's item-detail tooltips.
+You can also choose **Inspect** from a player's gear menu in the Social window,
+including friends, party members, and nearby players. It appears directly below
+**Send message**, or first when that action is unavailable.
 The taller **Inspecting: <name>** window follows the character page's equipment
 column order, with Main Hand, Off Hand, and Arsenal in a separate weapons section.
 The inspected hero's model appears between the equipment columns. **Appearance**
@@ -47,7 +49,8 @@ These are their actual equipped items, independently of cosmetic appearances.
 The window updates when their equipped gear changes and closes with X or Escape.
 
 Inspect is read-only and uses equipment already available to your client. If a
-player leaves or their equipment is unavailable, the window says so. It does not
+player cannot be inspected, a local chat error explains that their character or
+equipment is unavailable. If they leave while being inspected, the window says so. It does not
 request private inventory data or provide equip, drag, or transfer actions.
 The option is included whenever Item Utilities is enabled.
 
@@ -147,13 +150,35 @@ All four categories have five slots, labeled **Preset 1**, **Preset 2**, **Prese
 **Preset 4**, and **Preset 5**. The collapsed dropdown shows the selected slot;
 choosing a saved option immediately applies it. Empty options remain selectable.
 Selecting the current slot again reapplies it. Preset controls have no tooltips;
-menu labels and **Set** use slightly bolder, vertically centered text.
+the selector, menu labels, and **Set** use the game's native button/dropdown styling.
 **Set** saves your current setup to the selected slot. Controls are disabled while
 that category is applying a preset. The dropdown closes when you choose an option
 or click outside; individual hotkeys can apply presets without opening it.
-Game tooltips underneath an open menu do not hide or dismiss it.
-While a preset menu is open, tabs and other game controls behind its options do
-not receive hover, click, or scroll input. Closing the menu restores normal input.
+The native dropdown handles input over its options. Closing the menu restores
+normal input; leaving the tab, hiding the controls, or opening another window
+also closes its list.
+
+### Mark as Junk
+
+Click the trash-bin button beside the inventory lock button to enter junk mode,
+then click an item to mark or unmark it. Marked items show a trash bin in their
+top-right corner. Lock and junk editing are mutually exclusive; locked items
+cannot be junk, and junk must be unmarked before it can be locked.
+
+Junk choices persist per character and match identical current and future bag
+items, including their level, rarity, rolled stats, upgrade level, infusions,
+weapon effects, and rune identity. Stack size and temporary item IDs do not
+affect matching. Different rolls or upgrades remain distinct, and locked copies
+stay protected. Unmarking a matching item removes that rule for future pickups.
+
+Weapons, armour, and accessories in your bag can be marked as junk. Marked bag
+items cannot be equipped or moved into the bank, including through deposit
+shortcuts. Matching items already worn remain unaffected. At a Guild Merchant, click the **Sell all junk** trash-bin button
+to the left of the gold count at the bottom of the trade window to sell the inventory's marked stacks.
+Sales use the normal game requests and checks, one acknowledged sale at a time.
+Changed, moved, newly locked, or unsellable items are skipped. Closing the
+merchant, changing character/session, a rejected sale, or a timeout stops the
+batch; an already-sent request may still complete.
 
 ### Equipment presets
 
@@ -171,6 +196,13 @@ Presets** in Better Mod Settings. Existing bindings and saved presets in slots 1
 start empty with unbound hotkeys. Preset hotkeys work without opening the Character Profile page.
 
 Existing weapon presets remain usable. Press **Set** again on each preset to include your current armor and accessories. Equipment changes follow the game's normal restrictions.
+
+Saved item IDs can be reassigned after logging in again. Presets verify the saved
+item fingerprint (including upgrades, sockets, and infusions) before preferring
+an ID match, so another item cannot replace a saved weapon just by reusing its ID.
+Existing presets benefit automatically. Re-save after changing an item's saved
+properties; a legacy preset missing infusion details cannot choose between
+different infusion variants.
 
 ### Talent presets
 
@@ -198,7 +230,11 @@ Adds a matching **Preset 1–5** dropdown and **Set** button at the far right of
 page's bottom strip, vertically centered and aligned with the current UI scale.
 
 - Select a preset slot and press **Set** to save the four equipped class skills,
-  their slot order, and the runes equipped on each of those skills.
+  their slot order, their runes, and the runes on unlocked signature skills such
+  as the priest's **Judgment**. Signature skills do not occupy a regular slot.
+- Mage presets also save **Sparkmaster** conduit choices, including their order
+  and empty slots. Press **Set** once to update older presets, which did not
+  record these choices. Older saves leave the current conduits unchanged.
 - Choose a saved preset from the dropdown or use its **Skill preset 1–5 hotkey** under **Skill
   Presets** in Better Mod Settings. Hotkeys also work with the window closed.
 - Presets and the selected slot are saved separately for each character,
@@ -206,9 +242,11 @@ page's bottom strip, vertically centered and aligned with the current UI scale.
 - Empty slots and no-rune selections are saved exactly. A preset with one rune
   restores that rune and removes any extra rune from that skill. Multiple runes
   are supported when the game permits them; runes on other skills are left alone.
+  Older presets without signature records keep the current signature runes;
+  select the desired runes and press **Set** once to include them.
 - The saved skills and runes must be unlocked, and changes cannot be applied in
   combat. All checks happen before applying the first change.
-- Uses normal skill-slot and rune requests, waiting for each server update.
+- Uses normal skill-slot, rune, and conduit requests, waiting for each server update.
   Rejections, timeouts, unexpected changes, entering combat, and character or
   session changes stop the sequence.
 
@@ -296,7 +334,7 @@ build/item-utilities/item-utilities.hl
 build/item-utilities/implementation/item-utilities.hl
 ```
 
-Run the quick-loot, lock-restoration, overlay-layout, and preset regression tests (Haxe only; no running game required):
+Run the quick-loot, lock-restoration, layout, native UI lifecycle, and preset regression tests (Haxe only; no running game required):
 
 ```sh
 haxe test.hxml

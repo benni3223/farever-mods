@@ -164,21 +164,86 @@ class SkillPresetTest {
         transfer.cancel("Entered combat");
         check(transfer.next(session, 0, current) == null, "combat or disabled mod cancellation prevents later requests");
 
+        testSignatureRunes();
+
         for (scale in [0.625, 0.75, 1.0, 1.5, 2.0]) {
             var transform = new UiOverlayGeometry(scale, 0, 0, scale, 100, 50);
             var footer = transform.rect(8, 648, 1185, 94);
             var texts = transform.rect(342, 674, 190, 43);
             var controls = transform.rect(0, 0, PresetSlots.CONTROLS_WIDTH, 36);
             var rect = SkillPresetLayout.place(footer, texts, controls);
-            near(rect.left, 100 + 975 * scale, "right-aligned preset bar");
+            near(rect.left, 100 + 949 * scale, "right-aligned preset bar");
             near(rect.top, 50 + 677 * scale, "vertically centered in white footer");
-            near(footer.right - rect.right, 16 * scale, "scaled right padding");
+            near(footer.right - rect.right, 42 * scale, "scaled fallback right padding");
             near(rect.width, PresetSlots.CONTROLS_WIDTH * scale, "matching equipment and talent width");
             near(rect.height, 36 * scale, "matching equipment and talent height");
+            var window = transform.rect(0, 0, 1180, 750);
+            var equipped = transform.rect(32, 660, 288, 72);
+            var mirrored = SkillPresetLayout.place(footer, texts, controls, window, equipped);
+            near(window.right - mirrored.right, equipped.left - window.left + 10 * scale,
+                "Set uses the equipped-skills margin plus ten pixels even when the footer extends past the window");
         }
         var narrow = SkillPresetLayout.place(new OverlayRect(0, 0, 600, 90), new OverlayRect(100, 10, 400, 70), new OverlayRect(0, 0, PresetSlots.CONTROLS_WIDTH, 36));
         check(narrow.left > 400 && narrow.right < 600 && narrow.width < PresetSlots.CONTROLS_WIDTH, "narrow footer fits controls without overlapping counts");
         check(SkillPresetLayout.place(null, null, null) == null, "missing anchors hide the bar");
         trace('Skill presets: $checks checks passed');
+    }
+
+    static function testSignatureRunes():Void {
+        var judgment = "Priest_Sig_DivineIntervention";
+        var first = "Priest_Judgment_M1", second = "Priest_Judgment_M2";
+        var owner = owners(); owner.set(first, judgment); owner.set(second, judgment);
+        var rule = rules(); rule.signatures = [judgment => [first, second]];
+        var current:SkillPresetState = {slots:["A", "B", "C", "D"], runes:["A1", first, "X1"]};
+        var targetState:SkillPresetState = {slots:current.slots, runes:["A1", second, "X1"]};
+        var slots = SkillPresetPlan.saved(targetState, owner);
+        var signatures = SkillPresetPlan.savedSignatures(targetState, owner, rule);
+        var roundTrip = haxe.Json.parse(haxe.Json.stringify({skills:slots, signatureSkills:signatures}));
+        signatures = SkillPresetPlan.decodeSignatures(roundTrip.signatureSkills);
+        slots = SkillPresetPlan.decode(roundTrip.skills);
+        check(signatures.length == 1 && signatures[0].skill == judgment && signatures[0].runes[0] == second,
+            "Judgment rune selection survives saving and loading independently of the four slots");
+        var plan = SkillPresetPlan.build(current, slots, rule, owner, signatures);
+        check(plan.length == 2 && plan[0].slot == -1 && plan[1].slot == -1,
+            "Judgment rune-only change sends no class-slot or signature-slot assignments");
+        check(!plan[0].enable && plan[0].rune == first && plan[1].enable && plan[1].rune == second,
+            "remove old Judgment rune before adding saved replacement");
+        check(SkillPresetPlan.same(plan[1].after, targetState),
+            "Judgment change keeps regular skills and unrelated runes intact");
+        check(SkillPresetPlan.build(targetState, slots, rule, owner, signatures).length == 0,
+            "already selected signature rune sends nothing");
+        check(SkillPresetPlan.build(current, slots, rule, owner).length == 0,
+            "legacy presets without signature records preserve current Judgment rune");
+        var noRune = SkillPresetPlan.savedSignatures({slots:current.slots, runes:["A1", "X1"]}, owner, rule);
+        check(noRune.length == 1 && noRune[0].runes.length == 0, "empty signature selection is explicitly saved");
+        var clear = SkillPresetPlan.build(current, slots, rule, owner, noRune);
+        check(clear.length == 1 && !clear[0].enable && clear[0].rune == first,
+            "saved empty Judgment selection clears only Judgment's rune");
+        var wrongClass = rules(); wrongClass.signatures = ["Rogue_Sig_Finisher" => ["Rogue_Rune"]];
+        rejects(() -> SkillPresetPlan.build(current, slots, wrongClass, owner, signatures),
+            "another class's signature is rejected before any change");
+        rejects(() -> SkillPresetPlan.build(current, slots, rule, owner, [{skill:judgment,runes:["A1"]}]),
+            "ordinary skill rune cannot be applied to Judgment");
+        rejects(() -> SkillPresetPlan.build(current, slots, rule, owner, signatures.concat(signatures)),
+            "duplicate signature record is rejected");
+        rejects(() -> SkillPresetPlan.build(current, slots, rule, owner, [{skill:judgment,runes:[first,second]}]),
+            "signature uses the same native rune-count limit");
+        var unlearned = rules(); unlearned.signatures = [judgment => [first]];
+        rejects(() -> SkillPresetPlan.build(current, slots, unlearned, owner, signatures),
+            "unlearned signature rune cannot be restored");
+        rejects(() -> SkillPresetPlan.decodeSignatures(null), "malformed present signature data is not an empty selection");
+        rejects(() -> SkillPresetPlan.decodeSignatures([{skill:null,runes:[]}]), "signature cannot have an empty skill ID");
+
+        var transfer = new SkillPresetTransfer(), context = {};
+        transfer.start(context, current, plan);
+        transfer.next(context, 0, current);
+        check(transfer.next(context, 0.1, plan[0].after) == null, "signature rune removal still waits for server acknowledgement");
+        transfer.acknowledge(transfer.requestId, true);
+        check(transfer.next(context, 0.2, current) == null, "signature acknowledgement still waits for replicated state");
+        var next = transfer.next(context, 0.3, plan[0].after);
+        check(next == plan[1], "replacement signature rune follows confirmed removal");
+        transfer.acknowledge(transfer.requestId, true);
+        transfer.next(context, 0.4, plan[1].after);
+        check(!transfer.active && transfer.error == "", "signature-only transfer completes normally");
     }
 }

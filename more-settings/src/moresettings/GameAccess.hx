@@ -97,4 +97,9 @@ class GameAccess {
     public static function set(object:Dynamic, name:String, value:Dynamic):Void {
         if (object != null) HlxRuntime.setField(object, name, value);
     }
+    /** Native abstracts have module-specific type identities, including mutexes. */
+    public static function mutex(value:Dynamic):sys.thread.Mutex {
+        if (value == null) throw "Native mutex unavailable";
+        return HlxRuntime.resolveAbstract(value, (null:sys.thread.Mutex));
+    }
 }

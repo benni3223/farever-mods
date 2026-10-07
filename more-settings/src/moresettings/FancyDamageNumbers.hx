@@ -26,7 +26,9 @@ class FancyDamageNumbers {
 
     /** Received/self healing uses EffectsFeed, not HealDisplay. */
     public static function applyHealingFeed(feed:Dynamic, damage:Dynamic, config:MoreSettingsConfig):Void {
-        if (!config.fancyDamageNumbers || damage == null) return;
+        // HLX runs postfixes even when the hiding prefix skipped the native row.
+        // Do not restyle the previous heal when no new row was added.
+        if (config.disableDamageNumbers || !config.fancyDamageNumbers || damage == null) return;
         // Native displayHeal returns without adding a row below this threshold.
         // Match that gate so a suppressed heal cannot recolour an older row.
         var amount = G.number(G.call("st.skill.DamageResult", "get_amount", damage));

@@ -56,7 +56,7 @@ class HistoryTest {
         return {id: 17, action: action, group: group, page: page, fightId: fightId};
     static function main():Void {
         clientSkillCompatibility(); archivePolicy(); targetDummies();
-        lifecycle(); partyCombat(); chakram(); riftCountdown(); gameVersions(); outcomes(); recapSummary(); snapshots(); storage(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); snapshotViewports(); historyOptions(); literalLabels(); bossRecords();
+        lifecycle(); partyCombat(); chakram(); riftCountdown(); gameVersions(); outcomes(); recapSummary(); snapshots(); storage(); encounterFolders(); uploader(); categories(); metadata(); breakdown(); encounterDetails(); historyActions(); snapshotLayouts(); snapshotTextures(); snapshotViewports(); historyOptions(); literalLabels(); bossRecords();
         Sys.println('Fight history: $checks checks passed');
     }
     static function archivePolicy():Void {
@@ -66,29 +66,29 @@ class HistoryTest {
         other.bossKind = "Phrixes"; // A recognized name must not override an explicit Other classification.
         var record = FightHistory.encode(other, "other");
         store.save(record);
-        check(!FileSystem.exists(root + "/history/other.json"), "Unclassified nondummy fights never produce an archive, even with a known boss name");
+        check(!FileSystem.exists(archivePath(root, "other")), "Unclassified nondummy fights never produce an archive, even with a known boss name");
         other.bossName = ""; other.bossKind = "";
         var ordinary = FightHistory.encode(other, "ordinary");
         check(ordinary.name == "Other combat", "Ordinary combat fixture has the reported fallback title");
         store.save(ordinary);
-        check(!FileSystem.exists(root + "/history/ordinary.json"), "Other combat does not write a file");
+        check(!FileSystem.exists(archivePath(root, "ordinary")), "Other combat does not write a file");
         var writer = new RunWriter(); writer.archive(other);
         check(writer.uploader == null, "Other fights are discarded before creating a worker or queued record");
         existingHistory(root, ordinary);
         var reopened = new FightHistoryStore(root, _ -> {});
         check(reopened.query(request("chart", "", 0, "ordinary")).record.id == "ordinary",
             "Existing Other history remains available and is not deleted");
-        check(File.getContent(root + "/history/ordinary.json") == Json.stringify(ordinary),
+        check(File.getContent(archivePath(root, "ordinary")) == Json.stringify(ordinary),
             "Browsing an old Other fight leaves its saved file unchanged");
         for (category in [HistoryCategory.BOSS, HistoryCategory.DUNGEON, HistoryCategory.WORLD]) {
             var fight = sample(); fight.category = category;
             var id = "allowed_" + category.split(" ").join("_");
             store.save(FightHistory.encode(fight, id));
-            check(FileSystem.exists(root + "/history/" + id + ".json"), "Recognized encounters still save: " + category);
+            check(FileSystem.exists(archivePath(root, id)), "Recognized encounters still save: " + category);
         }
         var legacy = FightHistory.legacy(other.json("20260917-120000", 1), Date.now().getTime(), "legacy_other");
         store.save(legacy);
-        check(!FileSystem.exists(root + "/history/legacy_other.json"), "Unclassified legacy exports are not imported as new Other archives");
+        check(!FileSystem.exists(archivePath(root, "legacy_other")), "Unclassified legacy exports are not imported as new Other archives");
         remove(root);
     }
     static function targetDummies():Void {
@@ -123,7 +123,7 @@ class HistoryTest {
             var record = writer.uploader.historyIncoming.pop(false);
             check(record != null && record.targetDummy == true, "Detached queue preserves dummy evidence");
             var store = new FightHistoryStore(root, _ -> {}); store.save(record);
-            check(FileSystem.exists(root + "/history/" + record.id + ".json"), "Dummy practice is written to disk");
+            check(FileSystem.exists(archivePath(root, record.id)), "Dummy practice is written to disk");
             store = new FightHistoryStore(root, _ -> {});
             var query = request("groups"); query.category = HistoryCategory.DUMMY;
             query.catalog = {activities: ["PracticeArea" => HistoryCategory.WORLD], names: [], bosses: []};
@@ -137,7 +137,7 @@ class HistoryTest {
                 "Dummy charts retain player and skill breakdowns");
             var earlier = Reflect.copy(record); earlier.id = "earlier_" + flags; earlier.category = HistoryCategory.OTHER;
             store.save(earlier);
-            var earlierPath = root + "/history/" + earlier.id + ".json";
+            var earlierPath = archivePath(root, earlier.id);
             var original = File.getContent(earlierPath);
             store = new FightHistoryStore(root, _ -> {});
             var menu = store.query(request("categories"));
@@ -247,7 +247,7 @@ class HistoryTest {
         worker.warmHistory();
         // A fresh worker has not answered any queries. Once warmed, it must
         // serve summaries without reopening old chart files at kill time.
-        var priorPath = root + "/history/prior.json";
+        var priorPath = archivePath(root, "prior");
         var original = File.getContent(priorPath);
         File.saveContent(priorPath, "{simulate an unreadable file after startup");
         worker.requestBossRecord(query); worker.readBossRecords();
@@ -536,7 +536,7 @@ class HistoryTest {
         m.record(hit(21, 100, false, true)); m.updateRiftState(25, true, true, "BossKind");
         m.record(hit(25.1, 200, true, true)); m.update(26, false);
         check(m.history.length == 2 && m.completed.length == 2 && m.recaps.length == 1, "Both rift phases archived, uploads and recap intact");
-        check(FightHistory.name(m.history[0]) == "Rift: Gates" && FightHistory.name(m.history[1]) == "Rift: The Guardian", "Rift grouping names");
+        check(FightHistory.name(m.history[0]) == "Rift - Gates" && FightHistory.name(m.history[1]) == "Rift - The Guardian", "Rift grouping names");
         check(m.history[1].players["me"].damage == 300, "Late rift killing blow retained");
         m.update(30, false); m.reset(31);
         check(m.history.length == 2, "Completed rift not archived twice on leaving");
@@ -707,7 +707,7 @@ class HistoryTest {
         check(oldEntry.outcome == "" && StringTools.endsWith(FightHistory.attemptHeading(oldEntry), "Outcome unknown")
             && FightHistory.decode(old).outcome == "", "Older logs without outcome metadata are never labelled failure by default");
         reopened = new FightHistoryStore(root, _ -> {}); reopened.query(request("chart", "", 0, old.id));
-        check(File.getContent(root + "/history/old_outcome.json") == unchanged, "Reading old outcome-less logs does not rewrite them");
+        check(File.getContent(archivePath(root, "old_outcome")) == unchanged, "Reading old outcome-less logs does not rewrite them");
         var legacy = FightHistory.legacy(sample().json("20260914-120000", 1), Date.now().getTime(), "legacy_outcome");
         check(FightHistory.entry(legacy).outcome == "", "Legacy exports without explicit outcomes are not guessed from skill kill counts");
         remove(root);
@@ -763,6 +763,17 @@ class HistoryTest {
         FileSystem.createDirectory(root + "/history");
         File.saveContent(root + "/history/" + record.id + ".json", Json.stringify(record));
     }
+    // Existing behavioral checks read whichever layout a fixture currently uses.
+    // encounterFolders separately checks exact paths and the migration itself.
+    static function archivePath(root:String, id:String):String {
+        var flat = root + "/history/" + id + ".json";
+        if (FileSystem.exists(flat) || !FileSystem.exists(root + "/history")) return flat;
+        for (name in FileSystem.readDirectory(root + "/history")) {
+            var path = root + "/history/" + name;
+            if (FileSystem.isDirectory(path) && FileSystem.exists(path + "/" + id + ".json")) return path + "/" + id + ".json";
+        }
+        return flat;
+    }
     static function remove(path:String):Void {
         if (FileSystem.isDirectory(path)) { for (name in FileSystem.readDirectory(path)) remove(path + "/" + name); FileSystem.deleteDirectory(path); }
         else FileSystem.deleteFile(path);
@@ -793,12 +804,114 @@ class HistoryTest {
         File.saveContent(root + "/history/corrupt.json", "{broken");
         var reopened = new FightHistoryStore(root, e -> errors.push(e)); reopened.initialize();
         check(reopened.query(request("fights", "The Guardian")).total == 20, "Restart retains all years of history; a corrupt neighbor is isolated");
-        check(FileSystem.exists(root + "/history/old.json") && FileSystem.exists(root + "/history/corrupt.json"), "History initialization never deletes logs");
+        check(FileSystem.exists(archivePath(root, "old")) && FileSystem.exists(archivePath(root, "corrupt")), "History initialization never deletes logs");
         var escaped = false; try reopened.query(request("chart", "", 0, "../../secret")) catch (_:Dynamic) escaped = true;
         check(escaped, "Only indexed safe IDs may load a chart");
         var draft = FightHistory.encode(sample(), "draft"); File.saveContent(root + "/history/draft.json.tmp", Json.stringify(draft));
         var recovered = new FightHistoryStore(root, e -> errors.push(e)); recovered.initialize();
         check(recovered.query(request("chart", "", 0, "draft")).record.id == "draft", "Completed draft recovered after interrupted rename");
+        remove(root);
+    }
+    static function encounterFolders():Void {
+        var root = temp("encounter-folders");
+        var errors:Array<String> = [];
+        var store = new FightHistoryStore(root, e -> errors.push(e), path -> FileSystem.deleteFile(path));
+        var fight = sample(); fight.bossName = "Crabgantua"; fight.category = HistoryCategory.BOSS; fight.difficulty = 2;
+        var heroic = FightHistory.encode(fight, "heroic");
+        store.save(heroic);
+        var heroicPath = root + "/history/Crabgantua - Heroic/heroic.json";
+        check(File.getContent(heroicPath) == Json.stringify(heroic) && !FileSystem.exists(root + "/history/heroic.json"),
+            "New archives use encounter and difficulty folders with unchanged JSON and filenames");
+        fight.difficulty = 1;
+        store.save(FightHistory.encode(fight, "veteran"));
+        check(FileSystem.exists(root + "/history/Crabgantua - Veteran/veteran.json"), "Different difficulties have separate folders");
+        var changed = Json.parse(Json.stringify(heroic)); changed.name = "Different name"; changed.duration = 999;
+        store.save(changed);
+        check(File.getContent(heroicPath) == Json.stringify(heroic)
+            && store.query(request("chart", "", 0, "heroic")).record.duration == heroic.duration,
+            "Retrying an ID cannot move or overwrite its saved log, or replace its summary");
+
+        for (name in ["Rift: Gates", "Rift: Nightking Maat Demon", "Rift: Before gates"]) {
+            var entry = {name: name, difficulty: -1};
+            var expected = name.split(":").join(" -");
+            check(HistoryCategory.folderName(entry, null) == expected && HistoryCategory.displayName(entry, null) == expected,
+                "Rift labels and folders replace the colon: " + name);
+            check(HistoryCategory.resolve({name: expected}, null) == HistoryCategory.WORLD, "New rift names retain their category");
+        }
+        for (name in ["CON", "nul.txt", "LPT1", "COM¹.txt", "CONOUT$"]) {
+            check(HistoryCategory.folderName({name: name}, null) == "_" + name, "Reserved Windows names are escaped: " + name);
+        }
+        check(HistoryCategory.folderName({name: "  A<>:\"/\\|?*\nB.  "}, null) == "A - B", "Illegal characters and trailing dots/spaces are removed");
+        check(HistoryCategory.folderName({name: "..."}, null) == "Unknown encounter", "An empty sanitized name has a safe fallback");
+        var longName = [for (_ in 0...100) "É界"].join("");
+        var shortened = HistoryCategory.folderName({name: longName}, null);
+        check(haxe.io.Bytes.ofString(shortened).length <= 100 && shortened != HistoryCategory.folderName({name: longName + "!"}, null),
+            "Long Unicode folder names are bounded and remain distinct");
+        for (i in 0...2) {
+            fight.bossName = i == 0 ? "A/B" : "A\\B"; fight.difficulty = -1;
+            store.save(FightHistory.encode(fight, "collision_" + i));
+            check(FileSystem.exists(root + "/history/A - B - Unknown difficulty/collision_" + i + ".json"),
+                "Sanitized encounter-name collisions retain both unique log files");
+        }
+        changed.id = "../escape";
+        var rejected = false; try store.save(changed) catch (_:Dynamic) rejected = true;
+        check(rejected && !FileSystem.exists(root + "/escape.json"), "Encounter folders do not weaken log ID validation");
+
+        // Seed older flat logs and drafts, then restart. Migration must not
+        // reserialize metadata, change timestamps, duplicate or lose attempts.
+        var old = FightHistory.encode(sample(), "flat"); old.name = "Rift: Gates"; old.phase = "Rift: Gates";
+        existingHistory(root, old);
+        var flatPath = root + "/history/flat.json";
+        var original = Json.stringify(old, null, "  ") + "\n"; File.saveContent(flatPath, original);
+        File.saveContent(flatPath + ".tmp", original);
+        var modified = FileSystem.stat(flatPath).mtime.getTime();
+        var draft = FightHistory.encode(sample(), "nested_draft");
+        File.saveContent(root + "/history/Crabgantua - Heroic/nested_draft.json.tmp", Json.stringify(draft));
+        var bad = FightHistory.encode(sample(), "wrong_id");
+        File.saveContent(root + "/history/Crabgantua - Heroic/bad.json", Json.stringify(bad));
+        File.saveContent(root + "/history/Crabgantua - Heroic/bad.json.tmp", Json.stringify(bad));
+        store = new FightHistoryStore(root, e -> errors.push(e), path -> FileSystem.deleteFile(path));
+        store.warm();
+        var migratedPath = root + "/history/Rift - Gates/flat.json";
+        check(!FileSystem.exists(flatPath) && File.getContent(migratedPath) == original
+            && FileSystem.stat(migratedPath).mtime.getTime() == modified, "Flat archives move without changing bytes or modification time");
+        check(!FileSystem.exists(flatPath + ".tmp"), "An identical recovery backup cannot be stranded by migration and resurrect a deleted log");
+        check(store.query(request("fights", "Rift - Gates")).total == 1, "Old rift names share the normalized history group");
+        check(store.query(request("chart", "", 0, "nested_draft")).record.id == "nested_draft",
+            "Interrupted saves/deletions recover in encounter subfolders using their actual path");
+        rejected = false; try store.query(request("chart", "", 0, "wrong_id")) catch (_:Dynamic) rejected = true;
+        check(rejected && FileSystem.exists(root + "/history/Crabgantua - Heroic/bad.json.tmp"),
+            "Mismatched nested filenames and drafts are rejected without deleting them");
+        store.save(old);
+        store.query(request("delete", "", 0, "flat"));
+        check(!FileSystem.exists(migratedPath) && !FileSystem.exists(migratedPath + ".tmp"), "Migrated logs can be deleted without leaving a resurrection backup");
+        store = new FightHistoryStore(root, e -> errors.push(e));
+        check(store.query(request("fights", "Rift - Gates")).total == 0, "Deleted migrated logs stay deleted after restart");
+        // A failed move must not make a valid archive disappear from history.
+        fight.bossName = "Blocked"; fight.difficulty = 2;
+        var blocked = FightHistory.encode(fight, "blocked"); existingHistory(root, blocked);
+        File.saveContent(root + "/history/Blocked - Heroic", "existing unrelated file");
+        store = new FightHistoryStore(root, e -> errors.push(e));
+        check(store.query(request("chart", "", 0, "blocked")).record.id == "blocked"
+            && FileSystem.exists(root + "/history/blocked.json"), "A failed migration stays readable in the flat folder");
+        FileSystem.deleteFile(root + "/history/Blocked - Heroic");
+        store = new FightHistoryStore(root, e -> errors.push(e)); store.warm();
+        check(FileSystem.exists(root + "/history/Blocked - Heroic/blocked.json")
+            && !FileSystem.exists(root + "/history/blocked.json"), "Failed migration retries on the next launch");
+        // Names can change with localization; existing paths still load/delete.
+        FileSystem.rename(root + "/history/Blocked - Heroic", root + "/history/Renamed encounter");
+        store = new FightHistoryStore(root, e -> errors.push(e), path -> FileSystem.deleteFile(path));
+        check(store.query(request("chart", "", 0, "blocked")).record.name == "Blocked", "Existing folders need not match the current display name");
+        store.query(request("delete", "", 0, "blocked"));
+        check(!FileSystem.exists(root + "/history/Renamed encounter/blocked.json"), "Deletion uses the indexed path after a folder rename");
+        var conflict = FightHistory.encode(sample(), "conflict"); existingHistory(root, conflict);
+        var otherVersion = Json.parse(Json.stringify(conflict)); otherVersion.duration = 500;
+        var unresolvedPath = root + "/history/conflict.json.tmp";
+        File.saveContent(unresolvedPath, Json.stringify(otherVersion));
+        store = new FightHistoryStore(root, e -> errors.push(e)); store.warm();
+        check(FileSystem.exists(root + "/history/conflict.json") && File.getContent(unresolvedPath) == Json.stringify(otherVersion)
+            && store.query(request("chart", "", 0, "conflict")).record.duration == conflict.duration,
+            "Conflicting recovery drafts stay beside the committed file without overwriting it or being stranded");
         remove(root);
     }
     static function uploader():Void {
@@ -813,20 +926,20 @@ class HistoryTest {
         uploader.loadSettings();
         uploader.archive(FightHistory.encode(sample(), "local_only"));
         uploader.flush();
-        check(FileSystem.exists(root + "/history/local_only.json"), "Local history works without queuing an upload");
+        check(FileSystem.exists(archivePath(root, "local_only")), "Local history works without queuing an upload");
         check(FileSystem.readDirectory(root + "/logs").length == 3, "Local chart is not submitted to the upload queue");
         var store = new FightHistoryStore(root, _ -> {});
         var all = store.query(request("groups"));
         check(all.groups.length == 2, "Surviving original reports imported alongside local history");
-        check(store.query(request("fights", "Rift: OldGuardian")).total == 1, "Legacy encounter name retained and queued/sent/rejected copies deduplicated");
+        check(store.query(request("fights", "Rift - OldGuardian")).total == 1, "Legacy encounter name retained and queued/sent/rejected copies deduplicated");
         check(FileSystem.exists(root + "/logs/sent/run_20200101-123456_1.json"), "Old sent logs preserved even with keep_days=7");
         var second = new LogUploader(root); second.flush();
         second.requestHistory(request("groups")); second.browseHistory();
         var response = second.receiveHistory();
         check(response.id == 17 && response.error == "", "Background browsing replies to the matching request");
-        check(second.history.query(request("fights", "Rift: OldGuardian")).total == 1, "Restart does not duplicate legacy migration");
+        check(second.history.query(request("fights", "Rift - OldGuardian")).total == 1, "Restart does not duplicate legacy migration");
         second.archive(FightHistory.encode(sample(), "shutdown")); second.stop();
-        check(FileSystem.exists(root + "/history/shutdown.json"), "Normal shutdown persists pending histories");
+        check(FileSystem.exists(archivePath(root, "shutdown")), "Normal shutdown persists pending histories");
         remove(root);
     }
     static function categories():Void {
@@ -843,7 +956,7 @@ class HistoryTest {
         check(HistoryCategory.resolve({name: "FutureGuardian"}, catalog) == "Other", "A boss name alone does not invent missing historical context");
         check(HistoryCategory.resolve({name: "Rift: Gates"}, catalog) == "World Bosses", "Older rift gates recognizable without activity metadata");
         check(HistoryCategory.resolve({name: "Rift: FutureGuardian"}, catalog) == "World Bosses", "Older rift boss recognizable without activity metadata");
-        check(HistoryCategory.displayName({name: "Rift: FutureGuardian"}, catalog) == "Rift: The Future Guardian", "Rift prefix preserved with localized name");
+        check(HistoryCategory.displayName({name: "Rift: FutureGuardian"}, catalog) == "Rift - The Future Guardian", "Rift prefix preserved with localized name");
         check(HistoryCategory.resolve({category: "Other", categoryVersion: 2, activityId: "FutureArena", bossKind: "Crimson_Z3W_Caster_E"}, catalog) == "Other", "Recorded nonboss context isn't promoted by a later catalog");
         check(HistoryCategory.resolve({category: "Classic Dungeons", activityId: "Unknown", bossKind: "Ratsar"}, catalog) == "Boss Dungeons", "Correct old Ratsar misclassification");
         check(HistoryCategory.resolve({category: "Classic Dungeons", activityId: "Unknown", bossKind: "Phrixes"}, catalog) == "Boss Dungeons", "Chakram uses its actual internal ID");
@@ -877,7 +990,7 @@ class HistoryTest {
             var req = request("groups"); req.category = category;
             var groups = store.query(req);
             if (category == HistoryCategory.OTHER) {
-                check(groups.groups.length == 0 && !FileSystem.exists(root + "/history/category_Other.json"),
+                check(groups.groups.length == 0 && !FileSystem.exists(archivePath(root, "category_Other")),
                     "Other fights create neither a history file nor an indexed attempt");
                 continue;
             }
@@ -899,7 +1012,7 @@ class HistoryTest {
         var req = request("groups"); req.category = "Boss Dungeons"; req.catalog = catalog;
         var groups = reopened.query(req);
         check(groups.groups.length == 2 && groups.groups[0].name == "The Future Guardian - Unknown difficulty", "Original imported logs recover category and name without inventing missing difficulty");
-        var original:Dynamic = Json.parse(File.getContent(root + "/history/" + legacy.id + ".json"));
+        var original:Dynamic = Json.parse(File.getContent(archivePath(root, legacy.id)));
         check(!Reflect.hasField(original, "activityId"), "Metadata recovery leaves the existing archive file untouched");
         remove(root);
         root = temp("learned"); store = new FightHistoryStore(root, _ -> {});
@@ -915,7 +1028,7 @@ class HistoryTest {
         req = request("groups"); req.category = "Boss Dungeons";
         req.catalog = {activities: [], names: [], bosses: []};
         check(reopened.query(req).groups[0].count == 2, "Saved objective evidence reclassifies older logs after restart");
-        check(Json.parse(File.getContent(root + "/history/old.json")).category == "Classic Dungeons", "Reclassification never rewrites old damage logs");
+        check(Json.parse(File.getContent(archivePath(root, "old"))).category == "Classic Dungeons", "Reclassification never rewrites old damage logs");
         var missingActivity = FightHistory.encode(sample(), "missing_activity");
         missingActivity.category = "Other"; missingActivity.categoryVersion = 0;
         missingActivity.activityId = ""; missingActivity.bossKind = "NewBoss";
@@ -925,7 +1038,7 @@ class HistoryTest {
         check(reopened.query(req).groups[0].count == 3, "Confirmed boss evidence recovers logs without an activity ID after restart");
         req.catalog = {activities: [], names: [], bosses: []};
         check(reopened.query(req).groups[0].count == 3, "Opening a fresh catalog preserves learned boss categories");
-        check(Json.parse(File.getContent(root + "/history/missing_activity.json")).activityId == "", "Boss recovery does not rewrite archives");
+        check(Json.parse(File.getContent(archivePath(root, "missing_activity"))).activityId == "", "Boss recovery does not rewrite archives");
         var bossCatalog:HistoryCatalog = {activities: [], names: ["NewBoss" => "New Guardian"], bosses: ["NewBoss" => true],
             bossCategories: ["NewBoss" => "Boss Dungeons"]};
         check(HistoryCategory.resolve({name: "New Guardian"}, bossCatalog) == "Boss Dungeons", "Exact unique display names recover early imported boss logs");
@@ -989,6 +1102,7 @@ class HistoryTest {
         for (i in 0...12) {
             var record = FightHistory.encode(sample(), "sort_" + StringTools.lpad(Std.string(i), "0", 2));
             record.startedAt += i * 1000; record.duration = 12 - i;
+            record.outcome = i < 9 ? "Victory" : "Defeat";
             var mine:Dynamic = FightHistory.array(record.players).filter(p -> p.isMe == true)[0];
             mine.uid = "spawn_" + i; record.me = mine.uid;
             mine.name = i % 2 == 0 ? "Wink" : "Priest"; mine.className = i % 2 == 0 ? "warrior" : "cleric";
@@ -1034,6 +1148,26 @@ class HistoryTest {
         }
         req.page = 0; req.ascending = false; result = store.query(req);
         check(result.entries[0].id == "sort_11" && result.entries[1].id == "sort_08", "Equal DPS uses stable newest-first tie breaking");
+        req.sortBy = "time"; req.page = 99; req.outcome = "Victory";
+        result = store.query(req);
+        check(result.total == 9 && result.page == 1 && result.entries.length == 2,
+            "Outcome filtering precedes counts and pagination across the entire archive");
+        check(result.entries[0].id == "sort_01" && result.entries[1].id == "sort_00",
+            "The filtered last page retains the selected sort order");
+        req.outcome = "Defeat"; result = store.query(req);
+        check(result.total == 3 && result.page == 0 && result.entries.filter(e -> e.outcome != "Defeat").length == 0,
+            "Defeat excludes victories and unknown outcomes, and clamps a stale page");
+        req.character = haxe.Json.stringify(["Wink", "warrior"]); req.outcome = "Victory";
+        result = store.query(req);
+        check(result.total == 5 && result.entries.filter(e -> e.playerName != "Wink" || e.outcome != "Victory").length == 0,
+            "Character and outcome filters combine");
+        req.character = haxe.Json.stringify(["Wink", "mage"]);
+        result = store.query(req);
+        check(result.total == 0 && result.page == 0 && result.characters.length == 4,
+            "Empty outcome results retain the character picker, including characters with unknown outcomes");
+        req.character = ""; req.outcome = ""; req.page = 0;
+        result = store.query(req);
+        check(result.total == 14, "Any outcome restores all records, including both older unknown-outcome logs");
         var encoded = FightHistory.encode(sample(), "uid_fallback");
         for (p in FightHistory.array(encoded.players)) p.isMe = false;
         var summary = FightHistory.entry(encoded);
@@ -1082,7 +1216,7 @@ class HistoryTest {
         var reopened = new FightHistoryStore(root, _ -> {});
         var recovered = reopened.query(request("chart", "", 0, legacy.id)).record;
         check(recovered.difficulty == 2, "Recover missing difficulty even when legacy activity metadata already exists");
-        check(Json.parse(File.getContent(root + "/history/" + legacy.id + ".json")).difficulty == null, "Difficulty recovery never rewrites the old log");
+        check(Json.parse(File.getContent(archivePath(root, legacy.id))).difficulty == null, "Difficulty recovery never rewrites the old log");
         check(HistoryCategory.encounterName({name: "Boss", difficulty: 7}, null) == "Boss - Difficulty 7", "Unrecognized future difficulty remains distinct");
         remove(root);
     }
@@ -1097,28 +1231,28 @@ class HistoryTest {
         var source = FightHistory.encode(sample(), "chosen");
         store.save(source); store.save(FightHistory.encode(sample(), "keep"));
         store.query(request("delete", "", 0, "chosen"));
-        check(recycled.length == 1 && recycled[0] == FileSystem.fullPath(root + "/history/chosen.json"), "Only the selected archive file is passed to the recycler by absolute path");
+        check(recycled.length == 1 && recycled[0] == FileSystem.fullPath(root + "/history/The Guardian/chosen.json"), "Only the selected archive file is passed to the recycler by absolute path");
         check(File.getContent(root + "/Recycle Bin/chosen.json") == Json.stringify(source), "The recycled log keeps its full original contents for recovery");
         check(store.query(request("fights", "The Guardian")).entries.length == 1, "Successful recycling removes the fight from the index immediately");
-        check(FileSystem.exists(root + "/history/keep.json"), "Other combat logs are untouched");
+        check(FileSystem.exists(archivePath(root, "keep")), "Other combat logs are untouched");
         var reopened = new FightHistoryStore(root, _ -> {});
         check(reopened.query(request("fights", "The Guardian")).entries.length == 1, "Deleted chart stays absent after restarting the archive");
         var failing = new FightHistoryStore(root, _ -> {}, _ -> { throw "Recycle unavailable"; });
         var failed = false;
         try failing.query(request("delete", "", 0, "keep")) catch (_:Dynamic) failed = true;
-        check(failed && FileSystem.exists(root + "/history/keep.json") && failing.query(request("fights", "The Guardian")).entries.length == 1,
+        check(failed && FileSystem.exists(archivePath(root, "keep")) && failing.query(request("fights", "The Guardian")).entries.length == 1,
             "Recycle failure preserves the file and index instead of permanently deleting");
         var noOp = new FightHistoryStore(root, _ -> {}, _ -> {});
         failed = false;
         try noOp.query(request("delete", "", 0, "keep")) catch (_:Dynamic) failed = true;
         check(failed && noOp.query(request("fights", "The Guardian")).entries.length == 1, "A recycler reporting success without moving the file cannot hide it");
         var unexpectedlyDestructive = new FightHistoryStore(root, _ -> {}, path -> { FileSystem.deleteFile(path); throw "Shell could not confirm recycling"; });
-        var retainedContent = File.getContent(root + "/history/keep.json");
+        var retainedContent = File.getContent(archivePath(root, "keep"));
         failed = false;
         try unexpectedlyDestructive.query(request("delete", "", 0, "keep")) catch (_:Dynamic) failed = true;
-        check(failed && File.getContent(root + "/history/keep.json") == retainedContent,
+        check(failed && File.getContent(archivePath(root, "keep")) == retainedContent,
             "An unexpected destructive shell failure restores the complete log from its recovery backup");
-        check(!FileSystem.exists(root + "/history/chosen.json.tmp") && !FileSystem.exists(root + "/history/keep.json.tmp"),
+        check(!FileSystem.exists(root + "/history/The Guardian/chosen.json.tmp") && !FileSystem.exists(root + "/history/The Guardian/keep.json.tmp"),
             "Completed and rolled-back deletion leave no draft that could resurrect or replace a chart later");
         failed = false;
         try store.query(request("delete", "", 0, "../keep")) catch (_:Dynamic) failed = true;
@@ -1134,7 +1268,7 @@ class HistoryTest {
         worker.requestHistory(failedDelete); worker.requestHistory(followup); worker.browseHistory();
         var result = worker.receiveHistory();
         check(result.id == 100 && result.error != "", "Worker reports the deletion result even when navigation arrives immediately after it");
-        check(worker.receiveHistory().id == 101 && FileSystem.exists(root + "/history/keep.json"), "Worker then services navigation; missing native bridge never deletes permanently");
+        check(worker.receiveHistory().id == 101 && FileSystem.exists(archivePath(root, "keep")), "Worker then services navigation; missing native bridge never deletes permanently");
         remove(root);
 
     }
@@ -1173,11 +1307,30 @@ class HistoryTest {
         var stacked = SnapshotLayout.recapHeight(false, [600, 80]);
         check(columns == 780, "Side-by-side recap fits its title, summary and taller complete phase");
         check(stacked == 924, "Stacked recap fits its title, summary, both complete charts and phase headings");
+        for (width in [312, 600, 791, 792, 892, 932]) {
+            var live = dpsmeter.RiftRecapLayout.panels(width, 540);
+            for (panel in live) check(panel.x >= 0 && panel.y >= 0
+                && panel.x + panel.width <= width && panel.y + panel.height <= 540,
+                "Both recap panels stay inside their owning window at width " + width);
+            check(live[1].x >= live[0].x + live[0].width + 24
+                || live[1].y >= live[0].y + live[0].height + 24,
+                "Recap phases keep a clear gap in columns and stacked layouts");
+            var fullHeight = dpsmeter.RiftRecapLayout.snapshotHeight(width, [600, 80]);
+            var captured = dpsmeter.RiftRecapLayout.panels(width, fullHeight, [600, 80]);
+            for (i in 0...2) check(captured[i].height >= [600, 80][i] + 40
+                && captured[i].y + captured[i].height <= fullHeight,
+                "Recap snapshots fit every row of both unequal phases without clipping");
+            check(SnapshotLayout.historyHeight(fullHeight, 820) - 124 >= fullHeight,
+                "History snapshots reserve enough space for the complete embedded recap");
+        }
+        var historyPanels = dpsmeter.RiftRecapLayout.panels(892, 540);
+        check(historyPanels[0].width == 434 && historyPanels[1].x == 458 && historyPanels[1].y == 0,
+            "The normal Fight History window fits both compact recap charts side by side");
         var image = SnapshotLayout.imageSize(980, columns);
         check(image.width == 1928 && image.height == 1528, "Capture crops to the native body at twice the UI resolution without an outer border");
-        var historyImage = SnapshotLayout.imageSize(900, 700);
-        check(historyImage.width == 1768 && historyImage.height == 1368,
-            "The 884-unit native history body fills the image instead of sitting inside a 48-pixel surround");
+        var historyImage = SnapshotLayout.imageSize(940, 700);
+        check(historyImage.width == 1848 && historyImage.height == 1368,
+            "The 924-unit native history body fills the image instead of sitting inside a 48-pixel surround");
         var tall = SnapshotLayout.imageSize(980, SnapshotLayout.recapHeight(true, [6000, 30]));
         check(tall.height > 2048 && tall.width * 1.0 * tall.height * 4 < 128 * 1024 * 1024,
             "Long rankings remain available across GPU strips");
@@ -1286,16 +1439,16 @@ class HistoryTest {
             totalDps += v.dps; totalPercent += v.percent;
         }
         check(totalDps == 35.05 && totalPercent == 100, "Reopened ability DPS sums to the archived player's DPS");
-        for (width in [280, 360, 499, 500, 579, 580, 699, 700, 799, 800, 828, 852]) {
+        for (width in [280, 360, 499, 500, 579, 580, 699, 700, 799, 800, 828, 852, 892]) {
             var columns = SkillBreakdown.columns(width); var edge = 0;
             for (c in columns) { check(c.x == edge && c.width > 0, "Table columns cannot overlap at width " + width); edge += c.width; }
             check(edge == width && columns[0].key == "ability" && columns[1].key == "percent"
                 && columns[2].key == "distribution" && columns[3].key == "damage"
-                && columns[columns.length - 1].key == (width >= 700 ? "crit" : "damage")
-                && !Lambda.exists(columns, c -> c.key == "dps"), "Core information fits every supported width without a DPS column " + width);
+                && columns[columns.length - 1].key == "dps" && columns[columns.length - 1].title == "DPS",
+                "Regular breakdowns keep DPS as the final column at every supported width " + width);
         }
-        check(SkillBreakdown.columns(828).length == 9, "Normal history width shows every remaining statistic and the separate distribution");
-        for (width in [280, 360, 408, 430, 454, 580, 790, 852]) {
+        check(SkillBreakdown.columns(892).length == 10, "Normal history width shows all statistics including the restored DPS column");
+        for (width in [280, 360, 408, 430, 434, 454, 580, 790, 852]) {
             var columns = SkillBreakdown.columns(width, true);
             check([for (c in columns) c.key].join(",") == "ability,percent,distribution,damage",
                 "Recaps keep the ability inline with only three metrics at every size");

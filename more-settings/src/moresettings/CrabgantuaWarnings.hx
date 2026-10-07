@@ -43,7 +43,8 @@ class CrabgantuaWarnings {
     public static function sync(fx:Dynamic):Void {
         if (!enabled) return;
         var warning = warnings.get(fx);
-        if (warning == null || warning.applied || G.field(fx, "removed") == true) return;
+        if (warning == null || G.field(fx, "removed") == true) return;
+        if (warning.applied) return;
         try {
             var always = G.enumeration("h3d.mat.Compare", "Always");
             if (always == null) throw "Native depth comparison unavailable";
@@ -80,7 +81,7 @@ class CrabgantuaWarnings {
 
     static function colorPass(name:String):Bool return switch name {
         case "default", "alpha", "additive", "forward", "forwardAlpha", "overlay",
-            "beforeTonemapping", "beforeTonemappingAlpha", "afterTonemapping", "afterTonemappingDecal",
+            "beforeTonemapping", "beforeTonemappingAlpha", "beforeTonemappingDecal", "afterTonemapping", "afterTonemappingDecal",
             "afterFog", "transparentOverlay", "volumetricOverlay": true;
         // Depth/shadow passes and deferred G-buffer outputs must keep their
         // original pipeline. Only colour passes can use the native overlay output.

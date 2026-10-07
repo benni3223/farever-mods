@@ -213,10 +213,31 @@ class ItemLockStateTest {
         check(itemutilities.EquipmentPresetMatch.choose("missing", bee, candidates) == 0, "preset finds saved infusion after UID changes");
         check(itemutilities.EquipmentPresetMatch.choose("missing", kobold, candidates) == 1, "preset selects the other infusion when requested");
         check(itemutilities.EquipmentPresetMatch.choose("missing", old, candidates) == -1, "legacy preset does not guess among infused variants");
-        check(itemutilities.EquipmentPresetMatch.choose("b", old, candidates) == 1, "exact saved UID retains existing preset behavior");
+        check(itemutilities.EquipmentPresetMatch.choose("b", old, candidates) == -1,
+            "a session UID cannot disambiguate different infusion identities in a legacy preset");
         check(itemutilities.EquipmentPresetMatch.choose("missing", old, [candidates[0]]) == 0, "unique legacy preset remains usable");
         check(itemutilities.EquipmentPresetMatch.choose("missing", old,
             [candidates[0], {uid: "equivalent", fingerprint: bee}]) == 0, "equivalent duplicate gear retains existing preset behavior");
+        check(itemutilities.EquipmentPresetMatch.choose("equivalent", bee,
+            [candidates[0], {uid: "equivalent", fingerprint: bee}]) == 1,
+            "a matching UID may prefer one of genuinely interchangeable items");
+
+        // Reported Credence preset after login: its saved UID now identifies a
+        // Soulstone. The bow is still present under a different session UID.
+        var bow = 'v5|' + Json.stringify(["Bow_Craft", "0", '["DemonGearUpgrade_MPToFerv","FormulaWeaponDevote"]',
+            "25", "5", "Legendary", "Legendary", "", ""]);
+        var stone = 'v5|' + Json.stringify(["Soulstone_Z1_1", "0", "[]", "<null>", "<null>", "<null>", "Rare", "", ""]);
+        var restoredPreset:Dynamic = Json.parse(Json.stringify({uid:"saved-bow-id", fingerprint:bow}));
+        var inventory = [{uid:"saved-bow-id", fingerprint:stone}, {uid:"new-bow-id", fingerprint:bow}];
+        check(itemutilities.EquipmentPresetMatch.choose(restoredPreset.uid, restoredPreset.fingerprint, inventory) == 1,
+            "Credence is restored by its saved identity instead of selecting a recycled UID's Soulstone");
+        inventory.reverse();
+        check(itemutilities.EquipmentPresetMatch.choose(restoredPreset.uid, restoredPreset.fingerprint, inventory) == 0,
+            "recycled UID cannot override a correct match found earlier either");
+        check(itemutilities.EquipmentPresetMatch.choose("saved-bow-id", bow, [{uid:"saved-bow-id", fingerprint:stone}]) == -1,
+            "a missing weapon never substitutes the unrelated item reusing its UID");
+        check(itemutilities.EquipmentPresetMatch.choose("b", bee, candidates) == 0,
+            "recycled UID cannot substitute gear with a different infusion");
     }
 
     static function testManualLocking():Void {

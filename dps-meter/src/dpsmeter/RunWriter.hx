@@ -27,6 +27,22 @@ class RunWriter {
         prepare();
         uploader.archive(record);
     }
+    public function archiveRecap(recap:dpsmeter.RiftTracker.RiftRecap):Void {
+        if (stopped) return;
+        var record = RiftRecapHistory.encode(recap, "recap_" + historySession + "_" + (++historySequence));
+        prepare();
+        uploader.archive(record);
+    }
+    public function archiveHistory(model:dpsmeter.CombatModel):Void {
+        while (model.history.length > 0) {
+            archive(model.history[0]);
+            model.history.shift();
+        }
+        while (model.recapHistory.length > 0) {
+            archiveRecap(model.recapHistory[0]);
+            model.recapHistory.shift();
+        }
+    }
     public function requestHistory(request:HistoryRequest):Void { prepare(); uploader.requestHistory(request); }
     public function receiveHistory():Null<HistoryResponse> return uploader == null ? null : uploader.receiveHistory();
     public function requestBossRecord(request:BossRecordRequest):Void { prepare(); uploader.requestBossRecord(request); }

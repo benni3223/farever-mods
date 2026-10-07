@@ -6,13 +6,13 @@ typedef HistoryEntry = {
     id:String, name:String, startedAt:Float, duration:Float, personalDps:Null<Float>, playerName:String,
     category:String, categoryVersion:Int, activityId:String, bossKind:String, phase:String,
     difficulty:Int, partySize:Int, recordedPlayers:Int, playerClass:String, outcome:String,
-    ?damageTypeSummary:String, ?targetDummy:Bool
+    ?damageTypeSummary:String, ?targetDummy:Bool, ?kind:String, ?recapBossName:String
 };
 typedef HistoryGroup = {name:String, count:Int};
 typedef HistoryHeading = {before:String, player:String, after:String};
 typedef HistoryCharacter = {key:String, name:String, className:String};
 typedef HistoryRequest = {id:Int, action:String, group:String, page:Int, fightId:String,
-    ?category:String, ?catalog:HistoryCatalog, ?sortBy:String, ?ascending:Bool, ?character:String};
+    ?category:String, ?catalog:HistoryCatalog, ?sortBy:String, ?ascending:Bool, ?character:String, ?outcome:String};
 typedef HistoryResponse = {
     id:Int, page:Int, total:Int, groups:Array<HistoryGroup>, entries:Array<HistoryEntry>, record:Dynamic, error:String,
     ?characters:Array<HistoryCharacter>
@@ -40,10 +40,11 @@ class FightHistory {
     public static function name(fight:Fight):String {
         if (fight.category == HistoryCatalog.HistoryCategory.DUMMY
             || (fight.category == HistoryCatalog.HistoryCategory.OTHER && fight.targetDummy)) return "Target dummy";
-        return fight.phase != "" ? fight.phase : fight.bossName != "" ? fight.bossName
-            : fight.bossKind != "" ? fight.bossKind : "Other combat";
+        return HistoryCatalog.HistoryCategory.normalizeName(fight.phase != "" ? fight.phase : fight.bossName != "" ? fight.bossName
+            : fight.bossKind != "" ? fight.bossKind : "Other combat");
     }
     public static function entry(record:Dynamic):HistoryEntry {
+        if (RiftRecapHistory.isRecap(record)) return RiftRecapHistory.entry(record);
         validate(record);
         var damage:Null<Float> = text(record.me) == "" ? null : 0;
         var playerName = text(record.meName);
@@ -61,6 +62,7 @@ class FightHistory {
             outcome: outcome(record.outcome), damageTypeSummary: damageTypeSummary, targetDummy: record.targetDummy == true};
     }
     public static function decode(record:Dynamic):Fight {
+        if (RiftRecapHistory.isRecap(record)) throw "Open this log as a rift recap.";
         validate(record);
         var fight = new Fight(1);
         fight.gameVersion = text(record.gameVersion);
@@ -96,6 +98,7 @@ class FightHistory {
         return fight;
     }
     public static function validate(record:Dynamic):Void {
+        if (RiftRecapHistory.isRecap(record)) { RiftRecapHistory.validate(record); return; }
         if (record == null || record.version != 1 || text(record.id) == "" || text(record.name) == ""
             || number(record.startedAt) <= 0 || number(record.duration) < 0
             || !Std.isOfType(record.players, Array)) throw "Invalid fight history record.";
@@ -139,8 +142,6 @@ class FightHistory {
         for (p in array(record.players)) if (text(p.uid) != "") ids[text(p.uid)] = true;
         return Lambda.count(ids);
     }
-    static function dateAndPlayer(entry:HistoryEntry):String return dateLabel(entry.startedAt)
-        + (entry.playerName == "" ? "" : "  ·  " + entry.playerName);
     public static function attemptHeadingParts(entry:HistoryEntry):HistoryHeading return {
         before: dateLabel(entry.startedAt) + (entry.playerName == "" ? "" : "  ·  "),
         player: entry.playerName,
@@ -151,10 +152,18 @@ class FightHistory {
         var parts = attemptHeadingParts(entry);
         return parts.before + parts.player + parts.after;
     }
-    public static function attemptDetail(entry:HistoryEntry):String return durationLabel(entry.duration) + "  ·  " + dpsLabel(entry.personalDps);
-    public static function chartDetail(entry:Null<HistoryEntry>):String return entry == null ? "" : dateAndPlayer(entry)
-        + "  ·  " + dpsLabel(entry.personalDps) + "  ·  " + durationLabel(entry.duration) + "  ·  " + outcomeLabel(entry)
-        + (entry.damageTypeSummary == null || entry.damageTypeSummary == "" ? "" : "  ·  " + entry.damageTypeSummary);
+    public static function attemptDetail(entry:HistoryEntry):String
+        return (RiftRecapHistory.isRecap(entry) ? text(entry.recapBossName) + "  ·  " : "")
+            + durationLabel(entry.duration) + "  ·  " + dpsLabel(entry.personalDps);
+    public static function chartDetail(entry:Null<HistoryEntry>, ?player:PlayerStats):String {
+        if (entry == null) return "";
+        var name = player == null ? entry.playerName : player.info.name;
+        var dps = player == null ? entry.personalDps : player.damage / Math.max(1, entry.duration);
+        var split = player == null ? entry.damageTypeSummary : player.damageBreakdown.summary(player.damage);
+        return dateLabel(entry.startedAt) + (name == "" ? "" : "  ·  " + name)
+            + "  ·  " + dpsLabel(dps, player == null) + "  ·  " + durationLabel(entry.duration) + "  ·  " + outcomeLabel(entry)
+            + (split == null || split == "" ? "" : "  ·  " + split);
+    }
     public static function recapDetail(recap:dpsmeter.RiftTracker.RiftRecap):String {
         // Use the beginning of the recorded rift, not the later boss phase or
         // the time the recap is copied. Boss-only recordings use their own start.
@@ -194,15 +203,16 @@ class FightHistory {
         return n < 1 ? "<1 sec" : n < 60 ? n + " sec" : n < 3600 ? Std.int(n / 60) + " min " + n % 60 + " sec"
             : Std.int(n / 3600) + " hr " + Std.int(n % 3600 / 60) + " min " + n % 60 + " sec";
     }
-    public static function dpsLabel(value:Null<Float>):String {
-        if (value == null) return "Your DPS: unavailable";
+    public static function dpsLabel(value:Null<Float>, personal:Bool = true):String {
+        var prefix = personal ? "Your DPS: " : "DPS: ";
+        if (value == null) return prefix + "unavailable";
         var raw = Std.string(Math.fround(value));
         var result = "";
         for (i in 0...raw.length) {
             if (i > 0 && (raw.length - i) % 3 == 0) result += ",";
             result += raw.charAt(i);
         }
-        return "Your DPS: " + result;
+        return prefix + result;
     }
     public static function array(value:Dynamic):Array<Dynamic> return Std.isOfType(value, Array) ? cast value : [];
     public static function text(value:Dynamic):String return Std.isOfType(value, String) ? cast value : "";

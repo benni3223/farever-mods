@@ -37,6 +37,14 @@ class InspectMenuContextTest {
             "never insert into unrelated context menus");
         check(InspectMenuContext.insertionIndex(["", "Send message"], "") == -1,
             "missing localization must not match a blank separator");
+        context.begin(gameUI, "offline-friend", "Alice", true, true);
+        check(context.take(gameUI).fromSocialWindow == true, "social gear menus retain their source");
+        check(InspectMenuContext.insertionIndex(["Send message", "Add note", "Invite"], "Send message", true) == 1,
+            "Inspect precedes Friend Notes regardless of mod initialization order");
+        check(InspectMenuContext.insertionIndex(["Remove friend"], "Send message", true) == 0,
+            "offline friends can choose Inspect and receive an explanation in chat");
+        check(InspectMenuContext.insertionIndex(["Remove friend"], "Send message") == -1,
+            "the missing-message fallback is restricted to confirmed social player menus");
         trace('Inspect menu: $checks checks passed');
     }
 }

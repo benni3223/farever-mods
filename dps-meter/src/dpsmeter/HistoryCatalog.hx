@@ -42,6 +42,7 @@ class HistoryCategory {
         else if (categories[kind] != category) categories[kind] = OTHER;
     }
     public static function resolve(record:Dynamic, catalog:Null<HistoryCatalog>):String {
+        if (RiftRecapHistory.isRecap(record)) return WORLD;
         var stored = FightHistory.text(record.category);
         // Reclassify earlier dummy logs in memory without rewriting them, and
         // keep practice separate even if its area later hosts a boss event.
@@ -49,7 +50,7 @@ class HistoryCategory {
             || (stored == OTHER && record.targetDummy == true)) return DUMMY;
         var phase = FightHistory.text(record.phase);
         var name = FightHistory.text(record.name);
-        if (StringTools.startsWith(phase, "Rift:") || StringTools.startsWith(name, "Rift:")) return WORLD;
+        if (isRiftName(phase) || isRiftName(name)) return WORLD;
         var activity = FightHistory.text(record.activityId);
         if (catalog != null && catalog.activities[activity] == WORLD) return WORLD;
         // Version 1 inferred these labels from implementation inheritance,
@@ -75,16 +76,43 @@ class HistoryCategory {
         return legacyBoss(boss);
     }
     public static function displayName(record:Dynamic, catalog:Null<HistoryCatalog>):String {
-        var name = FightHistory.text(record.name);
-        if (catalog == null) return name;
-        if (catalog.names.exists(name)) return catalog.names[name];
-        if (StringTools.startsWith(name, "Rift: ")) {
-            var id = name.substr(6);
-            if (catalog.names.exists(id)) return "Rift: " + catalog.names[id];
+        var original = FightHistory.text(record.name);
+        if (catalog != null && catalog.names.exists(original)) return normalizeName(catalog.names[original]);
+        var name = normalizeName(original);
+        if (catalog != null && StringTools.startsWith(name, "Rift - ")) {
+            var id = name.substr(7);
+            if (catalog.names.exists(id)) return "Rift - " + catalog.names[id];
+        }
+        return name;
+    }
+    static function isRiftName(name:String):Bool
+        return StringTools.startsWith(name, "Rift:") || StringTools.startsWith(name, "Rift - ");
+    /** Presentation only: retain the existing phase IDs in uploaded reports. */
+    public static function normalizeName(name:String):String
+        return StringTools.startsWith(name, "Rift:") ? "Rift - " + StringTools.trim(name.substr(5)) : name;
+    public static function folderName(record:Dynamic, catalog:Null<HistoryCatalog>):String {
+        var name = encounterName(record, catalog);
+        name = ~/[<>:"\/\\|?*\x00-\x1F]+/g.replace(name, " - ");
+        name = ~/\s+/g.replace(name, " ");
+        name = ~/[. ]+$/g.replace(StringTools.trim(name), "");
+        if (name == "") name = "Unknown encounter";
+        // Windows device names are reserved even when followed by an extension.
+        if (~/^(CON|PRN|AUX|NUL|COM[1-9¹²³]|LPT[1-9¹²³]|CONIN\$|CONOUT\$)(\.|$)/i.match(name)) name = "_" + name;
+        // Bound the added path component while keeping long names distinct.
+        if (haxe.io.Bytes.ofString(name).length > 100) {
+            var hash = haxe.crypto.Md5.encode(name).substr(0, 8);
+            var prefix = "";
+            for (code in new haxe.iterators.StringIteratorUnicode(name)) {
+                var next = prefix + String.fromCharCode(code);
+                if (haxe.io.Bytes.ofString(next).length > 88) break;
+                prefix = next;
+            }
+            name = prefix + " - " + hash;
         }
         return name;
     }
     public static function encounterName(record:Dynamic, catalog:Null<HistoryCatalog>):String {
+        if (RiftRecapHistory.isRecap(record)) return RiftRecapHistory.NAME;
         var name = displayName(record, catalog);
         var difficulty = FightHistory.difficulty(record.difficulty);
         if (difficulty >= 0) {

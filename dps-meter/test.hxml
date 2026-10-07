@@ -5,6 +5,12 @@
 --interp
 --next
 -cp src
+-cp ../shared/src
+-cp tests
+-main RiftRecapHistoryTest
+--interp
+--next
+-cp src
 -cp tests
 -main KillNotificationsTest
 --interp

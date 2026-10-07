@@ -2,11 +2,6 @@ package moresettings;
 
 /** Test adapter: plain objects stand in for native HL objects and arrays. */
 class GameAccess {
-    public static var master:Float = 1;
-    public static var focused:Bool = true;
-    public static var writes:Int = 0;
-    public static var audioReady:Bool = true;
-    public static var reads:Int = 0;
     public static var data:Dynamic;
     public static var inputArrayCalls:Int = 0;
     public static var blitCalls:Int = 0;
@@ -70,7 +65,7 @@ class GameAccess {
     }
     public static function callInstance(o:Dynamic, name:String):Dynamic return call("", name, o);
     public static function current(type:String, name:String):Dynamic
-        return type == "fmod.Api" && name == "initialized" ? audioReady : field(data, name);
+        return field(data, name);
     public static function call(type:String, name:String, o:Dynamic, ?args:Array<Dynamic>):Dynamic return switch name {
         case "get_myPlayer": field(data, "player");
         case "set_visible": set(o, "visible", args[0]); args[0];
@@ -121,8 +116,6 @@ class GameAccess {
         case "getSourceObject": field(o, "instigator") != null ? field(o, "instigator") : field(o, "owner");
         case "resolveProxy": field(o, "proxy") == null ? o : field(o, "proxy");
         case "isEnemy": field(args[0], "enemy") == true;
-        case "get_isFocused": focused;
-        case "isFlyingToObelisk": field(o, "flying") == true;
         case "isActive": field(o, "playing") == true;
         case "stop": set(o, "playing", false); set(o, "stops", integer(field(o, "stops")) + 1); null;
         default: throw "Unexpected native call: " + type + "." + name;
@@ -133,15 +126,6 @@ class GameAccess {
             releaseReads++;
             if (failRelease) throw "Native input failed";
             inputActive && releasedInput == args[0];
-        case "getInstance": {};
-        case "getVcaVolume":
-            if (!audioReady) throw "Access violation: FMOD has not initialized";
-            reads++;
-            if (args[0] != "vca:/MASTER") throw "Unexpected VCA read: " + args[0];
-            master;
-        case "setVcaVolume":
-            if (args[0] != "vca:/MASTER") throw "Unexpected VCA write: " + args[0];
-            master = args[1]; writes++; null;
         default: throw "Unexpected native static call: " + type + "." + name;
     };
 }

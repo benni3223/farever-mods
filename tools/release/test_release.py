@@ -127,12 +127,12 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             release.make_archive(package, self.plan)
 
-    def test_native_plugins_are_required(self):
-        for project in ['dps-meter', 'more-settings']:
-            if (self.root / 'package').exists():
-                shutil.rmtree(self.root / 'package')
-            with self.subTest(project=project), self.assertRaises(ValueError):
-                release.validate_package(self.package(project), project)
+    def test_dps_native_plugin_is_required(self):
+        with self.assertRaises(ValueError):
+            release.validate_package(self.package('dps-meter'), 'dps-meter')
+
+    def test_more_settings_no_longer_requires_an_audio_plugin(self):
+        self.assertTrue(release.validate_package(self.package('more-settings'), 'more-settings'))
 
     def test_dry_run_makes_zip_without_any_publishing_call(self):
         self.package()
