@@ -10,4 +10,10 @@ class InspectAccess {
         if (proxy) value = field(value, "array");
         return value == null ? [] : cast value;
     }
+    public static function call(type:String, method:String, object:Dynamic, args:Array<Dynamic>):Dynamic {
+        if (type != "st.Inventory" || method != "getItemStack") throw "Unexpected native call";
+        for (stack in (cast object.content:Array<Dynamic>))
+            if (stack != null && stack.item == args[0]) return stack;
+        return null;
+    }
 }

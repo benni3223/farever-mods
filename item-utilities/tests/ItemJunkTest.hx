@@ -41,8 +41,36 @@ class ItemJunkTest {
         check(NativeJunk.fingerprint(rune)!=NativeJunk.fingerprint(runeB), "different runes are distinct despite a shared item kind");
         var unknown=copy(item); unknown.nativeType="st.item.FutureGear";
         check(NativeJunk.fingerprint(unknown)==null, "unknown item subclass cannot be auto-marked");
-        var incomplete=copy(item); incomplete.slots=null;
-        check(NativeJunk.fingerprint(incomplete)==null && NativeJunk.fingerprint(null)==null, "incomplete replication cannot create a broad rule");
+        // The live game's serializer explicitly allows null slots/effects.
+        // These are ordinary equippable items, not incomplete replication.
+        var noSlots=copy(item); noSlots.slots=null;
+        var emptySlots=copy(item); emptySlots.slots={array:[]};
+        check(NativeJunk.fingerprint(noSlots)!=null, "gear without extra stats can be marked as junk");
+        check(NativeJunk.fingerprint(noSlots)==NativeJunk.fingerprint(emptySlots), "null and empty stat lists have the same identity");
+        for (slots in [null, {array:[]}, {array:["CriticalChance"]}]) {
+            var ordinary=copy(weapon); ordinary.slots=slots; ordinary.effects=null;
+            var emptyEffects=copy(ordinary); emptyEffects.effects={array:[]};
+            var key=NativeJunk.fingerprint(ordinary);
+            check(key!=null && key==NativeJunk.fingerprint(emptyEffects), "weapon without added effects can be marked, with or without stats");
+            var rules=new ItemJunkState(); rules.set("db:A", ordinary.kind, key, true);
+            check(rules.matches("db:A", ordinary.kind, NativeJunk.fingerprint(copy(ordinary))), "ordinary equippable future copies match junk rules");
+            var changed=copy(ordinary); changed.effects={array:[{source:"RoguePoison",skill:"Poison"}]};
+            check(!rules.matches("db:A", changed.kind, NativeJunk.fingerprint(changed)), "weapon with added effects still differs from ordinary junk");
+            rules.set("db:A", ordinary.kind, key, false);
+            check(!rules.matches("db:A", ordinary.kind, key), "equippable junk can be unmarked for equipping again");
+        }
+        var worn=copy(item), bagCopy=copy(item);
+        var loadout:Dynamic={inventory:{content:[null,{item:bagCopy,count:1}]}, equipment:{content:[{item:worn,count:1}]}};
+        check(NativeJunk.isInBag(loadout,bagCopy), "bag membership does not reject equippable gear");
+        check(!NativeJunk.isInBag(loadout,worn), "equipped identical copy is outside junk restrictions");
+        check(!NativeJunk.isInBag(loadout,copy(bagCopy)), "bag membership requires exact item object, not identical stats");
+        loadout.inventory.content=[];
+        check(!NativeJunk.isInBag(loadout,bagCopy), "item leaving bag no longer counts as bag junk");
+        check(!NativeJunk.isInBag(null,item) && !NativeJunk.isInBag({inventory:{content:null}},item), "unavailable bag is safe to query");
+        var incomplete=copy(item); incomplete.slots={};
+        check(NativeJunk.fingerprint(incomplete)==null && NativeJunk.fingerprint(null)==null, "malformed present proxy cannot create a broad rule");
+        var brokenWeapon=copy(weapon); brokenWeapon.effects={};
+        check(NativeJunk.fingerprint(brokenWeapon)==null, "malformed present effects proxy is still rejected");
         var loaded=new ItemJunkState(); loaded.load(copy(state.saved()));
         check(loaded.matches("db:A", "Ring", NativeJunk.fingerprint(future)), "saved matching survives a login and JSON round trip");
         loaded.set("db:A", "Ring", fingerprint, false);

@@ -1834,9 +1834,11 @@ class ItemUtilitiesMod {
 
     static function isItemJunk(item:Dynamic):Bool {
         if (!enabled.get() || item == null) return false;
-        var character = heroPersistentId(resolveHero());
+        var hero = resolveHero();
+        var character = heroPersistentId(hero);
         var kind = G.text(fieldOrNull(item, "kind"));
         if (!junkState.hasKind(character, kind) || isItemLocked(item)) return false;
+        if (!NativeJunk.isInBag(fieldOrNull(hero, "loadout"), item)) return false;
         return junkState.matches(character, kind, NativeJunk.fingerprint(item));
     }
 
@@ -1845,8 +1847,7 @@ class ItemUtilitiesMod {
         reconcileItemLocks();
         if (isItemLocked(item)) return;
         var hero = resolveHero();
-        var inventory = fieldOrNull(fieldOrNull(hero, "loadout"), "inventory");
-        if (inventory == null || G.call("st.Inventory", "getItemStack", inventory, [item]) == null) return;
+        if (!NativeJunk.isInBag(fieldOrNull(hero, "loadout"), item)) return;
         var character = heroPersistentId(hero);
         var kind = G.text(fieldOrNull(item, "kind"));
         var fingerprint = NativeJunk.fingerprint(item);
@@ -1862,7 +1863,7 @@ class ItemUtilitiesMod {
         if (activeInventoryUI != null && isUiVisible(activeInventoryUI) && isUiVisible(sort)) {
             NativeUtilityUi.button(fieldOrNull(sort, "parent"), "edit-junk",
                 NativeUiLayout.rect(sort, showLockVisuals.get() ? -76 : -38, 0, 32, 30),
-                "junk", "Mark as Junk", () -> {
+                "junk", null, () -> {
                     if (!enabled.get()) return;
                     junkEditMode = !junkEditMode;
                     lockEditMode = false;

@@ -171,8 +171,9 @@ weapon effects, and rune identity. Stack size and temporary item IDs do not
 affect matching. Different rolls or upgrades remain distinct, and locked copies
 stay protected. Unmarking a matching item removes that rule for future pickups.
 
-Junk cannot be equipped or moved into the bank, including through deposit
-shortcuts. At a Guild Merchant, click the **Sell all junk** trash-bin button
+Weapons, armour, and accessories in your bag can be marked as junk. Marked bag
+items cannot be equipped or moved into the bank, including through deposit
+shortcuts. Matching items already worn remain unaffected. At a Guild Merchant, click the **Sell all junk** trash-bin button
 beside the trade window's close button to sell the inventory's marked stacks.
 Sales use the normal game requests and checks, one acknowledged sale at a time.
 Changed, moved, newly locked, or unsellable items are skipped. Closing the

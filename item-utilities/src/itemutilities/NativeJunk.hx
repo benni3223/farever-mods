@@ -4,6 +4,14 @@ import itemutilities.InspectAccess as G;
 
 /** Match the fields compared by Item/Gear/Weapon/Mastery.equals in the live game. */
 class NativeJunk {
+    public static function isInBag(loadout:Dynamic, item:Dynamic):Bool {
+        var inventory = G.field(loadout, "inventory");
+        // getItemStack compares actual item objects, not matching gear stats.
+        // A worn item is not junk just because a matching bag item is marked.
+        return item != null && inventory != null && G.field(inventory, "content") != null
+            && G.call("st.Inventory", "getItemStack", inventory, [item]) != null;
+    }
+
     public static function fingerprint(item:Dynamic):String {
         var kind = G.text(G.field(item, "kind"));
         var inf = G.field(item, "inf");
@@ -15,17 +23,23 @@ class NativeJunk {
             "st.item.Recipe", "st.item.InfusionPattern"].indexOf(type) < 0) return null;
         var parts:Array<Dynamic> = [type, kind, flags, G.text(G.field(inf, "rarity"))];
         if (G.isA(item, "st.item.Gear")) {
-            if (G.field(item, "slots") == null || G.field(G.field(item, "slots"), "array") == null) return null;
+            var slots = G.field(item, "slots");
+            // Gear.doUnserialize/_load preserve null when there are no extra
+            // stats. Null is a valid empty list, not unfinished replication.
+            // A present proxy must still have its backing array.
+            if (slots != null && G.field(slots, "array") == null) return null;
             parts.push(G.field(item, "level"));
             parts.push(G.field(item, "upgradeLevel"));
-            parts.push([for (slot in G.array(G.field(item, "slots"), true)) slot == null ? null : Std.string(slot)]);
+            parts.push([for (slot in G.array(slots, true)) slot == null ? null : Std.string(slot)]);
             parts.push(G.text(G.field(item, "infusion")));
             parts.push(G.text(G.field(item, "infusionBonusStat")));
         }
         if (G.isA(item, "st.item.Weapon")) {
             parts.push(G.text(G.field(item, "rarity")));
-            if (G.field(G.field(item, "effects"), "array") == null) return null;
-            parts.push([for (effect in G.array(G.field(item, "effects"), true))
+            // Unmodified weapons normally have no effects proxy at all.
+            var effects = G.field(item, "effects");
+            if (effects != null && G.field(effects, "array") == null) return null;
+            parts.push([for (effect in G.array(effects, true))
                 [G.text(G.field(effect, "source")), G.text(G.field(effect, "skill"))]]);
         }
         if (G.isA(item, "st.item.Mastery")) parts.push(G.text(G.field(item, "mastery")));
