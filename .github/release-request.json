@@ -1,7 +1,7 @@
 {
-  "project": "dps-meter",
-  "version": "1.7.0",
+  "project": "item-utilities",
+  "version": "1.11.0",
   "commit": "e19b6285fd2e986124b3034daa6cbfbdd27c35a0",
-  "notes": "- Added new filter in Fight History for fight outcome (Victory, Defeat, All).\n- Logs are now saved in a cleaner folder structure, making mass cleanup easier.\n- The header in a damage breakdown now matches the player whose damage is being analyzed.\n- Added rift recaps to Fight History.\n",
+  "notes": "- Added an option to mark inventory items as junk, similar to locking.\n- Locked items cannot be marked as junk. Junk items cannot be locked.\n- Junk items cannot be equipped or banked.\n- Marking an item as junk marks all exact copies of that item as junk (including picking up new ones) until you unmark it as junk.\n- Junk is saved per-character.\n- Added a \"Sell all junk\" button to the Guild Merchant's trade window.\n- Fixed an issue where Spark Master choices were not saved in skill presets.\n",
   "dry_run": false
 }
