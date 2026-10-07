@@ -1439,16 +1439,16 @@ class HistoryTest {
             totalDps += v.dps; totalPercent += v.percent;
         }
         check(totalDps == 35.05 && totalPercent == 100, "Reopened ability DPS sums to the archived player's DPS");
-        for (width in [280, 360, 499, 500, 579, 580, 699, 700, 799, 800, 828, 852]) {
+        for (width in [280, 360, 499, 500, 579, 580, 699, 700, 799, 800, 828, 852, 892]) {
             var columns = SkillBreakdown.columns(width); var edge = 0;
             for (c in columns) { check(c.x == edge && c.width > 0, "Table columns cannot overlap at width " + width); edge += c.width; }
             check(edge == width && columns[0].key == "ability" && columns[1].key == "percent"
                 && columns[2].key == "distribution" && columns[3].key == "damage"
-                && columns[columns.length - 1].key == (width >= 700 ? "crit" : "damage")
-                && !Lambda.exists(columns, c -> c.key == "dps"), "Core information fits every supported width without a DPS column " + width);
+                && columns[columns.length - 1].key == "dps" && columns[columns.length - 1].title == "DPS",
+                "Regular breakdowns keep DPS as the final column at every supported width " + width);
         }
-        check(SkillBreakdown.columns(828).length == 9, "Normal history width shows every remaining statistic and the separate distribution");
-        for (width in [280, 360, 408, 430, 454, 580, 790, 852]) {
+        check(SkillBreakdown.columns(892).length == 10, "Normal history width shows all statistics including the restored DPS column");
+        for (width in [280, 360, 408, 430, 434, 454, 580, 790, 852]) {
             var columns = SkillBreakdown.columns(width, true);
             check([for (c in columns) c.key].join(",") == "ability,percent,distribution,damage",
                 "Recaps keep the ability inline with only three metrics at every size");
