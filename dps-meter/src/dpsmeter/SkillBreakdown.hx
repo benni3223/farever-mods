@@ -25,8 +25,8 @@ class SkillBreakdown {
         // Recaps keep the ability and its three metrics on one line. A compact
         // damage cell leaves room for the name and keeps totals beside the bar.
         // Leave room for full-size recap headings; DPS belongs only to regular tables.
-        var ratios = recap ? [.33, .20, .31, .16] : width >= 800 ? [.22, .12, .16, .09, .05, .075, .045, .075, .075, .09]
-            : width >= 700 ? [.25, .14, .19, .11, .075, .065, .075, .095]
+        var ratios = recap ? [.33, .20, .31, .16] : width >= 800 ? [.22, .12, .16, .09, .065, .09, .045, .075, .075, .06]
+            : width >= 700 ? [.25, .14, .19, .11, .09, .08, .075, .065]
             : width >= 500 ? [.32, .17, .25, .14, .12]
             : width >= 360 ? [.35, .16, .22, .14, .13] : [.31, .18, .22, .145, .145];
         var titles = ["ability" => "Ability", "percent" => recap ? "Damage %" : width < 360 ? "Dmg%" : width < 500 ? "Dmg %" : "Damage (%)",
