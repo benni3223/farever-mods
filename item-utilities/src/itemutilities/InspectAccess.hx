@@ -5,6 +5,7 @@ import hlx.runtime.ResolvedMember;
 /** All game objects stay in their original HL module; never cast game arrays to Array<Dynamic>. */
 class InspectAccess {
     static var members:Map<String, ResolvedMember> = [];
+    public static function typeName(object:Dynamic):String return hl.Type.getDynamic(object).getTypeName();
     public static function isA(object:Dynamic, name:String):Bool {
         if (object == null) return false;
         var type = hl.Type.getDynamic(object);

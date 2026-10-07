@@ -8,6 +8,7 @@ typedef SavedSkillSlot = {
 typedef SkillPresetState = {
     var slots:Array<String>;
     var runes:Array<String>;
+    @:optional var conduits:Array<String>;
 }
 
 typedef SkillPresetRules = {
@@ -18,7 +19,8 @@ typedef SkillPresetRules = {
 }
 
 typedef SkillPresetChange = {
-    var slot:Int; // -1 denotes a rune request.
+    var slot:Int; // -1 denotes a rune request; -2 a Sparkmaster conduit request.
+    @:optional var conduitIndex:Int;
     var skill:String;
     var rune:String;
     var enable:Bool;
@@ -112,7 +114,21 @@ class SkillPresetPlan {
     }
 
     public static function copy(state:SkillPresetState):SkillPresetState {
-        return {slots: state.slots.copy(), runes: state.runes.copy()};
+        return {slots: state.slots.copy(), runes: state.runes.copy(),
+            conduits: state.conduits == null ? null : state.conduits.copy()};
+    }
+
+    public static function savedConduits(state:SkillPresetState):Array<String>
+        return state.conduits == null ? [] : [for (id in state.conduits) id == null ? null : Std.string(id)];
+
+    public static function decodeConduits(value:Dynamic, count:Int):Array<String> {
+        if (!Std.isOfType(value, Array)) throw "Invalid saved Sparkmaster choices. Press Set to re-save this preset.";
+        var values:Array<Dynamic> = cast value;
+        if (values.length != count) throw "Invalid number of saved Sparkmaster choices. Press Set to re-save this preset.";
+        return [for (id in values) {
+            if (id != null && (!Std.isOfType(id, String) || id == "")) throw "Invalid saved Sparkmaster choice.";
+            cast(id, String);
+        }];
     }
 
     public static function same(a:SkillPresetState, b:SkillPresetState):Bool {
@@ -122,14 +138,20 @@ class SkillPresetPlan {
         // Rune order does not change the build. Requests explicitly remove
         // unwanted runes before adding, so native automatic eviction is avoided.
         for (rune in a.runes) if (b.runes.indexOf(rune) < 0) return false;
+        var ac = a.conduits == null ? [] : a.conduits;
+        var bc = b.conduits == null ? [] : b.conduits;
+        if (ac.length != bc.length) return false;
+        for (i in 0...ac.length) if (ac[i] != bc[i]) return false;
         return true;
     }
 
     public static function build(current:SkillPresetState, target:Array<SavedSkillSlot>,
         rules:SkillPresetRules, runeSkills:Map<String, String>,
-        ?signatures:Array<SavedSkillSlot>):Array<SkillPresetChange> {
+        ?signatures:Array<SavedSkillSlot>, ?conduits:Array<String>):Array<SkillPresetChange> {
         validate(target, rules, signatures);
         if (current.slots.length != SLOT_COUNT) throw "The skill slots are not ready yet.";
+        if (conduits != null && (current.conduits == null || conduits.length != current.conduits.length))
+            throw "The Sparkmaster slots are not ready yet.";
         var state = copy(current);
         var changes:Array<SkillPresetChange> = [];
         function setSlot(slot:Int, skill:String):Void {
@@ -159,6 +181,12 @@ class SkillPresetPlan {
                 state.runes.push(rune);
                 changes.push({slot: -1, skill: saved.skill, rune: rune, enable: true, after: copy(state)});
             }
+        }
+        if (conduits != null) for (i in 0...conduits.length) {
+            if (state.conduits[i] == conduits[i]) continue;
+            state.conduits[i] = conduits[i];
+            changes.push({slot: -2, conduitIndex: i, skill: conduits[i], rune: null,
+                enable: conduits[i] != null, after: copy(state)});
         }
         return changes;
     }

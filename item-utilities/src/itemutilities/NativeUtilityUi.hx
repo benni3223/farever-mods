@@ -135,12 +135,12 @@ class NativeUtilityUi {
             G.call("ui.UIElement", "set_selected", entry.root, [selected]);
     }
 
-    public static function badge(slot:Dynamic):Void {
-        get(slot, "badge", entry -> {
+    public static function badge(slot:Dynamic, kind:String = "badge"):Void {
+        get(slot, kind, entry -> {
             entry.root = G.create("h2d.Graphics", [slot]);
             attach(slot, entry.root);
             Ui.position(entry.root, 40, 7);
-            NativeUtilityIcons.draw(entry.root, "badge");
+            NativeUtilityIcons.draw(entry.root, kind);
         });
     }
     public static function lockInput(slot:Dynamic, action:Void->Void):Void {

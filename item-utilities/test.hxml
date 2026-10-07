@@ -59,3 +59,14 @@
 -cp tests
 -main InspectTooltipPlacementTest
 --interp
+--next
+-cp src
+-cp tests
+-main SparkmasterPresetTest
+--interp
+--next
+-cp src
+-cp tests/junk-stubs
+-cp tests
+-main ItemJunkTest
+--interp

@@ -8,6 +8,8 @@ import hlx.runtime.ModConfig;
 import modconfig.ConfigMigration;
 import hlx.runtime.HlxPrefixResult;
 import itemutilities.CharacterResetStore.CharacterResetKind;
+import itemutilities.InspectAccess as G;
+import itemutilities.JunkSaleQueue.JunkSaleItem;
 
 typedef ItemUtilitiesConfig = {
     var enabled:Bool;
@@ -47,6 +49,7 @@ typedef ItemUtilitiesConfig = {
     var weaponPresets:Array<Dynamic>;
     var selectedWeaponPresets:Array<Dynamic>;
     var lockedItems:Array<Dynamic>;
+    var junkRules:Array<Dynamic>;
 }
 
 private enum abstract PresetKind(Int) {
@@ -101,7 +104,8 @@ class ItemUtilitiesMod {
         selectedTalentPresets: [],
         weaponPresets: [],
         selectedWeaponPresets: [],
-        lockedItems: []
+        lockedItems: [],
+        junkRules: []
     };
     static inline var SETTINGS_CHANGED_TOPIC_PREFIX =
         "better-mod-settings/config-changed/";
@@ -215,6 +219,20 @@ class ItemUtilitiesMod {
     static var visibleSlots:Array<TrackedInventorySlot> = [];
     static var slotsByObject:ObjectMap<Dynamic, TrackedInventorySlot> = new ObjectMap();
     static var lockEditMode:Bool = false;
+    static var junkEditMode:Bool = false;
+    static var junkState = new ItemJunkState();
+    static var junkBadgeCache = new ObjectMap<Dynamic, Bool>();
+    static var nextJunkBadgeCheck = 0.;
+    static var activeMerchant:Dynamic;
+    static var junkSale = new JunkSaleQueue();
+    static var junkSaleHero:Dynamic;
+    static var junkSaleHost:Dynamic;
+    static var junkSaleInventory:Dynamic;
+    static var junkSaleLoadout:Dynamic;
+    static var junkSaleMerchant:Dynamic;
+    static var junkSaleCharacter:String;
+    static var nextJunkSaleCheck = 0.;
+    static var junkItemReason:Dynamic;
     static var lockRecords:Array<Dynamic> = [];
     static var fingerprintCache:Map<String, {item:Dynamic, fingerprint:String}> = new Map();
     static var lockState = new ItemLockState();
@@ -483,11 +501,11 @@ class ItemUtilitiesMod {
     @:hlx.prefix(ui.BaseUI.setTip)
     static function suppressLockEditItemTooltip(instance:Dynamic, element:Dynamic,
         anchor:Dynamic, position:Dynamic, nesting:Dynamic):HlxPrefixResult<Dynamic> {
-        if (!enabled.get() || !showLockVisuals.get() || !lockEditMode)
+        if (!enabled.get() || (!(showLockVisuals.get() && lockEditMode) && !junkEditMode))
             return Continue;
         for (entry in visibleSlots) {
             var slot:Dynamic = entry.slot;
-            if (!isActiveLockSlot(entry, slot))
+            if (!(junkEditMode ? isActiveInventoryGridSlot(entry, slot) : isActiveLockSlot(entry, slot)))
                 continue;
             if (isAncestorOf(slot, element) || isAncestorOf(slot, anchor)) {
                 return SkipWith(null);
@@ -574,7 +592,8 @@ class ItemUtilitiesMod {
         destination:Dynamic, destinationIndex:Int, force:hl.Ref<Bool>,
         count:Null<Int>):HlxPrefixResult<Bool> {
         var item = itemAt(instance, index);
-        return isItemLocked(item) && isProtectedTransferDestination(destination)
+        return transferRestriction(item, destination) != null
+            || transferRestriction(itemAt(destination, destinationIndex), instance) != null
             ? SkipWith(false)
             : Continue;
     }
@@ -584,19 +603,19 @@ class ItemUtilitiesMod {
         destination:Dynamic, destinationIndex:Int, force:hl.Ref<Bool>,
         count:Null<Int>, callback:Dynamic):HlxPrefixResult<Dynamic> {
         var item = itemAt(instance, index);
-        if (!isItemLocked(item) || !isProtectedTransferDestination(destination))
-            return Continue;
+        var reason = transferRestriction(item, destination);
+        if (reason == null) reason = transferRestriction(itemAt(destination, destinationIndex), instance);
+        if (reason == null) return Continue;
         rejectActionCallback(callback);
-        return SkipWith(getLockedItemReason());
+        return SkipWith(reason);
     }
 
     @:hlx.prefix(st.Loadout.checkRequestTransfer)
     static function preventLockedRightClickTransferCheck(instance:Dynamic,
         source:Dynamic, sourceIndex:Int, destination:Dynamic):HlxPrefixResult<Dynamic> {
         var item = itemAt(source, sourceIndex);
-        return isItemLocked(item) && isProtectedTransferDestination(destination)
-            ? SkipWith(getLockedItemReason())
-            : Continue;
+        var reason = transferRestriction(item, destination);
+        return reason == null ? Continue : SkipWith(reason);
     }
 
     @:hlx.prefix(st.Loadout.requestTransfer)
@@ -604,14 +623,56 @@ class ItemUtilitiesMod {
         source:Dynamic, sourceIndex:Int, destination:Dynamic,
         callback:Dynamic):HlxPrefixResult<Dynamic> {
         var item = itemAt(source, sourceIndex);
-        if (!isItemLocked(item) || !isProtectedTransferDestination(destination))
-            return Continue;
+        var reason = transferRestriction(item, destination);
+        if (reason == null) return Continue;
         rejectActionCallback(callback);
-        return SkipWith(getLockedItemReason());
+        return SkipWith(reason);
     }
 
     static function isProtectedTransferDestination(inventory:Dynamic):Bool {
         return isBankInventory(inventory) || isScrapInventory(inventory);
+    }
+
+    static function transferRestriction(item:Dynamic, destination:Dynamic):Dynamic {
+        if (item == null || destination == null) return null;
+        if (isItemLocked(item) && isProtectedTransferDestination(destination)) return getLockedItemReason();
+        if (isItemJunk(item) && (isBankInventory(destination)
+            || G.isA(destination, "st.Equipment"))) return getJunkItemReason();
+        return null;
+    }
+
+    @:hlx.prefix(st.Loadout.canEquipOnSlot)
+    static function preventJunkEquipCheck(instance:Dynamic, item:Dynamic, slot:String,
+        force:hl.Ref<Bool>, equipment:Dynamic, excluded:Dynamic):HlxPrefixResult<Bool> {
+        return isItemJunk(item) ? SkipWith(false) : Continue;
+    }
+
+    @:hlx.prefix(st.Loadout.checkEquipOnSlot)
+    static function preventJunkEquipReason(instance:Dynamic, item:Dynamic, slot:String,
+        force:hl.Ref<Bool>, equipment:Dynamic, excluded:Dynamic):HlxPrefixResult<Dynamic> {
+        return isItemJunk(item) ? SkipWith(getJunkItemReason()) : Continue;
+    }
+
+    @:hlx.prefix(st.Loadout.equipOnSlot)
+    static function preventJunkEquipRequest(instance:Dynamic, item:Dynamic, slot:String,
+        force:hl.Ref<Bool>, equipment:Dynamic, excluded:Dynamic, callback:Dynamic):HlxPrefixResult<Dynamic> {
+        if (!isItemJunk(item)) return Continue;
+        rejectActionCallback(callback);
+        return SkipWith(getJunkItemReason());
+    }
+
+    static function getJunkItemReason():Dynamic {
+        if (junkItemReason == null) {
+            if (eReasonType == null) eReasonType = HlxRuntime.resolveType("EReason");
+            junkItemReason = HlxRuntime.constructEnum(eReasonType, "Custom", ["Unmark this item as junk first"]);
+        }
+        return junkItemReason;
+    }
+
+    @:hlx.postfix(ui.win.MerchantUI.init)
+    static function afterMerchantInit(instance:Dynamic, result:Void):Void {
+        if (activeMerchant != instance) junkSale.cancel();
+        activeMerchant = instance;
     }
 
     static function isScrapInventory(inventory:Dynamic):Bool {
@@ -631,7 +692,10 @@ class ItemUtilitiesMod {
             return true;
         var hero = resolveHero();
         var loadout = fieldOrNull(hero, "loadout");
-        return loadout != null && inventory == fieldOrNull(loadout, "bank");
+        if (loadout == null) return false;
+        if (inventory == fieldOrNull(loadout, "bank")) return true;
+        for (bank in G.array(fieldOrNull(loadout, "banks"), true)) if (bank == inventory) return true;
+        return false;
     }
 
     static function rejectActionCallback(callback:Dynamic):Void {
@@ -708,6 +772,7 @@ class ItemUtilitiesMod {
 
         if (instance == activeInventoryWindow) {
             lockEditMode = false;
+            junkEditMode = false;
             cancelLockedSort(false);
             activeInventoryWindow = null;
             sourceInventory = null;
@@ -715,6 +780,7 @@ class ItemUtilitiesMod {
         }
         if (instance == activeInventoryUI) {
             lockEditMode = false;
+            junkEditMode = false;
             cancelLockedSort(false);
             activeInventoryUI = null;
             playerInventoryComp = null;
@@ -722,6 +788,10 @@ class ItemUtilitiesMod {
         if (instance == activeCharacterUI) {
             activeCharacterUI = null;
             cancelPresetTransfer();
+        }
+        if (instance == activeMerchant) {
+            activeMerchant = null;
+            junkSale.cancel();
         }
         if (instance == activeBankWindow) {
             cancelDeposit();
@@ -741,7 +811,15 @@ class ItemUtilitiesMod {
         NativeUiLayout.beginFrame();
         NativeUtilityUi.beginFrame();
         PlayerInspect.update();
+        // Badges may trail a replicated upgrade by at most 200ms. Requests and
+        // clicks always check live identity; no fingerprint scans when UI is closed.
+        var badgeTime = haxe.Timer.stamp();
+        if (badgeTime >= nextJunkBadgeCheck) {
+            junkBadgeCache.clear();
+            nextJunkBadgeCheck = badgeTime + LOCK_RECONCILE_INTERVAL;
+        }
         refreshActiveHero();
+        updateJunkSale();
         updateTalentPreset();
         updateSkillPreset();
         updateAppearancePreset();
@@ -755,8 +833,10 @@ class ItemUtilitiesMod {
             drawRecyclerHeaderButton();
 
         if (enabled.get()) {
-            if (activeInventoryUI == null || !isUiVisible(activeInventoryUI))
+            if (activeInventoryUI == null || !isUiVisible(activeInventoryUI)) {
                 lockEditMode = false;
+                junkEditMode = false;
+            }
             ensureHeroInventory();
             syncSelectedEquipmentPreset();
             syncSelectedTalentPreset();
@@ -776,6 +856,7 @@ class ItemUtilitiesMod {
             drawTalentPresetButtons();
             drawSkillPresetButtons();
             drawAppearancePresetButtons();
+            drawJunkControls();
             if (showLockVisuals.get()) {
                 drawLockHeaderButton();
                 if (lockEditMode)
@@ -1413,6 +1494,9 @@ class ItemUtilitiesMod {
             Reflect.setField(existing, "classId", Std.string(fieldOrNull(fieldOrNull(hero, "inf"), "id")));
             Reflect.setField(existing, "skills", saved);
             Reflect.setField(existing, "signatureSkills", signatures);
+            if (NativeSkills.mage(hero) != null)
+                Reflect.setField(existing, "conduits", SkillPresetPlan.savedConduits(current));
+            else Reflect.deleteField(existing, "conduits");
             saveConfig();
             skillPresetStatus = "Skill preset " + (preset + 1) + " saved.";
         } catch (error:Dynamic) {
@@ -1443,8 +1527,11 @@ class ItemUtilitiesMod {
             var signatures = Reflect.hasField(saved, "signatureSkills")
                 ? SkillPresetPlan.decodeSignatures(Reflect.field(saved, "signatureSkills")) : [];
             NativeSkills.ensureCanApply(hero);
+            var conduits = Reflect.hasField(saved, "conduits")
+                ? SkillPresetPlan.decodeConduits(Reflect.field(saved, "conduits"), current.conduits.length) : null;
+            if (conduits != null) NativeSkills.validateConduits(hero, conduits);
             var changes = SkillPresetPlan.build(current, target, NativeSkills.rules(hero),
-                NativeSkills.runeSkills(current.runes), signatures);
+                NativeSkills.runeSkills(current.runes), signatures, conduits);
             if (changes.length == 0) {
                 skillPresetStatus = "This skill preset is already active.";
                 refreshSkillPresetView(hero);
@@ -1738,8 +1825,149 @@ class ItemUtilitiesMod {
         var rect = NativeUiLayout.rect(sortButton, -38, 0, 32, 30);
         NativeUtilityUi.button(fieldOrNull(sortButton, "parent"), "edit-locks", rect, "lock",
             null, () -> {
-                if (enabled.get() && showLockVisuals.get()) lockEditMode = !lockEditMode;
+                if (enabled.get() && showLockVisuals.get()) {
+                    lockEditMode = !lockEditMode;
+                    junkEditMode = false;
+                }
             }, lockEditMode);
+    }
+
+    static function isItemJunk(item:Dynamic):Bool {
+        if (!enabled.get() || item == null) return false;
+        var character = heroPersistentId(resolveHero());
+        var kind = G.text(fieldOrNull(item, "kind"));
+        if (!junkState.hasKind(character, kind) || isItemLocked(item)) return false;
+        return junkState.matches(character, kind, NativeJunk.fingerprint(item));
+    }
+
+    static function toggleItemJunk(item:Dynamic):Void {
+        if (!enabled.get() || !isLockLoadoutReady()) return;
+        reconcileItemLocks();
+        if (isItemLocked(item)) return;
+        var hero = resolveHero();
+        var inventory = fieldOrNull(fieldOrNull(hero, "loadout"), "inventory");
+        if (inventory == null || G.call("st.Inventory", "getItemStack", inventory, [item]) == null) return;
+        var character = heroPersistentId(hero);
+        var kind = G.text(fieldOrNull(item, "kind"));
+        var fingerprint = NativeJunk.fingerprint(item);
+        if (character == null || fingerprint == null) return;
+        junkSale.cancel();
+        junkState.set(character, kind, fingerprint, !junkState.matches(character, kind, fingerprint));
+        junkBadgeCache.clear();
+        saveConfig();
+    }
+
+    static function drawJunkControls():Void {
+        var sort = fieldOrNull(playerInventoryComp, "sortButton");
+        if (activeInventoryUI != null && isUiVisible(activeInventoryUI) && isUiVisible(sort)) {
+            NativeUtilityUi.button(fieldOrNull(sort, "parent"), "edit-junk",
+                NativeUiLayout.rect(sort, showLockVisuals.get() ? -76 : -38, 0, 32, 30),
+                "junk", "Mark as Junk", () -> {
+                    if (!enabled.get()) return;
+                    junkEditMode = !junkEditMode;
+                    lockEditMode = false;
+                }, junkEditMode);
+        }
+        for (entry in visibleSlots) {
+            var slot = entry.slot;
+            if (!isActiveInventoryGridSlot(entry, slot)) continue;
+            var item = authoritativeSlotItem(entry, slot);
+            if (item == null) continue;
+            if (!junkBadgeCache.exists(item)) junkBadgeCache.set(item, isItemJunk(item));
+            if (junkBadgeCache.get(item) && !isItemLocked(item)) NativeUtilityUi.badge(slot, "junk-badge");
+            if (junkEditMode) NativeUtilityUi.lockInput(slot, () -> {
+                if (!enabled.get() || !junkEditMode || !isActiveInventoryGridSlot(entry, slot)) return;
+                var item = authoritativeSlotItem(entry, slot);
+                if (item != null) toggleItemJunk(item);
+            });
+        }
+        if (activeMerchant != null && isUiVisible(activeMerchant) && NativeJunk.isGuildMerchant(activeMerchant)) {
+            var close = fieldOrNull(fieldOrNull(activeMerchant, "header"), "closeBtn");
+            if (isUiVisible(close)) NativeUtilityUi.button(fieldOrNull(close, "parent"), "sell-junk",
+                NativeUiLayout.rect(close, -38, 0, 32, 30), "sell-junk",
+                junkSale.active ? "Selling junk..." : "Sell all junk", beginJunkSale, junkSale.active);
+        }
+    }
+
+    static function beginJunkSale():Void {
+        if (!enabled.get() || junkSale.active || !isUiVisible(activeMerchant)
+            || !NativeJunk.isGuildMerchant(activeMerchant) || !isLockLoadoutReady()) return;
+        reconcileItemLocks();
+        var hero = resolveHero();
+        var loadout = fieldOrNull(hero, "loadout");
+        var inventory = fieldOrNull(loadout, "inventory");
+        var items:Array<JunkSaleItem> = [];
+        var content = getContent(inventory);
+        for (index in 0...arrayLength(content)) {
+            var item = itemAt(inventory, index);
+            if (!isItemJunk(item) || G.call("st.Loadout", "canSellItem", loadout, [item]) != true) continue;
+            var stack = G.call("st.Inventory", "getItemStack", inventory, [item]);
+            var count = G.integer(fieldOrNull(stack, "count"));
+            var uid = itemUid(item);
+            if (count > 0 && uid != null) items.push({item:item, uid:uid, count:count, fingerprint:NativeJunk.fingerprint(item)});
+        }
+        if (!junkSale.start(activeMerchant, items)) return;
+        cancelDeposit(); cancelRecyclerDeposit(); cancelPresetTransfer(); cancelLockedSort(false);
+        junkSaleHero = hero;
+        junkSaleHost = fieldOrNull(currentGameApp(), "host");
+        junkSaleCharacter = heroPersistentId(hero);
+        junkSaleInventory = inventory;
+        junkSaleLoadout = loadout;
+        junkSaleMerchant = activeMerchant;
+        nextJunkSaleCheck = 0;
+    }
+
+    static function updateJunkSale():Void {
+        try {
+            if (junkSale.active) {
+                var hero = resolveHero();
+                if (!enabled.get() || hero != junkSaleHero || heroPersistentId(hero) != junkSaleCharacter
+                    || fieldOrNull(currentGameApp(), "host") != junkSaleHost
+                    || fieldOrNull(fieldOrNull(hero, "loadout"), "inventory") != junkSaleInventory
+                    || !isLockLoadoutReady() || activeMerchant != junkSaleMerchant
+                    || !isUiVisible(activeMerchant) || !NativeJunk.isGuildMerchant(activeMerchant)) {
+                    junkSale.cancel();
+                } else {
+                    var now = haxe.Timer.stamp();
+                    if (now < nextJunkSaleCheck) return;
+                    nextJunkSaleCheck = now + 0.05;
+                    reconcileItemLocks();
+                    var next = junkSale.next(activeMerchant, now,
+                        candidate -> G.call("st.Inventory", "getItemStack", junkSaleInventory, [candidate.item]) != null,
+                        candidate -> {
+                            var stack = G.call("st.Inventory", "getItemStack", junkSaleInventory, [candidate.item]);
+                            return stack != null && fieldOrNull(stack, "item") == candidate.item
+                                && itemUid(candidate.item) == candidate.uid
+                                && G.integer(fieldOrNull(stack, "count")) == candidate.count
+                                && isItemJunk(candidate.item)
+                                && NativeJunk.fingerprint(candidate.item) == candidate.fingerprint
+                                && G.call("st.Loadout", "canSellItem", junkSaleLoadout, [candidate.item]) == true;
+                        });
+                    if (next != null) {
+                        var id = junkSale.requestId;
+                        G.call("st.Loadout", "sellItem", junkSaleLoadout, [next.item,
+                            (success:Bool) -> junkSale.acknowledge(id, success)]);
+                    }
+                }
+            }
+        } catch (error:Dynamic) {
+            junkSale.cancel("Selling junk stopped: " + Std.string(error));
+            logLockError("sell junk", error);
+        }
+        if (!junkSale.active && junkSaleHero != null) {
+            if (junkSaleMerchant == activeMerchant && isUiVisible(activeMerchant)) {
+                try G.call("ui.win.MerchantUI", "rebuildBuyback", activeMerchant) catch (_:Dynamic) {}
+            }
+            if (junkSale.error != "") try {
+                var ui = G.current("ui.BaseUI", "current");
+                if (G.isA(ui, "ui.GameUI")) {
+                    var chat = G.call("ui.GameUI", "get_chat", ui);
+                    if (chat != null) G.call("ui.hud.ChatBox", "chatError", chat, [InspectUi.escape(junkSale.error)]);
+                }
+            } catch (_:Dynamic) {}
+            junkSaleHero = null; junkSaleHost = null; junkSaleInventory = null;
+            junkSaleLoadout = null; junkSaleMerchant = null; junkSaleCharacter = null;
+        }
     }
 
     static function drawLockSlotOverlays():Void {
@@ -2147,7 +2375,7 @@ class ItemUtilitiesMod {
     }
 
     static function matchesDepositMode(item:Dynamic):Bool {
-        if (item == null || isItemLocked(item))
+        if (item == null || isItemLocked(item) || isItemJunk(item))
             return false;
         return switch (depositMode) {
             case DEPOSIT_ALL: true;
@@ -2425,6 +2653,7 @@ class ItemUtilitiesMod {
     }
 
     static function toggleItemLock(item:Dynamic):Void {
+        if (isItemJunk(item)) return;
         var locked = !isItemLocked(item);
         reconcileItemLocks();
         var uid = itemUid(item);
@@ -2440,8 +2669,10 @@ class ItemUtilitiesMod {
             return;
         tracked.fingerprint = fingerprint;
         fingerprintCache.set(uid, {item: item, fingerprint: fingerprint});
-        if (ItemLockState.setLocked(lockRecords, current, tracked, locked))
+        if (ItemLockState.setLocked(lockRecords, current, tracked, locked)) {
+            junkBadgeCache.clear();
             saveConfig();
+        }
     }
 
     static function isItemLocked(item:Dynamic):Bool {
@@ -2601,6 +2832,10 @@ class ItemUtilitiesMod {
                 fieldOrNull(app, "host"), inventory, fieldOrNull(loadout, "equipment")))
                 return;
             sourceInventory = inventory;
+            junkSale.cancel();
+            junkEditMode = false;
+            lockEditMode = false;
+            junkBadgeCache.clear();
             fingerprintCache = new Map();
             nextLockReconcileAt = 0;
         } catch (error:Dynamic) {
@@ -2920,12 +3155,14 @@ class ItemUtilitiesMod {
             if (Reflect.hasField(data, "sortingIgnoresLockedItems"))
                 sortingIgnoresLockedItems.set(Reflect.field(data, "sortingIgnoresLockedItems"));
             loadPresetHotkeyConfig(data);
+            junkState.load(Reflect.field(data, "junkRules"));
             if ((!enabled.get() && wasEnabled) || !showDepositMaterials.get()) {
                 cancelDeposit();
                 cancelRecyclerDeposit();
             }
             if (!enabled.get() || !showLockVisuals.get())
                 lockEditMode = false;
+            if (!enabled.get()) { junkEditMode = false; junkSale.cancel(); }
             if (!enabled.get() || !sortingIgnoresLockedItems.get())
                 cancelLockedSort(false);
         } catch (_:Dynamic) {}
@@ -2941,6 +3178,7 @@ class ItemUtilitiesMod {
             if (Reflect.hasField(data, "sortingIgnoresLockedItems"))
                 sortingIgnoresLockedItems.set(Reflect.field(data, "sortingIgnoresLockedItems"));
             loadPresetHotkeyConfig(data);
+            junkState.load(Reflect.field(data, "junkRules"));
             if (Reflect.hasField(data, "selectedWeaponPresets")) {
                 var savedSelections:Array<Dynamic> =
                     cast Reflect.field(data, "selectedWeaponPresets");
@@ -3038,6 +3276,7 @@ class ItemUtilitiesMod {
             config.weaponPresets = weaponPresets;
             config.selectedWeaponPresets = selectedWeaponPresets;
             config.lockedItems = savedLocks;
+            config.junkRules = junkState.saved();
             config.save();
         } catch (_:Dynamic) {}
     }

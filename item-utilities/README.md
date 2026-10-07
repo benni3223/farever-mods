@@ -158,6 +158,27 @@ The native dropdown handles input over its options. Closing the menu restores
 normal input; leaving the tab, hiding the controls, or opening another window
 also closes its list.
 
+### Mark as Junk
+
+Click the trash-bin button beside the inventory lock button to enter junk mode,
+then click an item to mark or unmark it. Marked items show a trash bin in their
+top-right corner. Lock and junk editing are mutually exclusive; locked items
+cannot be junk, and junk must be unmarked before it can be locked.
+
+Junk choices persist per character and match identical current and future bag
+items, including their level, rarity, rolled stats, upgrade level, infusions,
+weapon effects, and rune identity. Stack size and temporary item IDs do not
+affect matching. Different rolls or upgrades remain distinct, and locked copies
+stay protected. Unmarking a matching item removes that rule for future pickups.
+
+Junk cannot be equipped or moved into the bank, including through deposit
+shortcuts. At a Guild Merchant, click the **Sell all junk** trash-bin button
+beside the trade window's close button to sell the inventory's marked stacks.
+Sales use the normal game requests and checks, one acknowledged sale at a time.
+Changed, moved, newly locked, or unsellable items are skipped. Closing the
+merchant, changing character/session, a rejected sale, or a timeout stops the
+batch; an already-sent request may still complete.
+
 ### Equipment presets
 
 Adds a **Preset 1–5** dropdown and a **Set** button beside **Appearance** on the Character Profile page. These controls are hidden while Appearance is open.
@@ -210,6 +231,9 @@ page's bottom strip, vertically centered and aligned with the current UI scale.
 - Select a preset slot and press **Set** to save the four equipped class skills,
   their slot order, their runes, and the runes on unlocked signature skills such
   as the priest's **Judgment**. Signature skills do not occupy a regular slot.
+- Mage presets also save **Sparkmaster** conduit choices, including their order
+  and empty slots. Press **Set** once to update older presets, which did not
+  record these choices. Older saves leave the current conduits unchanged.
 - Choose a saved preset from the dropdown or use its **Skill preset 1–5 hotkey** under **Skill
   Presets** in Better Mod Settings. Hotkeys also work with the window closed.
 - Presets and the selected slot are saved separately for each character,
@@ -221,7 +245,7 @@ page's bottom strip, vertically centered and aligned with the current UI scale.
   select the desired runes and press **Set** once to include them.
 - The saved skills and runes must be unlocked, and changes cannot be applied in
   combat. All checks happen before applying the first change.
-- Uses normal skill-slot and rune requests, waiting for each server update.
+- Uses normal skill-slot, rune, and conduit requests, waiting for each server update.
   Rejections, timeouts, unexpected changes, entering combat, and character or
   session changes stop the sequence.
 

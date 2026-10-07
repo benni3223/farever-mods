@@ -89,6 +89,17 @@ class SkillPresetSerializationPlugin {
                 check(SkillPresetPlan.same(after, desired), "Apply signature runes without changing other skills/runes.");
             }
         }
+        var conduit:String = cast Reflect.field(host, "conduit");
+        check(Type.getClass(conduit) != String, "Conduit fixture must be game-owned.");
+        var conduitState:SkillPresetState = {slots:current.slots, runes:current.runes, conduits:[conduit,null,conduit]};
+        var savedConduits = SkillPresetPlan.savedConduits(conduitState);
+        for (choices in [savedConduits, haxe.Json.parse(haxe.Json.stringify(savedConduits))]) {
+            var decoded = SkillPresetPlan.decodeConduits(choices,3);
+            check(Std.isOfType(decoded[0],String) && decoded[0]=="Mage_Conduit_Projectile" && decoded[1]==null,
+                "Conduit IDs save as local strings, immediately and across login sessions.");
+            check(SkillPresetPlan.build(conduitState, SkillPresetPlan.saved(conduitState,owners), rules, owners,
+                null, decoded).length==0, "Foreign native conduit IDs compare correctly against restored choices.");
+        }
         Sys.println("Skill preset cross-module serialization passed.");
     }
 }

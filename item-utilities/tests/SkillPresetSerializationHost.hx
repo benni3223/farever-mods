@@ -9,6 +9,7 @@ class SkillPresetStringFixture {
     public static var signature:String;
     public static var signatureRune1:String;
     public static var signatureRune2:String;
+    public static var conduit:String;
 }
 
 class SkillPresetSerializationHost {
@@ -24,6 +25,7 @@ class SkillPresetSerializationHost {
         SkillPresetStringFixture.signature = "Priest_Sig_DivineIntervention";
         SkillPresetStringFixture.signatureRune1 = "Priest_Judgment_M1";
         SkillPresetStringFixture.signatureRune2 = "Priest_Judgment_M2";
+        SkillPresetStringFixture.conduit = "Mage_Conduit_Projectile";
         if (!loadPlugin(@:privateAccess "build/skill-serialization-plugin.hl".bytes))
             throw "Unable to load skill serialization test plugin.";
     }

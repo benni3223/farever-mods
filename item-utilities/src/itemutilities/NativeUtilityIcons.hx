@@ -34,6 +34,10 @@ class NativeUtilityIcons {
 
     public static function draw(g:Dynamic, kind:String):Void {
         switch kind {
+            case "junk-badge":
+                trash(g, 2, 2, 0.55, 0xB8C2D1);
+            case "junk", "sell-junk":
+                trash(g, 6, 4, 1, MARK);
             case "badge":
                 line(g, 0xB8C2D1, 2, [5,8, 5,5, 7,2, 10,2, 12,5, 12,8]);
                 rect(g, 0xB8C2D1, 3,7,11,9,2);
@@ -92,13 +96,23 @@ class NativeUtilityIcons {
                 }
                 fill(g, 0xE8BA72, star);
         }
-        if (kind != "badge" && kind != "lock") {
+        if (kind == "sell-junk") {
+            // Small outward arrow distinguishes the merchant action from marking.
+            line(g, MARK, 2, [21,20, 28,20, 25,17, 28,20, 25,23]);
+        } else if (["badge", "lock", "junk", "junk-badge"].indexOf(kind) < 0) {
             rect(g, MARK, 23,7,2,9.5,0.8);
             fill(g, MARK, [19.7,14, 28.3,14, 24,19]);
             line(g, MARK, 1.8, [19,19.5, 19,22, 19.5,22.5,
                 28.5,22.5, 29,22, 29,19.5]);
         }
         G.call("h2d.Graphics", "flush", g);
+    }
+
+    static function trash(g:Dynamic, x:Float, y:Float, scale:Float, color:Int):Void {
+        rect(g, color, x+3*scale, y+6*scale, 14*scale, 15*scale, 1*scale);
+        rect(g, color, x+1*scale, y+3*scale, 18*scale, 2.5*scale, 0.7*scale);
+        rect(g, color, x+6*scale, y, 8*scale, 2.5*scale, 0.7*scale);
+        for (i in 0...3) rect(g, 0x333842, x+(6+i*3.5)*scale, y+9*scale, 1.5*scale, 9*scale, 0.5*scale);
     }
 
     static function keyhole(g:Dynamic, x:Float, y:Float):Void {

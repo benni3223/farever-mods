@@ -82,6 +82,14 @@ class NativeUtilityUiTest {
         check(bar.parent==null && dropdown.listWindow==null,"Leaving a tab cleans up its separate dropdown window");
         UI.beginFrame(); UI.badge(slot); UI.lockInput(slot,() -> toggles++); UI.endFrame();
         UI.forget(slot); check(slot.children.length==0,"Recycled/removed slots immediately lose their utilities");
+        UI.beginFrame(); UI.badge(slot, "junk-badge"); UI.lockInput(slot, () -> toggles++); UI.endFrame();
+        var trash:Dynamic = slot.children[0];
+        check(trash.parent==slot && trash.x==40 && trash.y==7, "Trash badge uses the lock badge's top-right placement");
+        var trashInput:Dynamic=slot.children[1]; trashInput.onClick({button:0});
+        check(toggles==2 && trashInput.propagateEvents==false, "Junk mode also captures the underlying item action");
+        UI.beginFrame(); UI.badge(slot); UI.endFrame();
+        check(trash.parent==null && slot.children.length==1, "Switching marker kinds removes the old badge");
+        UI.forget(slot);
         trace('Native utility UI: $checks checks passed');
     }
 }

@@ -53,8 +53,24 @@ class NativeSkills {
         // cache: a local UI update is not confirmation of a server change.
         var slots = strings(field(field(specialization, "skillSlots"), "array"));
         var runes = strings(field(field(specialization, "skillMasteries"), "array"));
+        var savedConduits = field(field(specialization, "conduits"), "array");
+        var conduits = savedConduits == null ? [] : strings(savedConduits);
+        var count = arrayLength(field(staticField("Const", "Classes"), "Mage_Conduit_Levels"));
         return {slots: [for (i in 0...SkillPresetPlan.SLOT_COUNT) i < slots.length ? slots[i] : null],
-            runes: runes};
+            runes: runes, conduits: [for (i in 0...count) i < conduits.length ? conduits[i] : null]};
+    }
+
+    public static function mage(hero:Dynamic):Dynamic return call("ent.Hero", "get_mage", hero, []);
+
+    public static function validateConduits(hero:Dynamic, choices:Array<String>):Void {
+        var component = mage(hero);
+        if (component == null) throw "This character has no Sparkmaster slots.";
+        for (i in 0...choices.length) if (choices[i] != null) {
+            var index = i;
+            var ref = hl.Ref.make(index);
+            if (call("ent.hero.MageComponent", "canEquipConduit", component, [choices[i], ref, null]) != true)
+                throw "A saved Sparkmaster choice or slot is not available. Check your talents and level.";
+        }
     }
 
     public static function ensureSynchronized(hero:Dynamic, state:SkillPresetState):Void {
@@ -62,6 +78,12 @@ class NativeSkills {
         for (i in 0...SkillPresetPlan.SLOT_COUNT) {
             var skill:String = i < arrayLength(visible) ? cast arrayGet(visible, i) : null;
             if (skill != state.slots[i]) throw "Wait for the pending skill change before using a preset.";
+        }
+        var component = mage(hero);
+        if (component != null && state.conduits != null) for (i in 0...state.conduits.length) {
+            var conduit = call("ent.hero.MageComponent", "getConduitSlot", component, [i]);
+            if (field(conduit, "kind") != state.conduits[i])
+                throw "Wait for the pending Sparkmaster change before using a preset.";
         }
     }
 
@@ -139,6 +161,14 @@ class NativeSkills {
             if (instance == null) call("ui.UIElement", "set_selected", mastery, [false]);
             call("ui.UIElement", "refreshTip", mastery, []);
         }
+        if (field(skill, "id") == "Mage_SparkMaster") {
+            // Rebuild only the custom choice controls after replicated changes.
+            var container = field(descriptor, "customContainer");
+            if (container != null) {
+                call("h2d.Flow", "removeChildren", container, []);
+                call("ui.win.HeroSkillDescriptor", "addCustomUI", descriptor, []);
+            }
+        }
     }
 
     public static function apply(hero:Dynamic, change:SkillPresetChange, callback:Bool->Void):Void {
@@ -154,6 +184,15 @@ class NativeSkills {
             // the native immediate UI cache update. Confirmation reads the
             // specialization's replicated array. No fake acknowledgement.
             call("ent.Hero", "setSkillSlot", hero, [change.skill, change.slot]);
+        } else if (change.slot == -2) {
+            var component = mage(hero);
+            if (component == null) throw "The Sparkmaster component is not available.";
+            var index:Int = change.conduitIndex;
+            var ref = hl.Ref.make(index);
+            if (change.skill == null)
+                call("ent.hero.MageComponent", "requestEmptyConduitSlot", component, [ref, callback]);
+            else
+                call("ent.hero.MageComponent", "equipConduit", component, [change.skill, ref, null, callback]);
         } else {
             call("ent.Hero", "toggleSkillMastery", hero, [change.rune, change.enable, callback]);
         }
