@@ -1,7 +1,7 @@
 {
-  "project": "more-settings",
-  "version": "1.15.2",
-  "commit": "a393cd920c589204cf6939ef63ceafa9f2064705",
-  "notes": "More game performance improvements",
+  "project": "dps-meter",
+  "version": "1.7.0",
+  "commit": "e19b6285fd2e986124b3034daa6cbfbdd27c35a0",
+  "notes": "- Added new filter in Fight History for fight outcome (Victory, Defeat, All).\n- Logs are now saved in a cleaner folder structure, making mass cleanup easier.\n- The header in a damage breakdown now matches the player whose damage is being analyzed.\n- Added rift recaps to Fight History.\n",
   "dry_run": false
 }
