@@ -12,9 +12,6 @@ class HistoryDropdown {
     var signature:String = "";
     var selected:String;
     var captionPrefix:String;
-    var popupRoot:Dynamic;
-    var laidWidth:Int = -1;
-    var laidHeight:Int = -1;
     public function new(parent:Dynamic, id:String, choices:Array<HistoryChoice>, selected:String, changed:String->Void,
         captionPrefix:String = "") {
         this.captionPrefix = captionPrefix;
@@ -23,14 +20,11 @@ class HistoryDropdown {
         // The history window is above gameRoot. Native Dropdown.toggle first
         // registers its list under gameRoot, then honours this parent override.
         // Append the list to the same root as history so it draws above it.
-        popupRoot = G.field(G.current("ui.BaseUI", "current"), "root");
+        var popupRoot = G.field(G.current("ui.BaseUI", "current"), "root");
         G.set(object, "getListLayout", () -> popupRoot);
         setChoices(choices, selected);
         G.call("ui.UIElement", "set_onClick", G.field(object, "select"), [() -> {
             G.call("ui.comp.Dropdown", "toggle", object, [null]);
-            // The list is already parented with Flow.addChild by the game.
-            // Object.addChild on the UI root desyncs that flow and collapses
-            // later windows, including the Escape menu, into one text line.
             var popup = G.field(object, "listWindow");
             if (popup != null && G.field(popup, "parent") == popupRoot) absolute(popupRoot, popup);
             refreshColors();
@@ -57,11 +51,8 @@ class HistoryDropdown {
         G.call("ui.comp.Dropdown", "initSelectedIndex", object, [index]);
         refreshColors();
     }
-    public function resize(width:Int, height:Int = 34):Void {
-        if (width == laidWidth && height == laidHeight) return;
-        laidWidth = width;
-        laidHeight = height;
-        size(object, width, height); size(G.field(object, "select"), width, height);
+    public function resize(width:Int):Void {
+        size(object, width, 34); size(G.field(object, "select"), width, 34);
         G.call("ui.comp.FmtText", "set_maxWidthText", G.field(object, "selectText"), [Std.int(Math.max(1, width - 44))]);
         G.call("ui.comp.FmtText", "set_useEllipsis", G.field(object, "selectText"), [true]);
     }

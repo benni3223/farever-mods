@@ -1,6 +1,5 @@
 package dpsmeter;
 
-import dpsmeter.DeathLog;
 import dpsmeter.RiftTracker.RiftRecap;
 
 typedef WeaponInfo = {kind:String, rarity:String, level:Int, upgrade:Int};
@@ -52,7 +51,6 @@ class PlayerStats {
     public var crits:Int = 0;
     public var kills:Int = 0;
     public var skills:Map<String, SkillStats> = [];
-    public var healSkills:Map<String, SkillStats> = [];
     public var weapons:Array<WeaponInfo> = [];
     public var info:PlayerInfo;
     public function new(info:PlayerInfo) this.info = info;
@@ -72,9 +70,6 @@ class PlayerStats {
         if (e.effect != 1 && e.skill != "") {
             if (!skills.exists(e.skill)) skills[e.skill] = new SkillStats();
             skills[e.skill].add(e);
-        } else if (e.effect == 1 && e.skill != "") {
-            if (!healSkills.exists(e.skill)) healSkills[e.skill] = new SkillStats();
-            healSkills[e.skill].add(e);
         }
     }
     public function json(duration:Float):Dynamic {
@@ -130,7 +125,6 @@ class Fight {
     public var categoryVersion:Int = HistoryCatalog.HistoryCategory.VERSION;
     public var me:String = "";
     public var meName:String = "";
-    public var deaths:Array<PartyDeath> = [];
     public function new(now:Float, gameVersion:String = "") {
         start = now; last = now; startedAt = Date.now().getTime(); this.gameVersion = gameVersion;
     }
@@ -162,17 +156,6 @@ class Fight {
         list.sort((a, b) -> a.damage > b.damage ? -1 : a.damage < b.damage ? 1 : Reflect.compare(a.info.name, b.info.name));
         return list;
     }
-    public function rankedByHeal():Array<PlayerStats> {
-        var list = [for (p in players) if (p.heal > 0) p];
-        list.sort((a, b) -> a.heal > b.heal ? -1 : a.heal < b.heal ? 1 : Reflect.compare(a.info.name, b.info.name));
-        return list;
-    }
-    public function healingView(player:PlayerStats):PlayerStats {
-        var view = new PlayerStats(player.info);
-        view.damage = player.heal;
-        view.skills = player.healSkills;
-        return view;
-    }
     public function copy():Fight {
         var result = new Fight(start, gameVersion);
         result.startedAt = startedAt;
@@ -187,7 +170,6 @@ class Fight {
         result.targetDummy = targetDummy;
         result.categoryVersion = categoryVersion;
         result.me = me; result.meName = meName; result.participants = participants.copy(); result.targets = targets.copy();
-        result.deaths = deaths.copy();
         for (id => p in players) {
             var next = new PlayerStats(p.info);
             next.damage = p.damage; next.heal = p.heal; next.hits = p.hits;
@@ -199,12 +181,6 @@ class Fight {
                 s.damageBreakdown = skill.damageBreakdown.copy();
                 s.kills = skill.kills; s.casts = skill.casts; s.lastHit = skill.lastHit;
                 next.skills[name] = s;
-            }
-            for (name => skill in p.healSkills) {
-                var healed = new SkillStats();
-                healed.damage = skill.damage; healed.hits = skill.hits; healed.crits = skill.crits;
-                healed.kills = skill.kills; healed.casts = skill.casts; healed.lastHit = skill.lastHit;
-                next.healSkills[name] = healed;
             }
             result.players[id] = next;
         }
@@ -319,26 +295,6 @@ class CombatModel {
         if (current != null) current.closed = 0;
         pendingFight = null;
     }
-    public function rememberDeath(uid:String, name:String, className:String, report:DeathReport):Void {
-        if (report == null || uid == "" || uid == "0") return;
-        var fight = bossEncounter();
-        if (fight == null) return;
-        fight.deaths.push({uid: uid, name: name != "" ? name : "Unknown", className: className, report: report});
-    }
-    function bossEncounter():Null<Fight> {
-        var open:Null<Fight> = null;
-        var any:Null<Fight> = null;
-        for (fight in [displayedFight(), current, boss, lastBoss, lastCombat]) {
-            if (fight == null || !isBossEncounter(fight)) continue;
-            any = fight;
-            if (fight.closed == 0) open = fight;
-        }
-        return open != null ? open : any;
-    }
-    static function isBossEncounter(fight:Fight):Bool
-        return fight.bossUid != "" || (fight.bossFlags & 0x10) != 0
-            || (fight.phase != "" && fight.phase != RiftTracker.GATES_PHASE);
-
     public function displayedFight():Null<Fight> {
         if (rift != null && rift.waitingForGates() && rift.warmup != null) return rift.warmup;
         if (phrixesIntro != null && phrixesIntro.closed == 0) return phrixesIntro;

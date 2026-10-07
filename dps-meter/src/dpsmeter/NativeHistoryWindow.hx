@@ -34,9 +34,6 @@ class NativeHistoryWindow {
     var chart:NativeDamageChart;
     var recapView:NativeRiftRecapCharts;
     var recap:Null<RiftRecap>;
-    var modeDropdown:HistoryDropdown;
-    var placedModeX:Float = -1;
-    var placedModeWidth:Int = -1;
     var empty:Dynamic;
     var previous:Dynamic;
     var next:Dynamic;
@@ -342,20 +339,11 @@ class NativeHistoryWindow {
         padding(G.field(chartPanel, "obj"), 0);
         chart = new NativeDamageChart(chartPanel, "dpsHistoryRows", "No damage recorded");
         chart.onSelectionChanged = player -> {
-            if (recap != null) return;
-            G.call("h2d.Text", "set_text", chartInfo, [FightHistory.chartDetail(selectedEntry, player, chart.mode)]);
+            G.call("h2d.Text", "set_text", chartInfo, [FightHistory.chartDetail(selectedEntry, player)]);
             lastRefresh = -1;
         };
         recapView = new NativeRiftRecapCharts(panel, "dpsHistoryRecap");
         show(recapView.object, false);
-        modeDropdown = new HistoryDropdown(panel, "dpsHistoryMode", [
-            {value: "damage", name: "Damage"},
-            {value: "healing", name: "Healing"},
-            {value: "deaths", name: "Deaths"}
-        ], "damage", value -> {
-            chart.setMode(value);
-            recapView.setMode(value);
-        });
         previous = button(panel, "Previous", "dpsHistoryPrevious", () -> navigate(mode, group, page - 1));
         next = button(panel, "Next", "dpsHistoryNext", () -> navigate(mode, group, page + 1));
         pageLabel = label(panel, "");
@@ -366,7 +354,7 @@ class NativeHistoryWindow {
         G.call("h2d.Text", "set_lineBreak", actionStatus, [false]);
         show(actionStatus, false);
         for (object in [back, heading, detail, chartInfo, empty, G.field(list, "obj"), G.field(chartPanel, "obj"), recapView.object, previous, next, pageLabel, footer,
-            folderButton, snapshotButton, deleteButton, actionStatus, modeDropdown.object])
+            folderButton, snapshotButton, deleteButton, actionStatus])
             absolute(G.field(panel, "obj"), object);
         for (text in [title, detail, empty, pageLabel]) {
             var left = G.enumeration("h2d.Align", "Left");
@@ -431,7 +419,6 @@ class NativeHistoryWindow {
             size(header, w - 2, 60); position(header, 0, 0);
             size(close, 36, 36); position(close, w - 52, 12);
             G.set(dragSurface, "width", Math.max(1, w - 72));
-            G.set(dragSurface, "height", 60);
             position(dragSurface, 8, 0);
             var contentTop = snapshot ? 8 : 60;
             var contentHeight = h - contentTop - 8;
@@ -440,7 +427,6 @@ class NativeHistoryWindow {
             for (object in wrappers) { size(object, w - 16, contentHeight); position(object, 0, 0); }
             size(G.field(panel, "obj"), inner, bodyHeight); position(G.field(panel, "obj"), 16, 8);
             size(back, 84, 34); position(back, 0, 8);
-            placeModeDropdown(snapshot);
             size(snapshotButton, HistoryButtons.SNAPSHOT_SIZE, HistoryButtons.SNAPSHOT_SIZE);
             position(snapshotButton, inner - HistoryButtons.SNAPSHOT_SIZE, 7);
             size(deleteButton, 138, 34); position(deleteButton, inner - 138, bodyHeight - 50);
@@ -507,28 +493,6 @@ class NativeHistoryWindow {
         if (dragSurface != null) G.call("h2d.Interactive", "stopDrag", dragSurface);
         DpsMeterMod.saveConfig();
     }
-    function placeModeDropdown(snapshot:Bool):Void {
-        if (modeDropdown == null || panel == null) return;
-        var chartMode = mode == "chart" && !snapshot;
-        show(modeDropdown.object, chartMode);
-        if (!chartMode) return;
-        // Same row as Back and the boss name. Stay inside that row, left of the camera,
-        // so the control cannot spill into the window title header.
-        var panelWidth = width - 48;
-        var rightLimit = panelWidth - HistoryButtons.SNAPSHOT_SIZE - 12;
-        var leftLimit = 96;
-        var modeWidth = rightLimit - leftLimit < 168 ? Std.int(Math.max(96, rightLimit - leftLimit)) : 168;
-        modeDropdown.resize(modeWidth, 34);
-        var x = rightLimit - modeWidth;
-        if (x < leftLimit) x = leftLimit;
-        if (x == placedModeX && modeWidth == placedModeWidth) return;
-        placedModeX = x;
-        placedModeWidth = modeWidth;
-        // Stay on the panel that already owns this control. Reparenting it onto
-        // the window throws once a fight is opened and that error closes the modal.
-        absolute(G.field(panel, "obj"), modeDropdown.object);
-        position(modeDropdown.object, x, 8);
-    }
     function alignLabels(snapshot:Bool = false):Void {
         if (recap != null) recapView.alignLabels();
         G.call("ui.comp.FmtText", "updateScale", headingStyle);
@@ -536,9 +500,7 @@ class NativeHistoryWindow {
         if (font != null && font != headingFont) { headingFont = font; G.call("h2d.Text", "set_font", heading, [font]); }
         headingBaseScale = G.number(G.field(headingStyle, "scaleX"), 1);
         var headingLeft = snapshot || mode == "categories" ? 0 : 100;
-        var modeWidth = 168;
-        var headingRight = !snapshot && mode == "chart" ? HistoryButtons.SNAPSHOT_SIZE + 12 + modeWidth + 12 : 0;
-        placeModeDropdown(snapshot);
+        var headingRight = !snapshot && mode == "chart" ? HistoryButtons.SNAPSHOT_SIZE + 12 : 0;
         fitLiteral(heading, width - 48 - headingLeft - headingRight, headingBaseScale * 1.75);
         position(heading, headingLeft, 8 + (34 - textHeight(heading)) / 2);
         G.call("ui.comp.FmtText", "updateScale", detail);
@@ -605,7 +567,6 @@ class NativeHistoryWindow {
     public function closeFromEscape(ui:Dynamic):Bool {
         if (window == null || owner != ui || G.field(window, "removed") == true || G.field(window, "parent") == null) return false;
         if (options != null && options.closeOpen()) return true;
-        if (modeDropdown != null && modeDropdown.isOpen()) { modeDropdown.close(); return true; }
         dispose();
         return true;
     }
@@ -613,8 +574,6 @@ class NativeHistoryWindow {
         finishDrag();
         dragSurface = null;
         if (options != null) { options.close(); options = null; }
-        if (modeDropdown != null) { modeDropdown.close(); modeDropdown = null; }
-        placedModeX = -1; placedModeWidth = -1;
         requested = false; serial++;
         selectedEntry = null; deleting = false; copying = false;
         if (window != null) {

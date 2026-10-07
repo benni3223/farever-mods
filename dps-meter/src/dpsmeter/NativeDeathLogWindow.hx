@@ -8,7 +8,6 @@ typedef DeathRow = {
     root:Dynamic,
     time:Dynamic,
     bar:Dynamic,
-    health:Dynamic,
     amount:Dynamic,
     icon:Dynamic,
     spell:Dynamic,
@@ -25,11 +24,10 @@ class NativeDeathLogWindow {
     static inline var VISIBLE:Int = 16;
     static inline var TIME_X:Float = 12;
     static inline var BAR_X:Float = 86;
-    static inline var BAR_W:Float = 56;
+    static inline var BAR_W:Float = 92;
     static inline var BAR_H:Float = 8;
-    static inline var HP_X:Float = 148;
-    static inline var AMOUNT_X:Float = 214;
-    static inline var SPELL_X:Float = 310;
+    static inline var AMOUNT_X:Float = 190;
+    static inline var SPELL_X:Float = 300;
     static inline var ICON:Float = 16;
     static inline var SOURCE_X:Float = 530;
 
@@ -183,7 +181,6 @@ class NativeDeathLogWindow {
                 root: line,
                 time: text(font, line, row.timeText, 0x8a5f46),
                 bar: life,
-                health: text(font, line, DeathLog.healthText(row.hp), 0x8a5f46),
                 amount: text(font, line, row.amountText, amountColor),
                 icon: bitmap,
                 spell: text(font, line, row.spell, 0x5b4334),
@@ -286,7 +283,6 @@ class NativeDeathLogWindow {
             position(row.root, 0, i * ROW);
             position(row.time, TIME_X, 2);
             if (row.bar != null) position(row.bar, BAR_X, (ROW - BAR_H) / 2);
-            position(row.health, HP_X, 2);
             position(row.amount, AMOUNT_X, 2);
             if (row.icon != null) position(row.icon, SPELL_X, (ROW - ICON) / 2);
             position(row.spell, SPELL_X + (row.icon != null ? ICON + 4 : 0), 2);

@@ -106,19 +106,8 @@ class DpsMeterMod {
     }
     @:hlx.postfix(ui.hud.EffectsFeed.displayHeal)
     static function onReceivedHeal(instance:Dynamic, damage:Dynamic, result:Void):Void {
-        // Green number for a heal on the local player. Damage results do not carry heals.
+        // Same call that draws the green number for heals on the local player.
         if (collector != null && config.enabled) try collector.receivedHeal(damage, haxe.Timer.stamp()) catch (_:Dynamic) {}
-    }
-    @:hlx.postfix(ui.comp.HealDisplay.display)
-    static function onHealingNumber(damage:Dynamic, position:Dynamic, result:Dynamic):Dynamic {
-        // Postfixes also run when the native display is skipped by another mod.
-        if (collector != null && config.enabled) try collector.healingNumber(damage, haxe.Timer.stamp()) catch (_:Dynamic) {}
-        return result;
-    }
-    @:hlx.postfix(ui.comp.HealDisplay.init)
-    static function onDisplayedHeal(instance:Dynamic, result:Void):Void {
-        // Floating heal on someone else. The local player uses the feed above instead.
-        if (collector != null && config.enabled) try collector.displayedHeal(instance, haxe.Timer.stamp()) catch (_:Dynamic) {}
     }
     @:hlx.postfix(ent.Hero.onEnterCombat)
     static function onCombatEnter(instance:Dynamic, result:Void):Void {
@@ -181,7 +170,7 @@ class DpsMeterMod {
         try recapView.update(collector.model, config.enabled && config.showRiftRecaps, G.field(instance, "hero") != null, now) catch (_:Dynamic) {}
         try deathView.update(config.enabled && config.showDeathLog, now) catch (_:Dynamic) {}
         try historyView.update(writer, config.enabled && G.field(instance, "hero") != null, now)
-        catch (e:Dynamic) trace("[DPS Meter] Could not display history: " + Std.string(e));
+        catch (e:Dynamic) { historyView.dispose(); trace("[DPS Meter] Could not display history: " + Std.string(e)); }
         try kills.update(instance, collector.model, writer, now) catch (_:Dynamic) {}
     }
 }

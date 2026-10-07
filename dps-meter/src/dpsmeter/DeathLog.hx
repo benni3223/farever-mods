@@ -36,21 +36,13 @@ typedef DeathReport = {
     rows:Array<DeathEvent>
 };
 
-typedef PartyDeath = {
-    uid:String,
-    name:String,
-    className:String,
-    report:DeathReport
-};
-
-/** Incoming damage and healing on a player, kept until that player dies. */
+/** Incoming damage and healing on the local player, kept for the death dialog. */
 class DeathLog {
     public static inline var WINDOW:Float = 10;
 
     var events:Array<IncomingHit> = [];
     var alive:Bool = true;
     var pending:Null<DeathReport>;
-    public var lastReport(default, null):Null<DeathReport>;
 
     public function new() {}
 
@@ -83,17 +75,12 @@ class DeathLog {
         while (events.length > 0 && (events[0].time < newest - WINDOW - 1 || events.length > 500)) events.shift();
     }
 
-    public function resume(now:Float):Void {
-        if (!alive) observe(false, now);
-    }
-
     /** First transition to dead snapshots the window. Returns true when the player is alive again. */
     public function observe(dead:Bool, now:Float):Bool {
         if (dead) {
             if (!alive) return false;
             alive = false;
-            lastReport = build(now);
-            pending = lastReport;
+            pending = build(now);
             events = [];
             return false;
         }
@@ -205,12 +192,6 @@ class DeathLog {
 
     public static function signed(value:Float, heal:Bool):String
         return (heal ? "+" : "-") + amount(value);
-
-    /** Health remaining after the hit. Blank when the sample was never recorded. */
-    public static function healthText(hp:Float):String {
-        if (!Math.isFinite(hp) || hp < 0) return "";
-        return amount(hp);
-    }
 
     public static function amount(value:Float):String {
         var n = Std.int(Math.fround(value));

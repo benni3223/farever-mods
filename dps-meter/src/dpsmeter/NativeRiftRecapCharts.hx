@@ -32,9 +32,6 @@ class NativeRiftRecapCharts {
         }
     }
 
-    public function setMode(value:String):Void {
-        for (section in sections) (cast section.chart:NativeDamageChart).setMode(value);
-    }
     public function update(now:Float):Void {
         for (section in sections) (cast section.chart:NativeDamageChart).update(section.fight, now);
     }

@@ -27,10 +27,6 @@ class DeathLogTest {
         check(DeathLog.timeText(8.16) == "-8.2 s", "Times are tenths of a second before death");
         check(DeathLog.timeText(0) == "0.0 s", "The moment of death reads zero");
         check(DeathLog.timeText(10) == "-10.0 s", "A whole second keeps one decimal");
-        check(DeathLog.healthText(178.6) == "179", "Health left is the remaining health, rounded");
-        check(DeathLog.healthText(12345) == "12,345", "Health left uses the same grouping as amounts");
-        check(DeathLog.healthText(0) == "0", "Death leaves zero health");
-        check(DeathLog.healthText(Math.NaN) == "", "A missing health sample stays blank");
         check(DeathLog.healthAfter(1000, 5000, 400, false) == 600, "Damage is removed from health before the hit lands");
         check(DeathLog.healthAfter(100, 5000, 800, false) == 0, "Damage cannot push health below zero");
         check(DeathLog.healthAfter(1800, 2000, 500, true) == 2000, "Healing cannot raise health above the maximum");
