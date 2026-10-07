@@ -28,7 +28,7 @@ class NativeRiftRecapWindow {
     var snapshotLayout:Bool = false;
     var displayedRecap:Null<RiftRecap>;
     var wrappers:Array<Dynamic> = [];
-    var sections:Array<Dynamic> = [];
+    var charts:NativeRiftRecapCharts;
     var width:Int = 0;
     var height:Int = 0;
     var retryAt:Float = 0;
@@ -62,29 +62,6 @@ class NativeRiftRecapWindow {
         refresh(now);
     }
 
-    /** Explicit history selection ignores the automatic-popup preference and queue. */
-    public function openStored(result:RiftRecap):Void {
-        dispose();
-        var ui = G.current("ui.BaseUI", "current");
-        if (ui == null) throw "The game UI is not available.";
-        try {
-            build(ui, result);
-            displayedRecap = result;
-        } catch (e:Dynamic) { constructing = false; dispose(); throw e; }
-    }
-
-    public function updateStored(active:Bool, now:Float):Void {
-        var ui = G.current("ui.BaseUI", "current");
-        if (!active || ui == null || (owner != null && owner != ui)
-            || (window != null && G.field(window, "removed") == true)) { dispose(); return; }
-        if (window != null && !chartBodyIntact(body, container)) {
-            var recap = displayedRecap;
-            if (recap == null) { dispose(); return; }
-            openStored(recap);
-        }
-        refresh(now);
-    }
-
     function refresh(now:Float):Void {
         if (window == null) return;
         if (statusUntil > 0 && now >= statusUntil) {
@@ -92,10 +69,7 @@ class NativeRiftRecapWindow {
             statusUntil = 0;
         }
         layout();
-        for (section in sections) {
-            var chart:NativeDamageChart = section.chart;
-            chart.update(section.fight, now);
-        }
+        charts.update(now);
         alignLabels();
     }
 
@@ -153,8 +127,9 @@ class NativeRiftRecapWindow {
         absolute(bodyObject, options);
         absolute(options, container);
         buildSummary(result);
-        addSection(container, HistoryCatalog.HistoryCategory.normalizeName(RiftTracker.GATES_PHASE), result.gate, "dpsRiftGate");
-        addSection(container, HistoryCatalog.HistoryCategory.normalizeName(result.boss.phase), result.boss, "dpsRiftBoss");
+        charts = new NativeRiftRecapCharts(G.field(container, "dom"), "dpsRiftCharts");
+        absolute(container, charts.object);
+        charts.setRecap(result);
         layout();
     }
 
@@ -179,15 +154,15 @@ class NativeRiftRecapWindow {
     }
 
     function copySnapshot():Void {
-        if (copying || displayedRecap == null || sections.length != 2) return;
+        if (copying || displayedRecap == null || charts == null) return;
         copying = true;
         var message = "Snapshot copied to clipboard.";
-        var scrolls = [for (section in sections) (cast section.chart:NativeDamageChart).snapshotScroll()];
+        var scrolls = charts.snapshotScrolls();
         try {
             setText(title, "Rift Recap");
             layout(true);
             refreshSnapshotCharts();
-            for (section in sections) (cast section.chart:NativeDamageChart).restoreScroll(0);
+            charts.restoreScrolls([0, 0]);
             NativeFightSnapshot.copyBody(window, width, height, [header]);
         } catch (error:Dynamic) {
             message = Std.string(error);
@@ -196,7 +171,7 @@ class NativeRiftRecapWindow {
         // Restore the live window even when image allocation/readback fails.
         try {
             layout(); refreshSnapshotCharts();
-            for (i in 0...sections.length) (cast sections[i].chart:NativeDamageChart).restoreScroll(scrolls[i]);
+            charts.restoreScrolls(scrolls);
         } catch (error:Dynamic) {
             message = Std.string(error);
             trace("[DPS Meter] Restore recap after snapshot: " + message);
@@ -208,36 +183,9 @@ class NativeRiftRecapWindow {
 
     function refreshSnapshotCharts():Void {
         NativeFightSnapshot.reflow(window);
-        for (section in sections) (cast section.chart:NativeDamageChart).update(section.fight, haxe.Timer.stamp());
+        charts.update(haxe.Timer.stamp());
         NativeFightSnapshot.reflow(window);
         alignLabels();
-    }
-
-    function addSection(parent:Dynamic, caption:String, fight:Null<Fight>, id:String):Void {
-        var panel = node("flow", G.field(parent, "dom"), [], id, "vertical");
-        var object = G.field(panel, "obj");
-        padding(object, 0);
-        flow(panel, "set_verticalSpacing", 0);
-        style(object, "vspacing", 0);
-        var limit = G.enumeration("h2d.FlowOverflow", "Limit");
-        flow(panel, "set_overflow", limit);
-        style(object, "overflow", limit);
-        absolute(parent, object);
-        var heading = node("flow", panel, [], id + "Header", "horizontal");
-        var headingObject = G.field(heading, "obj");
-        padding(headingObject, 0);
-        var name = label(heading, caption);
-        var time = label(heading, fight == null ? "" : duration(fight.duration()));
-        absolute(headingObject, name);
-        absolute(headingObject, time);
-        for (text in [name, time]) {
-            var left = G.enumeration("h2d.Align", "Left");
-            G.call("h2d.Text", "set_textAlign", text, [left]);
-            style(text, "text-align", left);
-        }
-        var chart = new NativeDamageChart(panel, id + "Rows", "No damage recorded", true);
-        sections.push({obj: object, heading: headingObject, name: name, time: time,
-            chart: chart, fight: fight, width: 0});
     }
 
     function layout(snapshot:Bool = false):Void {
@@ -245,9 +193,9 @@ class NativeRiftRecapWindow {
         var top = localPoint(0, 0);
         var bottom = localPoint(G.number(G.field(scene, "width"), 1920), G.number(G.field(scene, "height"), 1080));
         var w = Std.int(Math.min(980, bottom.x - top.x - 40));
-        var columns = w >= 840;
+        var columns = RiftRecapLayout.columns(w - 48);
         var h = Std.int(Math.min((columns ? 540 : 680) + SnapshotLayout.RECAP_SUMMARY_HEIGHT, bottom.y - top.y - 80));
-        var chartHeights = snapshot ? [for (section in sections) (cast section.chart:NativeDamageChart).snapshotHeight()] : [];
+        var chartHeights = snapshot ? charts.chartHeights() : [];
         if (snapshot) {
             h = SnapshotLayout.recapHeight(columns, chartHeights, h);
             SnapshotLayout.imageSize(w, h);
@@ -276,23 +224,8 @@ class NativeRiftRecapWindow {
             show(recapHeading, snapshot);
             var summaryHeight = snapshot ? SnapshotLayout.RECAP_SNAPSHOT_SUMMARY_HEIGHT : SnapshotLayout.RECAP_SUMMARY_HEIGHT;
             var chartsHeight = bodyHeight - summaryHeight;
-            var panelWidth = columns ? Std.int((width - 72) / 2) : width - 48;
-            var panelHeight = columns ? chartsHeight - 24 : Std.int((chartsHeight - 48) / 2);
-            var panelY = summaryHeight + 12;
-            for (i in 0...sections.length) {
-                var section = sections[i];
-                section.width = panelWidth;
-                var sectionHeight = snapshot && !columns ? chartHeights[i] + 40 : panelHeight;
-                size(section.obj, panelWidth, sectionHeight);
-                position(section.obj, 16 + (columns ? i * (panelWidth + 24) : 0),
-                    columns ? summaryHeight + 12 : panelY);
-                panelY += sectionHeight + 24;
-                size(section.heading, panelWidth, 40);
-                G.call("ui.comp.FmtText", "set_maxWidthText", section.name,
-                    [Std.int(Math.max(1, panelWidth - textWidth(section.time) - 12))]);
-                var chart:NativeDamageChart = section.chart;
-                chart.resize(panelWidth, sectionHeight - 40);
-            }
+            charts.resize(width - 48, chartsHeight - 24, snapshot);
+            position(charts.object, 16, summaryHeight + 12);
         }
         position(window, top.x + (bottom.x - top.x - width) / 2, top.y + (bottom.y - top.y - height) / 2);
     }
@@ -304,11 +237,7 @@ class NativeRiftRecapWindow {
         fitSummary(recapInfo, summaryStyle, 1);
         position(recapHeading, 16, 16 + (34 - textHeight(recapHeading)) / 2);
         position(recapInfo, 16, snapshotLayout ? 68 : 12);
-        for (section in sections) {
-            G.call("ui.comp.FmtText", "updateScale", section.name);
-            position(section.name, 0, 4);
-            position(section.time, section.width - textWidth(section.time), 4);
-        }
+        charts.alignLabels();
     }
     function fitSummary(text:Dynamic, reference:Dynamic, factor:Float):Void {
         G.call("ui.comp.FmtText", "updateScale", reference);
@@ -333,7 +262,7 @@ class NativeRiftRecapWindow {
     }
     public function dispose():Void {
         if (window != null) { var old = window; window = null; G.call("h2d.Object", "remove", old); }
-        owner = null; sections = []; wrappers = []; frameBackground = null;
+        owner = null; charts = null; wrappers = []; frameBackground = null;
         body = null; container = null; displayedRecap = null;
         recapHeading = null; recapInfo = null; headingStyle = null; summaryStyle = null; snapshotLayout = false;
         snapshotButton = null; copying = false; statusUntil = 0;

@@ -1,6 +1,7 @@
 package dpsmeter;
 
 import dpsmeter.CombatModel.Fight;
+import dpsmeter.RiftTracker.RiftRecap;
 import dpsmeter.FightHistory;
 import dpsmeter.GameAccess as G;
 import dpsmeter.NativeUi.*;
@@ -31,7 +32,8 @@ class NativeHistoryWindow {
     var list:Dynamic;
     var chartPanel:Dynamic;
     var chart:NativeDamageChart;
-    final recapView = new NativeRiftRecapWindow();
+    var recapView:NativeRiftRecapCharts;
+    var recap:Null<RiftRecap>;
     var empty:Dynamic;
     var previous:Dynamic;
     var next:Dynamic;
@@ -98,17 +100,19 @@ class NativeHistoryWindow {
             if (response.id == serial) display(response);
             response = writer.receiveHistory();
         }
-        recapView.updateStored(active, now);
         updateDrag();
         layout();
-        if (mode == "chart" && !pending && fight != null) chart.update(fight, now);
+        if (mode == "chart" && !pending) {
+            if (recap != null) recapView.update(now);
+            else if (fight != null) chart.update(fight, now);
+        }
         if (now - lastRefresh >= 0.20) {
             lastRefresh = now;
             alignLabels();
         }
     }
     function navigate(mode:String, group:String, page:Int, ?entry:HistoryEntry):Void {
-        if (mode == "chart") recapView.dispose();
+        recap = null; recapView.setRecap(null); show(recapView.object, false);
         this.mode = mode; this.group = group; this.page = page;
         selectedEntry = entry; deleting = false;
         status(""); show(deleteButton, false); show(snapshotButton, false);
@@ -155,27 +159,24 @@ class NativeHistoryWindow {
         }
         if (response.error != "") { setText(empty, response.error); show(empty, true); return; }
         if (mode == "chart") {
-            if (RiftRecapHistory.isRecap(response.record)) {
-                try {
-                    recapView.openStored(RiftRecapHistory.decode(response.record));
-                    // Keep the attempt list underneath the existing recap UI.
-                    // Its X/Escape returns to the same filters and page.
-                    navigate("fights", group, fightsPage);
-                } catch (e:Dynamic) {
-                    setText(empty, "This rift recap could not be opened. Choose another log using Back.");
-                    show(empty, true);
-                    trace("[DPS Meter] Could not open stored recap: " + Std.string(e));
+            try {
+                if (RiftRecapHistory.isRecap(response.record)) {
+                    recap = RiftRecapHistory.decode(response.record);
+                    recapView.setRecap(recap);
+                    G.call("h2d.Text", "set_text", chartInfo, [FightHistory.recapDetail(recap)]);
+                    show(recapView.object, true);
+                } else {
+                    fight = FightHistory.decode(response.record);
+                    show(G.field(chartPanel, "obj"), true);
                 }
-                return;
-            }
-            try fight = FightHistory.decode(response.record)
-            catch (e:Dynamic) {
+            } catch (e:Dynamic) {
                 setText(empty, "This fight log could not be read. Choose another fight using Back.");
                 show(empty, true);
                 trace("[DPS Meter] Could not read chart: " + Std.string(e));
                 return;
             }
-            show(empty, false); show(G.field(chartPanel, "obj"), true);
+            show(empty, false);
+            width = 0;
             show(deleteButton, true); show(snapshotButton, true);
         } else {
             if (mode == "fights") options.setCharacters(response.characters);
@@ -215,11 +216,10 @@ class NativeHistoryWindow {
         catch (error:Dynamic) status(Std.string(error), true);
     }
     function deleteLog():Void {
-        if (fight != null) deleteEntry(selectedEntry);
+        if (fight != null || recap != null) deleteEntry(selectedEntry);
     }
     function deleteEntry(entry:HistoryEntry):Void {
         if (pending || copying || entry == null) return;
-        recapView.dispose();
         pending = true; deleting = true; serial++;
         show(deleteButton, false); show(snapshotButton, false);
         for (row in rows) show(row.deleteButton, false);
@@ -227,16 +227,16 @@ class NativeHistoryWindow {
         writer.requestHistory({id: serial, action: "delete", group: group, page: fightsPage, fightId: entry.id});
     }
     function copySnapshot():Void {
-        if (pending || copying || fight == null || selectedEntry == null) return;
+        if (pending || copying || (fight == null && recap == null) || selectedEntry == null) return;
         copying = true;
-        var scroll = chart.snapshotScroll();
+        var scrolls = recap != null ? recapView.snapshotScrolls() : [chart.snapshotScroll()];
         var message = "Snapshot copied to clipboard.";
         var failed = false;
         try {
             show(actionStatus, false);
             layout(true);
             refreshSnapshotChart(true);
-            chart.restoreScroll(0);
+            if (recap != null) recapView.restoreScrolls([0, 0]); else chart.restoreScroll(0);
             NativeFightSnapshot.copyBody(window, width, height,
                 [header, back, snapshotButton, deleteButton, folderButton, previous, next, pageLabel, actionStatus]);
         } catch (error:Dynamic) {
@@ -244,7 +244,8 @@ class NativeHistoryWindow {
             trace("[DPS Meter] Snapshot: " + Std.string(error));
         }
         try {
-            layout(); refreshSnapshotChart(); chart.restoreScroll(scroll);
+            layout(); refreshSnapshotChart();
+            if (recap != null) recapView.restoreScrolls(scrolls); else chart.restoreScroll(scrolls[0]);
         } catch (error:Dynamic) {
             message = Std.string(error); failed = true;
             trace("[DPS Meter] Restore history after snapshot: " + message);
@@ -254,7 +255,8 @@ class NativeHistoryWindow {
     }
     function refreshSnapshotChart(snapshot:Bool = false):Void {
         NativeFightSnapshot.reflow(window);
-        chart.update(fight, haxe.Timer.stamp());
+        if (recap != null) recapView.update(haxe.Timer.stamp());
+        else chart.update(fight, haxe.Timer.stamp());
         NativeFightSnapshot.reflow(window);
         alignLabels(snapshot);
     }
@@ -340,6 +342,8 @@ class NativeHistoryWindow {
             G.call("h2d.Text", "set_text", chartInfo, [FightHistory.chartDetail(selectedEntry, player)]);
             lastRefresh = -1;
         };
+        recapView = new NativeRiftRecapCharts(panel, "dpsHistoryRecap");
+        show(recapView.object, false);
         previous = button(panel, "Previous", "dpsHistoryPrevious", () -> navigate(mode, group, page - 1));
         next = button(panel, "Next", "dpsHistoryNext", () -> navigate(mode, group, page + 1));
         pageLabel = label(panel, "");
@@ -349,7 +353,7 @@ class NativeHistoryWindow {
         actionStatus = G.create("h2d.Text", [G.field(detail, "font"), G.field(panel, "obj")]);
         G.call("h2d.Text", "set_lineBreak", actionStatus, [false]);
         show(actionStatus, false);
-        for (object in [back, heading, detail, chartInfo, empty, G.field(list, "obj"), G.field(chartPanel, "obj"), previous, next, pageLabel, footer,
+        for (object in [back, heading, detail, chartInfo, empty, G.field(list, "obj"), G.field(chartPanel, "obj"), recapView.object, previous, next, pageLabel, footer,
             folderButton, snapshotButton, deleteButton, actionStatus])
             absolute(G.field(panel, "obj"), object);
         for (text in [title, detail, empty, pageLabel]) {
@@ -406,7 +410,7 @@ class NativeHistoryWindow {
         var w = Std.int(Math.max(300, Math.min(900, bottom.x - top.x - 40)));
         var h = Std.int(Math.max(320, Math.min(820, bottom.y - top.y - 60)));
         if (snapshot) {
-            h = SnapshotLayout.historyHeight(chart.snapshotHeight(), h);
+            h = SnapshotLayout.historyHeight(recap != null ? recapView.snapshotHeight() : chart.snapshotHeight(), h);
             SnapshotLayout.imageSize(w, h);
         }
         if (copying || w != width || h != height) {
@@ -439,6 +443,8 @@ class NativeHistoryWindow {
             var chartHeight = Std.int(Math.max(30, bodyHeight - topInset - footerSpace));
             for (object in [G.field(list, "obj"), G.field(chartPanel, "obj")]) { size(object, inner, chartHeight); position(object, 0, topInset); }
             chart.resize(inner, chartHeight);
+            recapView.resize(inner, chartHeight, snapshot && recap != null);
+            position(recapView.object, 0, topInset);
             size(previous, 108, 34); position(previous, 0, bodyHeight - 70);
             size(next, 108, 34); position(next, inner - 108, bodyHeight - 70);
             G.call("ui.comp.FmtText", "set_maxWidthText", pageLabel, [Std.int(Math.max(1, inner - 236))]);
@@ -488,6 +494,7 @@ class NativeHistoryWindow {
         DpsMeterMod.saveConfig();
     }
     function alignLabels(snapshot:Bool = false):Void {
+        if (recap != null) recapView.alignLabels();
         G.call("ui.comp.FmtText", "updateScale", headingStyle);
         var font = G.field(headingStyle, "font");
         if (font != null && font != headingFont) { headingFont = font; G.call("h2d.Text", "set_font", heading, [font]); }
@@ -558,14 +565,12 @@ class NativeHistoryWindow {
         return {x: G.number(G.field(local, "x")), y: G.number(G.field(local, "y"))};
     }
     public function closeFromEscape(ui:Dynamic):Bool {
-        if (recapView.closeFromEscape(ui)) return true;
         if (window == null || owner != ui || G.field(window, "removed") == true || G.field(window, "parent") == null) return false;
         if (options != null && options.closeOpen()) return true;
         dispose();
         return true;
     }
     public function dispose():Void {
-        recapView.dispose();
         finishDrag();
         dragSurface = null;
         if (options != null) { options.close(); options = null; }
@@ -579,7 +584,7 @@ class NativeHistoryWindow {
             else G.call("h2d.Object", "remove", old);
         }
         owner = null; rows = []; wrappers = []; frame = null; body = null; container = null;
-        chart = null; fight = null; width = 0; height = 0;
+        chart = null; fight = null; recapView = null; recap = null; width = 0; height = 0;
         mode = "categories"; category = ""; group = ""; page = 0; groupsPage = 0; fightsPage = 0;
         headingFont = null; catalog = null;
     }

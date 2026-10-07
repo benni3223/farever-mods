@@ -1307,6 +1307,25 @@ class HistoryTest {
         var stacked = SnapshotLayout.recapHeight(false, [600, 80]);
         check(columns == 780, "Side-by-side recap fits its title, summary and taller complete phase");
         check(stacked == 924, "Stacked recap fits its title, summary, both complete charts and phase headings");
+        for (width in [312, 600, 791, 792, 852, 932]) {
+            var live = dpsmeter.RiftRecapLayout.panels(width, 540);
+            for (panel in live) check(panel.x >= 0 && panel.y >= 0
+                && panel.x + panel.width <= width && panel.y + panel.height <= 540,
+                "Both recap panels stay inside their owning window at width " + width);
+            check(live[1].x >= live[0].x + live[0].width + 24
+                || live[1].y >= live[0].y + live[0].height + 24,
+                "Recap phases keep a clear gap in columns and stacked layouts");
+            var fullHeight = dpsmeter.RiftRecapLayout.snapshotHeight(width, [600, 80]);
+            var captured = dpsmeter.RiftRecapLayout.panels(width, fullHeight, [600, 80]);
+            for (i in 0...2) check(captured[i].height >= [600, 80][i] + 40
+                && captured[i].y + captured[i].height <= fullHeight,
+                "Recap snapshots fit every row of both unequal phases without clipping");
+            check(SnapshotLayout.historyHeight(fullHeight, 820) - 124 >= fullHeight,
+                "History snapshots reserve enough space for the complete embedded recap");
+        }
+        var historyPanels = dpsmeter.RiftRecapLayout.panels(852, 540);
+        check(historyPanels[0].width == 414 && historyPanels[1].x == 438 && historyPanels[1].y == 0,
+            "The normal Fight History window fits both compact recap charts side by side");
         var image = SnapshotLayout.imageSize(980, columns);
         check(image.width == 1928 && image.height == 1528, "Capture crops to the native body at twice the UI resolution without an outer border");
         var historyImage = SnapshotLayout.imageSize(900, 700);

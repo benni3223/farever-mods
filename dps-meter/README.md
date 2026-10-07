@@ -234,9 +234,11 @@ exit normally is also preserved. Completed rift phases
 keep their separate **Rift - Gates** and **Rift - [boss name]** charts.
 
 Completed rifts also save a combined **Rift Recap** under **World Bosses** in
-Fight History and in `history/Rift Recap/`. Selecting a recap opens the same
-two-phase window as the automatic popup, including player/skill breakdowns
-and clipboard snapshots. Closing it returns to the same history page and filters.
+Fight History and in `history/Rift Recap/`. Selecting a recap displays both phase
+charts inside Fight History, with the same appearance and compact player/skill
+breakdowns as the automatic popup. The charts fit side by side, or stack on
+narrower screens. Snapshot and Delete log work here too; Back returns to the
+same history page and filters.
 Recaps save even with automatic recap popups or log uploads disabled. Each recap
 contains its own gate and boss snapshots, so deleting a separate phase log does
 not break it. The log list identifies the boss and shows combined personal DPS
