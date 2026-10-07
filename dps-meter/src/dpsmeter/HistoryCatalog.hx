@@ -42,6 +42,7 @@ class HistoryCategory {
         else if (categories[kind] != category) categories[kind] = OTHER;
     }
     public static function resolve(record:Dynamic, catalog:Null<HistoryCatalog>):String {
+        if (RiftRecapHistory.isRecap(record)) return WORLD;
         var stored = FightHistory.text(record.category);
         // Reclassify earlier dummy logs in memory without rewriting them, and
         // keep practice separate even if its area later hosts a boss event.
@@ -111,6 +112,7 @@ class HistoryCategory {
         return name;
     }
     public static function encounterName(record:Dynamic, catalog:Null<HistoryCatalog>):String {
+        if (RiftRecapHistory.isRecap(record)) return RiftRecapHistory.NAME;
         var name = displayName(record, catalog);
         var difficulty = FightHistory.difficulty(record.difficulty);
         if (difficulty >= 0) {

@@ -20,7 +20,8 @@ class BossRecords {
     }
     public static function best(entries:Iterator<HistoryEntry>, request:BossRecordRequest):Null<Float> {
         var best:Null<Float> = null;
-        for (entry in entries) if (entry.bossKind == request.bossKind && entry.difficulty == request.difficulty
+        for (entry in entries) if (!RiftRecapHistory.isRecap(entry)
+            && entry.bossKind == request.bossKind && entry.difficulty == request.difficulty
             && entry.playerName == request.playerName && entry.playerClass == request.playerClass
             && entry.outcome == "Victory" && entry.phase != RiftTracker.GATES_PHASE
             && entry.startedAt < request.before && Math.isFinite(entry.duration) && entry.duration > 0

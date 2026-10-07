@@ -217,6 +217,7 @@ class CombatModel {
     public var history:Array<Fight> = [];
     var pendingHistory:Array<Fight> = [];
     public var recaps:Array<RiftRecap> = [];
+    public var recapHistory:Array<RiftRecap> = [];
     public var difficulty:Int = -1;
     public var activityId:String = "";
     public var activityCategory:String = "Other";
@@ -240,7 +241,7 @@ class CombatModel {
         this.gameVersion = gameVersion; session = new Fight(now, gameVersion);
     }
     public function reset(now:Float):Void {
-        if (rift != null) rift.drain(now, completed, recaps, true, history);
+        if (rift != null) rift.drain(now, completed, recaps, true, history, recapHistory);
         else {
             finishPendingFight();
             if (current != null) finishCurrent(now);
@@ -266,7 +267,7 @@ class CombatModel {
         } else if (!inCombat && !awaitingExitState) onCombatEnter(me, now);
         if (rift != null) {
             rift.updateWarmup(now, inCombat || partyInCombat);
-            rift.drain(now, completed, recaps, false, history);
+            rift.drain(now, completed, recaps, false, history, recapHistory);
             return;
         }
         // A dead/revivable local hero may already have left combat while the

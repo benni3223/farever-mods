@@ -47,10 +47,7 @@ class DpsMeterMod {
     }
 
     static function flushFights():Void {
-        while (collector.model.history.length > 0) {
-            writer.archive(collector.model.history[0]);
-            collector.model.history.shift();
-        }
+        writer.archiveHistory(collector.model);
         while (collector.model.completed.length > 0) {
             if (config.sendLogs) writer.enqueue(collector.model.completed[0]);
             collector.model.completed.shift();

@@ -6,7 +6,7 @@ typedef HistoryEntry = {
     id:String, name:String, startedAt:Float, duration:Float, personalDps:Null<Float>, playerName:String,
     category:String, categoryVersion:Int, activityId:String, bossKind:String, phase:String,
     difficulty:Int, partySize:Int, recordedPlayers:Int, playerClass:String, outcome:String,
-    ?damageTypeSummary:String, ?targetDummy:Bool
+    ?damageTypeSummary:String, ?targetDummy:Bool, ?kind:String, ?recapBossName:String
 };
 typedef HistoryGroup = {name:String, count:Int};
 typedef HistoryHeading = {before:String, player:String, after:String};
@@ -44,6 +44,7 @@ class FightHistory {
             : fight.bossKind != "" ? fight.bossKind : "Other combat");
     }
     public static function entry(record:Dynamic):HistoryEntry {
+        if (RiftRecapHistory.isRecap(record)) return RiftRecapHistory.entry(record);
         validate(record);
         var damage:Null<Float> = text(record.me) == "" ? null : 0;
         var playerName = text(record.meName);
@@ -61,6 +62,7 @@ class FightHistory {
             outcome: outcome(record.outcome), damageTypeSummary: damageTypeSummary, targetDummy: record.targetDummy == true};
     }
     public static function decode(record:Dynamic):Fight {
+        if (RiftRecapHistory.isRecap(record)) throw "Open this log as a rift recap.";
         validate(record);
         var fight = new Fight(1);
         fight.gameVersion = text(record.gameVersion);
@@ -96,6 +98,7 @@ class FightHistory {
         return fight;
     }
     public static function validate(record:Dynamic):Void {
+        if (RiftRecapHistory.isRecap(record)) { RiftRecapHistory.validate(record); return; }
         if (record == null || record.version != 1 || text(record.id) == "" || text(record.name) == ""
             || number(record.startedAt) <= 0 || number(record.duration) < 0
             || !Std.isOfType(record.players, Array)) throw "Invalid fight history record.";
@@ -149,7 +152,9 @@ class FightHistory {
         var parts = attemptHeadingParts(entry);
         return parts.before + parts.player + parts.after;
     }
-    public static function attemptDetail(entry:HistoryEntry):String return durationLabel(entry.duration) + "  ·  " + dpsLabel(entry.personalDps);
+    public static function attemptDetail(entry:HistoryEntry):String
+        return (RiftRecapHistory.isRecap(entry) ? text(entry.recapBossName) + "  ·  " : "")
+            + durationLabel(entry.duration) + "  ·  " + dpsLabel(entry.personalDps);
     public static function chartDetail(entry:Null<HistoryEntry>, ?player:PlayerStats):String {
         if (entry == null) return "";
         var name = player == null ? entry.playerName : player.info.name;

@@ -31,6 +31,7 @@ class NativeHistoryWindow {
     var list:Dynamic;
     var chartPanel:Dynamic;
     var chart:NativeDamageChart;
+    final recapView = new NativeRiftRecapWindow();
     var empty:Dynamic;
     var previous:Dynamic;
     var next:Dynamic;
@@ -97,6 +98,7 @@ class NativeHistoryWindow {
             if (response.id == serial) display(response);
             response = writer.receiveHistory();
         }
+        recapView.updateStored(active, now);
         updateDrag();
         layout();
         if (mode == "chart" && !pending && fight != null) chart.update(fight, now);
@@ -106,6 +108,7 @@ class NativeHistoryWindow {
         }
     }
     function navigate(mode:String, group:String, page:Int, ?entry:HistoryEntry):Void {
+        if (mode == "chart") recapView.dispose();
         this.mode = mode; this.group = group; this.page = page;
         selectedEntry = entry; deleting = false;
         status(""); show(deleteButton, false); show(snapshotButton, false);
@@ -152,6 +155,19 @@ class NativeHistoryWindow {
         }
         if (response.error != "") { setText(empty, response.error); show(empty, true); return; }
         if (mode == "chart") {
+            if (RiftRecapHistory.isRecap(response.record)) {
+                try {
+                    recapView.openStored(RiftRecapHistory.decode(response.record));
+                    // Keep the attempt list underneath the existing recap UI.
+                    // Its X/Escape returns to the same filters and page.
+                    navigate("fights", group, fightsPage);
+                } catch (e:Dynamic) {
+                    setText(empty, "This rift recap could not be opened. Choose another log using Back.");
+                    show(empty, true);
+                    trace("[DPS Meter] Could not open stored recap: " + Std.string(e));
+                }
+                return;
+            }
             try fight = FightHistory.decode(response.record)
             catch (e:Dynamic) {
                 setText(empty, "This fight log could not be read. Choose another fight using Back.");
@@ -203,6 +219,7 @@ class NativeHistoryWindow {
     }
     function deleteEntry(entry:HistoryEntry):Void {
         if (pending || copying || entry == null) return;
+        recapView.dispose();
         pending = true; deleting = true; serial++;
         show(deleteButton, false); show(snapshotButton, false);
         for (row in rows) show(row.deleteButton, false);
@@ -541,12 +558,14 @@ class NativeHistoryWindow {
         return {x: G.number(G.field(local, "x")), y: G.number(G.field(local, "y"))};
     }
     public function closeFromEscape(ui:Dynamic):Bool {
+        if (recapView.closeFromEscape(ui)) return true;
         if (window == null || owner != ui || G.field(window, "removed") == true || G.field(window, "parent") == null) return false;
         if (options != null && options.closeOpen()) return true;
         dispose();
         return true;
     }
     public function dispose():Void {
+        recapView.dispose();
         finishDrag();
         dragSurface = null;
         if (options != null) { options.close(); options = null; }

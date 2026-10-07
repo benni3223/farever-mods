@@ -233,6 +233,17 @@ is not saved. A qualifying fight still in progress when you leave an area or
 exit normally is also preserved. Completed rift phases
 keep their separate **Rift - Gates** and **Rift - [boss name]** charts.
 
+Completed rifts also save a combined **Rift Recap** under **World Bosses** in
+Fight History and in `history/Rift Recap/`. Selecting a recap opens the same
+two-phase window as the automatic popup, including player/skill breakdowns
+and clipboard snapshots. Closing it returns to the same history page and filters.
+Recaps save even with automatic recap popups or log uploads disabled. Each recap
+contains its own gate and boss snapshots, so deleting a separate phase log does
+not break it. The log list identifies the boss and shows combined personal DPS
+over the sum of the recorded phase durations. Joining at the boss leaves the
+gate panel empty rather than inventing earlier damage. Recaps are captured from
+newly completed rifts; older, separate phase files are not guessed into pairs.
+
 An ongoing fight continues while a living party member in the same instance is
 still in combat, even if you die. Party damage and the encounter timer continue,
 and being revived resumes the same chart. The fight ends when everyone leaves

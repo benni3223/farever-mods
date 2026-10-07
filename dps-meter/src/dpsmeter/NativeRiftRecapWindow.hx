@@ -59,6 +59,33 @@ class NativeRiftRecapWindow {
                 return;
             }
         }
+        refresh(now);
+    }
+
+    /** Explicit history selection ignores the automatic-popup preference and queue. */
+    public function openStored(result:RiftRecap):Void {
+        dispose();
+        var ui = G.current("ui.BaseUI", "current");
+        if (ui == null) throw "The game UI is not available.";
+        try {
+            build(ui, result);
+            displayedRecap = result;
+        } catch (e:Dynamic) { constructing = false; dispose(); throw e; }
+    }
+
+    public function updateStored(active:Bool, now:Float):Void {
+        var ui = G.current("ui.BaseUI", "current");
+        if (!active || ui == null || (owner != null && owner != ui)
+            || (window != null && G.field(window, "removed") == true)) { dispose(); return; }
+        if (window != null && !chartBodyIntact(body, container)) {
+            var recap = displayedRecap;
+            if (recap == null) { dispose(); return; }
+            openStored(recap);
+        }
+        refresh(now);
+    }
+
+    function refresh(now:Float):Void {
         if (window == null) return;
         if (statusUntil > 0 && now >= statusUntil) {
             setText(title, "Rift Recap");
@@ -298,6 +325,11 @@ class NativeRiftRecapWindow {
         G.set(point, "x", x); G.set(point, "y", y);
         var local = G.call("h2d.Object", "globalToLocal", root, [point]);
         return {x: G.number(G.field(local, "x")), y: G.number(G.field(local, "y"))};
+    }
+    public function closeFromEscape(ui:Dynamic):Bool {
+        if (window == null || owner != ui || G.field(window, "removed") == true || G.field(window, "parent") == null) return false;
+        dispose();
+        return true;
     }
     public function dispose():Void {
         if (window != null) { var old = window; window = null; G.call("h2d.Object", "remove", old); }

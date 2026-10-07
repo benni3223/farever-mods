@@ -162,8 +162,10 @@ class FightHistoryStore {
             // The index may have recovered metadata from a surviving export.
             // Apply it to this detached read too, without rewriting the log.
             var summary = entries[request.fightId];
-            response.record.difficulty = summary.difficulty;
-            response.record.partySize = summary.partySize;
+            if (!RiftRecapHistory.isRecap(response.record)) {
+                response.record.difficulty = summary.difficulty;
+                response.record.partySize = summary.partySize;
+            }
         } else if (request.action == "categories") {
             var counts:Map<String, Int> = [];
             for (entry in entries) {

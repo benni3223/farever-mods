@@ -137,7 +137,8 @@ class RiftTracker {
         }
     }
 
-    public function drain(now:Float, completed:Array<Fight>, recaps:Array<RiftRecap>, force:Bool = false, ?history:Array<Fight>):Void {
+    public function drain(now:Float, completed:Array<Fight>, recaps:Array<RiftRecap>, force:Bool = false,
+        ?history:Array<Fight>, ?recapHistory:Array<RiftRecap>):Void {
         for (index in 0...2) {
             if (ended[index] < 0 || exported[index] || (!force && now < ended[index] + FINAL_DAMAGE_SECONDS)) continue;
             exported[index] = true;
@@ -150,7 +151,11 @@ class RiftTracker {
         // so the recap includes late killing blows and is queued only once.
         if (phase == 2 && exported[0] && exported[1] && !recapQueued && fights[1] != null) {
             recapQueued = true;
-            recaps.push({gate: fights[0] == null ? null : fights[0].copy(), boss: fights[1].copy()});
+            var recap = {gate: fights[0] == null ? null : fights[0].copy(), boss: fights[1].copy()};
+            recaps.push(recap);
+            // The UI can discard or retry its own queue without losing a log
+            // or saving a second copy. These finalized snapshots are immutable.
+            if (recapHistory != null) recapHistory.push(recap);
         }
         // Leaving an unfinished rift still preserves its chart locally, without
         // submitting an abandoned phase as a completed boss-kill report.
