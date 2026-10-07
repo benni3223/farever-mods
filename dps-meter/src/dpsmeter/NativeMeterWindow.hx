@@ -8,6 +8,8 @@ import dpsmeter.NativeUi.*;
 /** Native DOMKit components and game fonts. */
 class NativeMeterWindow {
     static inline var HIDE_FADE_SECONDS:Float = 0.4;
+    static inline var HEADER_H:Int = 58;
+    static inline var TOOLBAR_H:Int = 42;
     public static var constructing:Bool = false;
     public var window(default, null):Dynamic;
     var owner:Dynamic;
@@ -20,12 +22,16 @@ class NativeMeterWindow {
     var container:Dynamic;
     var content:Dynamic;
     var chart:NativeDamageChart;
+    var modeDropdown:HistoryDropdown;
     var timer:Dynamic;
     var historyButton:Dynamic;
     final openHistory:Void->Void;
     var bossLabel:Dynamic;
     var bossCaption:String = "";
     var bossLabelWidth:Int = -1;
+    var laidWindowWidth:Int = -1;
+    var laidTimerWidth:Float = -1;
+    var laidModeX:Float = 96;
     var displayed:Null<Fight>;
     var dragSurface:Dynamic;
     var resizeSurface:Dynamic;
@@ -158,6 +164,12 @@ class NativeMeterWindow {
         flow(content, "set_verticalSpacing", 12);
         style(G.field(content, "obj"), "vspacing", 12);
         chart = new NativeDamageChart(content, "dpsMeterRows");
+        modeDropdown = new HistoryDropdown(toolbar, "dpsMeterMode", [
+            {value: "damage", name: "Damage"},
+            {value: "healing", name: "Healing"},
+            {value: "deaths", name: "Deaths"}
+        ], "damage", value -> chart.setMode(value));
+        absolute(G.field(toolbar, "obj"), modeDropdown.object);
         for (object in [window, frameBackground, windowContent, header, bodyObject, options, container, G.field(content, "obj"), G.field(toolbar, "obj")]) {
             if (object == null) continue;
             padding(object, 0);
@@ -193,12 +205,35 @@ class NativeMeterWindow {
         // edge as the window is resized or the number of digits changes.
         var textWidth = G.number(G.call("h2d.Text", "get_textWidth", timer)) * G.number(G.field(timer, "scaleX"), 1);
         var textHeight = G.number(G.call("h2d.Text", "get_textHeight", timer)) * G.number(G.field(timer, "scaleY"), 1);
-        position(timer, width - 32 - textWidth, Math.max(0, (34 - textHeight) / 2));
-        // Center the actual styled button on the same 34px toolbar as the timer.
-        var buttonHeight = G.number(G.call("h2d.Flow", "get_outerHeight", historyButton), 30);
-        position(historyButton, 12, (34 - buttonHeight) / 2);
-        var nameInset = 56; // Leave the book button and a gap before the name.
-        var available = Std.int(Math.max(1, width - 32 - textWidth - 12 - nameInset));
+        // Restyling the dropdown every frame forces a full UI rebuild and
+        // lags the game whenever the meter is visible. Do it only when the
+        // timer width or window width actually changes.
+        if (width != laidWindowWidth || Math.abs(textWidth - laidTimerWidth) > 0.5) {
+            laidWindowWidth = width;
+            laidTimerWidth = textWidth;
+            position(timer, width - 32 - textWidth, Math.max(0, (TOOLBAR_H - textHeight) / 2));
+            var buttonHeight = G.number(G.call("h2d.Flow", "get_outerHeight", historyButton), 30);
+            position(historyButton, 12, (TOOLBAR_H - buttonHeight) / 2);
+            var modeWidth = 150;
+            var modeHeight = 34;
+            modeDropdown.resize(modeWidth, modeHeight);
+            var modeX = width - 32 - textWidth - 10 - modeWidth;
+            var toolbarWidth = width - 32;
+            if (modeX + modeWidth > toolbarWidth - 4) modeX = toolbarWidth - 4 - modeWidth;
+            if (modeX < 96) modeX = 96;
+            position(modeDropdown.object, modeX, (TOOLBAR_H - modeHeight) / 2);
+            // The drag surface is a later sibling of the header and would otherwise
+            // cover this control. Leave the name area draggable and stop before it.
+            var dropLeft = 16 + modeX;
+            var dragLeft = 68.0;
+            var dragRight = Math.max(dragLeft + 1, dropLeft - 8);
+            G.set(dragSurface, "width", dragRight - dragLeft);
+            G.set(dragSurface, "height", headerHeight * 1.0);
+            position(dragSurface, dragLeft, 0);
+            laidModeX = modeX;
+        }
+        var nameInset = 56;
+        var available = Std.int(Math.max(1, laidModeX - 8 - nameInset));
         if (available != bossLabelWidth) {
             bossLabelWidth = available;
             G.call("ui.comp.FmtText", "set_maxWidthText", bossLabel, [available]);
@@ -206,14 +241,14 @@ class NativeMeterWindow {
             G.call("ui.comp.FmtText", "updateScale", bossLabel);
         }
         var bossHeight = G.number(G.call("h2d.Text", "get_textHeight", bossLabel)) * G.number(G.field(bossLabel, "scaleY"), 1);
-        position(bossLabel, nameInset, Math.max(0, (34 - bossHeight) / 2));
+        position(bossLabel, nameInset, Math.max(0, (TOOLBAR_H - bossHeight) / 2));
     }
     function layout():Void {
         width = config.width; height = config.height;
         var innerWidth = width - 16;
         var toolbarObject = G.field(toolbar, "obj");
-        size(toolbarObject, innerWidth - 16, 34);
-        headerHeight = 46;
+        size(toolbarObject, innerWidth - 16, TOOLBAR_H);
+        headerHeight = HEADER_H;
         var bodyHeight = height - headerHeight - 8;
         size(window, width, height);
         if (frameBackground != null) { size(frameBackground, width, height); position(frameBackground, 0, 0); }
@@ -221,7 +256,7 @@ class NativeMeterWindow {
         var headerWidth = width - 2;
         size(header, headerWidth, headerHeight);
         position(header, 0, 0);
-        position(toolbarObject, 16, 9);
+        position(toolbarObject, 16, (HEADER_H - TOOLBAR_H) / 2);
         G.call("ui.comp.FmtText", "set_maxWidthText", timer, [innerWidth - 62]);
         alignControls();
         size(windowContent, innerWidth, bodyHeight);
@@ -232,11 +267,6 @@ class NativeMeterWindow {
         size(G.field(content, "obj"), innerWidth - 16, bodyHeight - 24);
         position(G.field(content, "obj"), 8, 12);
         chart.resize(width - 32, Std.int(Math.max(20, bodyHeight - 24)));
-        // The drag surface is above the toolbar; exclude the history button
-        // so it remains clickable while the meter is unlocked.
-        G.set(dragSurface, "width", (headerWidth - 68) * 1.0);
-        G.set(dragSurface, "height", headerHeight * 1.0);
-        position(dragSurface, 68, 0);
         position(resizeSurface, width - 22, height - 22);
         position(grip, width - 18, height - 18);
         lastRefresh = -1;

@@ -1,6 +1,7 @@
 package dpsmeter;
 
 import dpsmeter.CombatModel;
+import dpsmeter.DeathLog;
 
 typedef HistoryEntry = {
     id:String, name:String, startedAt:Float, duration:Float, personalDps:Null<Float>, playerName:String,
@@ -25,15 +26,27 @@ class FightHistory {
         var players:Array<Dynamic> = [for (p in fight.ranked()) {
             var skills:Array<Dynamic> = [for (id => s in p.skills) {id: id, damage: s.damage, hits: s.hits,
                 crits: s.crits, kills: s.kills, casts: s.casts, damageBreakdown: s.damageBreakdown.json(s.damage)}];
+            var healSkills:Array<Dynamic> = [for (id => s in p.healSkills) {id: id, damage: s.damage, hits: s.hits,
+                crits: s.crits, kills: s.kills, casts: s.casts}];
             {
                 uid: p.info.uid, name: p.info.name, isMe: p.info.isMe || p.info.uid == fight.me,
                 className: p.info.className, damage: p.damage, heal: p.heal,
                 hits: p.hits, crits: p.crits, kills: p.kills,
-                skills: skills, damageBreakdown: p.damageBreakdown.json(p.damage)
+                skills: skills, healSkills: healSkills, damageBreakdown: p.damageBreakdown.json(p.damage)
             }
         }];
+        var deaths:Array<Dynamic> = [for (death in fight.deaths) {
+            uid: death.uid, name: death.name, className: death.className,
+            at: death.report.at, damage: death.report.damage, healing: death.report.healing,
+            healthScale: death.report.healthScale,
+            rows: [for (row in death.report.rows) {
+                ago: row.ago, timeText: row.timeText, hp: row.hp, amountText: row.amountText,
+                heal: row.heal, death: row.death, spell: row.spell, skillId: row.skillId,
+                source: row.source, className: row.className
+            }]
+        }];
         return {version: 1, gameVersion: fight.gameVersion, id: id, name: name(fight), startedAt: fight.startedAt, duration: fight.duration(),
-            me: fight.me, meName: fight.meName, players: players, category: fight.category, categoryVersion: fight.categoryVersion,
+            me: fight.me, meName: fight.meName, players: players, deaths: deaths, category: fight.category, categoryVersion: fight.categoryVersion,
             activityId: fight.activityId, bossKind: fight.bossKind, phase: fight.phase,
             difficulty: fight.difficulty, partySize: fight.partySize, outcome: outcome(fight.outcome), targetDummy: fight.targetDummy};
     }
@@ -92,8 +105,26 @@ class FightHistory {
                 skill.crits = Std.int(number(s.crits)); skill.kills = Std.int(number(s.kills)); skill.casts = Std.int(number(s.casts));
                 stats.skills[text(s.id)] = skill;
             }
+            for (s in array(p.healSkills)) {
+                var skill = new SkillStats();
+                skill.damage = number(s.damage); skill.hits = Std.int(number(s.hits));
+                skill.crits = Std.int(number(s.crits)); skill.kills = Std.int(number(s.kills)); skill.casts = Std.int(number(s.casts));
+                stats.healSkills[text(s.id)] = skill;
+            }
             fight.players[uid] = stats;
             if (stats.info.isMe) fight.me = uid;
+        }
+        for (death in array(record.deaths)) {
+            var rows:Array<DeathEvent> = [for (row in array(death.rows)) {
+                ago: number(row.ago), timeText: text(row.timeText), hp: number(row.hp),
+                amountText: text(row.amountText), heal: row.heal == true, death: row.death == true,
+                spell: text(row.spell), skillId: text(row.skillId), source: text(row.source), className: text(row.className)
+            }];
+            var report:DeathReport = {
+                at: number(death.at), damage: number(death.damage), healing: number(death.healing),
+                healthScale: number(death.healthScale), rows: rows
+            };
+            fight.deaths.push({uid: text(death.uid), name: text(death.name), className: text(death.className), report: report});
         }
         return fight;
     }
@@ -155,13 +186,20 @@ class FightHistory {
     public static function attemptDetail(entry:HistoryEntry):String
         return (RiftRecapHistory.isRecap(entry) ? text(entry.recapBossName) + "  ·  " : "")
             + durationLabel(entry.duration) + "  ·  " + dpsLabel(entry.personalDps);
-    public static function chartDetail(entry:Null<HistoryEntry>, ?player:PlayerStats):String {
+    public static function chartDetail(entry:Null<HistoryEntry>, ?player:PlayerStats, mode:String = "damage"):String {
         if (entry == null) return "";
         var name = player == null ? entry.playerName : player.info.name;
-        var dps = player == null ? entry.personalDps : player.damage / Math.max(1, entry.duration);
-        var split = player == null ? entry.damageTypeSummary : player.damageBreakdown.summary(player.damage);
+        var rate = "";
+        var split = "";
+        if (mode == "damage") {
+            var dps = player == null ? entry.personalDps : player.damage / Math.max(1, entry.duration);
+            rate = dpsLabel(dps, player == null);
+            split = player == null ? entry.damageTypeSummary : player.damageBreakdown.summary(player.damage);
+        } else if (mode == "healing" && player != null) {
+            rate = StringTools.replace(dpsLabel(player.heal / Math.max(1, entry.duration), false), "DPS: ", "HPS: ");
+        }
         return dateLabel(entry.startedAt) + (name == "" ? "" : "  ·  " + name)
-            + "  ·  " + dpsLabel(dps, player == null) + "  ·  " + durationLabel(entry.duration) + "  ·  " + outcomeLabel(entry)
+            + (rate == "" ? "" : "  ·  " + rate) + "  ·  " + durationLabel(entry.duration) + "  ·  " + outcomeLabel(entry)
             + (split == null || split == "" ? "" : "  ·  " + split);
     }
     public static function recapDetail(recap:dpsmeter.RiftTracker.RiftRecap):String {
