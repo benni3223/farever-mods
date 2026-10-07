@@ -407,7 +407,7 @@ class NativeHistoryWindow {
         var scene = G.field(owner, "s2d");
         var top = localPoint(0, 0);
         var bottom = localPoint(G.number(G.field(scene, "width"), 1920), G.number(G.field(scene, "height"), 1080));
-        var w = Std.int(Math.max(300, Math.min(900, bottom.x - top.x - 40)));
+        var w = Std.int(Math.max(300, Math.min(940, bottom.x - top.x - 40)));
         var h = Std.int(Math.max(320, Math.min(820, bottom.y - top.y - 60)));
         if (snapshot) {
             h = SnapshotLayout.historyHeight(recap != null ? recapView.snapshotHeight() : chart.snapshotHeight(), h);

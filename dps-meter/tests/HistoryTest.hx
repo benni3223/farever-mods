@@ -1307,7 +1307,7 @@ class HistoryTest {
         var stacked = SnapshotLayout.recapHeight(false, [600, 80]);
         check(columns == 780, "Side-by-side recap fits its title, summary and taller complete phase");
         check(stacked == 924, "Stacked recap fits its title, summary, both complete charts and phase headings");
-        for (width in [312, 600, 791, 792, 852, 932]) {
+        for (width in [312, 600, 791, 792, 892, 932]) {
             var live = dpsmeter.RiftRecapLayout.panels(width, 540);
             for (panel in live) check(panel.x >= 0 && panel.y >= 0
                 && panel.x + panel.width <= width && panel.y + panel.height <= 540,
@@ -1323,14 +1323,14 @@ class HistoryTest {
             check(SnapshotLayout.historyHeight(fullHeight, 820) - 124 >= fullHeight,
                 "History snapshots reserve enough space for the complete embedded recap");
         }
-        var historyPanels = dpsmeter.RiftRecapLayout.panels(852, 540);
-        check(historyPanels[0].width == 414 && historyPanels[1].x == 438 && historyPanels[1].y == 0,
+        var historyPanels = dpsmeter.RiftRecapLayout.panels(892, 540);
+        check(historyPanels[0].width == 434 && historyPanels[1].x == 458 && historyPanels[1].y == 0,
             "The normal Fight History window fits both compact recap charts side by side");
         var image = SnapshotLayout.imageSize(980, columns);
         check(image.width == 1928 && image.height == 1528, "Capture crops to the native body at twice the UI resolution without an outer border");
-        var historyImage = SnapshotLayout.imageSize(900, 700);
-        check(historyImage.width == 1768 && historyImage.height == 1368,
-            "The 884-unit native history body fills the image instead of sitting inside a 48-pixel surround");
+        var historyImage = SnapshotLayout.imageSize(940, 700);
+        check(historyImage.width == 1848 && historyImage.height == 1368,
+            "The 924-unit native history body fills the image instead of sitting inside a 48-pixel surround");
         var tall = SnapshotLayout.imageSize(980, SnapshotLayout.recapHeight(true, [6000, 30]));
         check(tall.height > 2048 && tall.width * 1.0 * tall.height * 4 < 128 * 1024 * 1024,
             "Long rankings remain available across GPU strips");
