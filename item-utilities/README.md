@@ -174,7 +174,7 @@ stay protected. Unmarking a matching item removes that rule for future pickups.
 Weapons, armour, and accessories in your bag can be marked as junk. Marked bag
 items cannot be equipped or moved into the bank, including through deposit
 shortcuts. Matching items already worn remain unaffected. At a Guild Merchant, click the **Sell all junk** trash-bin button
-beside the trade window's close button to sell the inventory's marked stacks.
+to the left of the gold count at the bottom of the trade window to sell the inventory's marked stacks.
 Sales use the normal game requests and checks, one acknowledged sale at a time.
 Changed, moved, newly locked, or unsellable items are skipped. Closing the
 merchant, changing character/session, a rejected sale, or a timeout stops the

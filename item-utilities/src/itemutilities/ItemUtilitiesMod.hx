@@ -224,6 +224,7 @@ class ItemUtilitiesMod {
     static var junkBadgeCache = new ObjectMap<Dynamic, Bool>();
     static var nextJunkBadgeCheck = 0.;
     static var activeMerchant:Dynamic;
+    static var merchantGoldCounter:Dynamic;
     static var junkSale = new JunkSaleQueue();
     static var junkSaleHero:Dynamic;
     static var junkSaleHost:Dynamic;
@@ -673,6 +674,7 @@ class ItemUtilitiesMod {
     static function afterMerchantInit(instance:Dynamic, result:Void):Void {
         if (activeMerchant != instance) junkSale.cancel();
         activeMerchant = instance;
+        merchantGoldCounter = null;
     }
 
     static function isScrapInventory(inventory:Dynamic):Bool {
@@ -791,6 +793,7 @@ class ItemUtilitiesMod {
         }
         if (instance == activeMerchant) {
             activeMerchant = null;
+            merchantGoldCounter = null;
             junkSale.cancel();
         }
         if (instance == activeBankWindow) {
@@ -1883,11 +1886,34 @@ class ItemUtilitiesMod {
             });
         }
         if (activeMerchant != null && isUiVisible(activeMerchant) && NativeJunk.isGuildMerchant(activeMerchant)) {
-            var close = fieldOrNull(fieldOrNull(activeMerchant, "header"), "closeBtn");
-            if (isUiVisible(close)) NativeUtilityUi.button(fieldOrNull(close, "parent"), "sell-junk",
-                NativeUiLayout.rect(close, -38, 0, 32, 30), "sell-junk",
+            var footer = fieldOrNull(activeMerchant, "currencyList");
+            if (!isUiVisible(footer)) return;
+            if (!isUiVisible(merchantGoldCounter) || !isAncestorOf(footer, merchantGoldCounter))
+                merchantGoldCounter = findMerchantGoldCounter(footer);
+            if (merchantGoldCounter == null) return;
+            // Measure only the native counter. The utility is its sibling in
+            // the window, so it cannot enlarge its own positioning anchor.
+            var gold = NativeUiLayout.localRect(merchantGoldCounter,
+                NativeUiLayout.objectBounds(merchantGoldCounter, 0));
+            if (gold == null || !gold.valid()) return;
+            NativeUtilityUi.button(fieldOrNull(footer, "parent"), "sell-junk",
+                NativeUiLayout.rect(merchantGoldCounter, gold.left - 40,
+                    gold.top + (gold.height - 30) / 2, 32, 30), "sell-junk",
                 junkSale.active ? "Selling junk..." : "Sell all junk", beginJunkSale, junkSale.active);
         }
+    }
+
+    static function findMerchantGoldCounter(object:Dynamic):Dynamic {
+        if (!isUiVisible(object)) return null;
+        if (G.isA(object, "ui.comp.CurrencyCounter") && G.text(fieldOrNull(object, "itemKind")) == "Gold")
+            return object;
+        // Search only the small footer, once when created or rebuilt. Shop
+        // item prices and currency counters elsewhere are not valid anchors.
+        for (child in InspectUi.children(object)) {
+            var counter = findMerchantGoldCounter(child);
+            if (counter != null) return counter;
+        }
+        return null;
     }
 
     static function beginJunkSale():Void {
