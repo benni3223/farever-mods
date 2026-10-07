@@ -105,7 +105,6 @@ class NativeSkillTable {
         if (index >= 0) {
             for (i in 0...3) {
                 var t = label(dom, ""); absolute(obj, t);
-                G.call("domkit.Properties", "addClass", G.field(t, "dom"), ["bold-14"]);
                 var left = G.enumeration("h2d.Align", "Left");
                 G.call("h2d.Text", "set_textAlign", t, [left]); style(t, "text-align", left);
                 (cast row.distributionTexts:Array<Dynamic>).push(t);
