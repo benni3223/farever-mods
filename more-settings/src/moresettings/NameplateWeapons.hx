@@ -190,7 +190,7 @@ class NameplateWeapons {
     }
 
     static function createHover(parent:Dynamic, item:Dynamic):Dynamic {
-        var hit = G.create("h2d.Interactive", [1.0, 1.0, parent]);
+        var hit = G.create("h2d.Interactive", [1.0, 1.0, parent, null]);
         G.set(hit, "onOver", function(_:Dynamic) showTip(item));
         G.set(hit, "onOut", function(_:Dynamic) hideTip());
         return hit;

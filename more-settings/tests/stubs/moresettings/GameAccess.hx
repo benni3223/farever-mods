@@ -46,6 +46,8 @@ class GameAccess {
     }
     public static function field(o:Dynamic, name:String):Dynamic return o == null ? null : Reflect.field(o, name);
     public static function create(type:String, args:Array<Dynamic>):Dynamic {
+        if (type == "h2d.Interactive" && args.length != 4)
+            throw "Native Interactive requires width, height, parent and shape";
         return {type: type, args: args, parent: args.length > 0 ? args[0] : null};
     }
     public static function set(o:Dynamic, name:String, value:Dynamic):Void if (o != null) Reflect.setField(o, name, value);

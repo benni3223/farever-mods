@@ -1,6 +1,7 @@
 import moresettings.NameplateWeapons;
 import moresettings.SettingsData;
 
+@:access(moresettings.NameplateWeapons)
 class NameplateWeaponsTest {
     static var checks = 0;
     static function eq(actual:Dynamic, expected:Dynamic, message:String):Void {
@@ -26,6 +27,12 @@ class NameplateWeaponsTest {
         var onlyArsenal = NameplateWeapons.pair(null, arsenal);
         eq(onlyArsenal[0], null, "a missing main weapon stays the left column");
         eq(onlyArsenal[1], arsenal, "the arsenal weapon stays the right column");
+        var parent = {};
+        var hover = NameplateWeapons.createHover(parent, main);
+        eq(hover.args[2], parent, "weapon hover belongs to the nameplate icon root");
+        eq(hover.args[3], null, "weapon hover uses the native default shape");
+        eq(Reflect.isFunction(hover.onOver), true, "weapon hover installs its tooltip callback");
+        eq(Reflect.isFunction(hover.onOut), true, "weapon hover installs its tooltip cleanup");
         Sys.println('Nameplate weapon tests passed ($checks checks)');
     }
 }
