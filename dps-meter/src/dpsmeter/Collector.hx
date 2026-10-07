@@ -7,6 +7,7 @@ import dpsmeter.GameAccess as G;
 class Collector {
     public var model:CombatModel;
     public var deathLog:DeathLog = new DeathLog();
+    var taken:Map<String, DeathLog> = [];
     public var revived:Bool = false;
     var config:MeterSettings;
     var hero:Dynamic;
@@ -18,6 +19,7 @@ class Collector {
     var profileWeapons:Map<String, Dynamic> = [];
     var phrixes:Dynamic;
     var riftWait:Dynamic;
+    var recentHeals:Array<{uid:String, target:String, skill:String, amount:Float, time:Float}> = [];
     public function new(config:MeterSettings) {
         this.config = config;
         var version = "";
@@ -33,6 +35,7 @@ class Collector {
             model.reset(now); hero = nextHero; layer = nextLayer;
             groupMembers = []; lastGroupSeen = -1; lastRoster = -1;
             profileRefresh = []; profileWeapons = [];
+            taken = [];
             phrixes = null;
             riftWait = null;
         }
@@ -177,8 +180,11 @@ class Collector {
         if (credited.source != source) uid = G.uid(credited.source);
         source = credited.source;
         skill = credited.skill;
-        // Heals received by you are recorded from EffectsFeed.displayHeal.
-        if (target == hero && !incomingHeal(damage)) recordIncoming(source, skill, damage, now);
+        // Heals on you come from EffectsFeed. Other party members are recorded here.
+        var targetUid = G.uid(target);
+        if (target == hero || targetUid == model.me || model.party.exists(targetUid)) {
+            if (!(target == hero && incomingHeal(damage))) recordIncoming(target, source, skill, damage, now);
+        }
         var info = profile(source);
         if (info == null && !model.profiles.exists(uid)) return;
         if (G.field(layer, "isRift") == true) {
@@ -228,8 +234,15 @@ class Collector {
     }
     public function noteDeath(unit:Dynamic, now:Float):Void {
         if (hero == null || unit == null) return;
-        if (unit != hero && G.uid(unit) != model.me) return;
-        deathLog.observe(true, now);
+        var uid = G.uid(unit);
+        var local = unit == hero || uid == model.me;
+        if (!local && !model.party.exists(uid)) return;
+        var log = local ? deathLog : taken[uid];
+        if (log == null) return;
+        log.observe(true, now);
+        var info = model.profiles[uid];
+        var name = info != null && info.name != "" ? info.name : G.text(G.field(unit, "name"));
+        model.rememberDeath(uid, name, info != null ? info.className : "", log.lastReport);
     }
     function noteLife(now:Float):Void {
         var dead = false;
@@ -245,7 +258,31 @@ class Collector {
     }
     /** Heals the local player actually received. Same feed as the green combat numbers. */
     public function receivedHeal(damage:Dynamic, now:Float):Void {
-        if (!config.enabled || hero == null || damage == null) return;
+        creditHeal(damage, hero, now);
+    }
+    /** Runs even when More Settings suppresses construction of the floating number. */
+    public function healingNumber(damage:Dynamic, now:Float):Void {
+        var target = G.field(damage, "targetUnit");
+        if (target == null || target == hero || G.uid(target) == model.me) return;
+        creditHeal(damage, target, now);
+    }
+    /** Floating heal on another unit. Local heals stay on the received-heal feed. */
+    public function displayedHeal(display:Dynamic, now:Float):Void {
+        if (!config.enabled || display == null) return;
+        var damage = G.field(display, "dmg");
+        if (damage == null) return;
+        var target = G.field(damage, "targetUnit");
+        if (target == null) target = G.field(display, "target");
+        if (target == null || target == hero || G.uid(target) == model.me) return;
+        creditHeal(damage, target, now);
+    }
+    /**
+     * Healing never arrives on the damage result: that object has no effect field,
+     * and HitResult.Heal is not the index the meter treats as healing. The number
+     * the client draws is the heal, credited to its source.
+     */
+    function creditHeal(damage:Dynamic, target:Dynamic, now:Float):Void {
+        if (!config.enabled || hero == null || damage == null || target == null) return;
         var raw = G.number(G.field(damage, "_amount"));
         try raw = G.number(G.call("st.skill.DamageResult", "get_amount", damage), raw) catch (_:Dynamic) {}
         var scale = 1.0;
@@ -258,27 +295,62 @@ class Collector {
         var source:Dynamic = null;
         var skill:Dynamic = null;
         try source = G.call("st.skill.DamageResult", "get_source", damage) catch (_:Dynamic) {}
+        if (source == null) source = G.field(damage, "source");
         try skill = gamecompat.HitSkill.read(damage, G.field) catch (_:Dynamic) {}
         var credited = creditOwner(source, skill);
         var skillId = G.text(G.field(credited.skill, "kind"));
+        var targetUid = G.uid(target);
+        var uid = G.uid(credited.source);
+        if (repeatedHeal(uid, targetUid, skillId, shown, now)) return;
         var skillName = StringTools.replace(skillId, "_", " ");
         try {
             var resolved = NativeCombatMetadata.skillName(skillId);
             if (resolved != "") skillName = resolved;
         } catch (_:Dynamic) {}
         var who = attacker(credited.source);
-        var hp = Math.NaN;
-        var maxHp = Math.NaN;
-        // This runs after the heal is applied, so the bar is the resulting health.
-        try hp = G.number(G.call("ent.Unit", "get_health", hero), Math.NaN) catch (_:Dynamic) {}
-        try maxHp = G.number(G.call("ent.Unit", "get_maxHealth", hero), Math.NaN) catch (_:Dynamic) {}
         var critical = G.field(damage, "_critical") == true;
         try if (G.call("st.skill.DamageResult", "get_critical", damage) == true) critical = true catch (_:Dynamic) {}
-        deathLog.record({
-            time: now, amount: shown, heal: true, critical: critical, kill: false,
-            skill: skillName, skillId: skillId, source: who.name, className: who.className,
-            hp: hp, maxHp: maxHp
-        });
+        var tracked = target == hero || targetUid == model.me || (targetUid != "" && model.party.exists(targetUid));
+        if (tracked) {
+            var hp = Math.NaN;
+            var maxHp = Math.NaN;
+            // The feed and the floating number both run after the heal lands.
+            try hp = G.number(G.call("ent.Unit", "get_health", target), Math.NaN) catch (_:Dynamic) {}
+            if (!Math.isFinite(hp)) hp = G.number(G.field(target, "health"), Math.NaN);
+            try maxHp = G.number(G.call("ent.Unit", "get_maxHealth", target), Math.NaN) catch (_:Dynamic) {}
+            if (!Math.isFinite(maxHp)) maxHp = G.number(G.field(target, "maxHealth"), Math.NaN);
+            var log = target == hero || targetUid == model.me ? deathLog : buffer(targetUid);
+            log.resume(now);
+            log.record({
+                time: now, amount: shown, heal: true, critical: critical, kill: false,
+                skill: skillName, skillId: skillId, source: who.name, className: who.className,
+                hp: hp, maxHp: maxHp
+            });
+        }
+        if (uid == "" || uid == "0") return;
+        var info = profile(credited.source);
+        if (info == null && !model.profiles.exists(uid)) return;
+        if (G.field(layer, "isRift") == true && G.field(credited.source, "layer") == layer) model.party[uid] = true;
+        var attributed = model.profiles[uid];
+        if (attributed != null && attributed.className == "") attributed.className = inferClass(skillId);
+        model.record({time: now, source: uid, amount: shown, critical: critical, kill: false, effect: 1,
+            skill: skillId, damageType: "unclassified", affinity: "", target: targetUid,
+            bossKind: "", bossFlags: 0, bossLevel: 0, bossFoeId: 0});
+    }
+    function repeatedHeal(uid:String, target:String, skill:String, amount:Float, now:Float):Bool {
+        for (prev in recentHeals) {
+            if (now < prev.time || now - prev.time > 0.05) continue;
+            if (prev.uid != uid || prev.skill != skill || prev.amount != amount) continue;
+            if (prev.target == target || target == "" || prev.target == "") return true;
+        }
+        recentHeals.push({uid: uid, target: target, skill: skill, amount: amount, time: now});
+        if (recentHeals.length > 12) recentHeals.shift();
+        return false;
+    }
+    function buffer(uid:String):DeathLog {
+        if (uid == model.me) return deathLog;
+        if (!taken.exists(uid)) taken[uid] = new DeathLog();
+        return taken[uid];
     }
     function incomingHeal(damage:Dynamic):Bool {
         var effectValue = G.field(damage, "effect");
@@ -306,15 +378,14 @@ class Collector {
         }
         return {source: source, skill: skill};
     }
-    function recordIncoming(source:Dynamic, skill:Dynamic, damage:Dynamic, now:Float):Void {
+    function recordIncoming(target:Dynamic, source:Dynamic, skill:Dynamic, damage:Dynamic, now:Float):Void {
         var amount = G.number(G.field(damage, "_amount"));
-        var effectValue = G.field(damage, "effect");
-        var effectName = "";
-        try effectName = Type.enumConstructor(effectValue) catch (_:Dynamic) {}
-        if (effectName == "") effectName = G.text(effectValue);
-        var healing = DeathLog.isHeal(effectName, G.integer(effectValue));
+        var healing = incomingHeal(damage);
         var kill = !healing && G.field(damage, "_kill") == true;
         if (!(amount > 0) && !kill) return;
+        var uid = G.uid(target);
+        var log = buffer(uid);
+        log.resume(now);
         var skillId = G.text(G.field(skill, "kind"));
         var skillName = StringTools.replace(skillId, "_", " ");
         try {
@@ -324,11 +395,11 @@ class Collector {
         var who = attacker(source);
         var before = Math.NaN;
         var maxHp = Math.NaN;
-        // This hook runs before the hit changes health, so the bar shows the result.
-        try before = G.number(G.call("ent.Unit", "get_health", hero), Math.NaN) catch (_:Dynamic) {}
-        try maxHp = G.number(G.call("ent.Unit", "get_maxHealth", hero), Math.NaN) catch (_:Dynamic) {}
+        // Damage is observed before it changes health. Healing on other players uses the same hook.
+        try before = G.number(G.call("ent.Unit", "get_health", target), Math.NaN) catch (_:Dynamic) {}
+        try maxHp = G.number(G.call("ent.Unit", "get_maxHealth", target), Math.NaN) catch (_:Dynamic) {}
         var after = DeathLog.healthAfter(before, maxHp, amount, healing);
-        deathLog.record({
+        log.record({
             time: now,
             amount: amount,
             heal: healing,
