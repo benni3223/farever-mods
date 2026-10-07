@@ -1,5 +1,6 @@
 import moresettings.NameplateWeapons;
 import moresettings.SettingsData;
+import moresettings.GameAccess as G;
 
 @:access(moresettings.NameplateWeapons)
 class NameplateWeaponsTest {
@@ -33,6 +34,31 @@ class NameplateWeaponsTest {
         eq(hover.args[3], null, "weapon hover uses the native default shape");
         eq(Reflect.isFunction(hover.onOver), true, "weapon hover installs its tooltip callback");
         eq(Reflect.isFunction(hover.onOut), true, "weapon hover installs its tooltip cleanup");
+        var ui:Dynamic = {root: {}, currentTip: null};
+        G.data = {current: ui};
+        hover.onOver(null);
+        var firstTip = ui.currentTip;
+        eq(firstTip != null, true, "hovering creates the native item tooltip");
+        eq(firstTip.content.definition, main.inf, "tooltip receives the native item definition");
+        eq(firstTip.content.item, main, "tooltip retains the actual equipped item");
+        eq(firstTip.anchor, hover, "the game positions the tooltip at its weapon icon");
+        hover.onOut(null);
+        eq(ui.currentTip, null, "leaving the weapon removes its tooltip");
+        eq(G.removedTips, 1, "cleanup uses the native UI tooltip owner");
+        hover.onOver(null);
+        var arsenalHover = NameplateWeapons.createHover(parent, arsenal);
+        arsenalHover.onOver(null);
+        var arsenalTip = ui.currentTip;
+        hover.onOut(null);
+        eq(ui.currentTip, arsenalTip, "a delayed exit from the other weapon preserves the new tooltip");
+        var foreignTip = {parent: ui.root};
+        ui.currentTip = foreignTip;
+        arsenalHover.onOut(null);
+        eq(ui.currentTip, foreignTip, "weapon cleanup preserves another UI's tooltip");
+        eq(arsenalTip.parent, null, "a replaced weapon tooltip is still disposed");
+        G.data.current = null;
+        hover.onOver(null);
+        eq(NameplateWeapons.activeTip, null, "a missing UI cannot retain a weapon tooltip");
         Sys.println('Nameplate weapon tests passed ($checks checks)');
     }
 }

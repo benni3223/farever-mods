@@ -9,6 +9,7 @@ class NameplateWeapons {
     static inline var GAP = 3.0;
     static var reportedError:Bool = false;
     static var plates:Array<Plate> = [];
+    static var activeTip:Null<{ui:Dynamic, tip:Dynamic, anchor:Dynamic}>;
 
     /** Left is the main weapon, right is the arsenal weapon. Null stays in its column. */
     public static function pair(main:Dynamic, arsenal:Dynamic):Array<Dynamic>
@@ -69,6 +70,7 @@ class NameplateWeapons {
         if (!enabled) {
             G.call("h2d.Object", "set_visible", plate.root, [false]);
             for (slot in plate.slots) if (slot.icon != null) G.call("h2d.Object", "set_visible", slot.icon, [false]);
+            for (slot in plate.slots) if (slot.hit != null) hideTip(slot.hit);
         } else {
             G.call("h2d.Object", "set_visible", plate.root, [true]);
             var hero = G.field(widget, "hero");
@@ -139,7 +141,10 @@ class NameplateWeapons {
         if (!shown(item)) {
             slot.item = null;
             if (slot.icon != null) G.call("h2d.Object", "set_visible", slot.icon, [false]);
-            if (slot.hit != null) G.call("h2d.Object", "set_visible", slot.hit, [false]);
+            if (slot.hit != null) {
+                hideTip(slot.hit);
+                G.call("h2d.Object", "set_visible", slot.hit, [false]);
+            }
             return;
         }
         if (slot.item == item && slot.icon != null) {
@@ -152,6 +157,7 @@ class NameplateWeapons {
             slot.icon = null;
         }
         if (slot.hit != null) {
+            hideTip(slot.hit);
             try G.call("h2d.Object", "remove", slot.hit) catch (_:Dynamic) {}
             slot.hit = null;
         }
@@ -191,22 +197,36 @@ class NameplateWeapons {
 
     static function createHover(parent:Dynamic, item:Dynamic):Dynamic {
         var hit = G.create("h2d.Interactive", [1.0, 1.0, parent, null]);
-        G.set(hit, "onOver", function(_:Dynamic) showTip(item));
-        G.set(hit, "onOut", function(_:Dynamic) hideTip());
+        G.set(hit, "onOver", function(_:Dynamic) showTip(hit, item));
+        G.set(hit, "onOut", function(_:Dynamic) hideTip(hit));
         return hit;
     }
 
-    static function showTip(item:Dynamic):Void {
+    static function showTip(anchor:Dynamic, item:Dynamic):Void {
+        hideTip();
+        var ui = G.current("ui.BaseUI", "current");
+        if (ui == null) return;
         try {
-            var tip = G.staticCall("ui.Tooltip", "fromItem", [item]);
-            if (tip != null) G.staticCall("ui.Tooltip", "showTooltip", [tip]);
+            var content = G.staticCall("ui.Tooltip", "fromItem", [definition(item), item]);
+            if (content == null) return;
+            var tip = G.call("ui.BaseUI", "setTip", ui, [content, anchor, null, null]);
+            if (tip != null) activeTip = {ui: ui, tip: tip, anchor: anchor};
+            else G.call("h2d.Object", "remove", content);
         } catch (error:Dynamic) {
             reportError(error);
         }
     }
 
-    static function hideTip():Void {
-        try G.staticCall("ui.Tooltip", "hideTip", []) catch (_:Dynamic) {}
+    static function hideTip(?anchor:Dynamic):Void {
+        if (activeTip == null || (anchor != null && activeTip.anchor != anchor)) return;
+        var previous = activeTip;
+        activeTip = null;
+        try {
+            if (G.field(previous.ui, "currentTip") == previous.tip)
+                G.call("ui.BaseUI", "removeTip", previous.ui, [null]);
+            else if (G.field(previous.tip, "parent") != null)
+                G.call("h2d.Object", "remove", previous.tip);
+        } catch (_:Dynamic) {}
     }
 
     static function layout(plate:Plate):Void {
@@ -294,6 +314,7 @@ class NameplateWeapons {
 
     static function removePlate(plate:Plate):Void {
         plates.remove(plate);
+        for (slot in plate.slots) if (slot.hit != null) hideTip(slot.hit);
         if (plate.root != null) try G.call("h2d.Object", "remove", plate.root) catch (_:Dynamic) {}
     }
 
