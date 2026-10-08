@@ -13,7 +13,8 @@ class SnapshotLayout {
         return Std.int(Math.max(windowHeight - 120, 124 + chartHeight));
     public static function recapHeight(columns:Bool, chartHeights:Array<Int>, windowHeight:Int = 0):Int {
         var body = 0;
-        for (h in chartHeights) body = columns ? Std.int(Math.max(body, h + 40)) : body + h + 64;
+        for (h in chartHeights) body = columns ? Std.int(Math.max(body, h + RiftRecapLayout.HEADER))
+            : body + h + RiftRecapLayout.HEADER + RiftRecapLayout.GAP;
         // Native frame inset is eight units at each edge; no window header.
         return Std.int(Math.max(windowHeight - 52 - RECAP_SUMMARY_HEIGHT + RECAP_SNAPSHOT_SUMMARY_HEIGHT,
             16 + RECAP_SNAPSHOT_SUMMARY_HEIGHT + (columns ? 24 + body : body)));

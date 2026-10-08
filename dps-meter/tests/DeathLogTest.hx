@@ -1,5 +1,7 @@
 import dpsmeter.DeathLog;
 import dpsmeter.MeterConfig;
+import dpsmeter.DeathTimeline;
+import dpsmeter.SkillBreakdown;
 
 class DeathLogTest {
     static var checks = 0;
@@ -80,11 +82,11 @@ class DeathLogTest {
 
         log = new DeathLog();
         log.record(hit(0, 5, "Old", "Hit", false, false, 50));
-        log.record(hit(10.1, 7, "Edge", "Hit"));
+        log.record(hit(10.6, 7, "Edge", "Hit"));
         log.observe(true, 10);
         report = log.take();
         check(report.damage == 5 && report.rows[0].source == "Old" && report.rows[0].timeText == "-10.0 s",
-            "A hit after the death time is excluded");
+            "A hit outside the final-RPC grace period is excluded");
 
         log = new DeathLog();
         for (i in 0...9) log.record(hit(9 + i * 0.1, 100 - i, "Add " + i, "Swipe", false, false, 500 - i * 10));
@@ -108,6 +110,70 @@ class DeathLogTest {
             "An unresolved skill name is still shown in the spell column");
         check(report.rows[1].timeText == "-0.4 s" && report.rows[1].amountText == "-200",
             "The killing blow is placed by how long before death it landed");
+
+        log = new DeathLog();
+        log.record(hit(49, 50, "Boss", "Swipe", false, false, 350));
+        log.observe(true, 50);
+        var liveReport = log.lastReport;
+        check(log.take(50.1) == null, "Wait for late damage before presenting the death popup");
+        log.record(hit(50.2, 150, "Boss", "Finisher", false, true, 350));
+        report = log.take(50.6);
+        check(report == liveReport && report.damage == 200 && report.rows.length == 3,
+            "A death-first RPC sequence updates the same recap with the final hit");
+        check(report.rows[1].hp == 0 && report.rows[1].lethal && report.rows[1].ago == 0,
+            "The authoritative lethal flag overrides stale 350 HP and clamps late timestamps");
+        log.record(hit(50.3, 999, "Boss", "Late duplicate"));
+        check(report.damage == 200, "A delivered report is frozen");
+        log = new DeathLog();
+        log.record(hit(60, 25, "Cleric", "Regen", true));
+        log.record(hit(60, 25, "Cleric", "Regen", true));
+        log.observe(true, 61);
+        check(log.take().healing == 50, "Distinct identical healing ticks are retained");
+
+        log = new DeathLog();
+        log.sampleHealth(500, 1000, 70);
+        var observed = hit(71, 150, "Boss", "Hit", false, false, 350);
+        observed.hpSample = true;
+        log.record(observed);
+        log.sampleHealth(350, 1000, 71.1);
+        log.observe(true, 72);
+        report = log.take();
+        var segment = DeathTimeline.bar(report.rows[0], report.healthScale);
+        check(report.rows[0].hp == 350 && report.rows[0].hpBefore == 500 && !report.rows[0].hpSample,
+            "Matching before/after samples validate exact HP after the hit");
+        check(segment.remaining == .35 && segment.removed == .15 && !segment.estimated,
+            "Two red segments show 350 HP remaining and 150 HP removed on the same maximum");
+        log = new DeathLog();
+        log.sampleHealth(100, 1000, 80);
+        log.record(hit(81, 400, "Boss", "Overkill", false, true, 0));
+        log.sampleHealth(0, 1000, 81.1); log.observe(true, 82);
+        segment = DeathTimeline.bar(log.take().rows[0], 1000);
+        check(segment.remaining == 0 && segment.removed == .1 && !segment.estimated,
+            "Overkill paints the 100 HP actually removed, not the 400 reported hit");
+        log = new DeathLog();
+        log.sampleHealth(500, 1000, 90);
+        observed = hit(91, 150, "Boss", "Shielded", false, false, 480); observed.hpSample = true;
+        log.record(observed); log.sampleHealth(480, 1000, 91.1); log.observe(true, 92);
+        report = log.take(); segment = DeathTimeline.bar(report.rows[0], 1000);
+        check(report.rows[0].hpSample && segment.estimated && DeathTimeline.health(report.rows[0]) == "~480",
+            "Shield/replication mismatches are labelled as samples instead of invented exact HP");
+        log = new DeathLog(); log.sampleHealth(500, 1000, 100);
+        for (event in [hit(101, 200, "Boss", "Hit", false, false, 500), hit(101.01, 50, "Cleric", "Heal", true),
+            hit(101.02, 150, "Boss", "Hit", false, false, 200)]) {
+            event.hpSample = true; log.record(event);
+        }
+        log.sampleHealth(200, 1000, 101.1); log.observe(true, 102); report = log.take();
+        check(report.rows[0].hp == 300 && report.rows[1].hp == 350 && report.rows[2].hp == 200,
+            "Damage and healing delivered in one frame are reconciled against the whole batch");
+        check(DeathTimeline.summary(report).indexOf("Cleric") < 0,
+            "A healer is never displayed as the cause of death");
+        for (width in [360, 434, 700, 892]) for (recap in [true, false]) {
+            var columns = SkillBreakdown.columns(width, recap, true);
+            check([for (column in columns) column.title].indexOf("HPS") >= 0
+                && [for (column in columns) column.title].indexOf("Healing") >= 0
+                && [for (column in columns) column.key].indexOf("distribution") < 0,
+                "Healing tables use healing units and omit physical/magic/raw damage splits");
+        }
 
         Sys.println('Death log: $checks checks passed');
     }

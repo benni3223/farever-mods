@@ -15,14 +15,22 @@ class GameAccess {
     public static function set(object:Dynamic, name:String, value:Dynamic):Void Reflect.setField(object, name, value);
     public static function current(type:String, name:String):Dynamic return globals[type + "." + name];
     public static function enumeration(type:String, name:String):Dynamic return current(type, name);
-    public static function create(type:String, args:Array<Dynamic>):Dynamic return switch (type) {
+    public static function create(type:String, args:Array<Dynamic>):Dynamic {
+        if (globals["timelineDrawing"] == true && ["h2d.Object", "h2d.Graphics", "h2d.Text"].indexOf(type) >= 0) {
+            var parent = args[type == "h2d.Text" ? 1 : 0];
+            var object:Dynamic = {type: type, parent: parent, children: [], x: 0., y: 0., text: "", color: 0, shapes: []};
+            (cast parent.children:Array<Dynamic>).push(object);
+            return object;
+        }
+        return switch (type) {
         case "h3d.mat.Texture":
             // Match Farever's DX12 boundary: BGRA is valid for CPU Pixels but
             // is rejected when allocating a GPU texture (getTextureFormat).
             if (args[3] != "RGBA") throw "Unsupported texture format " + args[3];
             {width: args[0], height: args[1], flags: args[2], format: args[3]};
         default: throw "Unexpected native constructor: " + type;
-    };
+        };
+    }
     public static function array(value:Dynamic, proxy:Bool = false):Array<Dynamic> {
         if (proxy) value = field(value, "array");
         return value == null ? [] : cast value;
@@ -37,7 +45,25 @@ class GameAccess {
         // The shipped client retains this server-only method as a throwing stub.
         case "ent.Unit.isAtDeathDoor": throw "!isServer";
         case "ent.Unit.get_health": field(object, "health");
+        case "ent.Unit.get_maxHealth": field(object, "maxHealth");
+        case "st.skill.DamageResult.get_amount": field(object, "_amount");
+        case "st.skill.DamageResult.get_critical": field(object, "_critical");
+        case "st.skill.DamageResult.getDynamicScalingFactor": number(field(object, "scale"), 1);
         case "ent.Unit.getName": field(object, "name");
+        case "h2d.Text.set_lineBreak": null;
+        case "h2d.Text.set_text": object.text = args[0]; null;
+        case "h2d.Text.set_textColor": object.color = args[0]; null;
+        case "h2d.Text.get_textWidth": (cast object.text:String).length * 7.0;
+        case "h2d.Object.setPosition": object.x = args[0]; object.y = args[1]; null;
+        case "h2d.Flow.getProperties":
+            if (object.type != "h2d.Flow") throw "Flow method called on a plain Object";
+            {};
+        case "h2d.FlowProperties.set_isAbsolute": null;
+        case "h2d.Graphics.beginFill": object.fill = args[0]; object.alpha = args[1]; null;
+        case "h2d.Graphics.drawRect":
+            (cast object.shapes:Array<Dynamic>).push({x: args[0], y: args[1], width: args[2], height: args[3], color: object.fill, alpha: object.alpha});
+            null;
+        case "h2d.Graphics.endFill": null;
         case "st.skill.DamageResult.get_source": field(object, "source");
         case "st.skill.DamageResult.get_isPhysical": field(object, "physical") == true;
         case "st.skill.DamageResult.get_isMagic": field(object, "magical") == true;

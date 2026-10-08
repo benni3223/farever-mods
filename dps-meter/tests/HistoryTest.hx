@@ -1305,8 +1305,8 @@ class HistoryTest {
             "Snapshots retain visible chart space while reserving the recap title and summary");
         var columns = SnapshotLayout.recapHeight(true, [600, 80]);
         var stacked = SnapshotLayout.recapHeight(false, [600, 80]);
-        check(columns == 780, "Side-by-side recap fits its title, summary and taller complete phase");
-        check(stacked == 924, "Stacked recap fits its title, summary, both complete charts and phase headings");
+        check(columns == 806, "Side-by-side recap fits its title, summary and taller complete phase");
+        check(stacked == 976, "Stacked recap fits its title, summary, both complete charts and phase headings");
         for (width in [312, 600, 791, 792, 892, 932]) {
             var live = dpsmeter.RiftRecapLayout.panels(width, 540);
             for (panel in live) check(panel.x >= 0 && panel.y >= 0
@@ -1327,7 +1327,7 @@ class HistoryTest {
         check(historyPanels[0].width == 434 && historyPanels[1].x == 458 && historyPanels[1].y == 0,
             "The normal Fight History window fits both compact recap charts side by side");
         var image = SnapshotLayout.imageSize(980, columns);
-        check(image.width == 1928 && image.height == 1528, "Capture crops to the native body at twice the UI resolution without an outer border");
+        check(image.width == 1928 && image.height == 1580, "Capture crops to the native body at twice the UI resolution without an outer border");
         var historyImage = SnapshotLayout.imageSize(940, 700);
         check(historyImage.width == 1848 && historyImage.height == 1368,
             "The 924-unit native history body fills the image instead of sitting inside a 48-pixel surround");

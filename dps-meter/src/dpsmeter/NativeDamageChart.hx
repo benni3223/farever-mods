@@ -112,7 +112,7 @@ class NativeDamageChart {
         if (selected != null) {
             show(empty, false);
             for (row in rows) show(row.obj, false);
-            skillTable.update(mode == "healing" ? fight.healingView(selected) : selected, seconds, availableRowWidth());
+            skillTable.update(mode == "healing" ? fight.healingView(selected) : selected, seconds, availableRowWidth(), mode == "healing");
             layoutViewport();
             return;
         }
@@ -128,7 +128,7 @@ class NativeDamageChart {
             var amount = mode == "healing" ? p.heal : p.damage;
             var color = classColor(p.info.className);
             row.caption = (i + 1) + ". " + p.info.name;
-            var rate = mode == "healing" ? " HPS" : "";
+            var rate = mode == "healing" ? " HPS" : " DPS";
             setText(row.details, compact(amount) + " (" + compact(amount / seconds) + rate
                 + ", " + Std.int(total > 0 ? amount * 100 / total : 0) + "%)");
             sizeRow(row);
@@ -187,90 +187,32 @@ class NativeDamageChart {
             if (!found) people.push({uid: death.uid, name: death.name, className: death.className,
                 count: 1, summary: deathSummary(death.report)});
         }
+        people.sort((a, b) -> a.count != b.count ? b.count - a.count : Reflect.compare(a.name, b.name));
         return people;
     }
-    static function deathSummary(report:DeathReport):String {
-        var summary = "Death";
-        for (row in report.rows) if (!row.death) summary = row.amountText + "  " + row.spell + "  " + row.source;
-        return summary;
-    }
+    static function deathSummary(report:DeathReport):String return DeathTimeline.summary(report);
     function renderDeath(fight:Fight, uid:String):Void {
-        var key = uid + ":" + fight.deaths.length + ":" + width;
+        var tableWidth = availableRowWidth();
+        var key = uid + ":" + fight.deaths.length + ":" + tableWidth;
+        for (death in fight.deaths) if (death.uid == uid) key += ":" + death.report.rows.length + ":" + death.report.damage + ":" + death.report.healing
+            + ":" + [for (row in death.report.rows) row.hp + "/" + row.hpBefore + "/" + row.hpSample].join(",");
         if (deathPanel != null && deathKey == key) { show(G.field(deathPanel, "obj"), true); return; }
         if (deathPanel != null) G.call("h2d.Object", "remove", G.field(deathPanel, "obj"));
         deathKey = key;
         deathPanel = node("flow", rowsRoot, [], id + "DeathDetail", "vertical");
-        var panel = G.field(deathPanel, "obj");
-        padding(panel, 0);
-        var tableWidth = availableRowWidth();
-        var timeX = 0.0;
-        var barX = Math.max(72, tableWidth * 0.11);
-        var barW = Math.max(48, tableWidth * 0.11);
-        var hpX = barX + barW + 8;
-        var amountX = hpX + 64;
-        var spellX = amountX + Math.max(64, tableWidth * 0.12);
-        var sourceX = spellX + Math.max(96, tableWidth * 0.2);
-        var fontParent = label(deathPanel, "");
-        show(fontParent, false);
+        var panel = G.field(deathPanel, "obj"); padding(panel, 0);
+        var fontParent = label(deathPanel, ""); show(fontParent, false);
         var font = G.field(fontParent, "font");
-        var y = 0.0;
-        var back = button(deathPanel, "Back", id + "DeathBack", () -> {
-            selectPlayer("");
-        });
-        absolute(panel, back);
-        size(back, 84, 34);
-        position(back, 0, y);
-        y = 42;
-        for (title in [{text: "Time", x: timeX}, {text: "HP", x: barX}, {text: "Amount", x: amountX}, {text: "Spell", x: spellX}, {text: "Source", x: sourceX}]) {
-            var heading = G.create("h2d.Text", [font, panel]);
-            G.call("h2d.Text", "set_text", heading, [title.text]);
-            G.call("h2d.Text", "set_textColor", heading, [0x8a5f46]);
-            absolute(panel, heading);
-            position(heading, title.x, y);
-        }
-        y += 26;
+        var back = button(deathPanel, "Back", id + "DeathBack", () -> selectPlayer(""));
+        absolute(panel, back); size(back, 84, 34); position(back, 0, 0);
+        var y = 46.0, count = 0;
         for (death in fight.deaths) if (death.uid == uid) {
-            for (row in death.report.rows) {
-                var time = G.create("h2d.Text", [font, panel]);
-                G.call("h2d.Text", "set_text", time, [row.timeText]);
-                G.call("h2d.Text", "set_textColor", time, [0x8a5f46]);
-                absolute(panel, time);
-                position(time, timeX, y);
-                var graphic = G.create("h2d.Graphics", [panel]);
-                absolute(panel, graphic);
-                position(graphic, barX, y + 6);
-                var fraction = DeathLog.fraction(row.hp, death.report.healthScale);
-                G.call("h2d.Graphics", "beginFill", graphic, [0xe4d2bc, 1.0]);
-                G.call("h2d.Graphics", "drawRect", graphic, [0.0, 0.0, barW, 8.0]);
-                G.call("h2d.Graphics", "endFill", graphic);
-                var fill = barW * fraction;
-                if (fill > 0.5) {
-                    G.call("h2d.Graphics", "beginFill", graphic, [0xc23b32, 1.0]);
-                    G.call("h2d.Graphics", "drawRect", graphic, [0.0, 0.0, fill, 8.0]);
-                    G.call("h2d.Graphics", "endFill", graphic);
-                }
-                var health = G.create("h2d.Text", [font, panel]);
-                G.call("h2d.Text", "set_text", health, [DeathLog.healthText(row.hp)]);
-                G.call("h2d.Text", "set_textColor", health, [0x8a5f46]);
-                absolute(panel, health);
-                position(health, hpX, y);
-                var amount = G.create("h2d.Text", [font, panel]);
-                G.call("h2d.Text", "set_text", amount, [row.amountText]);
-                G.call("h2d.Text", "set_textColor", amount, [row.death ? 0x5b4334 : row.heal ? 0x2f7a45 : 0x8d3b32]);
-                absolute(panel, amount);
-                position(amount, amountX, y);
-                var spell = G.create("h2d.Text", [font, panel]);
-                G.call("h2d.Text", "set_text", spell, [row.spell]);
-                G.call("h2d.Text", "set_textColor", spell, [0x5b4334]);
-                absolute(panel, spell);
-                position(spell, spellX, y);
-                var source = G.create("h2d.Text", [font, panel]);
-                G.call("h2d.Text", "set_text", source, [row.source]);
-                G.call("h2d.Text", "set_textColor", source, [row.className != "" ? classColor(row.className) : 0x8d3b32]);
-                absolute(panel, source);
-                position(source, sourceX, y);
-                y += 22;
-            }
+            count++;
+            NativeDeathTimeline.text(panel, font, "Death " + count + " · " + duration(Math.max(0, death.report.at - fight.start)),
+                6, y, tableWidth - 12, 0x852629, true);
+            NativeDeathTimeline.text(panel, font, "10 s · Damage " + compact(death.report.damage) + " · Healing " + compact(death.report.healing),
+                6, y + 24, tableWidth - 12, 0x8a5f46, true);
+            y = NativeDeathTimeline.render(panel, font, death.report, tableWidth, y + 54, true) + 18;
         }
         size(panel, tableWidth, Std.int(y + 8));
     }

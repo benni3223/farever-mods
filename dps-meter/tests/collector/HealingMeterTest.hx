@@ -32,7 +32,7 @@ class HealingMeterTest {
         var foe:Dynamic = {__uid: "foe", kind: "Dummy", name: "Dummy", inf: {flags: 0}, _level: 1, foeId: 1};
         collector.damage(foe, {_amount: 100., source: me, weakSource: "me", skill: {kind: "Rogue_Attack"},
             _critical: false, _kill: false}, 10);
-        var heal:Dynamic = {_amount: 400., _critical: true, source: healer, skill: {kind: "Priest_Prayer_Heal"}, targetUnit: me};
+        var heal:Dynamic = {_amount: 400., _critical: true, source: healer, skill: {kind: "Priest_Prayer_Heal"}, target: me};
         collector.receivedHeal(heal, 11);
         collector.receivedHeal(heal, 11.01);
         collector.displayedHeal({dmg: heal}, 11.02);
@@ -49,19 +49,19 @@ class HealingMeterTest {
         var ally:Dynamic = {__uid: "ally", name: "Awbee", layer: layer, health: 500., maxHealth: 900.,
             player: {isMe: false, heroData: {kind: "Priest"}}};
         collector.model.party["ally"] = true;
-        collector.displayedHeal({dmg: {_amount: 250., source: healer, skill: {kind: "Priest_BeaconOfHope"}, targetUnit: ally}}, 13);
+        collector.displayedHeal({dmg: {_amount: 250., source: healer, skill: {kind: "Priest_BeaconOfHope"}, target: ally}}, 13);
         check(fight.players["cleric"].heal == 650, "A floating heal on someone else counts for the caster");
         var allyLog = collector.buffer("ally");
         allyLog.observe(true, 14);
         check(allyLog.lastReport != null && allyLog.lastReport.healing == 250, "That heal is on the other player's death recap");
 
-        var hiddenHeal:Dynamic = {_amount: 200., source: healer, skill: {kind: "Priest_BeaconOfHope"}, targetUnit: ally};
+        var hiddenHeal:Dynamic = {_amount: 200., source: healer, skill: {kind: "Priest_BeaconOfHope"}, target: ally};
         collector.healingNumber(hiddenHeal, 15);
         check(fight.players["cleric"].heal == 850, "Suppressed floating numbers still contribute healing without a display widget");
         collector.displayedHeal({dmg:hiddenHeal}, 15.01);
         check(fight.players["cleric"].heal == 850, "An actual display widget does not count the same heal twice");
-        collector.healingNumber({_amount: 100., source: healer, skill: {kind: "Priest_Prayer_Heal"}, targetUnit: me}, 16);
-        check(fight.players["cleric"].heal == 850, "Local floating numbers stay on the received-heal feed");
+        collector.healingNumber({_amount: 100., source: healer, skill: {kind: "Priest_Prayer_Heal"}, target: me}, 16);
+        check(fight.players["cleric"].heal == 950, "Local floating numbers can supply healing when the HUD feed is hidden");
 
         var riftLayer:Dynamic = {isRift: true};
         var riftHero = hero(riftLayer);
@@ -77,7 +77,7 @@ class HealingMeterTest {
             inf: {flags: 0x10, id: "DemonSuperElite"}, _level: 30, foeId: 7};
         rift.damage(boss, {_amount: 80., source: riftHero, weakSource: "me", skill: {kind: "Rogue_Attack"},
             _critical: false, _kill: false}, 21);
-        rift.receivedHeal({_amount: 500., source: riftHealer, skill: {kind: "Priest_Prayer_Heal"}, targetUnit: riftHero}, 22);
+        rift.receivedHeal({_amount: 500., source: riftHealer, skill: {kind: "Priest_Prayer_Heal"}, target: riftHero}, 22);
         var bossFight = rift.model.displayedFight();
         check(bossFight != null && bossFight.phase == "Rift: Nightking Maat Demon", "The rift boss fight is the live chart");
         check(bossFight.players["me"].damage == 80 && bossFight.players["cleric"].heal == 500,

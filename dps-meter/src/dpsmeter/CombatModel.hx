@@ -60,9 +60,11 @@ class PlayerStats {
         this.info = info;
         if (e.effect == 1) heal += e.amount; else damage += e.amount;
         damageBreakdown.add(e);
-        hits++;
-        if (e.critical) crits++;
-        if (e.kill) kills++;
+        if (e.effect != 1) {
+            hits++;
+            if (e.critical) crits++;
+            if (e.kill) kills++;
+        }
         if (info.weapon != null) {
             var found = false;
             for (w in weapons) if (w.kind == info.weapon.kind && w.rarity == info.weapon.rarity
@@ -187,7 +189,8 @@ class Fight {
         result.targetDummy = targetDummy;
         result.categoryVersion = categoryVersion;
         result.me = me; result.meName = meName; result.participants = participants.copy(); result.targets = targets.copy();
-        result.deaths = deaths.copy();
+        result.deaths = [for (death in deaths) {uid: death.uid, name: death.name,
+            className: death.className, report: DeathLog.copyReport(death.report)}];
         for (id => p in players) {
             var next = new PlayerStats(p.info);
             next.damage = p.damage; next.heal = p.heal; next.hits = p.hits;
@@ -321,24 +324,20 @@ class CombatModel {
     }
     public function rememberDeath(uid:String, name:String, className:String, report:DeathReport):Void {
         if (report == null || uid == "" || uid == "0") return;
-        var fight = bossEncounter();
-        if (fight == null) return;
-        fight.deaths.push({uid: uid, name: name != "" ? name : "Unknown", className: className, report: report});
-    }
-    function bossEncounter():Null<Fight> {
-        var open:Null<Fight> = null;
-        var any:Null<Fight> = null;
-        for (fight in [displayedFight(), current, boss, lastBoss, lastCombat]) {
-            if (fight == null || !isBossEncounter(fight)) continue;
-            any = fight;
-            if (fight.closed == 0) open = fight;
+        var death:PartyDeath = {uid: uid, name: name != "" ? name : "Unknown", className: className, report: report};
+        if (rift != null) {
+            rift.rememberDeath(death, me, difficulty, activityId);
+            current = rift.current; lastCombat = rift.last;
+            return;
         }
-        return open != null ? open : any;
+        for (fight in [current, pendingFight, lastCombat, boss, lastBoss]) if (fight != null
+            && report.at >= fight.start - ENTRY_DAMAGE_SECONDS
+            && (fight.closed == 0 || report.at <= fight.closed + ENTRY_DAMAGE_SECONDS)) addDeath(fight, death);
     }
-    static function isBossEncounter(fight:Fight):Bool
-        return fight.bossUid != "" || (fight.bossFlags & 0x10) != 0
-            || (fight.phase != "" && fight.phase != RiftTracker.GATES_PHASE);
-
+    public static function addDeath(fight:Fight, death:PartyDeath):Void {
+        for (previous in fight.deaths) if (previous.uid == death.uid && previous.report.at == death.report.at) return;
+        fight.deaths.push(death);
+    }
     public function displayedFight():Null<Fight> {
         if (rift != null && rift.waitingForGates() && rift.warmup != null) return rift.warmup;
         if (phrixesIntro != null && phrixesIntro.closed == 0) return phrixesIntro;
@@ -578,7 +577,11 @@ class CombatModel {
             boss.bossUid = e.target; boss.bossLevel = e.bossLevel; boss.bossFoeId = e.bossFoeId;
             boss.difficulty = difficulty; boss.activityId = activityId;
         }
-        if (boss == null || e.effect == 1) return;
+        if (boss == null) return;
+        if (e.effect == 1) {
+            if (member) boss.add(e, info);
+            return;
+        }
         if (bossHit && (e.target == boss.bossUid || e.bossKind == boss.bossKind)) boss.participants[e.source] = true;
         // After a player has hit the boss, their add damage is part of this encounter too.
         if (!boss.participants.exists(e.source)) return;

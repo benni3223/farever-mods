@@ -1,6 +1,7 @@
 package dpsmeter;
 
 import dpsmeter.RiftTracker.RiftRecap;
+import dpsmeter.CombatModel.Fight;
 import dpsmeter.GameAccess as G;
 import dpsmeter.NativeUi.*;
 
@@ -29,6 +30,10 @@ class NativeRiftRecapCharts {
             setText(section.name, HistoryCatalog.HistoryCategory.normalizeName(i == 0 ? RiftTracker.GATES_PHASE
                 : fight == null ? "Rift - Boss" : fight.phase));
             setText(section.time, fight == null ? "" : duration(fight.duration()));
+            var damage = 0.0, healing = 0.0;
+            if (fight != null) for (player in fight.players) { damage += player.damage; healing += player.heal; }
+            setText(section.summary, "Damage " + compact(damage) + " · Healing " + compact(healing)
+                + " · Deaths " + (fight == null ? 0 : fight.deaths.length));
         }
     }
 
@@ -70,6 +75,8 @@ class NativeRiftRecapCharts {
             }
             G.call("ui.comp.FmtText", "updateScale", section.name);
             position(section.name, 0, 4); position(section.time, section.width - timeWidth, 4);
+            G.call("ui.comp.FmtText", "set_maxWidthText", section.summary, [Std.int(Math.max(1, section.width))]);
+            position(section.summary, 0, 31);
         }
     }
     function addSection(parent:Dynamic, id:String):Void {
@@ -81,13 +88,14 @@ class NativeRiftRecapCharts {
         absolute(object, obj);
         var heading = node("flow", panel, [], id + "Header", "horizontal");
         var headingObject = G.field(heading, "obj"); padding(headingObject, 0);
-        var name = label(heading, ""), time = label(heading, "");
-        for (text in [name, time]) {
+        var name = label(heading, ""), time = label(heading, ""), summary = label(heading, "");
+        G.call("domkit.Properties", "addClass", G.field(name, "dom"), ["bold-14"]);
+        for (text in [name, time, summary]) {
             absolute(headingObject, text);
             var left = G.enumeration("h2d.Align", "Left");
             G.call("h2d.Text", "set_textAlign", text, [left]); style(text, "text-align", left);
         }
         var chart = new NativeDamageChart(panel, id + "Rows", "No damage recorded", true);
-        sections.push({obj: obj, heading: headingObject, name: name, time: time, chart: chart, fight: null, width: 0, nameWidth: 0});
+        sections.push({obj: obj, heading: headingObject, name: name, time: time, summary: summary, chart: chart, fight: null, width: 0, nameWidth: 0});
     }
 }

@@ -4,34 +4,14 @@ import dpsmeter.DeathLog;
 import dpsmeter.GameAccess as G;
 import dpsmeter.NativeUi.*;
 
-typedef DeathRow = {
-    root:Dynamic,
-    time:Dynamic,
-    bar:Dynamic,
-    health:Dynamic,
-    amount:Dynamic,
-    icon:Dynamic,
-    spell:Dynamic,
-    source:Dynamic
-};
-
 /** Timeline of the last 10 seconds before death: time, health, amount, spell, and source. */
 class NativeDeathLogWindow {
     public static var constructing:Bool = false;
     static inline var WIDTH:Int = 760;
     static inline var HEADER:Int = 48;
-    static inline var COLUMNS:Int = 34;
-    static inline var ROW:Int = 22;
+    static inline var COLUMNS:Int = 0;
+    static inline var ROW:Int = 30;
     static inline var VISIBLE:Int = 16;
-    static inline var TIME_X:Float = 12;
-    static inline var BAR_X:Float = 86;
-    static inline var BAR_W:Float = 56;
-    static inline var BAR_H:Float = 8;
-    static inline var HP_X:Float = 148;
-    static inline var AMOUNT_X:Float = 214;
-    static inline var SPELL_X:Float = 310;
-    static inline var ICON:Float = 16;
-    static inline var SOURCE_X:Float = 530;
 
     var window:Dynamic;
     var owner:Dynamic;
@@ -44,8 +24,6 @@ class NativeDeathLogWindow {
     var body:Dynamic;
     var container:Dynamic;
     var wrappers:Array<Dynamic> = [];
-    var columns:Array<Dynamic> = [];
-    var rows:Array<DeathRow> = [];
     var mask:Dynamic;
     var content:Dynamic;
     var wheel:Dynamic;
@@ -56,6 +34,9 @@ class NativeDeathLogWindow {
     var width:Int = 0;
     var height:Int = 0;
     var retryAt:Float = 0;
+    var timelineFont:Dynamic;
+    var timelineWidth:Int = -1;
+    var timelineHeight:Int = 0;
 
     public function new() {}
 
@@ -120,7 +101,7 @@ class NativeDeathLogWindow {
         header = G.field(window, "header");
         G.set(header, "headText", "Death Log");
         title = G.field(header, "headerTitle");
-        setText(title, "Death Log");
+        setText(title, "Death Log · Damage " + compact(shown.damage) + " · Healing " + compact(shown.healing));
         var left = G.enumeration("h2d.Align", "Left");
         G.call("h2d.Text", "set_textAlign", title, [left]);
         style(title, "text-align", left);
@@ -152,45 +133,13 @@ class NativeDeathLogWindow {
         var fontParent = label(G.field(container, "dom"), "");
         show(fontParent, false);
         var font = G.field(fontParent, "font");
-        columns = [
-            text(font, container, "Time", 0x8a5f46),
-            text(font, container, "HP", 0x8a5f46),
-            text(font, container, "Amount", 0x8a5f46),
-            text(font, container, "Spell", 0x8a5f46),
-            text(font, container, "Source", 0x8a5f46)
-        ];
-        for (heading in columns) absolute(container, heading);
-        var viewRows = shown.rows.length < 1 ? 1 : shown.rows.length > VISIBLE ? VISIBLE : shown.rows.length;
+        timelineFont = font;
+        rowCount = shown.rows.length;
         var viewW = (WIDTH - 32) * 1.0;
-        var viewH = viewRows * ROW * 1.0;
+        var viewH = VISIBLE * ROW * 1.0;
         mask = G.create("h2d.Mask", [viewW, viewH, container]);
         try absolute(container, mask) catch (_:Dynamic) {}
         content = G.create("h2d.Object", [mask]);
-        var icons:Map<String, Dynamic> = [];
-        for (row in shown.rows) {
-            var line = G.create("h2d.Object", [content]);
-            var amountColor = row.death ? 0x5b4334 : row.heal ? 0x2f7a45 : 0x8d3b32;
-            var bitmap = null;
-            var icon = iconFor(row.skillId, icons);
-            if (icon != null) try {
-                bitmap = G.create("h2d.Bitmap", [icon, line]);
-                var tile = Math.max(G.number(G.field(icon, "width"), 1), G.number(G.field(icon, "height"), 1));
-                G.call("h2d.Object", "setScale", bitmap, [ICON / Math.max(1, tile)]);
-            } catch (_:Dynamic) bitmap = null;
-            var life = null;
-            try life = bar(line, DeathLog.fraction(row.hp, shown.healthScale)) catch (_:Dynamic) {}
-            rows.push({
-                root: line,
-                time: text(font, line, row.timeText, 0x8a5f46),
-                bar: life,
-                health: text(font, line, DeathLog.healthText(row.hp), 0x8a5f46),
-                amount: text(font, line, row.amountText, amountColor),
-                icon: bitmap,
-                spell: text(font, line, row.spell, 0x5b4334),
-                source: text(font, line, row.source, row.className != "" ? classColor(row.className) : 0x8d3b32)
-            });
-            rowCount++;
-        }
         // The shape argument is required. Omitting it aborts the whole window.
         try {
             wheel = G.create("h2d.Interactive", [viewW, viewH, container, null]);
@@ -201,37 +150,6 @@ class NativeDeathLogWindow {
             trace("[DPS Meter] Death log scroll: " + Std.string(error));
         }
         layout();
-    }
-
-    function iconFor(id:String, icons:Map<String, Dynamic>):Dynamic {
-        if (id == null || id == "") return null;
-        if (icons.exists(id)) return icons[id];
-        var tile = null;
-        try tile = NativeCombatMetadata.skillIcon(id) catch (_:Dynamic) {}
-        icons[id] = tile;
-        return tile;
-    }
-
-    function text(font:Dynamic, parent:Dynamic, value:String, color:Int):Dynamic {
-        var label = G.create("h2d.Text", [font, parent]);
-        G.call("h2d.Text", "set_text", label, [value]);
-        G.call("h2d.Text", "set_textColor", label, [color]);
-        G.call("h2d.Text", "set_lineBreak", label, [false]);
-        return label;
-    }
-
-    function bar(parent:Dynamic, fraction:Float):Dynamic {
-        var graphic = G.create("h2d.Graphics", [parent]);
-        G.call("h2d.Graphics", "beginFill", graphic, [0xe4d2bc, 1.0]);
-        G.call("h2d.Graphics", "drawRect", graphic, [0.0, 0.0, BAR_W, BAR_H]);
-        G.call("h2d.Graphics", "endFill", graphic);
-        var fill = BAR_W * fraction;
-        if (fill > 0.5) {
-            G.call("h2d.Graphics", "beginFill", graphic, [0xc23b32, 1.0]);
-            G.call("h2d.Graphics", "drawRect", graphic, [0.0, 0.0, fill, BAR_H]);
-            G.call("h2d.Graphics", "endFill", graphic);
-        }
-        return graphic;
     }
 
     function onWheel(event:Dynamic):Void {
@@ -246,8 +164,9 @@ class NativeDeathLogWindow {
         var top = localPoint(0, 0);
         var bottom = localPoint(G.number(G.field(scene, "width"), 1920), G.number(G.field(scene, "height"), 1080));
         var w = Std.int(Math.min(WIDTH, bottom.x - top.x - 40));
-        var shown = rowCount < 1 ? 1 : rowCount > VISIBLE ? VISIBLE : rowCount;
-        var h = Std.int(Math.min(HEADER + COLUMNS + shown * ROW + 16, bottom.y - top.y - 40));
+        var rowHeight = DeathTimeline.rowHeight(w - 32);
+        var fullHeight = 62 + Math.max(1, rowCount) * rowHeight + (rowCount <= 1 ? 30 : 0);
+        var h = Std.int(Math.min(HEADER + Math.min(520, fullHeight) + 16, bottom.y - top.y - 40));
         if (width == w && height == h) return;
         width = w;
         height = h;
@@ -263,9 +182,7 @@ class NativeDeathLogWindow {
         size(windowContent, width - 16, bodyHeight);
         position(windowContent, 8, HEADER);
         for (object in wrappers) { size(object, width - 16, bodyHeight); position(object, 0, 0); }
-        var headings = [TIME_X, BAR_X, AMOUNT_X, SPELL_X, SOURCE_X];
-        for (i in 0...columns.length) position(columns[i], headings[i], 8);
-        var viewH = shown * ROW;
+        var viewH = Math.max(1, bodyHeight - 8);
         if (mask != null) {
             G.set(mask, "width", width - 32);
             G.set(mask, "height", viewH);
@@ -276,26 +193,15 @@ class NativeDeathLogWindow {
             G.set(wheel, "height", viewH);
             position(wheel, 0, COLUMNS);
         }
-        placeRows();
-        place(top, bottom);
-    }
-
-    function placeRows():Void {
-        for (i in 0...rows.length) {
-            var row = rows[i];
-            position(row.root, 0, i * ROW);
-            position(row.time, TIME_X, 2);
-            if (row.bar != null) position(row.bar, BAR_X, (ROW - BAR_H) / 2);
-            position(row.health, HP_X, 2);
-            position(row.amount, AMOUNT_X, 2);
-            if (row.icon != null) position(row.icon, SPELL_X, (ROW - ICON) / 2);
-            position(row.spell, SPELL_X + (row.icon != null ? ICON + 4 : 0), 2);
-            position(row.source, SOURCE_X, 2);
+        if (timelineWidth != width - 32) {
+            timelineWidth = width - 32;
+            G.call("h2d.Object", "removeChildren", content);
+            timelineHeight = NativeDeathTimeline.render(content, timelineFont, report, timelineWidth);
         }
-        var viewH = (rowCount > VISIBLE ? VISIBLE : rowCount) * ROW;
-        maxScroll = Math.max(0, rowCount * ROW - viewH);
+        maxScroll = Math.max(0, timelineHeight - viewH);
         scroll = maxScroll;
-        if (content != null) position(content, 0, -scroll);
+        position(content, 0, -scroll);
+        place(top, bottom);
     }
 
     function place(top:{x:Float, y:Float}, bottom:{x:Float, y:Float}):Void {
@@ -311,11 +217,12 @@ class NativeDeathLogWindow {
 
     public function dispose():Void {
         if (window != null) { var old = window; window = null; G.call("h2d.Object", "remove", old); }
-        owner = null; root = null; columns = []; rows = []; wrappers = [];
+        owner = null; root = null; wrappers = [];
         frameBackground = null; body = null; container = null;
         header = null; title = null; close = null; windowContent = null;
         mask = null; content = null; wheel = null; report = null;
         rowCount = 0; scroll = 0; maxScroll = 0;
+        timelineFont = null; timelineWidth = -1; timelineHeight = 0;
         width = 0; height = 0;
     }
 }

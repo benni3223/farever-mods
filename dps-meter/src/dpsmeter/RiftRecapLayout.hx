@@ -3,7 +3,7 @@ package dpsmeter;
 /** Shared chart geometry for the popup and the narrower history body. */
 class RiftRecapLayout {
     public static inline var GAP:Int = 24;
-    public static inline var HEADER:Int = 40;
+    public static inline var HEADER:Int = 66;
     public static function columns(width:Int):Bool return width >= 792;
 
     public static function snapshotHeight(width:Int, charts:Array<Int>):Int {

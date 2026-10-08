@@ -16,7 +16,21 @@ class SkillBreakdown {
         // Match the player chart: each ability uses the whole fight's duration.
         dps: skill.damage / Math.max(1, duration)
     };
-    public static function columns(width:Int, recap:Bool = false):Array<SkillColumn> {
+    public static function columns(width:Int, recap:Bool = false, healing:Bool = false):Array<SkillColumn> {
+        if (healing) {
+            var keys = width >= 700 && !recap ? ["ability", "percent", "damage", "hits", "avgHit", "crit", "dps"]
+                : ["ability", "percent", "damage", "dps"];
+            var weights = keys.length == 7 ? [.30, .12, .15, .09, .13, .11, .10] : [.40, .16, .26, .18];
+            var titles = ["ability" => "Ability", "percent" => "Heal %", "damage" => "Healing", "hits" => "Heals",
+                "avgHit" => "Avg heal", "crit" => "Crit %", "dps" => "HPS"];
+            var x = 0, fraction = 0.0;
+            return [for (i in 0...keys.length) {
+                fraction += weights[i];
+                var end = i == keys.length - 1 ? width : Std.int(width * fraction);
+                var col = {key: keys[i], title: titles[keys[i]], x: x, width: end - x};
+                x = end; col;
+            }];
+        }
         // Keep names, total damage, share, and damage types legible in the small live
         // meter too. Wide history windows show every statistic in its own cell.
         var keys = recap ? ["ability", "percent", "distribution", "damage"] : width >= 800 ? KEYS

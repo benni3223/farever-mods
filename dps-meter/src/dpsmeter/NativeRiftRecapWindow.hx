@@ -17,6 +17,7 @@ class NativeRiftRecapWindow {
     var title:Dynamic;
     var close:Dynamic;
     var snapshotButton:Dynamic;
+    var modeDropdown:HistoryDropdown;
     var copying:Bool = false;
     var statusUntil:Float = 0;
     var body:Dynamic;
@@ -54,7 +55,8 @@ class NativeRiftRecapWindow {
                 build(ui, model.recaps[model.recaps.length - 1]);
                 displayedRecap = model.recaps[model.recaps.length - 1];
                 model.recaps = [];
-            } catch (_:Dynamic) {
+            } catch (error:Dynamic) {
+                trace("[DPS Meter] Rift recap: " + Std.string(error));
                 constructing = false; dispose(); retryAt = now + 10;
                 return;
             }
@@ -108,6 +110,14 @@ class NativeRiftRecapWindow {
         G.call("ui.UIElement", "set_onClick", close, [() -> dispose()]);
         snapshotButton = HistoryButtons.snapshot(G.field(header, "dom"), copySnapshot, "dpsRiftRecapSnapshot");
         absolute(header, snapshotButton);
+        modeDropdown = new HistoryDropdown(G.field(header, "dom"), "dpsRiftRecapMode", [
+            {value: "damage", name: "Damage"}, {value: "healing", name: "Healing"}, {value: "deaths", name: "Deaths"}
+        ], "damage", value -> {
+            if (charts != null) charts.setMode(value);
+            if (recapHeading != null) G.call("h2d.Text", "set_text", recapHeading,
+                ["Rift Recap · " + (value == "healing" ? "Healing" : value == "deaths" ? "Deaths" : "Damage")]);
+        });
+        absolute(header, modeDropdown.object);
 
         body = node("options-content", dom, [0], "dpsRiftRecapBody");
         var bodyObject = G.field(body, "obj");
@@ -213,7 +223,9 @@ class NativeRiftRecapWindow {
             position(close, width - 52, 12);
             size(snapshotButton, HistoryButtons.SNAPSHOT_SIZE, HistoryButtons.SNAPSHOT_SIZE);
             position(snapshotButton, 32, 12);
-            G.call("ui.comp.FmtText", "set_maxWidthText", title, [width - 188]);
+            modeDropdown.resize(128, 34);
+            position(modeDropdown.object, 82, 13);
+            G.call("ui.comp.FmtText", "set_maxWidthText", title, [Std.int(Math.max(1, width - 286))]);
             var contentTop = snapshot ? 8 : 60;
             var bodyHeight = height - contentTop - 8;
             size(windowContent, width - 16, bodyHeight);
@@ -232,7 +244,7 @@ class NativeRiftRecapWindow {
 
     function alignLabels():Void {
         G.call("ui.comp.FmtText", "updateScale", title);
-        position(title, (width - textWidth(title)) / 2, (60 - textHeight(title)) / 2);
+        position(title, 214 + Math.max(0, (width - 276 - textWidth(title)) / 2), (60 - textHeight(title)) / 2);
         fitSummary(recapHeading, headingStyle, 1.75);
         fitSummary(recapInfo, summaryStyle, 1);
         position(recapHeading, 16, 16 + (34 - textHeight(recapHeading)) / 2);
@@ -257,10 +269,12 @@ class NativeRiftRecapWindow {
     }
     public function closeFromEscape(ui:Dynamic):Bool {
         if (window == null || owner != ui || G.field(window, "removed") == true || G.field(window, "parent") == null) return false;
+        if (modeDropdown != null && modeDropdown.isOpen()) { modeDropdown.close(); return true; }
         dispose();
         return true;
     }
     public function dispose():Void {
+        if (modeDropdown != null) { modeDropdown.close(); modeDropdown = null; }
         if (window != null) { var old = window; window = null; G.call("h2d.Object", "remove", old); }
         owner = null; charts = null; wrappers = []; frameBackground = null;
         body = null; container = null; displayedRecap = null;

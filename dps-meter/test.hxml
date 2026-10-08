@@ -45,3 +45,17 @@
 --macro haxe.macro.Compiler.allowPackage('hl')
 -main CollectorChakramTest
 --interp
+--next
+-cp src
+-cp ../shared/src
+-cp tests
+-cp tests/collector
+--macro haxe.macro.Compiler.allowPackage('hl')
+-main RecapAccuracyTest
+--interp
+--next
+-cp src
+-cp ../shared/src
+-cp tests
+-main TimelineRenderTest
+--interp

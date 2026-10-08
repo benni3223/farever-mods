@@ -18,6 +18,13 @@ class DpsMeterMod {
     static var deathView:NativeDeathLogWindow;
     static var kills:KillNotifications;
     static var writer:RunWriter;
+    static var errorTimes:Map<String, Float> = [];
+    static function reportError(context:String, error:Dynamic):Void {
+        var now = haxe.Timer.stamp();
+        if (errorTimes.exists(context) && now - errorTimes[context] < 5) return;
+        errorTimes[context] = now;
+        trace("[DPS Meter] " + context + ": " + Std.string(error));
+    }
     static function main():Void {
         if (ConfigMigration.importLegacy()) reloadConfig();
         else if (!ConfigMigration.hasNative()) MeterConfig.importLegacy(config);
@@ -83,7 +90,8 @@ class DpsMeterMod {
     static function closeHistoryOnEscape(instance:Dynamic, onlyEscapeClosable:Null<Bool>):HlxPrefixResult<Bool> {
         // Participate in the native Escape/back route and consume this close
         // action so it cannot also open EscapeMenu or close another window.
-        return historyView != null && historyView.closeFromEscape(instance) ? SkipWith(true) : Continue;
+        return historyView != null && historyView.closeFromEscape(instance)
+            || recapView != null && recapView.closeFromEscape(instance) ? SkipWith(true) : Continue;
     }
     @:hlx.prefix(ui.notify.NotifyManager.queue)
     static function positionKillPopup(instance:Dynamic, notification:Dynamic):HlxPrefixResult<Void> {
@@ -101,36 +109,29 @@ class DpsMeterMod {
     }
     @:hlx.prefix(ent.Unit.rpcReceiveDamage__impl)
     static function onDamage(instance:Dynamic, damage:Dynamic):HlxPrefixResult<Void> {
-        if (collector != null) try collector.damage(instance, damage, haxe.Timer.stamp()) catch (_:Dynamic) {}
+        if (collector != null) try collector.damage(instance, damage, haxe.Timer.stamp()) catch (error:Dynamic) reportError("damage", error);
         return Continue;
     }
-    @:hlx.postfix(ui.hud.EffectsFeed.displayHeal)
-    static function onReceivedHeal(instance:Dynamic, damage:Dynamic, result:Void):Void {
-        // Green number for a heal on the local player. Damage results do not carry heals.
-        if (collector != null && config.enabled) try collector.receivedHeal(damage, haxe.Timer.stamp()) catch (_:Dynamic) {}
-    }
-    @:hlx.postfix(ui.comp.HealDisplay.display)
-    static function onHealingNumber(damage:Dynamic, position:Dynamic, result:Dynamic):Dynamic {
-        // Postfixes also run when the native display is skipped by another mod.
-        if (collector != null && config.enabled) try collector.healingNumber(damage, haxe.Timer.stamp()) catch (_:Dynamic) {}
-        return result;
-    }
-    @:hlx.postfix(ui.comp.HealDisplay.init)
-    static function onDisplayedHeal(instance:Dynamic, result:Void):Void {
-        // Floating heal on someone else. The local player uses the feed above instead.
-        if (collector != null && config.enabled) try collector.displayedHeal(instance, haxe.Timer.stamp()) catch (_:Dynamic) {}
+    @:hlx.prefix(ent.Unit.rpcDisplayHeal__impl)
+    static function onHealing(instance:Dynamic, damage:Dynamic):HlxPrefixResult<Void> {
+        // Floating numbers omit remote-to-remote heals. This RPC runs first,
+        // even if the game or More Settings hides those numbers completely.
+        if (collector != null && config.enabled) try collector.receivedHealing(instance, damage, haxe.Timer.stamp())
+        catch (error:Dynamic) reportError("healing", error);
+        return Continue;
     }
     @:hlx.postfix(ent.Hero.onEnterCombat)
     static function onCombatEnter(instance:Dynamic, result:Void):Void {
         if (collector != null && config.enabled) try collector.combatEnter(G.uid(instance), haxe.Timer.stamp())
         catch (_:Dynamic) {}
     }
-    @:hlx.postfix(ent.GameObject.rpcDie__impl)
-    static function onTargetDeath(instance:Dynamic, result:Void):Void {
+    @:hlx.prefix(ent.GameObject.rpcDie__impl)
+    static function onTargetDeath(instance:Dynamic):HlxPrefixResult<Void> {
         if (collector != null && config.enabled) try {
             collector.noteDeath(instance, haxe.Timer.stamp());
             collector.model.onTargetDeath(G.uid(instance), haxe.Timer.stamp());
-        } catch (_:Dynamic) {}
+        } catch (error:Dynamic) reportError("death", error);
+        return Continue;
     }
     @:hlx.postfix(ent.Hero.onLeaveCombat)
     static function onCombatExit(instance:Dynamic, result:Void):Void {
@@ -171,15 +172,15 @@ class DpsMeterMod {
                 collector.revived = false;
                 deathView.dismiss();
             }
-            var death = collector.deathLog.take();
+            var death = collector.deathLog.take(now);
             if (death != null && config.showDeathLog) deathView.present(death);
             flushFights();
             writer.update(now);
-        } catch (_:Dynamic) {}
+        } catch (error:Dynamic) reportError("collection", error);
         // A UI failure must never stop the collector or discard a finished report.
-        try view.update(collector.model, G.field(instance, "hero") != null, now) catch (_:Dynamic) {}
-        try recapView.update(collector.model, config.enabled && config.showRiftRecaps, G.field(instance, "hero") != null, now) catch (_:Dynamic) {}
-        try deathView.update(config.enabled && config.showDeathLog, now) catch (_:Dynamic) {}
+        try view.update(collector.model, G.field(instance, "hero") != null, now) catch (error:Dynamic) reportError("meter UI", error);
+        try recapView.update(collector.model, config.enabled && config.showRiftRecaps, G.field(instance, "hero") != null, now) catch (error:Dynamic) reportError("recap UI", error);
+        try deathView.update(config.enabled && config.showDeathLog, now) catch (error:Dynamic) reportError("death UI", error);
         try historyView.update(writer, config.enabled && G.field(instance, "hero") != null, now)
         catch (e:Dynamic) trace("[DPS Meter] Could not display history: " + Std.string(e));
         try kills.update(instance, collector.model, writer, now) catch (_:Dynamic) {}

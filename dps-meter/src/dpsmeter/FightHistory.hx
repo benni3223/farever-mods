@@ -42,7 +42,9 @@ class FightHistory {
             rows: [for (row in death.report.rows) {
                 ago: row.ago, timeText: row.timeText, hp: row.hp, amountText: row.amountText,
                 heal: row.heal, death: row.death, spell: row.spell, skillId: row.skillId,
-                source: row.source, className: row.className
+                source: row.source, className: row.className,
+                lethal: row.lethal == true, critical: row.critical == true, hpSample: row.hpSample == true,
+                amount: row.amount, hpBefore: row.hpBefore
             }]
         }];
         return {version: 1, gameVersion: fight.gameVersion, id: id, name: name(fight), startedAt: fight.startedAt, duration: fight.duration(),
@@ -116,9 +118,12 @@ class FightHistory {
         }
         for (death in array(record.deaths)) {
             var rows:Array<DeathEvent> = [for (row in array(death.rows)) {
-                ago: number(row.ago), timeText: text(row.timeText), hp: number(row.hp),
+                ago: number(row.ago), timeText: text(row.timeText), hp: row.hp == null ? Math.NaN : number(row.hp),
                 amountText: text(row.amountText), heal: row.heal == true, death: row.death == true,
-                spell: text(row.spell), skillId: text(row.skillId), source: text(row.source), className: text(row.className)
+                spell: text(row.spell), skillId: text(row.skillId), source: text(row.source), className: text(row.className),
+                lethal: row.lethal == true, critical: row.critical == true, hpSample: row.hpSample == true,
+                amount: row.amount == null ? Math.NaN : number(row.amount),
+                hpBefore: row.hpBefore == null ? Math.NaN : number(row.hpBefore)
             }];
             var report:DeathReport = {
                 at: number(death.at), damage: number(death.damage), healing: number(death.healing),

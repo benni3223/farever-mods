@@ -60,12 +60,30 @@ can be removed if no other mod uses it.
 - **Native, customizable window:** Move, resize, lock, and scroll the meter, with optional automatic hiding and a smooth fade.
 - **Controller focus:** The live meter stays out of controller navigation so it does not take focus from the game's menu controls. Its buttons, charts, dragging, and resizing remain mouse-operated; full controller navigation is not implemented.
 - **Rift tracking and recaps:** Separate gate and boss phases covering all players present, with both charts in one post-rift recap.
+- **Healing and deaths:** Damage / Healing / Deaths views in the live meter, automatic rift recap and saved history. Healing has its own ability totals and HPS; healing crits do not affect damage crit statistics. Both rift phases retain each player's separate death timelines, including deaths with no received incoming events.
 - **Fight history:** Save Boss Dungeons, Classic Dungeons, World Bosses, and **Target Dummies**; choose an attempt by date, character, party size, duration, and your DPS, then reopen its player and skill charts. Other unclassified combat is not saved; existing Other history remains available.
 - **Kill notifications:** Optional boss kill totals with the previous fastest kill time. **Show unmastered Codex kills** displays progress through each enemy's final mastery requirement, including the finishing kill. **Show mastered Codex kills** displays subsequent kill totals. The target comes from the game's enemy-specific Codex thresholds, rather than the earlier XP reward milestone. Existing settings are preserved; unmastered notifications default to on and mastered notifications to off.
 - **Automatic log uploads:** Send completed boss encounters to [Farever Logs](https://fareverlogs.fr/) in the background, with no external application.
 - **Better Mod Settings integration:** Customize display options and hotkeys, with settings and window placement saved between sessions.
 
 ## Reviewing past fights
+
+Death timelines cover the last ten seconds. Light red is remaining HP; dark red
+is the HP removed by that hit. When before/after HP samples agree with the received
+damage/healing batch, the timeline reconstructs each hit and caps the dark segment
+at actual HP lost (including overkill). A `~` marks a replicated HP sample or an
+estimated hit segment when that reconciliation is unavailable. `?` means no HP
+sample was received. A reported killing blow always ends at zero HP. The popup
+waits half a second for damage that arrives after the death notification.
+
+Healing comes from the replicated heal notification before floating-number
+visibility filtering, including heals between other party members. Damage and
+healing totals use the result's raw amount, in the same units as the HP attributes;
+the game's floating text may use display scaling. These are reported heal amounts,
+not a separate effective-healing/overhealing measurement. Events the client never
+receives cannot be reconstructed; such deaths stay visible with a missing-events
+message. Existing saved recaps retain their recorded values; fixes apply to new
+events.
 
 Click the **book icon** on the left of the meter's header. Choose a category and an encounter name,
 then an attempt. You can also assign **Open or close history hotkey** in the new

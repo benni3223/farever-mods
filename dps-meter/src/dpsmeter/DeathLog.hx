@@ -11,7 +11,9 @@ typedef IncomingHit = {
     source:String,
     ?className:String,
     ?hp:Float,
-    ?maxHp:Float
+    ?maxHp:Float,
+    ?hpSample:Bool,
+    ?hpBefore:Float
 };
 
 /** One row in the death timeline, oldest first. The final row is the death itself. */
@@ -25,7 +27,12 @@ typedef DeathEvent = {
     spell:String,
     skillId:String,
     source:String,
-    className:String
+    className:String,
+    ?lethal:Bool,
+    ?critical:Bool,
+    ?hpSample:Bool,
+    ?amount:Float,
+    ?hpBefore:Float
 };
 
 typedef DeathReport = {
@@ -46,27 +53,28 @@ typedef PartyDeath = {
 /** Incoming damage and healing on a player, kept until that player dies. */
 class DeathLog {
     public static inline var WINDOW:Float = 10;
+    public static inline var SETTLE:Float = 0.5;
 
     var events:Array<IncomingHit> = [];
     var alive:Bool = true;
     var pending:Null<DeathReport>;
     public var lastReport(default, null):Null<DeathReport>;
+    var delivered:Bool = false;
+    var sampledHealth:Float = Math.NaN;
+    var healthPending:Array<IncomingHit> = [];
 
     public function new() {}
 
     public function record(hit:IncomingHit):Void {
         if (hit == null || !Math.isFinite(hit.time) || !Math.isFinite(hit.amount)) return;
         if (!(hit.amount > 0) && !hit.kill) return;
-        if (!alive) return;
+        // Death and damage RPCs can arrive in either order. Keep the same
+        // report during the bounded grace period used by encounter snapshots.
+        if (!alive && (lastReport == null || delivered || hit.time > lastReport.at + SETTLE)) return;
         var sourceName = hit.source == null || StringTools.trim(hit.source) == "" ? "Unknown" : StringTools.trim(hit.source);
         var skillName = hit.skill == null ? "" : hit.skill;
         var amount = hit.amount > 0 ? hit.amount : 0;
-        if (hit.heal && events.length > 0) {
-            var prev = events[events.length - 1];
-            if (prev.heal && prev.time == hit.time && prev.skill == skillName && prev.source == sourceName && prev.amount == amount)
-                return;
-        }
-        events.push({
+        var stored:IncomingHit = {
             time: hit.time,
             amount: amount,
             heal: hit.heal,
@@ -76,11 +84,47 @@ class DeathLog {
             skillId: hit.skillId == null ? "" : hit.skillId,
             source: sourceName,
             className: hit.className == null ? "" : hit.className,
-            hp: hit.hp != null && Math.isFinite(hit.hp) ? hit.hp : Math.NaN,
+            hp: hit.kill && !hit.heal ? 0 : hit.hp != null && Math.isFinite(hit.hp) ? hit.hp : Math.NaN,
+            hpSample: hit.hpSample == true && !hit.kill,
+            hpBefore: hit.hpBefore,
             maxHp: hit.maxHp != null && Math.isFinite(hit.maxHp) ? hit.maxHp : Math.NaN
-        });
+        };
+        events.push(stored);
+        if (stored.hpSample || stored.kill) healthPending.push(stored);
         var newest = hit.time;
         while (events.length > 0 && (events[0].time < newest - WINDOW - 1 || events.length > 500)) events.shift();
+        refreshReport();
+    }
+
+    /** Validate a batch against replicated HP before assigning exact HP after
+        each hit. Shields, unobserved events and replication gaps stay samples. */
+    public function sampleHealth(hp:Float, maxHp:Float, now:Float):Void {
+        if (!Math.isFinite(hp) || hp < 0) return;
+        if (healthPending.length > 0 && Math.isFinite(sampledHealth)) {
+            var cursor = sampledHealth;
+            var states = [for (hit in healthPending) {
+                var before = cursor;
+                cursor = healthAfter(cursor, maxHp, hit.amount, hit.heal);
+                {before: before, after: cursor};
+            }];
+            if (Math.abs(cursor - hp) < 0.01) {
+                for (i in 0...healthPending.length) {
+                    var hit = healthPending[i];
+                    hit.hpBefore = states[i].before; hit.hp = states[i].after;
+                    hit.hpSample = false; hit.maxHp = maxHp;
+                }
+                healthPending = [];
+                refreshReport();
+            } else if (now <= healthPending[0].time + SETTLE) return;
+        }
+        healthPending = [];
+        sampledHealth = hp;
+    }
+    function refreshReport():Void {
+        if (alive || lastReport == null || delivered) return;
+        var updated = build(lastReport.at);
+        lastReport.damage = updated.damage; lastReport.healing = updated.healing;
+        lastReport.healthScale = updated.healthScale; lastReport.rows = updated.rows;
     }
 
     public function resume(now:Float):Void {
@@ -92,29 +136,35 @@ class DeathLog {
         if (dead) {
             if (!alive) return false;
             alive = false;
+            delivered = false;
             lastReport = build(now);
             pending = lastReport;
-            events = [];
             return false;
         }
         if (!alive) {
             alive = true;
             events = [];
+            healthPending = []; sampledHealth = Math.NaN;
             return true;
         }
         return false;
     }
 
-    public function take():Null<DeathReport> {
+    public function take(?now:Float):Null<DeathReport> {
+        if (pending != null && now != null && now <= pending.at + SETTLE) return null;
         var report = pending;
         pending = null;
+        if (report != null) delivered = true;
         return report;
     }
+
+    public function canResume(now:Float):Bool return alive || lastReport == null || now > lastReport.at + SETTLE;
 
     /** True when a dead player is dropped, such as when respawn replaces the hero. */
     public function reset():Bool {
         var revived = !alive;
         events = [];
+        healthPending = []; sampledHealth = Math.NaN;
         alive = true;
         return revived;
     }
@@ -135,7 +185,7 @@ class DeathLog {
         return effectIndex == 1 && (name == "" || name == "1");
     }
 
-    /** Health remaining after this hit. The damage hook runs before the game applies it. */
+    /** Arithmetic used only when a batch agrees with observed before/after HP. */
     public static function healthAfter(before:Float, maxHp:Float, amount:Float, heal:Bool):Float {
         if (!Math.isFinite(before)) return Math.NaN;
         var next = heal ? before + amount : before - amount;
@@ -148,6 +198,10 @@ class DeathLog {
         if (!(scale > 0) || !Math.isFinite(hp)) return 0;
         return Math.max(0, Math.min(1, hp / scale));
     }
+    public static function copyReport(report:DeathReport):DeathReport return {
+        at: report.at, damage: report.damage, healing: report.healing,
+        healthScale: report.healthScale, rows: [for (row in report.rows) cast Reflect.copy(row)]
+    };
 
     function build(now:Float):DeathReport {
         var kept:Array<{i:Int, hit:IncomingHit}> = [];
@@ -156,7 +210,7 @@ class DeathLog {
         var scale = 0.0;
         var index = 0;
         for (hit in events) {
-            if (hit.time >= now - WINDOW && hit.time <= now + 0.001) {
+            if (hit.time >= now - WINDOW && hit.time <= now + SETTLE) {
                 kept.push({i: index, hit: hit});
                 if (hit.heal) healing += hit.amount;
                 else damage += hit.amount;
@@ -176,7 +230,7 @@ class DeathLog {
 
     static function event(hit:IncomingHit, now:Float):DeathEvent {
         return {
-            ago: now - hit.time,
+            ago: Math.max(0, now - hit.time),
             timeText: timeText(now - hit.time),
             hp: hit.hp,
             amountText: signed(hit.amount, hit.heal),
@@ -185,7 +239,9 @@ class DeathLog {
             spell: spell(hit.skill),
             skillId: hit.skillId,
             source: hit.source,
-            className: hit.className
+            className: hit.className,
+            lethal: hit.kill, critical: hit.critical, hpSample: hit.hpSample == true,
+            amount: hit.amount, hpBefore: hit.hpBefore
         };
     }
 

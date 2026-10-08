@@ -23,6 +23,7 @@ class NativeSkillTable {
     var width:Int = 0;
     var columns:Array<SkillColumn> = [];
     var recap:Bool;
+    var healing:Bool = false;
     public function new(parent:Dynamic, id:String, back:Void->Void, ?headerParent:Dynamic, recap:Bool = false) {
         this.id = id; this.back = back; this.recap = recap;
         root = node("flow", parent, [], id + "Table", "vertical");
@@ -32,10 +33,11 @@ class NativeSkillTable {
         show(object, false);
     }
     public function clear():Void { names = []; icons = []; }
-    public function update(player:PlayerStats, duration:Float, width:Int):Void {
-        var resized = this.width != width;
+    public function update(player:PlayerStats, duration:Float, width:Int, healing:Bool = false):Void {
+        var resized = this.width != width || this.healing != healing;
+        this.healing = healing;
         this.width = width;
-        if (resized) { columns = SkillBreakdown.columns(width, recap); size(object, width); }
+        if (resized) { columns = SkillBreakdown.columns(width, recap, healing); size(object, width); }
         show(object, true);
         var ids = [for (id in player.skills.keys()) id];
         ids.sort((a, b) -> {
@@ -71,7 +73,7 @@ class NativeSkillTable {
                 + "|" + [for (key in SkillBreakdown.KEYS) values[key]].join("|");
             var nameText = (cast row.texts:Map<String, Dynamic>)["ability"];
             var font = G.field(nameText, "font"); var scale = G.field(nameText, "scaleX");
-            if (row.drawnValues != signature || row.drawnWidth != width
+            if (resized || row.drawnValues != signature || row.drawnWidth != width
                 || row.drawnTile != row.tile || row.font != font || row.scale != scale) {
                 layout(row);
                 row.drawnValues = signature; row.drawnWidth = width;

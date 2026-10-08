@@ -1,6 +1,7 @@
 package dpsmeter;
 
 import dpsmeter.CombatModel;
+import dpsmeter.DeathLog.PartyDeath;
 
 typedef RiftRecap = {gate:Null<Fight>, boss:Fight};
 
@@ -62,6 +63,27 @@ class RiftTracker {
         fight.closed = now;
         fight.defeated = true;
         fight.outcome = "Victory";
+    }
+
+    public function rememberDeath(death:PartyDeath, me:String, difficulty:Int, activityId:String):Void {
+        if (waitingForGates()) {
+            if (warmup != null) CombatModel.addDeath(warmup, death);
+            return;
+        }
+        // Match the event time, including a death just before phase replication.
+        var index = ended[0] >= 0 && death.report.at <= ended[0] ? 0 : phase == 2 ? 1 : phase;
+        if (exported[index] || (ended[index] >= 0 && death.report.at > ended[index] + FINAL_DAMAGE_SECONDS)) return;
+        var fight = fights[index];
+        if (fight == null) {
+            fight = new Fight(death.report.at, gameVersion);
+            fight.phase = index == 0 ? GATES_PHASE : "Rift: " + targetBossKind;
+            fight.isBoss = index == 1;
+            fight.me = me; fight.difficulty = difficulty; fight.activityId = activityId;
+            fight.category = "World Bosses";
+            fights[index] = fight;
+            if (ended[index] >= 0) finish(index, ended[index]);
+        }
+        CombatModel.addDeath(fight, death);
     }
 
     public function record(e:DamageEvent, info:PlayerInfo, difficulty:Int, activityId:String, me:String, meName:String = "", partySize:Int = 0, active:Bool = true):Void {
